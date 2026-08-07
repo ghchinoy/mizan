@@ -1,0 +1,20 @@
+# Serena MCP local state
+.serena/
+
+# Go
+/bin/
+*.exe
+*.test
+*.out
+
+# Wails / frontend build artifacts
+frontend/dist/
+frontend/node_modules/
+node_modules/
+
+# Local env
+.env
+*.db
+
+# OS
+.DS_Store
