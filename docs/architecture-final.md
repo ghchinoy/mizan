@@ -37,8 +37,12 @@ a Store/codec/sync seam that admits a future Firestore/GCS central registry
 - Firestore/GCS central registry implementation (model B) — seam only.
 - Batch/async `EvaluateDataset` in the CLI MVP — Phase 3.
 - Wails desktop in the MVP — Phase 4.
-- GCS staging-bucket lifecycle management as MVP (provide `gs://` yourself for
-  large assets; inline bytes for small ones — research.md §6, open in §7).
+- GCS staging-bucket **lifecycle** management as MVP (creation/retention/GC). Note
+  (rev 3 / spike-core): a staging bucket *itself* is now a **P1 prerequisite** for
+  multimodal native eval — inline bytes are unsupported on the native path, so all
+  non-text assets must be staged to `gs://` (§6). MVP expects a bucket to already
+  exist (config `StagingBucket`); Mizan uploads to it but does not manage its
+  lifecycle. (The `genai` custom-schema path still accepts inline bytes — §6.)
 
 ---
 
@@ -94,16 +98,27 @@ mizan/
       pack.go                     pack manifest read/write, dir glob, scaffold
       validate.go                 validation pipeline (structural..lint)
       schema/metrictemplate.json  JSON Schema (structural source of truth)
-      sqlite/sqlite.go            SQLiteStore (default Store impl)
+      sqlite/sqlite.go            SQLiteStore (default Store impl; pure-Go driver — see §8)
       # firestore/  (model B, NOT built now — see Non-Goals)
     eval/
       engine.go native.go custom.go content.go
       batch.go                    (Phase 3) EvaluateDataset wrapper
-    asset/        mime.go gcs.go
+    asset/        mime.go gcs.go   gcs.go staging is now a P1 prerequisite — see §6
     app/          app.go          (Phase 4) Wails bindings over registry.Service
   docs/           research.md architecture.md spikes.md
                   collaboration-design.md architecture-final.md implementation-plan.md
+  # NOTE (rev 3): NO packs/ tree and NO validate-packs workflow live in THIS repo.
+  # Canonical template packs live in the dedicated github.com/ghchinoy/mizan-templates
+  # repo, with their own CI gate. See collaboration-design.md §3.3/§3.7.
 ```
+
+**Rev 3 (2026-08-09):** the canonical template `packs/` tree does **not** live in
+this code repo — the user moved it to a dedicated
+**`github.com/ghchinoy/mizan-templates`** repo (superseding the rev-2 in-repo
+decision). The `mizan` repo carries only code + design docs; it neither builds nor
+imports packs. The contribution CI gate lives in `mizan-templates`. The
+Store/Codec/SyncBackend seam is unchanged, so this was a default-URL change plus
+relocating one CI file — see collaboration-design.md §3.3/§3.7.
 
 **Dependency direction (enforced):** `cmd/*` → `registry.Service`,
 `eval.Engine`, `config`. `eval` → `registry` (reads `MetricTemplate`) but never
@@ -122,33 +137,34 @@ acceptance check (collaboration-design §8).
   1.26 specifically, so this is low-risk and reversible; pin to what actually
   builds here rather than to a precedent repo's older line.
 - Wails v2.13.0 is compatible with the go1.26 line for the desktop phase; if
-  Spike 6 surfaces a Wails/toolchain incompatibility, the desktop module can pin
-  its own `toolchain` directive (another reason the go.work split, if chosen, is
-  attractive — §5). **Pending Spike 6 verdict** on any Wails-specific pin.
+  Spike 6 surfaces a Wails/toolchain incompatibility, that is one trigger to
+  revisit the (currently rejected) go.work split so desktop can pin its own
+  `toolchain` — §5. **Pending Spike 6 verdict** on any Wails-specific pin.
 
 ---
 
-## 5. Single module vs `go.work` — **pending spike-core (Spike 0) verdict**
+## 5. Module layout — **RESOLVED: single Go module** (spike-core Spike 0)
 
-This is genuinely load-bearing and the brief defers it to the spike-core
-verdict, which is **not yet available** (research/ spike-verdicts are empty as of
-2026-08-09T14:xx). The decision therefore stays open; both layouts are prepared:
+**Verdict (spike-core, 2026-08-09): a single Go module**, not `go.work`. A
+buildable scaffold was pushed to branch `spike/scaffold` on `ghchinoy/mizan`
+confirming it. Rationale from the spike: the single module is simplest, matches
+the `eldamo-app` precedent, and the anticipated Wails transitive-dep bloat did not
+justify the two-module ceremony at this stage.
 
-- **Single module** — simplest; matches `eldamo-app`. Cost: CLI-only users pull
-  Wails' transitive deps (webview bindings) into `go install
-  .../cmd/mizan@latest`, bloating the CLI and its CI.
-- **`go.work` two modules** — `mizan-core` (CLI + `internal/`) and
-  `mizan-desktop` (Wails, depends on core via workspace/replace). Keeps the CLI
-  lean and independently `go install`-able; lets desktop pin its own toolchain.
-  Cost: two `go.mod`s, slightly more release/CI ceremony.
+- **Chosen — single module.** One `go.mod`, `cmd/mizan` and `cmd/mizan-desktop`
+  under one module. P1 builds against it directly.
+- **Rejected — `go.work` two modules** (`mizan-core` + `mizan-desktop`). Would
+  keep CLI-only `go install` leaner and let desktop pin its own toolchain, but
+  adds a second `go.mod` and release/CI ceremony the spike judged premature. Kept
+  as a **reversible** future option: if the Wails deps later bloat `go install
+  .../cmd/mizan` (which the rev-3 templates CI now runs — collaboration-design
+  §3.7), the split can be introduced at the P4 boundary without touching P1.
 
-**Architect lean (non-binding, defers to spike):** given the CLI is meant to be a
-lightweight, scriptable, `go install`-able tool (and CI runs `go install
-.../cmd/mizan` in the pack-validation workflow — collaboration-design §3.7), the
-Wails transitive-dep bloat argues for the **go.work split**. **Spike 0 decides;
-P1 does not depend on the outcome** because P1 ships no Wails code — P1 builds
-identically under either layout, and the split (if chosen) is introduced at the
-P4 boundary at latest, or at P1 scaffolding if Spike 0 lands first.
+**Rev-3 interaction:** the templates CI `go install`s `cmd/mizan` (collaboration-
+design §3.7). Under a single module that pulls the full dependency set; this makes
+the **pure-Go SQLite driver** recommendation (§8) more pressing (cgo-free
+install), and is a data point to watch for a possible later split if Wails deps
+land in the CLI's module graph.
 
 ---
 
@@ -161,18 +177,53 @@ architecture.md §3–§4:
 
 - `pointwise`/`pairwise`, text-only → `*MetricSpec` + `JsonInstance`.
 - `pointwise`/`pairwise`, any non-text asset → `*MetricSpec` +
-  `ContentMapInstance` (Blob for inline / FileData for `gs://`).
+  `ContentMapInstance` with **`FileData` (`gs://`) only** — see the inline-bytes
+  finding below.
 - `rubric` → `LLMBasedMetricSpec` + inline `rubric_groups`.
 - `custom_schema` → `genai.GenerateContent` with `ResponseSchema` + backoff retry.
 
 `AutoraterConfig` (SamplingCount, FlipEnabled, AutoraterModel) is populated from
 the template's `autorater.*` fields.
 
-> **Pending Spike 1/2 verdicts:** exact `{{placeholder}}` vs `{x}` substitution
-> syntax; supported eval-service region(s); observed inline payload ceiling per
-> modality. These affect `content.go`/`native.go` implementation and the config
-> default `Location`, **not** the module layout or the domain model. Gemini usage
-> is global or `us` per user decision; eval-service region defers to the spike.
+> **Spike 1–3 verdicts — RESOLVED (spike-core, 2026-08-09):**
+>
+> - **Placeholder syntax:** the API accepts **both** `{{x}}` and `{x}`; Mizan
+>   **standardizes on double-brace `{{x}}`** (validator enforces —
+>   collaboration-design §3.2/§3.5).
+> - **Eval-service region:** the **native** `EvaluateInstances` path targets a
+>   **specific regional endpoint** — `us-central1` (verified default), plus
+>   `us-east4`, `us-west1`, `europe-west1`, `europe-west4`, and `global` all return
+>   live scores; `asia-northeast1` is rejected (`FailedPrecondition`) and the **`us`
+>   multi-region endpoint 404s — do NOT use it**. **Default `Location = us-central1`**
+>   (§7). Surface the service's `Unsupported region` error verbatim. Prefer a
+>   concrete region for the native path; reserve `global` for the genai path below.
+> - **The `genai` custom-schema fallback path uses `location=global`** and is
+>   distinct from the native regional path — keep the two clients/locations
+>   separate (this mirrors the inline-bytes asymmetry).
+> - **MAJOR — inline bytes are NOT supported by native `EvaluateInstances` /
+>   `ContentMapInstance`.** All non-text native eval **requires `gs://` `FileData`
+>   staging** — GCS staging is mandatory for *every* multimodal native eval, not
+>   just large payloads. There is no inline-`Blob` fast path on the native route;
+>   `content.go` therefore emits `FileData` only for non-text assets and must
+>   stage local files to GCS first (or error clearly if no bucket is configured).
+> - **Exception — the `genai` custom-schema fallback path DID accept inline
+>   bytes.** The two paths differ: native `EvaluateInstances` = `gs://` only;
+>   `genai.GenerateContent` (custom_schema) = inline bytes OK. `content.go` must
+>   keep the two converters distinct and honor this asymmetry.
+> - **Autorater model must be a FULL RESOURCE NAME** —
+>   `projects/{ProjectID}/locations/{Location}/publishers/google/models/{model}`; a
+>   bare id (`gemini-2.5-pro`) is rejected `InvalidArgument: Invalid autorater model
+>   resource name`. Packs store only a **publisher-relative id** (portability —
+>   they must not embed a project); `native.go` **expands** it to the full resource
+>   name at materialization using config `ProjectID`/`Location`. See
+>   collaboration-design §3.2/§6.
+> - **Mismatched MIME silently drops the asset** — `asset/mime.go` must detect and
+>   set the correct MIME or the eval silently loses the input.
+> - **`PairwiseChoice`** confirmed live: `BASELINE=1`, `CANDIDATE=2`, `TIE=3`.
+>
+> These affect `content.go` / `native.go` / `asset/` and the config default
+> `Location`, and make **GCS staging a P1 prerequisite** (implementation-plan §
+> P1). They do **not** change the module layout or the domain model.
 
 ---
 
@@ -182,14 +233,21 @@ Per architecture.md §5 (`mcp-common` shape), with the collaboration additions:
 
 ```go
 type Config struct {
-    ProjectID       string // required (env PROJECT_ID / MIZAN_PROJECT_ID); default ghchinoy-genai-sa in examples
-    Location        string // eval-service region — PENDING Spike 1 verdict; Gemini global|us
-    StagingBucket   string // optional, gs:// stripped
-    APIEndpoint     string // optional override
-    RegistryDBPath  string // default ~/.config/mizan/registry.db (os.UserConfigDir)
-    PackCacheDir    string // default ~/.cache/mizan/packs  (for `import <git-url>`)
+    ProjectID            string // required (env PROJECT_ID / MIZAN_PROJECT_ID); default ghchinoy-genai-sa in examples
+    Location             string // native eval-service region; default "us-central1" (spike-core). Valid: us-central1|us-east4|us-west1|europe-west1|europe-west4|global. NOTE: the "us" MULTI-REGION 404s (do not use); asia-northeast1 rejected. genai custom-schema path uses location=global separately.
+    StagingBucket        string // gs:// staging bucket — REQUIRED for multimodal native eval (inline bytes unsupported, §6); gs:// stripped
+    APIEndpoint          string // optional override
+    RegistryDBPath       string // default ~/.config/mizan/registry.db (os.UserConfigDir)
+    PackCacheDir         string // default ~/.cache/mizan/packs  (for `import <git-url>`)
+    DefaultTemplatesRepo string // default "github.com/ghchinoy/mizan-templates" (rev 3) — bare `registry import` source
 }
 ```
+
+> **`StagingBucket` is no longer optional for multimodal.** Per spike-core, native
+> `EvaluateInstances` rejects inline bytes, so any non-text native eval needs a
+> `gs://` staging bucket. See §6 and the P1-prerequisite note in
+> implementation-plan.md. Text-only eval and the `genai` custom-schema path do not
+> require it.
 
 ---
 
@@ -210,11 +268,18 @@ require (
 )
 ```
 
-`mattn/go-sqlite3` requires cgo; the pack-validation CI job needs cgo enabled to
-`go install` the CLI, or the CLI must be built with a pure-Go SQLite driver.
-**Open sub-question:** consider `modernc.org/sqlite` (pure Go, no cgo) to keep
-`go install .../cmd/mizan@latest` and CI frictionless. *Confirm during P1 /
-Spike 5.*
+**SQLite driver — recommendation firmed to pure-Go `modernc.org/sqlite` (rev 3).**
+The rev-3 templates CI `go install`s `cmd/mizan` to obtain the validator
+(collaboration-design §3.7); with the cgo `mattn/go-sqlite3` driver that CI would
+need a C toolchain. Adopting the pure-Go `modernc.org/sqlite` driver (drop-in
+`database/sql`) keeps `go install .../cmd/mizan@<ver>` cgo-free in a stock
+`setup-go` runner — for the templates CI *and* for end users installing the CLI.
+Spike 5 validated the storage layer against `mattn/go-sqlite3`, but the interface
+and JSON-column approach are driver-agnostic, so swapping the driver is low-risk.
+**Recommendation: adopt `modernc.org/sqlite`; confirm in P1 (WI-P1-1).** If cgo is
+retained instead, the templates CI must enable cgo (record the trade-off).
+Replace the `mattn/go-sqlite3` line above with `modernc.org/sqlite <pin>`
+accordingly.
 
 ---
 
@@ -235,24 +300,40 @@ Spike 5.*
 
 ## 10. Open Questions (architecture level)
 
-1. **Module layout** — single vs go.work. *Pending Spike 0 verdict.*
-2. **SQLite driver** — cgo `mattn/go-sqlite3` vs pure-Go `modernc.org/sqlite`
-   (affects `go install`/CI friction). *Confirm P1 / Spike 5.*
-3. **Eval-service region / placeholder syntax / inline size ceiling.** *Pending
-   Spikes 1–2.*
+1. **Module layout** — **RESOLVED (spike-core Spike 0): single Go module.** §5.
+2. **SQLite driver** — **recommended: pure-Go `modernc.org/sqlite`** (cgo-free
+   `go install` for the rev-3 templates CI and end users). *Confirm in P1
+   (WI-P1-1).* §8.
+3. **Eval-service region / placeholder syntax / inline bytes** — **RESOLVED
+   (spike-core):** default `us-central1`; double-brace `{{x}}`; **inline bytes
+   unsupported on native eval → GCS staging mandatory for multimodal.** §6/§7.
 4. **`apiv1beta1` preview stability posture** for a production tool
    (research.md §7 open item) — confirm breaking-change cadence before GA claims.
-5. Pack repo location (dedicated repo vs monorepo `packs/`) — see
-   collaboration-design.md §7. *Needs user decision.*
+5. **Pack repo location** — **RESOLVED (user, 2026-08-09, rev 3): dedicated
+   `github.com/ghchinoy/mizan-templates` repo** (supersedes rev-2 in-repo). See
+   collaboration-design.md §3.3/§3.7.
+6. **GCS staging provisioning (NEW, spike-core):** the eval SA `sa-scion-warmup`
+   lacks `storage.buckets.create/list`; a staging bucket must be **provisioned**
+   (or the SA granted `storage.admin`) before P1 multimodal eval works. Hard
+   dependency — see implementation-plan.md P1 prerequisites. *Raise to user/owner.*
+7. **Validator provisioning for the templates CI (rev-3):** no tagged `mizan`
+   release exists to pin `MIZAN_VERSION`; needs a release/tag workflow or a `main`
+   pseudo-version, plus a `MIZAN_RO_TOKEN` secret. collaboration-design §3.7/§7.
 
 ---
 
 ## 11. Acceptance Criteria (architecture level)
 
-- `go build ./...` succeeds on go1.26.1 under the chosen layout; `go vet` clean.
+- `go build ./...` succeeds on go1.26.1 as a **single module** (§5); `go vet`
+  clean. **No `packs/` tree or pack CI exists in this repo** (rev 3) — they live
+  in `mizan-templates`.
 - Dependency-direction check passes: `cmd/*` imports only `registry.Service`,
   `eval.Engine`, `config` — never `sqlite`/`sync`/`codec`/`aiplatformpb`.
 - `eval` unit tests pass against a mocked `EvaluationClient`; integration tests
   compile behind `//go:build integration`.
-- All **pending spike verdicts** (§5, §6, §8, §10) are resolved and recorded in
-  docs/research.md §7 before the packages they gate are implemented.
+- `go install github.com/ghchinoy/mizan/cmd/mizan@<ver>` succeeds **cgo-free** in a
+  stock `setup-go` runner (pure-Go SQLite driver, §8) — the rev-3 templates-CI
+  requirement.
+- Remaining **pending spike verdicts** (§10 Q4) are resolved and recorded in
+  docs/research.md §7 before the packages they gate are implemented; the
+  spike-core verdicts (§5/§6/§7/§8) are already folded in here.

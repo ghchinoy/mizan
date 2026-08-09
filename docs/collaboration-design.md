@@ -1,10 +1,25 @@
 # Mizan — Collaboration / Contribution Design
 
 Status: design for review (pre-implementation)
-Date: 2026-08-09
+Date: 2026-08-09 (rev 3)
 Author: mizan-architect
 Inputs: docs/research.md (ground truth), docs/architecture.md (draft), design/plan-v1.md,
-        user decisions 2026-08-09 (brief mizan-architect.md)
+        user decisions 2026-08-09 (briefs mizan-architect.md, mizan-architect-2.md),
+        research/spike-verdicts-registry.md (Spike 5 PASS)
+
+> **Rev 3 (2026-08-09):** user **reversed** the rev-2 decision. Canonical template
+> packs now live in a **separate, dedicated repo — `github.com/ghchinoy/mizan-templates`**
+> (private) — *not* in the `ghchinoy/mizan` code repo. §3.3 (layout), §3.6 (CLI
+> defaults), §3.7 (PR workflow + where the CI gate lives + how it obtains the
+> validator), §7, and §8 are updated accordingly. **The Store/Codec/SyncBackend seam
+> is unchanged** — this pivot is a default-URL change plus relocating one CI file to
+> the other repo, with *no* change to interfaces, CLI/GUI, or the pack file format.
+> That the swap is this small is the seam (§3.1) doing exactly its job; a future
+> central Firestore/GCS source still drops in the same way.
+>
+> **Rev 2 (2026-08-09, SUPERSEDED):** placed the packs in a top-level `packs/` tree
+> *inside* `ghchinoy/mizan`. Withdrawn by the rev-3 user decision. PR #2 (branch
+> `design/in-repo-packs`) is amended in place to carry the rev-3 separate-repo model.
 
 > This document owns the **contribution layer** — the part the existing docs
 > underweight. It defines the template-pack file format, pack layout, versioning,
@@ -25,7 +40,9 @@ model C**:
 - **Local SQLite** is the working copy and the runtime index the eval engine
   reads from. Single-user, zero external infra, offline-capable.
 - **Git-backed template packs** (versioned YAML files) are the contribution
-  channel. Sharing is a `git` PR against a pack repo; consuming is an import.
+  channel. Sharing is a `git` PR against the **dedicated
+  `github.com/ghchinoy/mizan-templates` repo** (packs live in its top-level
+  `packs/` tree); consuming is an import.
 
 ### Goals
 
@@ -44,9 +61,11 @@ model C**:
 
 ### Success criteria
 
-- A contributor can `mizan registry export` a local template into a pack repo,
-  open a PR, have CI validate it, and after merge another user can
-  `mizan registry import` it and run it — no code changes, no manual DB edits.
+- A contributor can `mizan registry export` a local template into the `packs/`
+  tree of a `ghchinoy/mizan-templates` checkout, open a PR, have CI validate it,
+  and after merge another user can `mizan registry import
+  github.com/ghchinoy/mizan-templates` it (the default source) and run it — no
+  code changes, no manual DB edits.
 - Swapping the contribution channel from git-pack to Firestore is a
   constructor-wiring change plus one new package; grep of `cmd/` shows no
   git-specific or Firestore-specific symbols.
@@ -259,7 +278,14 @@ spec:
     Be strict. Penalize off-brand tone even when production quality is high.
 
   autorater:
-    model: gemini-2.5-pro          # publisher model or tuned endpoint resource
+    # Publisher-relative model id ONLY — e.g. "gemini-2.5-pro" or
+    # "publishers/google/models/gemini-2.5-pro". Do NOT put a project-scoped full
+    # resource name here: packs are portable and must not embed a consumer's
+    # project/location. The engine EXPANDS this to the full resource name the Eval
+    # Service requires — projects/{ProjectID}/locations/{Location}/publishers/
+    # google/models/{model} — at materialization, using the consumer's config.
+    # (spike-core: a bare name is rejected by the API, so expansion is mandatory.)
+    model: gemini-2.5-pro
     samplingCount: 4               # AutoraterConfig.SamplingCount (1-32)
     flipEnabled: false             # pairwise-only; ignored for pointwise
 
@@ -284,32 +310,70 @@ The mapping from this file's `spec` to the runtime protos
 architecture.md §3 — the pack file is the on-disk projection of that struct.
 See §6 for the reconciled struct.
 
-> **Pending spike verdict (spike-core / Spike 1):** placeholder syntax is written
-> as `{{placeholder}}` to match the proto field naming in research.md, but Spike 1
-> must confirm whether the native API uses Go-template `{{x}}` or Python-style
-> `{x}` substitution. The format spec adopts whatever Spike 1 records; if the API
-> is `{x}`, the pack keeps authoring `{{x}}` and the codec/engine normalizes on
-> materialization (one place to change), so this does not affect the file format.
+> **Placeholder syntax — RESOLVED (spike-core, 2026-08-09):** the eval API accepts
+> **both** double-brace `{{x}}` and single-brace `{x}`; Mizan **standardizes on
+> double-brace `{{placeholder}}`** for authored pack files (and validation, §3.5,
+> enforces it). This does not affect the file format — it fixes the one authoring
+> convention the validator checks.
 
-### 3.3 Pack directory layout
+### 3.3 Pack directory layout — dedicated `mizan-templates` repo
 
-A **template pack** is a directory (typically the root or a subdir of a git repo)
-with a manifest and **one file per template**:
+**Decision (user, 2026-08-09, rev 3):** the canonical packs live in a **separate,
+dedicated repo — `github.com/ghchinoy/mizan-templates`** (private) — *not* in the
+`ghchinoy/mizan` code repo. The templates repo holds only pack data, a pack-format
+reference doc, and its own CI gate; it contains **no Go code**. (A future central
+pack source — Firestore/GCS, model B — remains a drop-in without design changes —
+see §3.1 and §7.)
+
+A **template pack** is a directory `packs/<pack-name>/` with a manifest and **one
+file per template**. The `packs/` tree sits at the **root of the templates repo**:
 
 ```
-my-pack/                          # a git repo, or packs/<name>/ within one
-  mizan-pack.yaml                 # pack manifest (see below)
-  templates/
-    video-brand-alignment.yaml    # one MetricTemplate per file
-    image-safety.yaml
-    text-helpfulness.yaml
-  rubrics/                        # OPTIONAL: shared rubric groups, referenced by id
-    brand-quality.yaml
-  examples/                       # OPTIONAL: tiny sample inputs / gs:// refs, docs only
-    video-brand-alignment.example.yaml
-  README.md
-  .github/workflows/validate.yaml # CI gate (see 3.7)
+github.com/ghchinoy/mizan-templates/   # dedicated pack repo — data + CI only, NO Go code
+  README.md                            # repo purpose + contribution flow (see 3.7)
+  docs/pack-format.md                  # pack format reference (projection of §3.2/§3.4/§3.5)
+  packs/                               # <-- canonical shared packs live here (repo root)
+    google-brand/                      # one pack per subdir; dirname == pack name/namespace
+      mizan-pack.yaml                  # pack manifest (see below)
+      templates/
+        video-brand-alignment.yaml     # one MetricTemplate per file
+        image-safety.yaml
+      rubrics/                         # OPTIONAL: shared rubric groups, referenced by id
+        brand-quality.yaml
+      examples/                        # OPTIONAL: tiny sample inputs / gs:// refs, docs only
+        video-brand-alignment.example.yaml
+      README.md
+    another-pack/
+      mizan-pack.yaml
+      templates/ ...
+  .github/workflows/validate-packs.yml # CI gate over packs/** (see 3.7) — lives HERE, not in mizan
 ```
+
+**Discovery is identical to rev 2** — the only thing that changed is *which repo*
+the `packs/` tree lives in. A pack source is discovered by globbing
+`packs/*/mizan-pack.yaml`; `mizan registry import github.com/ghchinoy/mizan-templates`
+(the **default source**, see §3.6) imports **every** pack under `packs/`
+(filterable with `--namespace`). Within a pack, templates are globbed from
+`templates/*.yaml`. Because the on-disk shape is unchanged, `GitPackBackend`
+(§3.1) requires **no code change** for this pivot — it already reads a `packs/`
+tree from any checkout; only the default URL differs.
+
+**Why a dedicated repo (the rev-3 trade-off, made explicit):**
+
+- **Separate access model / governance.** Template contribution and review are
+  decoupled from code-repo write access. A marketing collaborator can be given
+  write/PR rights on `mizan-templates` without any access to Mizan's source. This
+  is the load-bearing reason for the split.
+- **Independent release cadence.** Packs version and tag on their own schedule,
+  not coupled to code releases.
+- **Cost paid (named, not hidden):** the templates repo has no Go toolchain, so
+  its CI **cannot `go build ./cmd/mizan` from its own checkout** — it must *obtain*
+  the `mizan pack validate` binary from elsewhere. §3.7 specifies exactly how. A
+  cross-repo PR that changes *both* the validator and a pack can no longer be
+  validated atomically by a single PR (the two repos move independently); the
+  validator is pinned by version in the templates CI instead.
+- Packs remain **pure data** — never imported by Go code — so nothing about them
+  affects `go build ./...` of the `mizan` module.
 
 **One-file-per-template is deliberate:** two contributors adding different
 templates touch different files and never merge-conflict. A single monolithic
@@ -359,8 +423,10 @@ Three independent version axes, each with a distinct job:
 
 ### 3.5 Validation pipeline (the PR gate)
 
-`mizan pack validate <dir>` runs, in order, failing fast per template but
-reporting all templates:
+`mizan pack validate <path>` validates either a single pack directory
+(`packs/<name>/`) or a repo/tree containing a `packs/` directory (it discovers
+and validates every `packs/*/`). For each template it runs, in order, failing
+fast per template but reporting all templates:
 
 1. **Structural** — each `templates/*.yaml` validates against the published JSON
    Schema for `MetricTemplate` (`apiVersion`, `kind`, required `metadata`/`spec`
@@ -397,64 +463,93 @@ registry *` operates on the local working copy (Store) and moves templates
 between it and packs.
 
 ```
-# Authoring / packaging (operate on pack directories)
-mizan pack init <dir> --name <namespace>       # scaffold manifest + dirs + CI workflow
-mizan pack validate <dir> [--dry-run]          # the PR gate; exit non-zero on error
-mizan pack add <dir> --from <template-id>       # write a local template into a pack dir
+# Authoring / packaging (operate on pack directories under packs/)
+mizan pack init packs/<name> --name <namespace> # scaffold a new pack dir (manifest + dirs)
+mizan pack validate <path> [--dry-run]          # a pack dir OR a repo tree w/ packs/; PR gate
+mizan pack add packs/<name> --from <template-id> # write a local template into a pack dir
                                                 #   (thin convenience over registry export)
 
 # Working-copy <-> pack movement
-mizan registry export --out <pack-dir> \        # write local templates to pack files
+mizan registry export --out packs/<name> \      # write local templates to a pack dir
     [--id <id> ...] [--namespace <ns>] [--all]
-mizan registry import <src> \                    # src = local pack dir | file | git URL
+mizan registry import <src> \                    # src = repo/tree w/ packs/ | pack dir | git URL
     [--strategy newer|skip|overwrite|fork] \
-    [--namespace-remap <old>=<new>] [--dry-run]
+    [--namespace <ns>] [--namespace-remap <old>=<new>] [--dry-run]
 
 # Local working copy (CRUD — used by CLI and, via Service, by GUI)
 mizan registry create|list|get|update|delete ... # (as in architecture.md §6)
 ```
 
+- **Default shared source is the dedicated templates repo:**
+  `mizan registry import github.com/ghchinoy/mizan-templates` clones/pulls into
+  the pack cache dir and imports every pack under its `packs/` tree (narrow with
+  `--namespace`). A bare `mizan registry import` with no `<src>` defaults to this
+  repo. The default is a **config value** (`Config.DefaultTemplatesRepo`, default
+  `github.com/ghchinoy/mizan-templates`) so a fork or an internal mirror can be
+  set without a code change, and so the future model-B source can be selected by
+  config rather than a flag.
 - `import <git-url>` is a convenience: Mizan shells out to the user's `git` to
   clone/pull into a cache dir (`$XDG_CACHE_HOME/mizan/packs/<host>/<repo>`), then
-  imports from the checkout. Mizan does **not** embed a git library; git
-  operations are thin and delegated, so credentials/SSH config are the user's
-  existing git setup. Primary/first-class input is a **local pack directory**;
-  git-url is sugar over "clone then import from path."
+  imports from the checkout's `packs/` tree. Mizan does **not** embed a git
+  library; git operations are thin and delegated, so credentials/SSH config are
+  the user's existing git setup. `<src>` may also be a local repo/tree containing
+  `packs/`, or a single `packs/<name>/` directory.
 - `--strategy` controls reconciliation (§3.8). Default `newer`.
 - `--dry-run` on import prints the reconciliation report without writing.
 
 ### 3.7 Git-based PR contribution workflow
 
-Canonical shared templates live in a git pack repo (e.g.
-`github.com/ghchinoy/mizan-templates`, or a `packs/` tree inside the main repo —
-see Open Questions). The round trip:
+Canonical shared templates live in the **dedicated `ghchinoy/mizan-templates`
+repo** (user decision, rev 3). Contributing a template is an ordinary PR against
+*that* repo, adding/editing a file under `packs/<name>/templates/`. The round
+trip:
 
 ```
-Contributor                                   Consumer
------------                                   --------
-mizan registry export --id X --out ./mizan-templates
-git checkout -b add-X
-git add templates/X.yaml && git commit
-git push && gh pr create                       (waits for merge)
+Contributor (clone of ghchinoy/mizan-templates)   Consumer
+-----------------------------------------------   --------
+mizan registry export --id google-brand/X \
+    --out packs/google-brand           # writes packs/google-brand/templates/X.yaml
+git checkout -b add-google-brand-X
+git add packs/google-brand/ && git commit
+git push && gh pr create               (waits for merge)
         │
         ▼
-   CI runs `mizan pack validate .`  ── fails ──► PR blocked, author fixes
+   mizan-templates CI obtains the pinned `mizan` validator (see below),
+   then runs `mizan pack validate .`  ── fails ──► PR blocked, author fixes
+   (discovers & validates packs/*)
         │ passes
         ▼
-   maintainer reviews prompt diff (readable, thanks to YAML) → merge
+   maintainer reviews prompt diff (readable, thanks to YAML) → merge to main
                                                │
                                                ▼
-                              mizan registry import github.com/ghchinoy/mizan-templates
-                              (or: git pull && mizan registry import ./mizan-templates)
-                              → template X now in local SQLite, runnable
+                     mizan registry import github.com/ghchinoy/mizan-templates
+                     (the default source; or: git pull && mizan registry import .)
+                     → template X now in local SQLite, runnable
 ```
 
-CI workflow shipped by `mizan pack init` (illustration):
+The CI gate is a single workflow **in `mizan-templates`**, path-filtered to
+`packs/**` so it only runs on template changes. `mizan pack init` scaffolds a pack
+directory (manifest + dirs); it does **not** emit the CI workflow — the workflow is
+committed once at the repo root and maintained there.
+
+#### Obtaining the validator (the rev-3 change)
+
+Because `mizan-templates` has **no Go source**, the CI cannot build the validator
+from its own checkout. It must obtain the `mizan` binary. **Decision: `go install`
+a version-pinned `mizan` from the code repo, using a read-scoped token because
+both repos are private.** This is the lowest-ceremony option that keeps the gate
+reproducible (the pin is explicit and auditable in the workflow file):
 
 ```yaml
-# .github/workflows/validate.yaml
-name: validate-pack
-on: { pull_request: { paths: ["templates/**", "mizan-pack.yaml", "rubrics/**"] } }
+# .github/workflows/validate-packs.yml   (in ghchinoy/mizan-templates)
+name: validate-packs
+on:
+  pull_request:
+    paths: ["packs/**"]
+env:
+  # Pin the validator explicitly — a pack PR is gated by a KNOWN validator version,
+  # not a moving target. Bump deliberately when the pack format evolves.
+  MIZAN_VERSION: "v0.1.0"            # OPEN QUESTION: no tagged release yet (see §7)
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -462,9 +557,52 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.x' }
-      - run: go install github.com/ghchinoy/mizan/cmd/mizan@latest
-      - run: mizan pack validate .        # creds-free steps 1-5; exit != 0 fails PR
+      # Private module: let `go install` fetch it over HTTPS with a read token.
+      - name: configure private module access
+        run: |
+          git config --global url."https://x-access-token:${MIZAN_RO_TOKEN}@github.com/".insteadOf "https://github.com/"
+          go env -w GOPRIVATE=github.com/ghchinoy/*
+        env:
+          MIZAN_RO_TOKEN: ${{ secrets.MIZAN_RO_TOKEN }}   # PAT/app token: read on ghchinoy/mizan
+      - run: go install github.com/ghchinoy/mizan/cmd/mizan@${MIZAN_VERSION}
+      - run: mizan pack validate .    # discovers packs/*; creds-free steps 1-5
 ```
+
+Two properties make this work and one requirement it imposes:
+
+- **cgo-free CLI is now important.** `go install`-ing `cmd/mizan` in CI pulls the
+  whole binary, including the `Store`. If the SQLite driver is cgo
+  (`mattn/go-sqlite3`), the templates CI needs a C toolchain. This elevates the
+  open SQLite-driver question (architecture-final §8/§10 Q2) from "nice to have"
+  to a **recommendation to adopt the pure-Go `modernc.org/sqlite` driver**, so the
+  validator `go install`s with zero cgo in a stock `setup-go` runner. Recorded as
+  an acceptance implication in §8.
+- **Requirement: `secrets.MIZAN_RO_TOKEN`** — a read-scoped token (fine-grained
+  PAT or GitHub App installation token) with *contents:read* on `ghchinoy/mizan`,
+  stored as an Actions secret in `mizan-templates`. This is a one-time repo-admin
+  setup step, called out in Migration/Rollout (§5) and the templates-repo README.
+
+Alternatives for validator provisioning, considered and rejected as the primary
+(kept as documented fallbacks):
+
+- **Prebuilt release binary** — `mizan` publishes a linux/amd64 binary as a GitHub
+  Release asset; the templates CI `gh release download`s the pinned tag and runs
+  it. Fastest, needs no Go toolchain or cgo at all, cleanest pin. **Rejected as
+  primary only because `mizan` has no release pipeline yet** (no tags exist). This
+  becomes the preferred option the moment a release workflow lands; §7 tracks it.
+- **Cross-repo reusable workflow** — `mizan` publishes
+  `.github/workflows/validate-packs-reusable.yml`; `mizan-templates` calls it via
+  `uses: ghchinoy/mizan/.github/workflows/...@<ref>`. Centralizes gate logic in
+  one place and versions it by ref. Rejected as primary: cross-repo reusable
+  workflows from a *private* called repo require org/repo access settings and are
+  more moving parts than a pinned `go install` for a two-repo, single-owner setup.
+
+> **The scaffolded CI is a working-shaped stub, not a fake.** The committed
+> `validate-packs.yml` implements the `go install`-pinned approach above with
+> `MIZAN_VERSION` and `MIZAN_RO_TOKEN` as the two explicit, documented inputs. It
+> is inert only until (a) a `mizan` version is tagged/pinnable and (b) the token
+> secret is set — both are named in §7/§5, visible to everyone downstream, not
+> hidden behind a mock.
 
 ### 3.8 Import reconciliation (conflict resolution)
 
@@ -540,6 +678,27 @@ needs, so we pay for them once, now.
   all contributors.
 - **One file per template (chosen)** — independent contributions never conflict.
 
+### Pack repo location (the rev-3 decision)
+
+- **In-repo `packs/` tree inside `ghchinoy/mizan` (rev 2, SUPERSEDED)** — one
+  clone, one CI config, and a PR could validate a validator+pack change
+  atomically. Rejected by the rev-3 user decision because it couples template
+  contribution to code-repo write access and to the code release cadence.
+- **Dedicated `ghchinoy/mizan-templates` repo (chosen, rev 3)** — decouples
+  contributor access and governance from the source repo and lets packs release
+  independently. Cost: the templates CI has no Go toolchain and must obtain a
+  version-pinned validator (§3.7), and validator+pack changes can no longer be
+  co-validated in one PR. Accepted per user decision.
+- **Central Firestore/GCS registry now (model B)** — rejected/deferred as before
+  (standing infra + auth + offline story before any value ships). The seam keeps
+  it a drop-in; note the *dedicated remote pack repo is itself a natural first
+  `SyncBackend`*, so model B is an additional backend, not a rework.
+
+Because the seam (§3.1) already isolates the contribution channel behind
+`SyncBackend`, the in-repo → dedicated-repo pivot is a **default-URL change plus
+relocating one CI file** — no interface, CLI/GUI, format, or `GitPackBackend`
+change. The small size of this pivot is the evidence the seam is correct.
+
 There was a genuine single-obvious-choice on the **abstraction seam**: separating
 `Store` (persistence) from `SyncBackend` (channel) is the only shape that
 satisfies "add Firestore later without reworking CLI/GUI" *and* the literal
@@ -567,6 +726,26 @@ The collaboration layer is **additive** to the P1 CLI MVP:
 
 Schema migration is versioned (a `schema_version` row / pragma in SQLite);
 P1→P2 is a single additive migration applied on first P2 launch.
+
+### Templates-repo bootstrap (rev-3, one-time)
+
+The `ghchinoy/mizan-templates` repo is stood up **independently of the code
+phases** (it is data + CI, not Go). Bootstrap steps, all one-time and reversible:
+
+1. Scaffold the repo: `README.md`, `docs/pack-format.md`, one example pack under
+   `packs/`, and `.github/workflows/validate-packs.yml` (this architect delivers
+   the scaffold; see §3.3/§3.7). Until the validator can be pinned, the CI is
+   inert (it fails closed only once wired), so scaffolding it early is safe.
+2. **Add the `MIZAN_RO_TOKEN` Actions secret** (contents:read on `ghchinoy/mizan`)
+   so CI can `go install` the validator. Repo-admin step; documented in the
+   templates README. Until it is set, the validate job is skipped/soft — it does
+   not block scaffolding or non-pack PRs.
+3. **Pin `MIZAN_VERSION`** once a `mizan` release is tagged (§7 Q5). Before that,
+   the workflow uses a pseudo-version off `main` or is left disabled; either way
+   the pin is explicit in the file, not hidden.
+
+None of these touch the `mizan` code repo's build or the P1→P4 phases; the code
+repo only changes the **default import URL** and (recommended) the SQLite driver.
 
 ---
 
@@ -598,7 +777,8 @@ type MetricTemplate struct {
     BaselineFieldName    string       // pairwise
     RubricGroups         map[string][]string // rubric
     ResponseSchema       *Schema      // custom_schema only
-    AutoraterModel       string
+    AutoraterModel       string       // publisher-relative id (e.g. gemini-2.5-pro);
+                                      //   engine expands to full resource name at eval time
     SamplingCount        int32        // 1-32
     FlipEnabled          bool         // pairwise
 
@@ -623,18 +803,30 @@ type Author struct{ Name, Email string }
 
 ## 7. Open Questions
 
-1. **Pack repo location** — a dedicated `ghchinoy/mizan-templates` repo, or a
-   `packs/` tree inside `ghchinoy/mizan`? A separate repo keeps template review
-   independent of code review and lets non-engineers contribute without touching
-   the codebase; a monorepo is simpler to bootstrap. *Needs user decision.*
+1. **Pack repo location** — ~~in-repo vs dedicated~~ **RESOLVED (user, 2026-08-09,
+   rev 3): dedicated `github.com/ghchinoy/mizan-templates` repo.** Supersedes the
+   rev-2 in-repo decision. See §3.3/§3.7. The Store/Codec/SyncBackend seam still
+   admits a later central source with no consumer changes.
 2. **Template signing** — do we need cryptographic signing/verification of
    contributed templates (supply-chain trust) beyond git history in a later
    phase? Additive; not v1. *Defer.*
-3. **Placeholder syntax** — `{{x}}` vs `{x}` at the API. *Pending Spike 1
-   verdict* (does not affect the file format; only the codec normalization).
+3. **Placeholder syntax** — ~~`{{x}}` vs `{x}`~~ **RESOLVED (spike-core,
+   2026-08-09): both accepted by the API; Mizan standardizes on double-brace
+   `{{x}}`** (validator enforces). See §3.2/§3.5.
 4. **Rubric sharing granularity** — are shared `rubrics/` referenced across
    templates by id in v1, or inlined per template? Leaning inline-per-template
    for P2 simplicity, with `rubrics/` as a P2+ enhancement. *Confirm during P2.*
+5. **Validator provisioning for the templates CI (rev-3, NEW)** — the pinned
+   `go install` gate (§3.7) needs (a) a **tagged `mizan` release** to pin
+   `MIZAN_VERSION` against — none exists yet (only branches on `ghchinoy/mizan`) —
+   and (b) the `MIZAN_RO_TOKEN` secret set on `mizan-templates`. Until (a), the CI
+   pins a `main` pseudo-version or is left disabled. *Recommend: add a minimal
+   release/tag workflow to `mizan` (then switch the templates CI to the prebuilt
+   release-binary path, §3.7) — needs a user/owner decision.* Raise to user.
+6. **Cross-repo atomic validation lost (rev-3, NEW)** — a change that touches both
+   the validator and a pack can no longer be validated in one PR (two repos). The
+   mitigation is the explicit `MIZAN_VERSION` pin + a deliberate bump when the pack
+   format evolves; acceptable for the expected low format-churn. *Confirm posture.*
 
 ---
 
@@ -656,5 +848,18 @@ type Author struct{ Name, Email string }
 - A grep of `cmd/mizan` and `cmd/mizan-desktop` shows **no** SQLite-, YAML-, or
   git-specific symbols — only `registry.Service`. (This is the seam test: it
   proves model B is a drop-in.)
-- CI workflow from `mizan pack init` runs steps 1–5 creds-free and blocks a PR
-  that adds an invalid template.
+- The `validate-packs` workflow **in `mizan-templates`** (path-filtered to
+  `packs/**`, obtaining a version-pinned `mizan` validator per §3.7) runs steps
+  1–5 (creds-free, no eval API calls) and blocks a PR that adds an invalid
+  template under `packs/`, while leaving non-pack PRs (README/docs) unaffected.
+- `mizan registry import github.com/ghchinoy/mizan-templates` (and bare `import`
+  with no src, which defaults there) discovers and imports every pack under
+  `packs/`, filterable by `--namespace`.
+- **Seam-pivot check:** switching the default source between `mizan-templates`,
+  a fork, and a local `packs/` tree requires no change to `GitPackBackend` or any
+  `cmd/*` code — only `Config.DefaultTemplatesRepo` / the `<src>` argument.
+- **cgo-free `go install` (rev-3 implication):** `go install
+  github.com/ghchinoy/mizan/cmd/mizan@<ver>` succeeds in a stock `setup-go` runner
+  with **no C toolchain** (i.e. the SQLite driver is pure-Go per §3.7), so the
+  templates CI can obtain the validator without cgo. (If `mattn/go-sqlite3` is
+  retained, this criterion instead requires the CI to enable cgo — call it out.)
