@@ -46,6 +46,18 @@ var extMIME = map[string]string{
 	".mov":  "video/quicktime",
 	".mpeg": "video/mpeg",
 	".mpg":  "video/mpeg",
+	".ogv":  "video/ogg", // Ogg video (Theora); the OggS container also holds audio
+}
+
+// mp4AudioExt is the set of MP4-family extensions that name audio-only content.
+// The ISO-BMFF (ftyp) container magic cannot distinguish an audio-only MP4 from
+// a video MP4 when the major brand is generic (e.g. "mp42"/"isom"), so for those
+// ambiguous brands we use the extension as a tie-breaker to avoid mislabeling
+// audio as video/mp4 (a wrong top-level type silently drops the asset).
+var mp4AudioExt = map[string]bool{
+	".m4a": true,
+	".m4b": true,
+	".aac": true,
 }
 
 // DetectMIME returns a best-effort MIME type for the given filename and
@@ -54,10 +66,11 @@ var extMIME = map[string]string{
 // the asset silently (spike-core); the extension is only a fallback when the
 // bytes are inconclusive.
 func DetectMIME(filename string, head []byte) string {
-	if ct := sniffMIME(head); ct != "" {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ct := sniffMIME(head, ext); ct != "" {
 		return ct
 	}
-	if ext := strings.ToLower(filepath.Ext(filename)); ext != "" {
+	if ext != "" {
 		if ct, ok := extMIME[ext]; ok {
 			return ct
 		}
@@ -90,8 +103,12 @@ func DetectMIMEFile(path string) (string, error) {
 // sniffMIME inspects magic bytes to identify the media container types that
 // http.DetectContentType handles poorly or not at all (wav, ogg, flac, mov,
 // webm), falling back to http.DetectContentType for the rest. It returns "" if
-// the bytes are inconclusive so callers can try the extension.
-func sniffMIME(head []byte) string {
+// the bytes are inconclusive so callers can try the extension. ext (the
+// lower-cased filename extension, or "") is used only to disambiguate container
+// formats whose magic is inherently ambiguous about the top-level type (Ogg
+// audio-vs-video, generic-brand MP4 audio-vs-video); it never overrides an
+// unambiguous content sniff.
+func sniffMIME(head []byte, ext string) string {
 	if len(head) == 0 {
 		return ""
 	}
@@ -104,6 +121,13 @@ func sniffMIME(head []byte) string {
 	case len(head) >= 6 && (string(head[:6]) == "GIF87a" || string(head[:6]) == "GIF89a"):
 		return "image/gif"
 	case len(head) >= 4 && string(head[:4]) == "OggS":
+		// An OggS container can carry audio (Vorbis/Opus/FLAC) or video
+		// (Theora). The container magic alone cannot tell them apart, so a
+		// bare OggS defaults to audio/ogg; a .ogv extension names Ogg video
+		// and is honored to avoid mis-typing (and silently dropping) a video.
+		if ext == ".ogv" {
+			return "video/ogg"
+		}
 		return "audio/ogg"
 	case len(head) >= 4 && string(head[:4]) == "fLaC":
 		return "audio/flac"
@@ -131,9 +155,19 @@ func sniffMIME(head []byte) string {
 		switch {
 		case strings.HasPrefix(brand, "qt"):
 			return "video/quicktime"
-		case strings.HasPrefix(brand, "M4A"):
+		case strings.HasPrefix(brand, "M4A"), strings.HasPrefix(brand, "M4B"),
+			strings.HasPrefix(brand, "M4P"):
+			// Unambiguously audio-only MP4 brands (M4A, M4B audiobook,
+			// M4P protected audio).
 			return "audio/mp4"
 		default:
+			// Generic/ambiguous brand (mp42, isom, mp41, ...): this is an
+			// MP4-family container but the magic cannot tell audio-only from
+			// video. Use the extension as a tie-breaker when it names an
+			// MP4-family audio type; otherwise default to video/mp4.
+			if mp4AudioExt[ext] {
+				return "audio/mp4"
+			}
 			return "video/mp4"
 		}
 	}

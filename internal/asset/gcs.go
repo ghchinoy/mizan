@@ -1,7 +1,6 @@
 package asset
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -18,6 +17,13 @@ import (
 // bucket lifecycle (retention/GC) is a non-goal (the bucket is provisioned
 // externally); this prefix just keeps Mizan's uploads namespaced.
 const objectPrefix = "mizan-staging/"
+
+// maxAssetBytes caps the size of a local asset Mizan will read and upload
+// (512 MiB). It is defense-in-depth against a single oversized or crafted
+// LocalPath (e.g. a multi-GB media file, or a sparse file) exhausting memory or
+// hanging a run — it is NOT a sandbox (see Stage). Tune if legitimate media
+// grows past this.
+const maxAssetBytes int64 = 512 << 20
 
 // uploader is the storage seam GCSStager writes through. It exists so unit
 // tests can exercise Stage's control flow (validation, pass-through, key
@@ -78,29 +84,98 @@ func (s *GCSStager) Stage(ctx context.Context, in StageInput) (StageResult, erro
 	if s.bucket == "" || s.up == nil {
 		return StageResult{}, ErrNoBucket
 	}
+	return s.stageLocal(ctx, in)
+}
 
-	data, err := os.ReadFile(in.LocalPath)
+// stageLocal reads, content-addresses, and streams a local regular file to the
+// staging bucket.
+//
+// Trust boundary: in P1, LocalPath is user-supplied CLI input — a CLI user can
+// legitimately reference any file they can read, so this is NOT a sandbox and
+// does NOT confine paths to a base directory. The guards below are
+// defense-in-depth / DoS protection for when WI-4 wires (potentially
+// dataset-derived) rows into LocalPath: symlinks are resolved and the target
+// must be a regular file (rejecting dirs, devices, FIFOs and sockets such as
+// /dev/zero, which would otherwise read without bound), and the asset size is
+// capped. The file is streamed straight into the GCS writer so a large asset
+// never fully lands in memory.
+func (s *GCSStager) stageLocal(ctx context.Context, in StageInput) (StageResult, error) {
+	// Resolve symlinks and operate on the real path.
+	resolved, err := filepath.EvalSymlinks(in.LocalPath)
 	if err != nil {
-		return StageResult{}, fmt.Errorf("asset: read %q: %w", in.LocalPath, err)
+		return StageResult{}, fmt.Errorf("asset: resolve %q: %w", in.LocalPath, err)
+	}
+	fi, err := os.Lstat(resolved)
+	if err != nil {
+		return StageResult{}, fmt.Errorf("asset: stat %q: %w", in.LocalPath, err)
+	}
+	if !fi.Mode().IsRegular() {
+		return StageResult{}, fmt.Errorf("asset: %q is not a regular file (mode %s); refusing to read", in.LocalPath, fi.Mode().Type())
+	}
+	if fi.Size() > maxAssetBytes {
+		return StageResult{}, fmt.Errorf("asset: %q is %d bytes, exceeds the %d-byte cap", in.LocalPath, fi.Size(), maxAssetBytes)
 	}
 
-	mimeType := resolveMIME(in.MIME, in.LocalPath, data)
-	object := objectKey(in.LocalPath, data)
+	f, err := os.Open(resolved)
+	if err != nil {
+		return StageResult{}, fmt.Errorf("asset: open %q: %w", in.LocalPath, err)
+	}
+	defer f.Close()
 
-	uri, err := s.up.upload(ctx, object, mimeType, bytes.NewReader(data))
+	// Read a bounded header for MIME sniffing, then hash the full content in a
+	// streaming pass (content addressing needs every byte, but they never all
+	// reside in memory at once).
+	header := make([]byte, sniffLen)
+	hn, err := io.ReadFull(f, header)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return StageResult{}, fmt.Errorf("asset: read %q: %w", in.LocalPath, err)
+	}
+	header = header[:hn]
+
+	h := sha256.New()
+	h.Write(header)
+	if _, err := io.Copy(h, io.LimitReader(f, maxAssetBytes+1)); err != nil {
+		return StageResult{}, fmt.Errorf("asset: hash %q: %w", in.LocalPath, err)
+	}
+	sum := h.Sum(nil)
+
+	// Use the caller-supplied name (not the symlink-resolved path) for the MIME
+	// extension and the preserved object-key extension: that is the name the
+	// user intends, and content sniffing (from header) still wins on mismatch.
+	mimeType := resolveMIME(in.MIME, in.LocalPath, header)
+	object := objectKey(in.LocalPath, sum)
+
+	// Rewind and stream the upload from the file rather than buffering it.
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return StageResult{}, fmt.Errorf("asset: seek %q: %w", in.LocalPath, err)
+	}
+	uri, err := s.up.upload(ctx, object, mimeType, io.LimitReader(f, maxAssetBytes))
 	if err != nil {
 		return StageResult{}, fmt.Errorf("asset: upload %q to gs://%s/%s: %w", in.LocalPath, s.bucket, object, err)
 	}
 	return StageResult{GCSUri: uri, MIME: mimeType}, nil
 }
 
-// objectKey returns a content-addressed object name that preserves the source
-// extension. Content addressing gives idempotent dedup for free: re-staging the
-// same bytes overwrites the same object.
-func objectKey(localPath string, data []byte) string {
-	sum := sha256.Sum256(data)
+// objectKey returns a content-addressed object name (from the sha256 of the
+// asset bytes) that preserves a sanitized source extension. Content addressing
+// gives idempotent dedup for free: re-staging the same bytes overwrites the same
+// object.
+func objectKey(localPath string, sum []byte) string {
+	return objectPrefix + hex.EncodeToString(sum) + safeExt(localPath)
+}
+
+// safeExt returns the source file extension only when it is a recognized media
+// extension (a key of extMIME); otherwise it returns "". The key core is
+// already content-addressed (sha256, hex [0-9a-f]) and filepath.Ext cannot
+// contain a path separator, so this is not a traversal fix — it keeps arbitrary
+// non-separator bytes (spaces, control chars, newlines, unicode) out of the
+// object name. A dropped extension is cosmetic.
+func safeExt(localPath string) string {
 	ext := strings.ToLower(filepath.Ext(localPath))
-	return objectPrefix + hex.EncodeToString(sum[:]) + ext
+	if _, ok := extMIME[ext]; ok {
+		return ext
+	}
+	return ""
 }
 
 // gcsUploader is the production uploader backed by cloud.google.com/go/storage.

@@ -57,15 +57,33 @@ func (in StageInput) validate() error {
 // MIME type. name is the file name (local path or gs:// object) used for the
 // extension fallback; head may be nil when no bytes are available (e.g. a
 // gs:// pass-through), in which case detection relies on the extension.
+//
+// The override is treated as an operator-trusted hint, but it is not accepted
+// blindly: when content sniffing yields an unambiguous type whose TOP-LEVEL
+// class (image/audio/video) conflicts with the override, the sniffed type wins.
+// A wrong top-level type silently drops the asset on the native path
+// (spike-core), so an override (which WI-4 may source from a dataset) must not
+// be able to force a droppable type over what the bytes clearly say. When the
+// sniff is inconclusive, the override is honored.
 func resolveMIME(override, name string, head []byte) string {
 	if m := strings.TrimSpace(override); m != "" {
-		return normalizeMIME(m)
+		m = normalizeMIME(m)
+		if sniffed := sniffMIME(head, strings.ToLower(filepath.Ext(name))); sniffed != "" &&
+			topLevelType(sniffed) != topLevelType(m) {
+			return sniffed
+		}
+		return m
 	}
-	if ct := DetectMIME(name, head); ct != "application/octet-stream" {
-		return ct
+	return DetectMIME(name, head)
+}
+
+// topLevelType returns the portion of a MIME type before the "/" (e.g. "audio"
+// for "audio/mp4"), used to compare only the load-bearing top-level class.
+func topLevelType(mimeType string) string {
+	if i := strings.IndexByte(mimeType, '/'); i >= 0 {
+		return mimeType[:i]
 	}
-	// Last resort: still return octet-stream so callers can decide.
-	return "application/octet-stream"
+	return mimeType
 }
 
 // gcsObjectName returns the object name portion of a gs:// URI (used for MIME
