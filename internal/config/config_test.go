@@ -92,6 +92,32 @@ func TestLoadConfigDefaultModel(t *testing.T) {
 	}
 }
 
+// TestLoadConfigDefaultModelFromEnvFile proves the default-model key is also
+// loaded from a trusted env file (WI-F3 asks for both env AND config file), not
+// only from a live environment variable.
+func TestLoadConfigDefaultModelFromEnvFile(t *testing.T) {
+	clearEnv(t)
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "mizan.env")
+	if err := os.WriteFile(envPath, []byte("MIZAN_PROJECT_ID=proj-123\nMIZAN_DEFAULT_MODEL=gemini-3.5-flash\n"), 0o600); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+	// godotenv.Load does not override an already-set variable (even empty), so
+	// unset the two keys the env file supplies.
+	os.Unsetenv("MIZAN_PROJECT_ID")
+	os.Unsetenv("PROJECT_ID")
+	os.Unsetenv("MIZAN_DEFAULT_MODEL")
+	t.Setenv("MIZAN_ENV_FILE", envPath)
+
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.DefaultModel != "gemini-3.5-flash" {
+		t.Errorf("DefaultModel = %q, want gemini-3.5-flash (loaded from env file)", c.DefaultModel)
+	}
+}
+
 func TestLoadConfigProjectIDPrecedence(t *testing.T) {
 	clearEnv(t)
 	// MIZAN_PROJECT_ID must win over PROJECT_ID.

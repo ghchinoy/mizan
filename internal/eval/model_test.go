@@ -200,6 +200,24 @@ func TestNativeEmptyModelInheritsBuiltin(t *testing.T) {
 	}
 }
 
+// TestBuiltinDefaultModelValue LOCKS the literal value of the single built-in
+// autorater id (WI-F3). The other precedence tests compare against the
+// BuiltinDefaultModel symbol, so they would still pass if the constant were
+// changed; this test pins the actual string so an accidental (or unreviewed)
+// change to the coordinator-locked GA id is caught. The rationale (2.5-flash is
+// served on BOTH regional native and location=global, unlike the global-only
+// 3.5 ids) lives in model.go — changing this value is a deliberate act.
+func TestBuiltinDefaultModelValue(t *testing.T) {
+	if BuiltinDefaultModel != "gemini-2.5-flash" {
+		t.Errorf("BuiltinDefaultModel = %q, want %q (coordinator-locked GA id)", BuiltinDefaultModel, "gemini-2.5-flash")
+	}
+	// The genai (custom_schema) path is global by design; the constant backing
+	// the pre-flight echo and the wire composition root must agree on that.
+	if GenaiLocation != "global" {
+		t.Errorf("GenaiLocation = %q, want %q", GenaiLocation, "global")
+	}
+}
+
 // --- WI-F4 stats plumbing ---
 
 // TestStatsDurationAlwaysSet asserts Duration is populated on every path and

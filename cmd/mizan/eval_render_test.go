@@ -69,6 +69,62 @@ func TestRenderResultStatsTokens(t *testing.T) {
 	}
 }
 
+// TestRenderResultJSONIncludesStats proves the JSON output path ALWAYS embeds
+// the stats object (duration and, on the genai path, token usage) regardless of
+// the --stats flag — the contract stated in renderResult's doc comment. --stats
+// governs only the human table footer, so a JSON consumer must not have to pass
+// it to see timing/tokens.
+func TestRenderResultJSONIncludesStats(t *testing.T) {
+	prev := outputFormat
+	outputFormat = outputJSON
+	defer func() { outputFormat = prev }()
+
+	res := eval.Result{
+		Explanation: "ok",
+		Stats: eval.Stats{
+			Duration:   9 * time.Millisecond,
+			TokenUsage: &eval.TokenUsage{PromptTokens: 10, CandidatesTokens: 20, TotalTokens: 30},
+		},
+	}
+	var buf bytes.Buffer
+	// showStats=false: the JSON must STILL carry the stats object.
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "duration_ns") {
+		t.Errorf("JSON missing duration_ns even though stats are always emitted: %q", out)
+	}
+	for _, want := range []string{"token_usage", "prompt_tokens", "candidates_tokens", "total_tokens"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("JSON missing %q: %q", want, out)
+		}
+	}
+}
+
+// TestRenderResultJSONOmitsTokenUsageWhenNil proves the native path (nil
+// TokenUsage) omits the token_usage key in JSON (the field is `omitempty`),
+// while duration is still present.
+func TestRenderResultJSONOmitsTokenUsageWhenNil(t *testing.T) {
+	prev := outputFormat
+	outputFormat = outputJSON
+	defer func() { outputFormat = prev }()
+
+	score := float32(4)
+	res := eval.Result{Score: &score, Explanation: "ok", Stats: eval.Stats{Duration: 3 * time.Millisecond}}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, true); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "duration_ns") {
+		t.Errorf("JSON missing duration_ns: %q", out)
+	}
+	if strings.Contains(out, "token_usage") {
+		t.Errorf("native JSON should omit token_usage (omitempty), got: %q", out)
+	}
+}
+
 // TestPrintPreflightLine verifies the default-on pre-flight echo is a single
 // concise line carrying the resolved project/location/model and path.
 func TestPrintPreflightLine(t *testing.T) {
