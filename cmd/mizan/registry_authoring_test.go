@@ -142,6 +142,20 @@ func TestRubricGroupsFileMissing(t *testing.T) {
 	}
 }
 
+// TestRubricGroupsFileOversize: a file larger than maxTemplateFileBytes is
+// rejected by the size cap before any JSON parse.
+func TestRubricGroupsFileOversize(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "groups.json")
+	if err := os.WriteFile(path, make([]byte, maxTemplateFileBytes+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := applyFromArgs(t, false, nil, "--rubric-groups-file", path)
+	if err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("err = %v, want size-cap 'exceeds' error", err)
+	}
+}
+
 // TestRubricPrecedenceFileThenFlags: file seeds the map; a --rubric-group flag
 // overrides the file's entry for that group name, and a new name is added.
 func TestRubricPrecedenceFileThenFlags(t *testing.T) {
@@ -210,6 +224,30 @@ func TestResponseSchemaFileInvalid(t *testing.T) {
 	_, err := applyFromArgs(t, false, nil, "--response-schema-file", path)
 	if err == nil || !strings.Contains(err.Error(), "well-formed JSON") {
 		t.Fatalf("err = %v, want well-formed JSON error", err)
+	}
+}
+
+// TestResponseSchemaFileNonRegular: a non-regular file (a directory) is rejected
+// by the same guard used for rubric files.
+func TestResponseSchemaFileNonRegular(t *testing.T) {
+	dir := t.TempDir() // a directory, not a regular file
+	_, err := applyFromArgs(t, false, nil, "--response-schema-file", dir)
+	if err == nil || !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("err = %v, want 'not a regular file'", err)
+	}
+}
+
+// TestResponseSchemaFileOversize: a file larger than maxTemplateFileBytes is
+// rejected by the size cap before any JSON validation.
+func TestResponseSchemaFileOversize(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "schema.json")
+	if err := os.WriteFile(path, make([]byte, maxTemplateFileBytes+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := applyFromArgs(t, false, nil, "--response-schema-file", path)
+	if err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("err = %v, want size-cap 'exceeds' error", err)
 	}
 }
 
