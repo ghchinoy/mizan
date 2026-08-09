@@ -2,7 +2,6 @@ package eval
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -112,19 +111,32 @@ func TestRunRubricNoGroups(t *testing.T) {
 	}
 }
 
-func TestRunRubricRejectsMultimodal(t *testing.T) {
-	fc := &fakeClient{}
+func TestRunRubricMultimodalGCS(t *testing.T) {
+	// Rubric shares the native pointwise materialization, so a multimodal field
+	// (pre-staged gs://) produces a ContentMap instance with gs:// FileData.
+	fc := &fakeClient{
+		resp: &aiplatformpb.EvaluateInstancesResponse{
+			EvaluationResults: &aiplatformpb.EvaluateInstancesResponse_PointwiseMetricResult{
+				PointwiseMetricResult: &aiplatformpb.PointwiseMetricResult{Score: proto.Float32(2)},
+			},
+		},
+	}
 	eng := NewEngine(fc, "p", "us-central1")
 	_, err := eng.Run(context.Background(), rubricTemplate(), Instance{
 		Fields: map[string]AssetRef{
 			"copy": {Modality: registry.ModalityImage, GCSUri: "gs://b/x.jpg"},
 		},
 	})
-	if !errors.Is(err, errNotImplemented) {
-		t.Fatalf("want errNotImplemented for multimodal rubric field, got %v", err)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
 	}
-	if fc.gotReq != nil {
-		t.Error("client should not be called for an unsupported multimodal field")
+	cm := fc.gotReq.GetPointwiseMetricInput().GetInstance().GetContentMapInstance()
+	if cm == nil {
+		t.Fatal("expected a ContentMap instance for a multimodal rubric field")
+	}
+	fd := cm.GetValues()["copy"].GetContents()[0].GetParts()[0].GetFileData()
+	if fd == nil || fd.GetFileUri() != "gs://b/x.jpg" || fd.GetMimeType() != "image/jpeg" {
+		t.Errorf("FileData = %+v, want gs://b/x.jpg image/jpeg", fd)
 	}
 }
 

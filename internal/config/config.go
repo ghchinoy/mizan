@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -123,10 +124,41 @@ func ValidateEndpoint(ep string) error {
 	if h, _, err := net.SplitHostPort(ep); err == nil {
 		host = h
 	}
-	if host == "googleapis.com" || strings.HasSuffix(host, ".googleapis.com") {
+	if endpointHostAllowed(host) {
 		return nil
 	}
 	return fmt.Errorf("config: refusing custom API endpoint %q: host is not *.googleapis.com (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", ep)
+}
+
+// ValidateGenaiBaseURL applies the same *.googleapis.com allow-list to a genai
+// SDK base-URL override (GOOGLE_VERTEX_BASE_URL / GOOGLE_GEMINI_BASE_URL, which
+// the SDK honors — verified in genai v1.67.0). Unlike ValidateEndpoint the value
+// is a full URL (e.g. "https://host/"), so the host is parsed out. This gives
+// the genai (custom_schema) path endpoint parity with the native path, closing
+// the ADC-token-redirection gap flagged in the WI-5 audit. The same
+// MIZAN_ALLOW_CUSTOM_ENDPOINT=1 escape hatch applies; ADC/TLS are never weakened.
+func ValidateGenaiBaseURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	if os.Getenv("MIZAN_ALLOW_CUSTOM_ENDPOINT") == "1" {
+		return nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("config: refusing genai base URL %q: not a parseable URL (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", raw)
+	}
+	if endpointHostAllowed(u.Hostname()) {
+		return nil
+	}
+	return fmt.Errorf("config: refusing genai base URL %q: host %q is not *.googleapis.com (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", raw, u.Hostname())
+}
+
+// endpointHostAllowed reports whether host is permitted under the Google-only
+// endpoint policy (the canonical apex or any *.googleapis.com subdomain).
+func endpointHostAllowed(host string) bool {
+	return host == "googleapis.com" || strings.HasSuffix(host, ".googleapis.com")
 }
 
 func defaultDBPath() string {

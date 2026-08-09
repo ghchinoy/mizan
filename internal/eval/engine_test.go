@@ -10,6 +10,7 @@ import (
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ghchinoy/mizan/internal/asset"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -123,34 +124,66 @@ func TestRunPointwiseMissingVariable(t *testing.T) {
 	}
 }
 
-func TestRunPointwiseRejectsMultimodal(t *testing.T) {
-	fc := &fakeClient{}
+func TestRunPointwiseMultimodalGCS(t *testing.T) {
+	// A pre-staged gs:// asset with a known extension resolves its MIME without a
+	// Stager and materializes a native ContentMap (gs:// FileData) instance.
+	fc := &fakeClient{
+		resp: &aiplatformpb.EvaluateInstancesResponse{
+			EvaluationResults: &aiplatformpb.EvaluateInstancesResponse_PointwiseMetricResult{
+				PointwiseMetricResult: &aiplatformpb.PointwiseMetricResult{
+					Score:       proto.Float32(3),
+					Explanation: "ok",
+				},
+			},
+		},
+	}
 	eng := NewEngine(fc, "p", "us-central1")
-	_, err := eng.Run(context.Background(), pointwiseTemplate(), Instance{
+	tmpl := pointwiseTemplate()
+	tmpl.MetricPromptTemplate = "Describe {{response}}"
+	_, err := eng.Run(context.Background(), tmpl, Instance{
 		Fields: map[string]AssetRef{
 			"response": {Modality: registry.ModalityImage, GCSUri: "gs://bucket/cat.jpg"},
 		},
 	})
-	if !errors.Is(err, errNotImplemented) {
-		t.Fatalf("want errNotImplemented for multimodal field, got %v", err)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
 	}
-	if fc.gotReq != nil {
-		t.Error("client should not be called for an unsupported multimodal field")
+	cm := fc.gotReq.GetPointwiseMetricInput().GetInstance().GetContentMapInstance()
+	if cm == nil {
+		t.Fatal("expected a ContentMap instance for a multimodal field")
+	}
+	fd := cm.GetValues()["response"].GetContents()[0].GetParts()[0].GetFileData()
+	if fd == nil || fd.GetFileUri() != "gs://bucket/cat.jpg" {
+		t.Errorf("FileData = %+v, want gs://bucket/cat.jpg", fd)
+	}
+	if fd.GetMimeType() != "image/jpeg" {
+		t.Errorf("MimeType = %q, want image/jpeg (resolved from extension)", fd.GetMimeType())
 	}
 }
 
-func TestRunUnsupportedKinds(t *testing.T) {
-	// Pairwise remains WI-P1-4; rubric and custom_schema are wired by WI-P1-5.
-	eng := NewEngine(&fakeClient{}, "p", "us-central1")
-	for _, kind := range []registry.MetricKind{registry.KindPairwise} {
-		tmpl := pointwiseTemplate()
-		tmpl.Kind = kind
-		if _, err := eng.Run(context.Background(), tmpl, Instance{}); !errors.Is(err, errNotImplemented) {
-			t.Errorf("kind %s: want errNotImplemented, got %v", kind, err)
-		}
+func TestRunPointwiseLocalFileNoStager(t *testing.T) {
+	// A local FilePath with no Stager configured must fail with a clear
+	// ErrNoBucket-style error before any API call.
+	fc := &fakeClient{}
+	eng := NewEngine(fc, "p", "us-central1")
+	tmpl := pointwiseTemplate()
+	tmpl.MetricPromptTemplate = "Describe {{response}}"
+	_, err := eng.Run(context.Background(), tmpl, Instance{
+		Fields: map[string]AssetRef{
+			"response": {Modality: registry.ModalityImage, FilePath: "/tmp/cat.jpg"},
+		},
+	})
+	if !errors.Is(err, asset.ErrNoBucket) {
+		t.Fatalf("want asset.ErrNoBucket, got %v", err)
 	}
+	if fc.gotReq != nil {
+		t.Error("client should not be called when staging is unavailable")
+	}
+}
 
+func TestRunUnknownKind(t *testing.T) {
 	// An unknown kind is a distinct, clearly-worded error.
+	eng := NewEngine(&fakeClient{}, "p", "us-central1")
 	tmpl := pointwiseTemplate()
 	tmpl.Kind = "bogus"
 	if _, err := eng.Run(context.Background(), tmpl, Instance{}); err == nil || !strings.Contains(err.Error(), "unknown metric kind") {

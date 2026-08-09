@@ -19,6 +19,7 @@ import (
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/genai"
 
+	"github.com/ghchinoy/mizan/internal/asset"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -46,13 +47,13 @@ type GenaiClient interface {
 }
 
 // AssetRef references a single placeholder value for an evaluation instance.
-// For text, Text is enough; other modalities supply a local path or a
-// pre-staged gs:// URI (handled in WI-P1-4, not this slice).
+// For text, Text is enough; other modalities supply a local path (staged to GCS
+// by the engine via the configured asset.Stager) or a pre-staged gs:// URI.
 type AssetRef struct {
 	Modality registry.Modality
 	Text     string // ModalityText
-	FilePath string // local file (staged to GCS in WI-P1-4)
-	GCSUri   string // pre-staged asset (WI-P1-4)
+	FilePath string // local file (staged to GCS by the engine's Stager)
+	GCSUri   string // pre-staged gs:// asset
 	MimeType string // detected or explicit
 }
 
@@ -76,6 +77,7 @@ type Result struct {
 type Engine struct {
 	client    EvaluationClient
 	genai     GenaiClient
+	stager    asset.Stager
 	projectID string
 	location  string
 	retry     retryPolicy
@@ -91,6 +93,17 @@ type Option func(*Engine)
 // eval may run, so the native-only paths never build a genai client.
 func WithGenaiClient(g GenaiClient) Option {
 	return func(e *Engine) { e.genai = g }
+}
+
+// WithStager sets the asset.Stager used to materialize non-text assets into the
+// gs:// FileData the native ContentMap path requires (native EvaluateInstances
+// accepts gs:// FileData ONLY; inline bytes are silently dropped — spike-core).
+// It is supplied by the composition root (internal/wire) ONLY when a staging
+// bucket is configured. When no Stager is set, a multimodal eval that needs to
+// stage a local file fails at Run time with a clear asset.ErrNoBucket-style
+// error; text-only and custom_schema-inline evals are unaffected.
+func WithStager(s asset.Stager) Option {
+	return func(e *Engine) { e.stager = s }
 }
 
 // NewEngine constructs an Engine over the given native EvaluationClient.
@@ -110,9 +123,10 @@ func NewEngine(client EvaluationClient, projectID, location string, opts ...Opti
 	return e
 }
 
-// Run dispatches on the template's MetricKind. Pointwise (text) and rubric use
-// the native path; custom_schema uses the genai path. Pairwise and native
-// multimodal are WI-P1-4.
+// Run dispatches on the template's MetricKind. Pointwise (text + multimodal) and
+// rubric use the native path; pairwise uses the native pairwise path;
+// custom_schema uses the genai path. Non-text native assets are staged to gs://
+// FileData via the configured Stager (spike-core: native accepts gs:// only).
 func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error) {
 	switch tmpl.Kind {
 	case registry.KindPointwise:
@@ -122,7 +136,7 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	case registry.KindCustomSchema:
 		return e.runCustomSchema(ctx, tmpl, inst)
 	case registry.KindPairwise:
-		return Result{}, fmt.Errorf("%w: pairwise (WI-P1-4)", errNotImplemented)
+		return e.runPairwise(ctx, tmpl, inst)
 	default:
 		return Result{}, fmt.Errorf("eval: unknown metric kind %q", tmpl.Kind)
 	}
