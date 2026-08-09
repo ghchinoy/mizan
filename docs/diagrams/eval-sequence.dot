@@ -1,0 +1,24 @@
+digraph MizanEvalSequence {
+  // Sequence/data-flow for `mizan eval run` against a text-pointwise metric.
+  // Everything here is implemented and verified working today (all solid).
+  rankdir=TB;
+  fontname="Helvetica";
+  node [fontname="Helvetica", shape=box, style="rounded,filled", fillcolor="#eef3fb", color="#31517a"];
+  edge [fontname="Helvetica", fontsize=10];
+
+  labelloc="t";
+  label="mizan eval run — text-pointwise sequence (all implemented)";
+
+  user [label="user runs:\nmizan eval run --metric <id>\n--field k=v", shape=box, style="rounded,filled", fillcolor="#dcecdc", color="#2f6b2f"];
+  cliload [label="CLI: load config\n(internal/config.LoadConfig)"];
+  wireopen [label="CLI: wire.OpenService(cfg)\n-> registry.Service"];
+  fetch [label="registry.Service:\nfetch MetricTemplate by id"];
+  wireeng [label="CLI: wire.NewEngine(ctx, cfg)\n-> eval.Engine\n(live aiplatform.EvaluationClient)"];
+  expand [label="eval.Engine:\nexpand autorater model id ->\nfull resource name\nprojects/{p}/locations/{l}/\npublishers/google/models/{m}"];
+  build [label="eval.Engine.runPointwise:\nbuild PointwiseMetricSpec +\nJsonInstance + AutoraterConfig"];
+  call [label="call Vertex AI\nEvaluateInstances\n({location}-aiplatform.googleapis.com,\ndefault us-central1)"];
+  map [label="map response ->\nResult{Score, Explanation}"];
+  render [label="CLI: render Result\nto stdout (table|json)"];
+
+  user -> cliload -> wireopen -> fetch -> wireeng -> expand -> build -> call -> map -> render;
+}

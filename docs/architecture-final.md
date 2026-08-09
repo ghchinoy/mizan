@@ -136,6 +136,13 @@ complex fields (`Modalities`, `RubricGroup`, `ResponseSchema`, `Inputs`) are
 JSON-serialized into TEXT columns. The `Store` interface (§3 `store.go`) keeps a
 future Firestore-backed impl a drop-in (§9).
 
+**Component diagram (current build vs roadmap).** Solid boxes/edges are
+implemented and verified; dashed/grey elements (the Firestore `SyncBackend`,
+the `genai` custom-schema fallback, pairwise/rubric dispatch, GCS staging, and
+the external `mizan-templates` repo) are roadmap only:
+
+![Mizan component architecture diagram showing cmd/mizan composed via internal/wire over registry.Service and eval.Engine, with the sqlite.Store implementation solid and the Firestore SyncBackend, genai fallback, pairwise/rubric dispatch, GCS staging, and mizan-templates repo shown dashed as roadmap](diagrams/component-architecture.webp)
+
 ---
 
 ## 4. Go version
@@ -265,6 +272,11 @@ type Engine interface {
 > These affect `content.go` / `native.go` / `asset/` and the config default
 > `Location`, and make **GCS staging a P1 prerequisite** (implementation-plan §
 > P1). They do **not** change the module layout or the domain model.
+
+**Sequence diagram — text-pointwise `eval run` (fully implemented).** This is
+the one path that is entirely built and verified end-to-end today:
+
+![Sequence diagram of mizan eval run for a text-pointwise metric: CLI loads config, opens registry.Service and eval.Engine via wire, fetches the MetricTemplate, expands the autorater model to a full resource name, builds the PointwiseMetricSpec/JsonInstance/AutoraterConfig, calls Vertex AI EvaluateInstances, and renders the mapped Result to stdout](diagrams/eval-sequence.webp)
 
 ---
 
