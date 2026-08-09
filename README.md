@@ -8,9 +8,10 @@ Wails v2 desktop app.
 
 ## Status
 
-**A working vertical slice is shipped and installable today.** The table below
-is honest about the boundary between what runs now and what is still roadmap —
-Mizan never claims a capability it hasn't actually shipped.
+**Phase 1 is complete: all four metric kinds and multimodal are shipped and
+installable today.** The table below is honest about the boundary between
+what runs now and what is still roadmap — Mizan never claims a capability it
+hasn't actually shipped.
 
 ### Works today
 
@@ -18,31 +19,29 @@ Mizan never claims a capability it hasn't actually shipped.
   backed by a local, pure-Go SQLite store (no C toolchain required).
 - **Config** — `mizan config show|set`, persisted to
   `<UserConfigDir>/mizan/.env`, with environment-variable overrides.
-- **Text pointwise evaluation** — `mizan eval run` calls the real Vertex AI
+- **Pointwise evaluation** — `mizan eval run` calls the real Vertex AI
   `EvaluateInstances` API (region `us-central1` by default) and returns a live
-  `Score` + `Explanation` for a `pointwise` metric template whose fields are all
-  plain text.
+  `Score` + `Explanation` for a `pointwise` metric template.
+- **Rubric evaluation** — `registry create --kind rubric --rubric-group
+  "name=criterion one;criterion two"` (or `--rubric-groups-file`) authors the
+  rubric criteria; `eval run` returns a live `Score` + `Explanation`.
+- **Custom-schema evaluation** — `registry create --kind custom_schema
+  --response-schema '<json>'` (or `--response-schema-file`) authors the
+  response schema; `eval run` returns live structured `CustomOutput` fields
+  via the `genai.GenerateContent` path.
+- **Pairwise evaluation** — `mizan eval pairwise --metric <id> --baseline
+  key=value --candidate key=value` returns a live `Choice`
+  (`BASELINE`/`CANDIDATE`/`TIE`) + `Explanation`.
+- **Multimodal evaluation** (image/audio/video/music) — `eval run`/`eval
+  pairwise` accept `--file key=/path` (auto-staged to your configured GCS
+  staging bucket) or `--gcs key=gs://...` (pre-staged) for non-text fields.
 
-See the [user guide](docs/user_guide.md) for a full walkthrough with real
-command output.
+See the [user guide](docs/user_guide.md) and
+[testing guide](docs/testing-guide.md) for full walkthroughs with real,
+live-verified command output.
 
 ### Roadmap (not built yet — do not expect these to work)
 
-- **Multimodal evaluation** (image/audio/video/music) — requires GCS staging on
-  the native path; not wired into the CLI or engine yet. PR #9 (open, in
-  review) adds this.
-- **Pairwise evaluation** (`eval pairwise`, flip-bias mitigation) — `registry
-  create --kind pairwise` accepts the flag today, but `eval run` against a
-  pairwise template fails fast with `not implemented in P1 slice`; there is
-  no engine implementation yet. PR #9 (open, in review) adds this.
-- **Rubric-based metrics** — the evaluation engine actually supports these
-  today (native path, integration-tested), but `registry create`/`update`
-  has no flag to set the required `RubricGroups`, so a CLI-created template
-  can't be run yet — see [`docs/testing-guide.md`](docs/testing-guide.md).
-- **`custom_schema` metric execution** via the `genai` fallback path — same
-  story as rubric: the engine path works and is tested, but there's no CLI
-  flag to set `ResponseSchema` yet — see
-  [`docs/testing-guide.md`](docs/testing-guide.md).
 - **Template packs and sharing** (`mizan pack init|validate|add`,
   `registry import|export`) — no `pack` command and no `registry
   import|export` exist in the built `mizan` binary yet. The intended model:
@@ -57,10 +56,11 @@ command output.
   `mizan-templates` is not just a stub — it already holds a real worked
   example pack (`packs/google-brand/`), its own pack-format docs, and an
   active CI gate — but this repo's binary has no code path that talks to it
-  yet.
-- **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets).
+  yet. Roadmap phase P2.
+- **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets). Roadmap
+  phase P3.
 - **The Wails desktop app** (`cmd/mizan-desktop`) — design-stage scaffolding
-  only; there is no built or runnable desktop app.
+  only; there is no built or runnable desktop app. Roadmap phase P4.
 
 ## Quickstart
 

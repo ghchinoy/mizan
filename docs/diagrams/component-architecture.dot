@@ -53,16 +53,16 @@ digraph MizanComponents {
   dispatch -> native [label="pointwise"];
   native -> evalinstances;
 
-  pairwise [label="pairwise\n(not implemented,\nWI-P1-4)", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
-  rubric [label="rubric\n(not implemented,\nWI-P1-5)", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
-  customschema [label="custom_schema\ngenai.GenerateContent\nfallback (not wired,\nWI-P1-5)", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+  pairwise [label="pairwise\nPairwiseMetricSpec +\nPairwiseChoice"];
+  rubric [label="rubric\nrunRubric (shares native\npointwise path)"];
+  customschema [label="custom_schema\ngenai.GenerateContent +\nResponseSchema"];
 
-  dispatch -> pairwise [style=dashed, color="gray50", label="pairwise"];
-  dispatch -> rubric [style=dashed, color="gray50", label="rubric"];
-  dispatch -> customschema [style=dashed, color="gray50", label="custom_schema"];
+  dispatch -> pairwise [label="pairwise"];
+  dispatch -> rubric [label="rubric"];
+  dispatch -> customschema [label="custom_schema"];
 
-  gcsstaging [label="GCS staging\n(internal/asset MIME\n+ upload to gs://)\nnot wired into CLI/engine", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
-  gcsstaging -> native [style=dashed, color="gray50", label="multimodal\n(roadmap)"];
+  gcsstaging [label="GCS staging\n(internal/asset: MIME detect +\nauto-stage to gs://)"];
+  gcsstaging -> native [label="multimodal"];
 
   templates_repo [label="github.com/ghchinoy/\nmizan-templates\n(separate repo,\nnot yet integrated — P2)", shape=box3d, style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
   cli -> templates_repo [style=dashed, color="gray50", label="registry import/\nexport (roadmap)"];

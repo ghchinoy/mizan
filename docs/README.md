@@ -1,9 +1,10 @@
 # Mizan — Documentation Index
 
-**Project status: a working vertical slice is shipped.** Registry CRUD, config,
-and live text-pointwise evaluation are built, installable, and verified against
-real Vertex AI. Multimodal, pairwise, rubric, custom_schema execution, template
-packs, batch eval, and the desktop app remain roadmap — see the
+**Project status: Phase 1 is complete.** Registry CRUD, config, and all four
+metric kinds (pointwise, rubric, custom_schema, pairwise) — including
+multimodal (image/audio/video/music) — are built, installable, and verified
+end-to-end against real Vertex AI. Template packs/sharing, batch eval, and the
+desktop app remain roadmap — see the
 [user guide](user_guide.md#coming-soon--roadmap) or the root
 [`README.md`](../README.md#roadmap-not-built-yet--do-not-expect-these-to-work)
 for the current boundary. The design documents below remain the architectural
@@ -26,7 +27,7 @@ source of truth even as code lands.
 | Doc | Purpose | Status |
 |---|---|---|
 | `user_guide.md` | End-user guide: install, configure, registry walkthrough, running evaluations, troubleshooting, roadmap. | Current — verified against the built CLI. |
-| `testing-guide.md` | Hands-on, copy-pasteable recipes for exercising each built capability, including the exact failure modes for kinds that aren't fully CLI-runnable yet (rubric, custom_schema, pairwise). | Current — verified against the built CLI. |
+| `testing-guide.md` | Hands-on, copy-pasteable recipes for exercising every metric kind (pointwise, rubric, custom_schema, pairwise) and multimodal, plus the pairwise placeholder contract and the `--flip-enabled` P1 limitation. | Current — verified against the built CLI. |
 | `research.md` | Ground-truth research: eval service, API, modalities, precedents. | Reference (do not re-derive). |
 | `architecture-final.md` | Current, authoritative architecture (rev 3). Module layout, domain model & engine, config, deps, CLI surface (§12), desktop bindings (§13). Now includes embedded architecture/sequence diagrams. | Current, updated as code lands. |
 | `collaboration-design.md` | The contribution layer: template-pack format, versioning, validation, the Store/codec/sync seam, and the authoritative `MetricTemplate` struct (§6). | Design for review (rev 3) — not yet implemented. |
