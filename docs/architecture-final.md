@@ -101,9 +101,18 @@ mizan/
       batch.go                    (Phase 3) EvaluateDataset wrapper
     asset/        mime.go gcs.go
     app/          app.go          (Phase 4) Wails bindings over registry.Service
+  packs/                          canonical shared template packs (in-repo; user decision)
+    <pack-name>/
+      mizan-pack.yaml
+      templates/*.yaml            one MetricTemplate per file (data only; not imported by Go)
   docs/           research.md architecture.md spikes.md
                   collaboration-design.md architecture-final.md implementation-plan.md
+  .github/workflows/validate-packs.yaml   repo-level pack CI gate, path-filtered to packs/**
 ```
+
+The `packs/` tree is pure data (no Go imports it), so it does not affect
+`go build ./...`, module deps, or the CLI binary — code and packs coexist in one
+repo per the 2026-08-09 user decision. See collaboration-design.md §3.3/§3.7.
 
 **Dependency direction (enforced):** `cmd/*` → `registry.Service`,
 `eval.Engine`, `config`. `eval` → `registry` (reads `MetricTemplate`) but never
@@ -242,8 +251,8 @@ Spike 5.*
    Spikes 1–2.*
 4. **`apiv1beta1` preview stability posture** for a production tool
    (research.md §7 open item) — confirm breaking-change cadence before GA claims.
-5. Pack repo location (dedicated repo vs monorepo `packs/`) — see
-   collaboration-design.md §7. *Needs user decision.*
+5. Pack repo location — **RESOLVED (user, 2026-08-09): in-repo `packs/` tree in
+   `ghchinoy/mizan`.** See collaboration-design.md §3.3/§3.7.
 
 ---
 

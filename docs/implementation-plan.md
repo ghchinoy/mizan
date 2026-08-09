@@ -120,14 +120,18 @@ additive: no P1 command implementation changes beyond registering new subcommand
 - **WI-P2-1 — Codec + JSON Schema.** `YAMLCodec` (MetricTemplate ⇄ pack YAML,
   collab §3.2); `schema/metrictemplate.json`; `contentHash` computation (collab
   §3.4). *Depends: P1 MetricTemplate.*
-- **WI-P2-2 — Pack read/write.** `pack.go`: manifest, `templates/*.yaml` glob,
-  `pack init` scaffold (incl. CI workflow), `pack add`. Namespaced-id enforcement.
+- **WI-P2-2 — Pack read/write.** `pack.go`: manifest, `packs/*/` + `templates/*.yaml`
+  discovery/glob, `pack init packs/<name>` scaffold, `pack add`.
+  Namespaced-id enforcement. Also add the repo-level
+  `.github/workflows/validate-packs.yaml` (path-filtered to `packs/**`, builds
+  CLI from checkout — collab §3.7); `pack init` does not re-emit it in-repo.
 - **WI-P2-3 — Validation pipeline.** `validate.go` steps 1–5 (structural →
-  lint), creds-free; `--dry-run` step 6 (opt-in live). `mizan pack validate`
-  exits non-zero on error.
+  lint), creds-free; discovers `packs/*` when given a repo tree; `--dry-run`
+  step 6 (opt-in live). `mizan pack validate` exits non-zero on error.
 - **WI-P2-4 — SyncBackend + GitPackBackend.** `sync.go` `SyncBackend` interface;
-  `GitPackBackend` (Load/Save over a pack dir). `import <git-url>` shells out to
-  user's git into `PackCacheDir`.
+  `GitPackBackend` (Load/Save over a `packs/` tree or a single pack dir).
+  `import <git-url>` / bare `import` defaults to `github.com/ghchinoy/mizan`,
+  shelling out to user's git into `PackCacheDir` and reading its `packs/` tree.
 - **WI-P2-5 — Service import/export + reconciliation.** `Service.Import/Export`,
   the §3.8 conflict matrix, `--strategy`, `ImportReport`, `dirty` tracking.
 - **WI-P2-6 — CLI surface.** `registry import|export`, `pack init|validate|add`.
@@ -141,7 +145,10 @@ additive: no P1 command implementation changes beyond registering new subcommand
 - `pack validate` fails on each defect in collab §8; passes the §3.2 video
   example; the §3.2 video template imports and runs via the P1 engine.
 - Reconciliation matrix (§3.8) fully unit-tested.
-- `pack init`'s CI workflow blocks a PR adding an invalid template (creds-free).
+- The repo-level `validate-packs` workflow blocks a PR adding an invalid template
+  under `packs/` (creds-free) while leaving code-only PRs unaffected.
+- `import github.com/ghchinoy/mizan` (and bare `import`) discovers/imports all
+  packs under `packs/`.
 - Seam-proof test passes.
 
 ---
