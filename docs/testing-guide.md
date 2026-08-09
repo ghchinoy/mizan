@@ -160,28 +160,55 @@ is what's shown here:
 {
   "type": "object",
   "properties": {
-    "overall_score": { "type": "integer" },
-    "compliant": { "type": "boolean" },
-    "flagged_issues": { "type": "array", "items": { "type": "string" } },
-    "explanation": { "type": "string" }
+    "overall_score": {
+      "type": "integer",
+      "description": "A 0-10 compliance score for the response (10 = fully compliant)."
+    },
+    "compliant": {
+      "type": "boolean",
+      "description": "Whether the response complies with the policy overall."
+    },
+    "flagged_issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Short labels for any policy issues found (empty if none)."
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Free-text rationale for the score and compliant verdict."
+    }
   },
   "required": ["overall_score", "compliant", "explanation"]
 }
 ```
 
 If you have a clone of this repo, point `--response-schema-file` straight at
-`docs/examples/compliance-schema.json`. Otherwise, create the file yourself
-first:
+`docs/examples/compliance-schema.json` (this is a relative path, so run the
+command from the repository root, or adjust the path / use an absolute path
+if you're elsewhere). Otherwise, create the file yourself first:
 
 ```sh
 cat > /tmp/compliance-schema.json <<'EOF'
 {
   "type": "object",
   "properties": {
-    "overall_score": { "type": "integer" },
-    "compliant": { "type": "boolean" },
-    "flagged_issues": { "type": "array", "items": { "type": "string" } },
-    "explanation": { "type": "string" }
+    "overall_score": {
+      "type": "integer",
+      "description": "A 0-10 compliance score for the response (10 = fully compliant)."
+    },
+    "compliant": {
+      "type": "boolean",
+      "description": "Whether the response complies with the policy overall."
+    },
+    "flagged_issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Short labels for any policy issues found (empty if none)."
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Free-text rationale for the score and compliant verdict."
+    }
   },
   "required": ["overall_score", "compliant", "explanation"]
 }
