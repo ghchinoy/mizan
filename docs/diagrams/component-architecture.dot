@@ -1,0 +1,71 @@
+digraph MizanComponents {
+  // Mizan component/architecture diagram.
+  // Solid = implemented and verified working today.
+  // Dashed/grey = roadmap, not built yet.
+  rankdir=LR;
+  fontname="Helvetica";
+  node [fontname="Helvetica", shape=box, style="rounded,filled", fillcolor="#eef3fb", color="#31517a"];
+  edge [fontname="Helvetica", fontsize=10];
+
+  labelloc="t";
+  label="Mizan — component architecture (implemented vs roadmap)";
+
+  // Legend
+  subgraph cluster_legend {
+    label="Legend";
+    fontsize=11;
+    style="rounded";
+    color="#999999";
+    node [shape=box, fontsize=10, width=1.6];
+    legend_impl [label="implemented", style="rounded,filled", fillcolor="#eef3fb", color="#31517a"];
+    legend_road [label="roadmap / not built", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+    legend_impl -> legend_road [style=invis];
+  }
+
+  cli [label="cmd/mizan\n(Cobra CLI)"];
+  wire [label="internal/wire\n(composition root)"];
+  config [label="internal/config\nConfig"];
+  regsvc [label="registry.Service"];
+  engine [label="eval.Engine"];
+
+  cli -> wire;
+  wire -> regsvc;
+  wire -> engine;
+  cli -> config;
+  cli -> regsvc [label="reads/writes\nMetricTemplate"];
+  cli -> engine [label="Run()"];
+
+  // Registry store side
+  store_iface [label="registry.Store\n(interface)"];
+  sqlite [label="sqlite.Store\n(modernc.org/sqlite,\npure-Go, cgo-free)\n~/.config/mizan/registry.db"];
+  syncbackend [label="Firestore/GCS\nSyncBackend\n(planned drop-in)", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+
+  regsvc -> store_iface;
+  store_iface -> sqlite;
+  store_iface -> syncbackend [style=dashed, color="gray50"];
+
+  // Engine dispatch
+  dispatch [label="dispatch on\nMetricTemplate.Kind", shape=diamond, style="filled", fillcolor="#eef3fb", color="#31517a"];
+  engine -> dispatch;
+
+  native [label="runPointwise\n(native path)"];
+  evalinstances [label="Vertex AI\nEvaluateInstances\n{location}-aiplatform.googleapis.com\n(default us-central1)"];
+  dispatch -> native [label="pointwise"];
+  native -> evalinstances;
+
+  pairwise [label="pairwise\n(not implemented,\nWI-P1-4)", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+  rubric [label="rubric\n(not implemented,\nWI-P1-5)", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+  customschema [label="custom_schema\ngenai.GenerateContent\nfallback (not wired,\nWI-P1-5)", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+
+  dispatch -> pairwise [style=dashed, color="gray50", label="pairwise"];
+  dispatch -> rubric [style=dashed, color="gray50", label="rubric"];
+  dispatch -> customschema [style=dashed, color="gray50", label="custom_schema"];
+
+  gcsstaging [label="GCS staging\n(internal/asset MIME\n+ upload to gs://)\nnot wired into CLI/engine", style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+  gcsstaging -> native [style=dashed, color="gray50", label="multimodal\n(roadmap)"];
+
+  templates_repo [label="github.com/ghchinoy/\nmizan-templates\n(separate repo,\nnot yet integrated — P2)", shape=box3d, style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+  cli -> templates_repo [style=dashed, color="gray50", label="registry import/\nexport (roadmap)"];
+
+  { rank=same; native; pairwise; rubric; customschema; }
+}
