@@ -6,6 +6,8 @@ package config
 
 import (
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,16 +43,14 @@ type Config struct {
 // returned *Config is still populated so those paths can proceed.
 var ErrMissingProjectID = errors.New("config: project ID not set (set MIZAN_PROJECT_ID or PROJECT_ID)")
 
-// LoadConfig resolves configuration from the environment, loading a .env file
-// from the current directory first if one is present (existing environment
-// variables take precedence). It returns an error rather than exiting so
-// callers can decide how to react (CLI: fatal for eval; GUI: setup screen).
+// LoadConfig resolves configuration from the environment. It first loads an
+// env file only from an EXPLICIT, trusted source (never silently from the
+// current working directory) — see loadEnvFile — then resolves each value from
+// the environment (real env always wins over the env file). It returns an error
+// rather than exiting so callers can decide how to react (CLI: fatal for eval;
+// GUI: setup screen).
 func LoadConfig() (*Config, error) {
-	// godotenv.Load does not override already-set variables, which is the
-	// behavior we want (real env wins over .env).
-	if _, err := os.Stat(".env"); err == nil {
-		_ = godotenv.Load()
-	}
+	loadEnvFile()
 
 	c := &Config{
 		ProjectID:            firstNonEmpty(os.Getenv("MIZAN_PROJECT_ID"), os.Getenv("PROJECT_ID")),
@@ -63,10 +63,70 @@ func LoadConfig() (*Config, error) {
 	c.RegistryDBPath = firstNonEmpty(os.Getenv("MIZAN_REGISTRY_DB"), defaultDBPath())
 	c.PackCacheDir = firstNonEmpty(os.Getenv("MIZAN_PACK_CACHE"), defaultPackCacheDir())
 
+	// Reject a custom API endpoint that could redirect ADC bearer tokens to a
+	// non-Google host (token-exfil defense). Never weakens auth/TLS.
+	if err := ValidateEndpoint(c.APIEndpoint); err != nil {
+		return c, err
+	}
+
 	if c.ProjectID == "" {
 		return c, ErrMissingProjectID
 	}
 	return c, nil
+}
+
+// loadEnvFile loads a dotenv file only from an explicit, trusted source, never
+// silently from the current working directory (which would let a stray/hostile
+// .env in a cloned repo or shared work dir redirect the Vertex endpoint and
+// exfiltrate ADC OAuth tokens). Resolution order:
+//
+//  1. MIZAN_ENV_FILE, if set (explicit path; may be a CWD ".env" as an opt-in).
+//  2. <os.UserConfigDir>/mizan/.env, if it exists.
+//
+// godotenv.Load does not override already-set variables, so real environment
+// values always win. The env file actually loaded is announced on stderr so any
+// redirect of configuration is visible to the operator.
+func loadEnvFile() {
+	if p := os.Getenv("MIZAN_ENV_FILE"); p != "" {
+		if _, err := os.Stat(p); err == nil {
+			if err := godotenv.Load(p); err == nil {
+				fmt.Fprintf(os.Stderr, "mizan: loaded env file %s (MIZAN_ENV_FILE)\n", p)
+			}
+		}
+		return
+	}
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return
+	}
+	p := filepath.Join(dir, "mizan", ".env")
+	if _, err := os.Stat(p); err == nil {
+		if err := godotenv.Load(p); err == nil {
+			fmt.Fprintf(os.Stderr, "mizan: loaded env file %s\n", p)
+		}
+	}
+}
+
+// ValidateEndpoint rejects a non-empty APIEndpoint whose host is not under
+// *.googleapis.com unless MIZAN_ALLOW_CUSTOM_ENDPOINT=1 is set. This prevents a
+// stray/hostile config from redirecting the authenticated Vertex client (which
+// attaches an ADC OAuth bearer token to every RPC) to an attacker-controlled
+// host. It never disables ADC or TLS.
+func ValidateEndpoint(ep string) error {
+	if ep == "" {
+		return nil
+	}
+	if os.Getenv("MIZAN_ALLOW_CUSTOM_ENDPOINT") == "1" {
+		return nil
+	}
+	host := ep
+	if h, _, err := net.SplitHostPort(ep); err == nil {
+		host = h
+	}
+	if host == "googleapis.com" || strings.HasSuffix(host, ".googleapis.com") {
+		return nil
+	}
+	return fmt.Errorf("config: refusing custom API endpoint %q: host is not *.googleapis.com (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", ep)
 }
 
 func defaultDBPath() string {

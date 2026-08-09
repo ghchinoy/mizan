@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -10,8 +12,8 @@ import (
 )
 
 // configKeys maps friendly `config set` keys to their environment-variable
-// names. LoadConfig reads a .env from the working directory, so `config set`
-// persists there.
+// names. `config set` persists to <UserConfigDir>/mizan/.env, the same trusted
+// location LoadConfig reads (never the current working directory).
 var configKeys = map[string]string{
 	"project-id":     "MIZAN_PROJECT_ID",
 	"location":       "MIZAN_LOCATION",
@@ -22,7 +24,16 @@ var configKeys = map[string]string{
 	"templates-repo": "MIZAN_TEMPLATES_REPO",
 }
 
-const dotenvPath = ".env"
+// dotenvPath returns the trusted env-file path <UserConfigDir>/mizan/.env that
+// `config set` writes and LoadConfig reads. It never uses the current working
+// directory (avoids the CWD-.env trust bug closed in internal/config).
+func dotenvPath() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve user config dir: %w", err)
+	}
+	return filepath.Join(dir, "mizan", ".env"), nil
+}
 
 // newConfigCmd wires the `mizan config` command family.
 func newConfigCmd() *cobra.Command {
@@ -64,8 +75,8 @@ func newConfigShowCmd() *cobra.Command {
 func newConfigSetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "set <key> <value>",
-		Short: "Set a configuration value (persisted to ./.env)",
-		Long:  "Set a configuration value in ./.env. Valid keys: " + strings.Join(sortedKeys(), ", "),
+		Short: "Set a configuration value (persisted to <UserConfigDir>/mizan/.env)",
+		Long:  "Set a configuration value in <UserConfigDir>/mizan/.env. Valid keys: " + strings.Join(sortedKeys(), ", "),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			key, value := args[0], args[1]
@@ -74,15 +85,27 @@ func newConfigSetCmd() *cobra.Command {
 				return fmt.Errorf("unknown config key %q (valid: %s)", key, strings.Join(sortedKeys(), ", "))
 			}
 
-			existing, _ := godotenv.Read(dotenvPath) // empty map if absent
+			path, err := dotenvPath()
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				return fmt.Errorf("create config dir: %w", err)
+			}
+
+			existing, _ := godotenv.Read(path) // empty map if absent
 			if existing == nil {
 				existing = map[string]string{}
 			}
 			existing[env] = value
-			if err := godotenv.Write(existing, dotenvPath); err != nil {
-				return fmt.Errorf("write %s: %w", dotenvPath, err)
+			if err := godotenv.Write(existing, path); err != nil {
+				return fmt.Errorf("write %s: %w", path, err)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "set %s (%s) in %s\n", key, env, dotenvPath)
+			// Restrict perms: the env file is the natural home for future secrets.
+			if err := os.Chmod(path, 0o600); err != nil {
+				return fmt.Errorf("chmod %s: %w", path, err)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "set %s (%s) in %s\n", key, env, path)
 			return nil
 		},
 	}

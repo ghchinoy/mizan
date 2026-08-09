@@ -35,7 +35,8 @@ var _ registry.Store = (*Store)(nil)
 func Open(path string) (*Store, error) {
 	if path != ":memory:" && path != "" {
 		if dir := filepath.Dir(path); dir != "" {
-			if err := os.MkdirAll(dir, 0o755); err != nil {
+			// 0700: the DB holds private template bodies; keep it owner-only.
+			if err := os.MkdirAll(dir, 0o700); err != nil {
 				return nil, fmt.Errorf("sqlite: create db dir: %w", err)
 			}
 		}
@@ -44,6 +45,19 @@ func Open(path string) (*Store, error) {
 	db, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite: open: %w", err)
+	}
+	// Restrict the DB file to owner-only (modernc creates it 0644 by default).
+	// The file is created lazily, so touch it via a ping before chmod. Skip for
+	// the in-memory / anonymous DBs which have no file on disk.
+	if path != ":memory:" && path != "" {
+		if err := db.Ping(); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("sqlite: open: %w", err)
+		}
+		if err := os.Chmod(path, 0o600); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("sqlite: chmod db file: %w", err)
+		}
 	}
 	// A single connection avoids "database is locked" on file-backed DBs and is
 	// required for an in-memory DB to persist across statements.
@@ -200,8 +214,11 @@ func (s *Store) List(ctx context.Context, f registry.ListFilter) ([]registry.Met
 		where = append(where, "dirty = 1")
 	}
 	if f.Namespace != "" {
-		where = append(where, "id LIKE ?")
-		args = append(args, f.Namespace+"/%")
+		// Escape LIKE metacharacters so a namespace containing %, _ or \ is
+		// matched literally (a bare "%" must not match every row).
+		esc := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(f.Namespace)
+		where = append(where, `id LIKE ? ESCAPE '\'`)
+		args = append(args, esc+"/%")
 	}
 	q := selectCols + " FROM metric_templates"
 	if len(where) > 0 {
