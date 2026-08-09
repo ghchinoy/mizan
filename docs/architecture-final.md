@@ -190,9 +190,16 @@ the template's `autorater.*` fields.
 > - **Placeholder syntax:** the API accepts **both** `{{x}}` and `{x}`; Mizan
 >   **standardizes on double-brace `{{x}}`** (validator enforces —
 >   collaboration-design §3.2/§3.5).
-> - **Eval-service region:** `global`, `us-central1`, `us-east4`, `us-west1`,
->   `europe-west1`, `europe-west4` all work; `asia-northeast1` is rejected.
->   **Default `Location = us-central1`** (§7).
+> - **Eval-service region:** the **native** `EvaluateInstances` path targets a
+>   **specific regional endpoint** — `us-central1` (verified default), plus
+>   `us-east4`, `us-west1`, `europe-west1`, `europe-west4`, and `global` all return
+>   live scores; `asia-northeast1` is rejected (`FailedPrecondition`) and the **`us`
+>   multi-region endpoint 404s — do NOT use it**. **Default `Location = us-central1`**
+>   (§7). Surface the service's `Unsupported region` error verbatim. Prefer a
+>   concrete region for the native path; reserve `global` for the genai path below.
+> - **The `genai` custom-schema fallback path uses `location=global`** and is
+>   distinct from the native regional path — keep the two clients/locations
+>   separate (this mirrors the inline-bytes asymmetry).
 > - **MAJOR — inline bytes are NOT supported by native `EvaluateInstances` /
 >   `ContentMapInstance`.** All non-text native eval **requires `gs://` `FileData`
 >   staging** — GCS staging is mandatory for *every* multimodal native eval, not
@@ -203,9 +210,13 @@ the template's `autorater.*` fields.
 >   bytes.** The two paths differ: native `EvaluateInstances` = `gs://` only;
 >   `genai.GenerateContent` (custom_schema) = inline bytes OK. `content.go` must
 >   keep the two converters distinct and honor this asymmetry.
-> - **Autorater model needs the full resource name** (not a short id);
->   `AutoraterModel` materialization must expand to the full publisher/endpoint
->   resource path.
+> - **Autorater model must be a FULL RESOURCE NAME** —
+>   `projects/{ProjectID}/locations/{Location}/publishers/google/models/{model}`; a
+>   bare id (`gemini-2.5-pro`) is rejected `InvalidArgument: Invalid autorater model
+>   resource name`. Packs store only a **publisher-relative id** (portability —
+>   they must not embed a project); `native.go` **expands** it to the full resource
+>   name at materialization using config `ProjectID`/`Location`. See
+>   collaboration-design §3.2/§6.
 > - **Mismatched MIME silently drops the asset** — `asset/mime.go` must detect and
 >   set the correct MIME or the eval silently loses the input.
 > - **`PairwiseChoice`** confirmed live: `BASELINE=1`, `CANDIDATE=2`, `TIE=3`.
@@ -223,7 +234,7 @@ Per architecture.md §5 (`mcp-common` shape), with the collaboration additions:
 ```go
 type Config struct {
     ProjectID            string // required (env PROJECT_ID / MIZAN_PROJECT_ID); default ghchinoy-genai-sa in examples
-    Location             string // eval-service region; default "us-central1" (spike-core); global|us-central1|us-east4|us-west1|europe-west1|europe-west4 valid
+    Location             string // native eval-service region; default "us-central1" (spike-core). Valid: us-central1|us-east4|us-west1|europe-west1|europe-west4|global. NOTE: the "us" MULTI-REGION 404s (do not use); asia-northeast1 rejected. genai custom-schema path uses location=global separately.
     StagingBucket        string // gs:// staging bucket — REQUIRED for multimodal native eval (inline bytes unsupported, §6); gs:// stripped
     APIEndpoint          string // optional override
     RegistryDBPath       string // default ~/.config/mizan/registry.db (os.UserConfigDir)

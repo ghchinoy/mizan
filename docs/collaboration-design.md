@@ -278,7 +278,14 @@ spec:
     Be strict. Penalize off-brand tone even when production quality is high.
 
   autorater:
-    model: gemini-2.5-pro          # publisher model or tuned endpoint resource
+    # Publisher-relative model id ONLY — e.g. "gemini-2.5-pro" or
+    # "publishers/google/models/gemini-2.5-pro". Do NOT put a project-scoped full
+    # resource name here: packs are portable and must not embed a consumer's
+    # project/location. The engine EXPANDS this to the full resource name the Eval
+    # Service requires — projects/{ProjectID}/locations/{Location}/publishers/
+    # google/models/{model} — at materialization, using the consumer's config.
+    # (spike-core: a bare name is rejected by the API, so expansion is mandatory.)
+    model: gemini-2.5-pro
     samplingCount: 4               # AutoraterConfig.SamplingCount (1-32)
     flipEnabled: false             # pairwise-only; ignored for pointwise
 
@@ -770,7 +777,8 @@ type MetricTemplate struct {
     BaselineFieldName    string       // pairwise
     RubricGroups         map[string][]string // rubric
     ResponseSchema       *Schema      // custom_schema only
-    AutoraterModel       string
+    AutoraterModel       string       // publisher-relative id (e.g. gemini-2.5-pro);
+                                      //   engine expands to full resource name at eval time
     SamplingCount        int32        // 1-32
     FlipEnabled          bool         // pairwise
 

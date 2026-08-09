@@ -110,9 +110,13 @@ that exercises `config`, `registry.Store`, `registry.Service`, `eval.Engine`,
 - **WI-P1-3 — Native eval (text pointwise) — THE VALIDATING SLICE.** `eval.Engine`,
   `native.go`: materialize `PointwiseMetricSpec` + `JsonInstance` +
   `AutoraterConfig`, call `EvaluateInstances`, return `Result`. Use double-brace
-  `{{x}}` placeholder substitution (spike-core). **`AutoraterModel` must expand to
-  the full model resource name** (spike-core). Region default `us-central1`.
-  Narrow mockable `EvaluationClient` interface. **Text-only — needs no GCS bucket**,
+  `{{x}}` placeholder substitution (spike-core). **`AutoraterModel`: expand the
+  pack's publisher-relative id to the FULL resource name
+  `projects/{ProjectID}/locations/{Location}/publishers/google/models/{model}`** —
+  a bare id is rejected by the API (spike-core). Region: target a **specific**
+  regional endpoint, default `us-central1` (the `us` multi-region 404s; do not use
+  it). Narrow mockable `EvaluationClient` interface. **Text-only — needs no GCS
+  bucket**,
   so this slice validates before the multimodal fan-out. *Depends: Spike 1 ✓.*
 - **WI-P1-4 — Multimodal + pairwise.** `content.go` (AssetRef → **`FileData`
   (`gs://`) only** → ContentMapInstance — **inline `Blob` is NOT accepted by
