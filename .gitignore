@@ -8,6 +8,9 @@
 *.exe
 *.test
 *.out
+# `go build ./cmd/mizan` output at repo root
+/mizan
+/mizan-desktop
 
 # Wails / frontend build artifacts
 frontend/dist/
