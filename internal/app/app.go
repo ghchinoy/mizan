@@ -27,5 +27,5 @@ func New(store registry.Store, engine eval.Engine) *App {
 
 // ListMetricTemplates returns all stored templates.
 func (a *App) ListMetricTemplates(ctx context.Context) ([]registry.MetricTemplate, error) {
-	return a.store.List(ctx)
+	return a.store.List(ctx, registry.ListFilter{})
 }

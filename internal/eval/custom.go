@@ -1,29 +1,12 @@
 package eval
 
-import (
-	"context"
-	"errors"
-
-	"google.golang.org/genai"
-
-	"github.com/ghchinoy/mizan/internal/registry"
-)
-
-// errNotImplemented marks scaffold stubs wired in a later phase.
-var errNotImplemented = errors.New("eval: not implemented")
-
-// customEngine implements Engine via a direct genai GenerateContent call with
-// a strict ResponseSchema, for KindCustomSchema templates whose output shape
-// exceeds what EvaluateInstances can express.
+// custom.go will hold the genai custom_schema fallback path (KindCustomSchema),
+// a direct genai.GenerateContent call with a strict ResponseSchema and
+// exponential backoff. Unlike native EvaluateInstances, the genai path DOES
+// accept inline bytes (spike-core) — keep its content converter distinct from
+// the native one (content.go).
 //
-// Scaffold stub: retry/backoff and schema parsing land in the implementation
-// phase (docs/spikes.md Spike 4).
-type customEngine struct {
-	client *genai.Client
-}
-
-var _ Engine = (*customEngine)(nil)
-
-func (e *customEngine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error) {
-	return Result{}, errNotImplemented
-}
+// This path is NOT part of the P1 vertical slice; the engine returns a clear
+// "not implemented in P1 slice" error for KindCustomSchema (see engine.go).
+// It is implemented in WI-P1-5. Kept as an empty, clearly-marked file so the
+// slice stays scoped to text pointwise and the seam is visible to WI-P1-5.
