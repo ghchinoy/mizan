@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -80,6 +81,45 @@ func TestPutGetRoundTrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(*got, want) {
 		t.Errorf("round-trip mismatch:\n got: %#v\nwant: %#v", *got, want)
+	}
+}
+
+// TestPutGetRoundTripMinimalNil locks the nil-JSON behavior for a minimal
+// pointwise template whose slice/map/pointer fields are nil (Tags, Authors,
+// Maintainers, Modalities, Inputs, RubricGroups, ResponseSchema). These persist
+// as JSON "null" and must round-trip back to nil (not to empty non-nil values),
+// so reflect.DeepEqual against the nil-valued input holds.
+func TestPutGetRoundTripMinimalNil(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	ts := time.Date(2026, 8, 9, 12, 0, 0, 0, time.UTC)
+	want := registry.MetricTemplate{
+		ID:                   "minimal/pointwise",
+		Name:                 "Minimal",
+		Kind:                 registry.KindPointwise,
+		MetricPromptTemplate: "Rate: {{response}}",
+		AutoraterModel:       "gemini-2.5-flash",
+		CreatedAt:            ts,
+		UpdatedAt:            ts,
+		// All slice/map/pointer fields intentionally left nil.
+	}
+	if err := s.Put(ctx, &want); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	got, err := s.Get(ctx, want.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !reflect.DeepEqual(*got, want) {
+		t.Errorf("minimal round-trip mismatch:\n got: %#v\nwant: %#v", *got, want)
+	}
+	// Explicitly assert the nilable fields came back nil (not empty non-nil).
+	if got.Tags != nil || got.Authors != nil || got.Maintainers != nil ||
+		got.Modalities != nil || got.Inputs != nil || got.RubricGroups != nil ||
+		got.ResponseSchema != nil {
+		t.Errorf("expected nil slices/maps/pointer, got: %#v", *got)
 	}
 }
 
@@ -233,4 +273,63 @@ func ids(ts []registry.MetricTemplate) []string {
 		out = append(out, t.ID)
 	}
 	return out
+}
+
+// TestOpenSetsRestrictivePerms verifies the DB dir is 0700 and the DB file is
+// 0600 (LOW security finding: registry DB must not be world-readable).
+func TestOpenSetsRestrictivePerms(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "cfg", "mizan")
+	path := filepath.Join(sub, "registry.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	di, err := os.Stat(sub)
+	if err != nil {
+		t.Fatalf("stat dir: %v", err)
+	}
+	if perm := di.Mode().Perm(); perm != 0o700 {
+		t.Errorf("db dir perm = %04o, want 0700", perm)
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat file: %v", err)
+	}
+	if perm := fi.Mode().Perm(); perm != 0o600 {
+		t.Errorf("db file perm = %04o, want 0600", perm)
+	}
+}
+
+// TestListNamespaceEscapesWildcards verifies LIKE metacharacters in a namespace
+// filter are matched literally (a bare "%" must not match everything).
+func TestListNamespaceEscapesWildcards(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	for _, id := range []string{"team/a", "team/b", "other/c"} {
+		tm := registry.MetricTemplate{ID: id, Name: id, Kind: registry.KindPointwise}
+		if err := s.Put(ctx, &tm); err != nil {
+			t.Fatalf("Put %s: %v", id, err)
+		}
+	}
+
+	// A literal "%" namespace must match nothing (there is no id "%/...").
+	got, err := s.List(ctx, registry.ListFilter{Namespace: "%"})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("namespace %q matched %d rows, want 0 (wildcard must be escaped)", "%", len(got))
+	}
+
+	// A real namespace still filters correctly.
+	got, err = s.List(ctx, registry.ListFilter{Namespace: "team"})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(got) != 2 {
+		t.Errorf("namespace team matched %d rows, want 2", len(got))
+	}
 }

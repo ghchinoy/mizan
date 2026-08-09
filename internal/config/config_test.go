@@ -2,14 +2,17 @@ package config
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 // clearEnv blanks every environment variable LoadConfig consults so each test
 // starts from a known-empty baseline. t.Setenv restores the prior value when the
-// test ends. It also chdirs into an empty temp dir so a stray .env in the
-// package directory can never influence the result (LoadConfig loads .env from
-// the current working directory).
+// test ends. It also chdirs into an empty temp dir and points XDG_CONFIG_HOME at
+// a fresh temp dir so neither a stray CWD .env nor a real <UserConfigDir>/mizan/
+// .env can influence the result (LoadConfig no longer trusts CWD, but the env
+// file is loaded from an explicit/trusted source and must be neutralized here).
 func clearEnv(t *testing.T) {
 	t.Helper()
 	for _, k := range []string{
@@ -19,9 +22,13 @@ func clearEnv(t *testing.T) {
 		"MIZAN_API_ENDPOINT", "VERTEX_API_ENDPOINT",
 		"MIZAN_TEMPLATES_REPO",
 		"MIZAN_REGISTRY_DB", "MIZAN_PACK_CACHE",
+		"MIZAN_ENV_FILE", "MIZAN_ALLOW_CUSTOM_ENDPOINT",
 	} {
 		t.Setenv(k, "")
 	}
+	// Redirect UserConfigDir at a clean temp dir so no real ~/.config/mizan/.env
+	// leaks into the test.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Chdir(t.TempDir())
 }
 
@@ -148,5 +155,101 @@ func TestLoadConfigRegistryDBOverride(t *testing.T) {
 	}
 	if c.RegistryDBPath != "/tmp/custom/registry.db" {
 		t.Errorf("RegistryDBPath = %q, want the explicit override", c.RegistryDBPath)
+	}
+}
+
+func TestValidateEndpoint(t *testing.T) {
+	cases := []struct {
+		name    string
+		ep      string
+		allow   string
+		wantErr bool
+	}{
+		{"empty is allowed", "", "", false},
+		{"regional googleapis host", "us-central1-aiplatform.googleapis.com:443", "", false},
+		{"bare googleapis host no port", "aiplatform.googleapis.com", "", false},
+		{"apex googleapis", "googleapis.com:443", "", false},
+		{"non-google host rejected", "evil.attacker.example:443", "", true},
+		{"lookalike suffix rejected", "googleapis.com.evil.example:443", "", true},
+		{"non-google allowed with override", "evil.attacker.example:443", "1", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("MIZAN_ALLOW_CUSTOM_ENDPOINT", tc.allow)
+			err := ValidateEndpoint(tc.ep)
+			if tc.wantErr && err == nil {
+				t.Errorf("ValidateEndpoint(%q) = nil, want error", tc.ep)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("ValidateEndpoint(%q) = %v, want nil", tc.ep, err)
+			}
+		})
+	}
+}
+
+func TestLoadConfigRejectsCustomEndpoint(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("PROJECT_ID", "proj-123")
+	t.Setenv("MIZAN_API_ENDPOINT", "evil.attacker.example:443")
+
+	if _, err := LoadConfig(); err == nil {
+		t.Fatal("LoadConfig accepted a non-googleapis endpoint; want rejection")
+	}
+}
+
+func TestLoadConfigAllowsGoogleEndpoint(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("PROJECT_ID", "proj-123")
+	t.Setenv("MIZAN_API_ENDPOINT", "us-central1-aiplatform.googleapis.com:443")
+
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.APIEndpoint != "us-central1-aiplatform.googleapis.com:443" {
+		t.Errorf("APIEndpoint = %q, want it preserved", c.APIEndpoint)
+	}
+}
+
+// TestLoadConfigIgnoresCWDDotenv proves LoadConfig no longer trusts a .env in
+// the current working directory (the closed HIGH finding).
+func TestLoadConfigIgnoresCWDDotenv(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("PROJECT_ID", "proj-123")
+	// Plant a hostile .env in the CWD (clearEnv chdir'd us into a temp dir).
+	if err := os.WriteFile(".env", []byte("MIZAN_API_ENDPOINT=evil.attacker.example:443\n"), 0o600); err != nil {
+		t.Fatalf("write .env: %v", err)
+	}
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.APIEndpoint != "" {
+		t.Errorf("CWD .env was trusted: APIEndpoint = %q, want empty", c.APIEndpoint)
+	}
+}
+
+// TestLoadConfigLoadsExplicitEnvFile proves MIZAN_ENV_FILE is honored as an
+// explicit, opt-in source.
+func TestLoadConfigLoadsExplicitEnvFile(t *testing.T) {
+	clearEnv(t)
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "mizan.env")
+	if err := os.WriteFile(envPath, []byte("MIZAN_PROJECT_ID=from-file\n"), 0o600); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+	// godotenv.Load does not override a variable that is already present in the
+	// environment (even if empty). clearEnv blanks MIZAN_PROJECT_ID, so unset it
+	// here to let the explicit env file supply the value.
+	os.Unsetenv("MIZAN_PROJECT_ID")
+	os.Unsetenv("PROJECT_ID")
+	t.Setenv("MIZAN_ENV_FILE", envPath)
+
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.ProjectID != "from-file" {
+		t.Errorf("ProjectID = %q, want from-file (loaded from MIZAN_ENV_FILE)", c.ProjectID)
 	}
 }
