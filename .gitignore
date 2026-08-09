@@ -3,6 +3,8 @@
 
 # Go
 /bin/
+/mizan
+/mizan-desktop
 *.exe
 *.test
 *.out
