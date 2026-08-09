@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -104,5 +105,15 @@ func renderResult(w io.Writer, res eval.Result) error {
 		fmt.Fprintf(tw, "Choice:\t%s\n", res.PairwiseChoice)
 	}
 	fmt.Fprintf(tw, "Explanation:\t%s\n", res.Explanation)
+	if len(res.CustomOutput) > 0 {
+		keys := make([]string, 0, len(res.CustomOutput))
+		for k := range res.CustomOutput {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(tw, "CustomOutput[%s]:\t%v\n", k, res.CustomOutput[k])
+		}
+	}
 	return tw.Flush()
 }

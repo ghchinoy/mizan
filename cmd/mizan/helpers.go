@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -88,6 +89,19 @@ func renderTemplate(w io.Writer, t *registry.MetricTemplate) error {
 	}
 	if t.MetricPromptTemplate != "" {
 		fmt.Fprintf(tw, "Prompt:\t%s\n", firstLine(t.MetricPromptTemplate))
+	}
+	if len(t.RubricGroups) > 0 {
+		names := make([]string, 0, len(t.RubricGroups))
+		for name := range t.RubricGroups {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			fmt.Fprintf(tw, "RubricGroup[%s]:\t%s\n", name, strings.Join(t.RubricGroups[name], "; "))
+		}
+	}
+	if t.ResponseSchema != nil && t.ResponseSchema.JSON != "" {
+		fmt.Fprintf(tw, "ResponseSchema:\t%s\n", firstLine(t.ResponseSchema.JSON))
 	}
 	return tw.Flush()
 }
