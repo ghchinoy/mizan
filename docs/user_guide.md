@@ -127,11 +127,29 @@ the prompt must be supplied as a `--field` when you run the metric (see
 below), or the run fails before it ever calls the API.
 
 `--kind` accepts `pointwise`, `pairwise`, `rubric`, or `custom_schema`, but
-**only `pointwise` can currently be run** with `eval run` (see
-[Running an evaluation](#running-a-text-pointwise-evaluation-end-to-end)
-below and [Coming soon](#coming-soon--roadmap)). You can create templates of
-the other kinds today, but there's no way to execute them yet — the `--kind`
-value is only validated structurally at creation time.
+they are not all runnable today, and not for the same reason in each case:
+
+- **`pointwise`** works end-to-end today — see
+  [Running an evaluation](#running-a-text-pointwise-evaluation-end-to-end)
+  below.
+- **`rubric` and `custom_schema`** are implemented and integration-tested at
+  the `eval.Engine` level (native `LLMBasedMetricSpec` rubric groups for
+  `rubric`; `genai.GenerateContent` + `ResponseSchema` for `custom_schema`) —
+  but `registry create`/`update` currently expose **no flag** to set the
+  `RubricGroups` or `ResponseSchema` fields those paths require. A template
+  created via `--kind rubric` or `--kind custom_schema` therefore saves fine
+  but fails as soon as you `eval run` it, because the fields the engine needs
+  were never populated. This is a CLI-authoring gap, not a missing engine
+  feature. See [`docs/testing-guide.md`](testing-guide.md) for the exact
+  errors and verified reproduction steps.
+- **`pairwise`** has no engine support at all yet — `eval.Engine.Run` returns
+  `not implemented in P1 slice: pairwise (WI-P1-4)` for any pairwise
+  template. PR #9 (multimodal + pairwise) is in review; see
+  [Coming soon](#coming-soon--roadmap).
+
+In every case, `--kind` is validated structurally at creation time only — the
+registry does not know at `create` time whether the template will later be
+runnable.
 
 Other useful create flags: `--system` (system instruction), `--sampling-count`
 (autorater sampling count, default 4), `--modality` (repeatable; default
@@ -222,10 +240,23 @@ without one.)
 Your prompt template has a `{{var}}` placeholder with no matching `--field
 var=value` on the command line. Add the missing `--field`.
 
-**`Error: eval: not implemented in P1 slice: pairwise (WI-P1-4)`** (or
-`rubric`/`custom_schema`) You created a template with a `--kind` other than
-`pointwise` and tried to run it. This is expected — those kinds are
-creatable but not yet runnable. See [Coming soon](#coming-soon--roadmap).
+**`Error: eval: not implemented in P1 slice: pairwise (WI-P1-4)`**
+You created a `--kind pairwise` template and ran it. Pairwise has no engine
+implementation yet (PR #9, in review, adds it). See
+[Coming soon](#coming-soon--roadmap).
+
+**`Error: eval: rubric template "<id>" has no rubric groups`**
+You created a `--kind rubric` template and ran it. The rubric engine path is
+implemented, but there is currently no `registry create`/`update` flag to set
+`RubricGroups`, so every CLI-authored rubric template hits this error. This is
+a CLI-surface gap (tracked as follow-up CLI work), not an engine limitation —
+see [`docs/testing-guide.md`](testing-guide.md).
+
+**`Error: eval: custom_schema template "<id>" has no response schema`**
+Same story as the rubric error above, for `--kind custom_schema`: the engine
+(`genai.GenerateContent` + `ResponseSchema`) is implemented, but there is no
+CLI flag to set `ResponseSchema` on the template, so it's always empty for a
+CLI-authored template.
 
 **`Error: registry: template not found`**
 The `<id>` you passed to `get`/`update`/`delete`/`eval run --metric` doesn't
@@ -240,20 +271,34 @@ endpoint. If you really need a custom endpoint (e.g. a local test proxy), set
 
 ## Coming soon / roadmap
 
-These are **not implemented** in the current build — don't expect them to
-work, and treat any resemblance in `--help` output (e.g. accepted `--kind`
-values) as forward-looking scaffolding, not a working feature:
+These are **not usable end-to-end via the CLI** in the current build — don't
+expect them to work, and treat any resemblance in `--help` output (e.g.
+accepted `--kind` values) as forward-looking scaffolding, not a working
+feature:
 
 - **Multimodal evaluation** (image/audio/video/music) — the native
   `EvaluateInstances` path requires staging non-text assets to GCS
   (`gs://` URIs) first; that staging step (`internal/asset` MIME detection +
   upload) isn't wired into the CLI or engine yet. A separate `genai`-based
   custom-schema fallback that could accept inline bytes also isn't wired in.
-- **Pairwise evaluation** (`eval pairwise`, flip-bias mitigation) — roadmap
-  work item WI-P1-4.
-- **Rubric-based metrics** — roadmap work item WI-P1-5.
+  PR #9 (open, in review) adds this.
+- **Pairwise evaluation** (`eval pairwise`, flip-bias mitigation) — no engine
+  support at all yet (roadmap work item WI-P1-4); `eval.Engine.Run` returns
+  `not implemented in P1 slice: pairwise (WI-P1-4)`. PR #9 (open, in review)
+  adds this.
+- **Rubric-based metrics** — the *engine* work (WI-P1-5) is **done**: merged
+  in PR #6, with the native `LLMBasedMetricSpec` rubric-groups path
+  implemented and covered by integration tests. What's still roadmap is the
+  **CLI-authoring surface**: `registry create`/`update` has no flag to set
+  `RubricGroups`, so a CLI-created rubric template cannot be run yet. This
+  gap is part of the still-incomplete `WI-P1-6` CLI surface and is tracked as
+  a follow-up. See [`docs/testing-guide.md`](testing-guide.md) for the
+  verified failure mode.
 - **`custom_schema` metric execution** via the `genai` `GenerateContent`
-  fallback — roadmap work item WI-P1-5.
+  fallback — same status as rubric: the *engine* work (WI-P1-5) is **done**
+  (merged in PR #6, integration-tested), but `registry create`/`update` has
+  no flag to set `ResponseSchema`, so a CLI-created `custom_schema` template
+  cannot be run yet. Also part of the follow-up `WI-P1-6` CLI work.
 - **Template packs and sharing** (`mizan pack init|validate|add`, `registry
   import|export`) — no `pack` command and no `registry import|export` exist
   in the built binary yet (roadmap phase P2, the collaboration layer). The
