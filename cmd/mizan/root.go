@@ -24,6 +24,12 @@ func newRootCmd() *cobra.Command {
 		&cobra.Group{ID: groupConfig, Title: "Config commands:"},
 	)
 
+	root.PersistentFlags().StringVarP(&outputFormat, "output", "o", outputTable,
+		"output format: table|json")
+	root.PersistentPreRunE = func(_ *cobra.Command, _ []string) error {
+		return validOutput(outputFormat)
+	}
+
 	root.AddCommand(newRegistryCmd(), newEvalCmd(), newConfigCmd())
 	return root
 }
