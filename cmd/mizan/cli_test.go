@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -140,6 +143,79 @@ func TestParseFieldsInvalid(t *testing.T) {
 		if _, err := parseFields([]string{bad}); err == nil {
 			t.Errorf("parseFields(%q) = nil error, want error", bad)
 		}
+	}
+}
+
+// TestRootSilencesCobraErrors is a cmd-layer guard for WI-QF6: the root command
+// must set both SilenceUsage and SilenceErrors so that cobra never prints the
+// error itself. main.go is the single error printer (lowercase "error:" prefix
+// + os.Exit(1)); without SilenceErrors cobra also prints "Error: <err>",
+// producing duplicate output on every error path.
+func TestRootSilencesCobraErrors(t *testing.T) {
+	root := newRootCmd()
+	if !root.SilenceErrors {
+		t.Error("root.SilenceErrors = false, want true (cobra must not double-print errors)")
+	}
+	if !root.SilenceUsage {
+		t.Error("root.SilenceUsage = false, want true")
+	}
+
+	// Executing a failing command must not cause cobra to write its capital
+	// "Error:" line to the command's error writer.
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+	root.SetErr(&buf)
+	root.SetArgs([]string{"registry", "create"})
+	if err := root.Execute(); err == nil {
+		t.Fatalf("expected error from failing command, got nil (out=%q)", buf.String())
+	}
+	if strings.Contains(buf.String(), "Error:") {
+		t.Errorf("cobra printed error despite SilenceErrors; got %q", buf.String())
+	}
+}
+
+// TestErrorPrintedExactlyOnce is an integration-style test for WI-QF6: it builds
+// the real mizan binary and runs a fast-failing command, then asserts the error
+// message reaches stderr EXACTLY ONCE. This exercises the full pipeline (cobra's
+// SilenceErrors plus main.go's single fmt.Fprintln), which a pure in-process
+// test cannot, because main.go writes directly to os.Stderr. The command fails
+// on flag validation before any DB open or network call, so the test is
+// cgo-free and network-free.
+func TestErrorPrintedExactlyOnce(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping binary build in -short mode")
+	}
+	goBin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skipf("go toolchain not available: %v", err)
+	}
+
+	bin := filepath.Join(t.TempDir(), "mizan")
+	build := exec.Command(goBin, "build", "-o", bin, ".")
+	build.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build mizan binary: %v\n%s", err, out)
+	}
+
+	cmd := exec.Command(bin, "registry", "create")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err == nil {
+		t.Fatalf("expected non-zero exit from failing command; stderr=%q", stderr.String())
+	}
+
+	got := stderr.String()
+	const msg = "--id is required"
+	if n := strings.Count(got, msg); n != 1 {
+		t.Fatalf("error message %q appeared %d times, want exactly 1; stderr=%q", msg, n, got)
+	}
+	// cobra's capital "Error:" prefix must be gone (SilenceErrors).
+	if strings.Contains(got, "Error:") {
+		t.Errorf("cobra %q prefix present (double error not fixed); stderr=%q", "Error:", got)
+	}
+	// main.go's lowercase "error:" prefix must appear exactly once.
+	if n := strings.Count(got, "error:"); n != 1 {
+		t.Errorf("main.go %q prefix appeared %d times, want exactly 1; stderr=%q", "error:", n, got)
 	}
 }
 

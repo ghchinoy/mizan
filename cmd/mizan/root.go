@@ -16,6 +16,10 @@ func newRootCmd() *cobra.Command {
 			"metric templates and runs them against assets of any modality using the " +
 			"Vertex AI Gen AI Evaluation Service.",
 		SilenceUsage: true,
+		// SilenceErrors stops cobra from printing "Error: <err>" itself so that
+		// main.go remains the single error printer (lowercase "error:" prefix +
+		// os.Exit(1)). Without this, every error path prints twice. (WI-QF6)
+		SilenceErrors: true,
 	}
 
 	root.AddGroup(
