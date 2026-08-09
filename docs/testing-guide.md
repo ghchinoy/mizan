@@ -261,6 +261,22 @@ files passed with `--file key=/path` are auto-staged to your configured
 to `gs://.../mizan-staging/<sha256>.<ext>`), and pre-staged assets can be
 passed directly with `--gcs key=gs://...`.
 
+Generate a tiny test image (any real image/audio/video/music file works —
+this is just the smallest thing to synthesize without external
+dependencies):
+
+```sh
+python3 -c "
+import struct, zlib
+def chunk(tag, data):
+    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag+data) & 0xffffffff)
+w, h = 4, 4
+raw = b''.join(b'\x00' + bytes([255,0,0]*w) for _ in range(h))
+png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w,h,8,2,0,0,0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+open('/tmp/test-image.png', 'wb').write(png)
+"
+```
+
 Create an image metric and run it against a local file (live, captured in
 this pass against a 4x4 solid-red synthetic PNG at `/tmp/test-image.png`):
 
