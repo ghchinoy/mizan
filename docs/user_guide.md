@@ -133,8 +133,11 @@ they are not all runnable today, and not for the same reason in each case:
   [Running an evaluation](#running-a-text-pointwise-evaluation-end-to-end)
   below.
 - **`rubric` and `custom_schema`** are implemented and integration-tested at
-  the `eval.Engine` level (native `LLMBasedMetricSpec` rubric groups for
-  `rubric`; `genai.GenerateContent` + `ResponseSchema` for `custom_schema`) —
+  the `eval.Engine` level (`rubric` renders its inline rubric criteria as
+  text into the same `PointwiseMetricSpec`/`EvaluateInstances` mechanism
+  `pointwise` uses, since the synchronous API exposes no structured
+  rubric-groups field; `custom_schema` uses `genai.GenerateContent` +
+  `ResponseSchema`) —
   but `registry create`/`update` currently expose **no flag** to set the
   `RubricGroups` or `ResponseSchema` fields those paths require. A template
   created via `--kind rubric` or `--kind custom_schema` therefore saves fine
@@ -287,8 +290,11 @@ feature:
   `not implemented in P1 slice: pairwise (WI-P1-4)`. PR #9 (open, in review)
   adds this.
 - **Rubric-based metrics** — the *engine* work (WI-P1-5) is **done**: merged
-  in PR #6, with the native `LLMBasedMetricSpec` rubric-groups path
-  implemented and covered by integration tests. What's still roadmap is the
+  in PR #6, implemented and covered by integration tests. The native path
+  renders inline rubric criteria as text into the same
+  `PointwiseMetricSpec`/`EvaluateInstances` mechanism `pointwise` uses, since
+  the synchronous API has no structured rubric-groups field. What's still
+  roadmap is the
   **CLI-authoring surface**: `registry create`/`update` has no flag to set
   `RubricGroups`, so a CLI-created rubric template cannot be run yet. This
   gap is part of the still-incomplete `WI-P1-6` CLI surface and is tracked as

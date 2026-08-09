@@ -82,8 +82,11 @@ guaranteed.
 ## Rubric (engine built, not yet CLI-testable)
 
 The native rubric path is implemented in `internal/eval/native.go`
-(`runRubric`, dispatching to `LLMBasedMetricSpec` with inline
-`rubric_groups`) and is covered by integration tests:
+(`runRubric`, which renders the inline rubric criteria as text into the same
+`PointwiseMetricSpec`/`EvaluateInstances` judge-prompt mechanism `pointwise`
+uses, via `renderRubricGroups` — the synchronous API has no
+`LLMBasedMetricSpec`/structured `rubric_groups` field to pass them as) and is
+covered by integration tests:
 `internal/eval/rubric_test.go` and
 `internal/eval/rubric_custom_integration_test.go`.
 
