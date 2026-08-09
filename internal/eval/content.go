@@ -1,16 +1,33 @@
 package eval
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
+	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 	"google.golang.org/genai"
 
+	"github.com/ghchinoy/mizan/internal/asset"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
+
+// maxInlineBytes caps the size of a local asset the genai (custom_schema) inline
+// path will read into memory before sending it as an inline Part. It is
+// defense-in-depth against an oversized or crafted FilePath (a multi-GB media
+// file, a sparse file, or — once FilePath is dataset-driven — a hostile entry)
+// exhausting memory or hanging the process. 20 MiB is at/below the genai inline
+// payload ceiling, so bytes beyond it would be rejected by the API anyway. The
+// native path streams through asset.GCSStager (asset.maxAssetBytes) instead and
+// never reads bytes here.
+const maxInlineBytes int64 = 20 << 20
 
 // content.go holds helpers that turn an AssetRef / template into the request
 // shapes the eval backends need. In the P1 slice only the text path is wired:
@@ -77,19 +94,154 @@ func expandAutoraterModel(model, projectID, location string) (string, error) {
 	return fmt.Sprintf("projects/%s/locations/%s/publishers/google/models/%s", projectID, location, bare), nil
 }
 
-// --- WI-P1-4 stubs (multimodal). Do NOT implement in this slice. ---
+// --- Native multimodal (ContentMap) converters ---
 //
-// These are placeholders that establish the seam for the multimodal fan-out.
 // The native path (aiplatformpb) and the genai path use different Go types from
-// different packages, so two distinct converters are required. WI-P1-4 fills
-// these in against a gs://-staged AssetRef (native) and inline bytes (genai).
+// different packages, so two DISTINCT converters are required and must stay
+// distinct: native EvaluateInstances accepts `FileData{gs://…}` ONLY (inline
+// bytes are silently dropped — spike-core), whereas the genai custom_schema path
+// DOES accept inline bytes (toGenaiInlinePart below).
 
-// toNativeFileDataPart will convert a gs:// AssetRef into an aiplatformpb
-// FileData Part for the native ContentMap path. Native EvaluateInstances
-// accepts gs:// FileData ONLY; local files must be staged to GCS first
-// (asset/gcs.go, WI-P1-7). Implemented in WI-P1-4.
-func toNativeFileDataPart(_ AssetRef) error {
-	return fmt.Errorf("%w: native multimodal FileData converter (WI-P1-4)", errNotImplemented)
+// toNativeFileDataPart converts an AssetRef into an aiplatformpb.Part for the
+// native ContentMap path. Text becomes a text Part; a non-text asset becomes a
+// gs:// FileData Part (with a resolved MIME type — native requires it, and a
+// wrong/empty top-level type silently drops the asset). A local FilePath is
+// staged to GCS through the engine's Stager first; a pre-staged gs:// URI is
+// used directly (its MIME resolved via the Stager, an explicit override, or the
+// object extension). When staging is required but no Stager is configured, a
+// clear asset.ErrNoBucket-style error is returned.
+func (e *Engine) toNativeFileDataPart(ctx context.Context, ref AssetRef) (*aiplatformpb.Part, error) {
+	if isTextRef(ref) {
+		return &aiplatformpb.Part{Data: &aiplatformpb.Part_Text{Text: ref.Text}}, nil
+	}
+
+	uri := ref.GCSUri
+	mime := ref.MimeType
+
+	switch {
+	case ref.FilePath != "":
+		if e.stager == nil {
+			return nil, fmt.Errorf("eval: local asset %q requires GCS staging for native multimodal eval: %w", ref.FilePath, asset.ErrNoBucket)
+		}
+		res, err := e.stager.Stage(ctx, asset.StageInput{LocalPath: ref.FilePath, MIME: ref.MimeType})
+		if err != nil {
+			return nil, fmt.Errorf("eval: stage asset %q: %w", ref.FilePath, err)
+		}
+		uri, mime = res.GCSUri, res.MIME
+	case ref.GCSUri != "":
+		// Pre-staged: no upload needed. Resolve MIME via the Stager when present
+		// (pass-through), else honor an explicit override or fall back to the
+		// object extension so a bucket is not required just to read a gs:// URI.
+		if e.stager != nil {
+			res, err := e.stager.Stage(ctx, asset.StageInput{GCSUri: ref.GCSUri, MIME: ref.MimeType})
+			if err != nil {
+				return nil, fmt.Errorf("eval: resolve gs:// asset %q: %w", ref.GCSUri, err)
+			}
+			uri, mime = res.GCSUri, res.MIME
+		} else if mime == "" {
+			mime = asset.DetectMIME(ref.GCSUri, nil)
+		}
+	default:
+		return nil, fmt.Errorf("eval: asset ref for a non-text field has no file path or gs:// URI")
+	}
+
+	if uri == "" {
+		return nil, fmt.Errorf("eval: native multimodal asset has no gs:// URI")
+	}
+	if mime == "" || mime == "application/octet-stream" {
+		return nil, fmt.Errorf("eval: native multimodal asset %q needs a MIME type (native FileData requires it; the API silently drops assets with a wrong or missing MIME)", uri)
+	}
+	return &aiplatformpb.Part{Data: &aiplatformpb.Part_FileData{FileData: &aiplatformpb.FileData{FileUri: uri, MimeType: mime}}}, nil
+}
+
+// isTextRef reports whether ref is a plain text value (no file path or gs:// URI
+// and either an explicit text modality or a non-empty Text with no other data).
+func isTextRef(ref AssetRef) bool {
+	if ref.FilePath != "" || ref.GCSUri != "" {
+		return false
+	}
+	return ref.Modality == "" || ref.Modality == registry.ModalityText
+}
+
+// isMediaRef reports whether ref must be materialized as a native FileData Part
+// (i.e. it names a non-text asset by local path, gs:// URI, or non-text
+// modality).
+func isMediaRef(ref AssetRef) bool {
+	if ref.FilePath != "" || ref.GCSUri != "" {
+		return true
+	}
+	return ref.Modality != "" && ref.Modality != registry.ModalityText
+}
+
+// keysHaveMedia reports whether any of the referenced keys resolves to a
+// non-text asset, which forces the native ContentMap path (over JsonInstance).
+func keysHaveMedia(keys []string, inst Instance) bool {
+	for _, k := range keys {
+		if ref, ok := inst.Fields[k]; ok && isMediaRef(ref) {
+			return true
+		}
+	}
+	return false
+}
+
+// buildContentMap materializes the referenced keys into a native ContentMap
+// (placeholder -> content), staging any local files to gs:// FileData first. It
+// validates variable/instance-key parity (every key must have a value) before
+// building, failing fast client-side.
+func (e *Engine) buildContentMap(ctx context.Context, keys []string, inst Instance) (*aiplatformpb.ContentMap, error) {
+	values := make(map[string]*aiplatformpb.ContentMap_Contents, len(keys))
+	var missing []string
+	for _, k := range keys {
+		ref, ok := inst.Fields[k]
+		if !ok {
+			missing = append(missing, k)
+			continue
+		}
+		part, err := e.toNativeFileDataPart(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+		values[k] = &aiplatformpb.ContentMap_Contents{
+			Contents: []*aiplatformpb.Content{{
+				Role:  "user",
+				Parts: []*aiplatformpb.Part{part},
+			}},
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return nil, fmt.Errorf("eval: instance is missing values for template variables %v", missing)
+	}
+	return &aiplatformpb.ContentMap{Values: values}, nil
+}
+
+// buildJSONInstanceKeys marshals the given text keys into the JSON instance
+// string the API expects, validating that each key has a value.
+func buildJSONInstanceKeys(keys []string, inst Instance) (string, error) {
+	if len(keys) == 0 {
+		// The API rejects a non-empty instance when the template has no
+		// variables; an empty JSON object is the correct payload.
+		return "{}", nil
+	}
+	fields := map[string]string{}
+	var missing []string
+	for _, k := range keys {
+		ref, ok := inst.Fields[k]
+		if !ok {
+			missing = append(missing, k)
+			continue
+		}
+		fields[k] = ref.Text
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return "", fmt.Errorf("eval: instance is missing values for template variables %v", missing)
+	}
+	b, err := json.Marshal(fields)
+	if err != nil {
+		return "", fmt.Errorf("eval: marshal json instance: %w", err)
+	}
+	return string(b), nil
 }
 
 // toGenaiInlinePart converts an AssetRef into a genai Part for the custom_schema
@@ -108,16 +260,61 @@ func toGenaiInlinePart(ref AssetRef) (*genai.Part, error) {
 		}
 		return genai.NewPartFromURI(ref.GCSUri, mime), nil
 	case ref.FilePath != "":
-		data, err := os.ReadFile(ref.FilePath)
+		data, mime, err := readInlineAsset(ref.FilePath, ref.MimeType)
 		if err != nil {
-			return nil, fmt.Errorf("eval: read asset %q: %w", ref.FilePath, err)
-		}
-		mime := ref.MimeType
-		if mime == "" {
-			mime = http.DetectContentType(data)
+			return nil, err
 		}
 		return genai.NewPartFromBytes(data, mime), nil
 	default:
 		return nil, fmt.Errorf("eval: asset ref has no text, file path, or gs:// URI")
 	}
+}
+
+// readInlineAsset reads a local file's bytes for the genai inline path with the
+// same hardening asset.GCSStager applies to native staging (WI-7): symlinks are
+// resolved and the target must be a regular file (rejecting dirs, devices, FIFOs
+// and sockets such as /dev/zero, which would otherwise read without bound), and
+// the size is capped and read through a bounded reader. This closes an
+// OOM/hang DoS now that FilePath is CLI-reachable (and will become dataset-
+// driven). In P1 a CLI user may legitimately reference any file they can read,
+// so this is defense-in-depth, not a sandbox: it does NOT confine paths to a
+// base directory.
+func readInlineAsset(path, mimeOverride string) ([]byte, string, error) {
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("eval: resolve asset %q: %w", path, err)
+	}
+	fi, err := os.Lstat(resolved)
+	if err != nil {
+		return nil, "", fmt.Errorf("eval: stat asset %q: %w", path, err)
+	}
+	if !fi.Mode().IsRegular() {
+		return nil, "", fmt.Errorf("eval: asset %q is not a regular file (mode %s); refusing to read", path, fi.Mode().Type())
+	}
+	if fi.Size() > maxInlineBytes {
+		return nil, "", fmt.Errorf("eval: asset %q is %d bytes, exceeds the %d-byte inline cap", path, fi.Size(), maxInlineBytes)
+	}
+
+	f, err := os.Open(resolved)
+	if err != nil {
+		return nil, "", fmt.Errorf("eval: open asset %q: %w", path, err)
+	}
+	defer f.Close()
+
+	// Bounded read (belt-and-braces against a file that grows past the stat, or
+	// a special file that slipped the guard): read at most maxInlineBytes+1 and
+	// reject if the cap is exceeded.
+	data, err := io.ReadAll(io.LimitReader(f, maxInlineBytes+1))
+	if err != nil {
+		return nil, "", fmt.Errorf("eval: read asset %q: %w", path, err)
+	}
+	if int64(len(data)) > maxInlineBytes {
+		return nil, "", fmt.Errorf("eval: asset %q exceeds the %d-byte inline cap", path, maxInlineBytes)
+	}
+
+	mime := mimeOverride
+	if mime == "" {
+		mime = http.DetectContentType(data)
+	}
+	return data, mime, nil
 }

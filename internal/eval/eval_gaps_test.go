@@ -191,7 +191,7 @@ func TestToGenaiInlinePartErrors(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "does-not-exist.bin")
 	if _, err := toGenaiInlinePart(AssetRef{Modality: registry.ModalityImage, FilePath: missing}); err == nil {
 		t.Error("unreadable file path should error")
-	} else if !strings.Contains(err.Error(), "read asset") {
-		t.Errorf("error should mention read asset: %v", err)
+	} else if !strings.Contains(err.Error(), "asset") {
+		t.Errorf("error should reference the asset: %v", err)
 	}
 }

@@ -9,7 +9,10 @@ package wire
 
 import (
 	"context"
+	"errors"
+	"os"
 
+	"github.com/ghchinoy/mizan/internal/asset"
 	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
@@ -38,6 +41,20 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 		return nil, nil, err
 	}
 
+	// Endpoint allow-list parity for the genai path: the genai SDK honors the
+	// GOOGLE_VERTEX_BASE_URL / GOOGLE_GEMINI_BASE_URL env overrides (verified in
+	// v1.67.0, base_url.go getBaseURL priority 3), which — like the native
+	// APIEndpoint — could redirect the ADC bearer token to a non-Google host.
+	// Reject an override that is not under *.googleapis.com before building the
+	// authenticated client (config.ValidateGenaiBaseURL respects the same
+	// MIZAN_ALLOW_CUSTOM_ENDPOINT escape hatch). This never disables ADC/TLS.
+	for _, k := range []string{"GOOGLE_VERTEX_BASE_URL", "GOOGLE_GEMINI_BASE_URL"} {
+		if err := config.ValidateGenaiBaseURL(os.Getenv(k)); err != nil {
+			_ = client.Close()
+			return nil, nil, err
+		}
+	}
+
 	// The genai custom_schema path uses location=global, distinct from the
 	// native regional EvaluationClient above.
 	genaiClient, err := eval.NewGenaiClient(ctx, cfg.ProjectID, "global")
@@ -46,6 +63,32 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 		return nil, nil, err
 	}
 
-	engine := eval.NewEngine(client, cfg.ProjectID, cfg.Location, eval.WithGenaiClient(genaiClient))
-	return engine, client.Close, nil
+	opts := []eval.Option{eval.WithGenaiClient(genaiClient)}
+	closeFn := client.Close
+
+	// Build the GCS asset stager ONLY when a staging bucket is configured. When
+	// none is set, construction still succeeds (text-only and custom_schema-inline
+	// evals need no bucket); a multimodal native eval that needs staging then
+	// fails at Run time with a clear asset.ErrNoBucket message.
+	if cfg.StagingBucket != "" {
+		stager, err := asset.NewGCSStager(ctx, cfg.StagingBucket)
+		if err != nil && !errors.Is(err, asset.ErrNoBucket) {
+			_ = client.Close()
+			return nil, nil, err
+		}
+		if stager != nil {
+			opts = append(opts, eval.WithStager(stager))
+			closeFn = func() error {
+				sErr := stager.Close()
+				cErr := client.Close()
+				if cErr != nil {
+					return cErr
+				}
+				return sErr
+			}
+		}
+	}
+
+	engine := eval.NewEngine(client, cfg.ProjectID, cfg.Location, opts...)
+	return engine, closeFn, nil
 }
