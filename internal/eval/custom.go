@@ -280,9 +280,10 @@ func stripJSONFence(s string) string {
 // genaiModelID returns the bare, publisher-relative model id the genai SDK
 // expects (e.g. "gemini-2.5-flash"). Unlike the native EvaluateInstances path,
 // genai does not require the full project-scoped resource name.
+//
+// The model has already been resolved (Engine.Run → resolveModel, never empty)
+// and validated (Engine.Run → ValidateModel) before reaching here, so the former
+// empty-string fallback branch was dead and has been removed.
 func genaiModelID(model string) string {
-	if model == "" {
-		return BuiltinDefaultModel
-	}
 	return bareModelID(model)
 }

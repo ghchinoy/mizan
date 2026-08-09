@@ -306,3 +306,106 @@ func (f *fakeGenaiWithUsage) GenerateContent(_ context.Context, model string, _ 
 		UsageMetadata: f.usage,
 	}, nil
 }
+
+// --- WI-F3 model-id validation (review item 1, [Security Low]) ---
+
+// TestValidateModel covers the local allowlist that guards the flag/template/
+// config model id before it is echoed to stderr or composed into a Vertex
+// resource name. A clearly-invalid id (newline/control-char/slash-bearing) must
+// be rejected LOCALLY; "" (unset) and a fully-qualified resource name pass.
+func TestValidateModel(t *testing.T) {
+	ok := []string{
+		"",                 // unset: falls through the precedence chain
+		"gemini-2.5-flash", // bare
+		"gemini-2.5-pro",
+		"publishers/google/models/gemini-2.5-flash",                   // publisher-relative
+		"projects/x/locations/global/publishers/google/models/g-z",    // fully-qualified passthrough
+		"projects/p/locations/us-central1/publishers/google/models/m", // fully-qualified passthrough
+	}
+	for _, in := range ok {
+		if err := ValidateModel(in); err != nil {
+			t.Errorf("ValidateModel(%q) = %v, want nil", in, err)
+		}
+	}
+
+	bad := []string{
+		"gemini-2.5-flash\n",              // trailing newline (log/arg injection)
+		"gemini\n2.5-flash",               // embedded newline
+		"gemini-2.5-flash\r",              // carriage return
+		"gemini\x00flash",                 // NUL / control char
+		"gemini 2.5 flash",                // whitespace
+		"bad/id",                          // bare form must not contain a slash
+		"publishers/google/models/bad id", // reduces to a bare id with a space
+		"../../etc/passwd",                // path traversal shape
+		"-leading-dash",                   // must start alphanumeric
+		"モデル",                             // non-ASCII
+	}
+	for _, in := range bad {
+		if err := ValidateModel(in); err == nil {
+			t.Errorf("ValidateModel(%q) = nil, want a local rejection error", in)
+		}
+	}
+}
+
+// TestRunRejectsInvalidModelLocally proves an invalid --model override fails at
+// Engine.Run with a LOCAL error, before any client call (the fakeClient would
+// error/panic differently) — the primary security fix for both paths.
+func TestRunRejectsInvalidModelLocally(t *testing.T) {
+	eng := NewEngine(&fakeClient{}, "p", "us-central1")
+	_, err := eng.Run(context.Background(), pointwiseTemplate(), Instance{
+		Fields: map[string]AssetRef{"response": {Text: "hi"}},
+	}, WithModel("gemini-2.5-flash\nrm -rf"))
+	if err == nil {
+		t.Fatal("Run with newline-bearing --model = nil error, want local rejection")
+	}
+	if !strings.Contains(err.Error(), "invalid autorater model id") {
+		t.Errorf("error = %v, want an 'invalid autorater model id' local rejection", err)
+	}
+}
+
+// TestExpandAutoraterModelRejectsInvalid asserts the native resource-name
+// composer rejects a malformed bare id LOCALLY rather than interpolating it.
+func TestExpandAutoraterModelRejectsInvalid(t *testing.T) {
+	if _, err := expandAutoraterModel("gemini-2.5-flash\n", "p", "us-central1"); err == nil {
+		t.Fatal("expandAutoraterModel with newline = nil error, want local rejection")
+	}
+	// Fully-qualified names remain a trusted passthrough (unchanged behavior).
+	full := "projects/x/locations/global/publishers/google/models/gemini-z"
+	got, err := expandAutoraterModel(full, "p", "us-central1")
+	if err != nil || got != full {
+		t.Errorf("expandAutoraterModel(full) = %q,%v; want passthrough", got, err)
+	}
+}
+
+// --- WI-F7 pre-flight location from a fully-qualified model (review item 4/n3) ---
+
+// TestParseFullModelResource covers extraction of the embedded project/location
+// from a fully-qualified model resource name.
+func TestParseFullModelResource(t *testing.T) {
+	p, l, ok := parseFullModelResource("projects/other/locations/europe-west1/publishers/google/models/gemini-z")
+	if !ok || p != "other" || l != "europe-west1" {
+		t.Errorf("parseFullModelResource full = (%q,%q,%v), want (other,europe-west1,true)", p, l, ok)
+	}
+	for _, in := range []string{"gemini-2.5-flash", "publishers/google/models/gemini-2.5-flash", "projects/onlyproj"} {
+		if _, _, ok := parseFullModelResource(in); ok {
+			t.Errorf("parseFullModelResource(%q) ok=true, want false", in)
+		}
+	}
+}
+
+// TestResolveNativeFQModelReflectsEmbeddedLocation proves the pre-flight echo on
+// the NATIVE path shows the project/location embedded in a fully-qualified
+// template/flag model (which the native path forwards verbatim), not the
+// engine's configured defaults.
+func TestResolveNativeFQModelReflectsEmbeddedLocation(t *testing.T) {
+	eng := NewEngine(&fakeClient{}, "cfg-proj", "us-central1")
+	tmpl := pointwiseTemplate()
+	tmpl.AutoraterModel = "projects/fq-proj/locations/europe-west4/publishers/google/models/gemini-z"
+	got := eng.Resolve(tmpl, "")
+	if got.Project != "fq-proj" || got.Location != "europe-west4" {
+		t.Errorf("native FQ target = %+v, want project=fq-proj location=europe-west4", got)
+	}
+	if got.Model != "gemini-z" || got.Path != "native" {
+		t.Errorf("native FQ target = %+v, want model=gemini-z path=native", got)
+	}
+}

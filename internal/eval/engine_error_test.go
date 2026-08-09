@@ -137,7 +137,7 @@ func TestExpandAutoraterModelErrors(t *testing.T) {
 	}{
 		{"missing project", "gemini-2.5-flash", "", "us-central1", "no project ID"},
 		{"missing location", "gemini-2.5-flash", "p", "", "no location"},
-		{"empty model", "", "p", "us-central1", "no autorater model"},
+		{"empty model", "", "p", "us-central1", "empty autorater model id"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

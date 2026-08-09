@@ -72,11 +72,15 @@ func extractVars(s string) []string {
 //
 // A bare id is rejected by the API (InvalidArgument), so this expansion is
 // mandatory (spike-core). An already-fully-qualified name is passed through.
+//
+// The model reaching here has already been chosen by the centralized resolution
+// chain (Engine.Run → resolveModel), so it is never empty — the former empty
+// check was dead and has been removed (the built-in default is the final
+// fallback). The bare id is validated before interpolation so a malformed value
+// fails LOCALLY here instead of producing a garbage resource name for the remote
+// API to reject.
 func expandAutoraterModel(model, projectID, location string) (string, error) {
-	if model == "" {
-		return "", fmt.Errorf("eval: template has no autorater model configured")
-	}
-	// Already a full resource name (project-scoped) — pass through.
+	// Already a full resource name (project-scoped) — trusted, pass through.
 	if strings.HasPrefix(model, "projects/") {
 		return model, nil
 	}
@@ -86,10 +90,11 @@ func expandAutoraterModel(model, projectID, location string) (string, error) {
 	if location == "" {
 		return "", fmt.Errorf("eval: cannot expand autorater model %q: no location configured", model)
 	}
-	// Accept "publishers/google/models/<model>" or a bare "<model>".
-	bare := model
-	if i := strings.LastIndex(model, "/"); i >= 0 {
-		bare = model[i+1:]
+	// Accept "publishers/google/models/<model>" or a bare "<model>", then
+	// validate the bare id before composing the resource name.
+	bare := bareModelID(model)
+	if err := validateBareModelID(bare); err != nil {
+		return "", err
 	}
 	return fmt.Sprintf("projects/%s/locations/%s/publishers/google/models/%s", projectID, location, bare), nil
 }

@@ -72,6 +72,13 @@ func newEvalRunCmd() *cobra.Command {
 				return err
 			}
 
+			// Validate the user-supplied --model BEFORE it is echoed to stderr or
+			// composed into a Vertex resource name, so a malformed value fails
+			// locally instead of injecting into the pre-flight line / remote call.
+			if err := eval.ValidateModel(model); err != nil {
+				return err
+			}
+
 			eng, closeEng, err := openEngine(cmd.Context(), cfg)
 			if err != nil {
 				return err
@@ -145,6 +152,12 @@ func newEvalPairwiseCmd() *cobra.Command {
 			// template's field names; append them to any extra placeholders.
 			inst, err := buildInstance(append([]string{baseline, candidate}, fields...), files, gcs)
 			if err != nil {
+				return err
+			}
+
+			// Validate the user-supplied --model BEFORE it is echoed to stderr or
+			// composed into a Vertex resource name (see eval run).
+			if err := eval.ValidateModel(model); err != nil {
 				return err
 			}
 

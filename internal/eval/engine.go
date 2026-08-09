@@ -180,6 +180,13 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		opt(&rc)
 	}
 	model := e.resolveModel(tmpl, rc.modelOverride)
+	// Reject a clearly-malformed model id (from the flag, template, or config
+	// default) here, uniformly for the native and genai paths, so it fails with a
+	// crisp LOCAL error before being composed into a Vertex resource name or sent
+	// to the genai SDK, rather than being bounced by the remote API.
+	if err := ValidateModel(model); err != nil {
+		return Result{}, err
+	}
 
 	start := time.Now()
 	res, err := e.dispatch(ctx, tmpl, inst, model)

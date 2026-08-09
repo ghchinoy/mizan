@@ -6,6 +6,8 @@ package eval
 // pre-flight echo (WI-F7).
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/ghchinoy/mizan/internal/registry"
@@ -56,12 +58,89 @@ func firstNonEmptyModel(vals ...string) string {
 }
 
 // bareModelID strips any "publishers/google/models/<id>" (or "projects/.../<id>")
-// prefix, returning the publisher-relative id (e.g. "gemini-3.5-flash").
+// prefix, returning the publisher-relative id (e.g. "gemini-2.5-flash").
 func bareModelID(model string) string {
 	if i := strings.LastIndex(model, "/"); i >= 0 {
 		return model[i+1:]
 	}
 	return model
+}
+
+// bareModelPattern is the conservative allowlist a bare (publisher-relative)
+// autorater model id must match. Publisher model ids are letters/digits with
+// '.', '_' and '-' separators (e.g. "gemini-2.5-flash"); anything else —
+// newlines, other control characters, whitespace, slashes, shell/format
+// metacharacters — is rejected. This is deliberately stricter than the API so a
+// malformed --model value fails LOCALLY with a crisp error instead of being
+// echoed to stderr or interpolated into a Vertex resource name and bounced by
+// the remote API.
+var bareModelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// validateBareModelID rejects a bare model id that does not match the allowlist.
+func validateBareModelID(id string) error {
+	if id == "" {
+		return fmt.Errorf("eval: empty autorater model id")
+	}
+	if !bareModelPattern.MatchString(id) {
+		return fmt.Errorf("eval: invalid autorater model id %q: expected a bare publisher model id such as %q (letters, digits, '.', '_', '-')", id, BuiltinDefaultModel)
+	}
+	return nil
+}
+
+// ValidateModel validates a user- or template-supplied autorater model id BEFORE
+// it is echoed to stderr (pre-flight, WI-F7) or composed into a Vertex resource
+// name (expandAutoraterModel) or sent to the genai SDK (genaiModelID). It is the
+// single local guard behind the flag/template/config inputs to the resolution
+// chain:
+//
+//   - "" is accepted: it means "no value here, fall through the precedence chain"
+//     (an empty --model flag, or an empty template/config model). The resolved
+//     model is never empty because BuiltinDefaultModel is the final fallback.
+//   - a fully-qualified "projects/.../models/..." resource name is trusted and
+//     passed through unchanged (the native path forwards it verbatim); it is an
+//     explicit, structured id, not a bare user token.
+//   - a recognized "publishers/.../<id>" form validates its trailing bare id.
+//   - any other value must be a TRULY bare id: no slashes at all, matching
+//     bareModelPattern. Rejecting arbitrary slash-bearing tokens ("a/b",
+//     "../../x") explicitly — rather than silently reducing them to their last
+//     path segment — is what makes "reject slashes for the bare form" hold.
+//
+// This turns a clearly-invalid id (newline/control-char/slash-bearing) into a
+// crisp LOCAL error instead of a remote API rejection.
+func ValidateModel(model string) error {
+	switch {
+	case model == "":
+		return nil
+	case strings.HasPrefix(model, "projects/"):
+		// Fully-qualified project-scoped resource name: trusted structured id.
+		return nil
+	case strings.HasPrefix(model, "publishers/"):
+		// Recognized publisher-relative form: validate its trailing bare id.
+		return validateBareModelID(bareModelID(model))
+	case strings.Contains(model, "/"):
+		return fmt.Errorf("eval: invalid autorater model id %q: a bare model id must not contain '/'; use a plain id such as %q, a \"publishers/google/models/<id>\" form, or a full \"projects/.../models/<id>\" resource name", model, BuiltinDefaultModel)
+	default:
+		return validateBareModelID(model)
+	}
+}
+
+// parseFullModelResource extracts the project and location embedded in a
+// fully-qualified "projects/<p>/locations/<l>/..." model resource name. The
+// native path passes such an id through untouched (expandAutoraterModel), so
+// those embedded values — not the engine's configured project/location — are
+// what the API will actually call. The pre-flight echo (WI-F7) uses this so its
+// displayed location reflects a fully-qualified template/flag model. Returns
+// ok=false for any non-fully-qualified id.
+func parseFullModelResource(model string) (project, location string, ok bool) {
+	if !strings.HasPrefix(model, "projects/") {
+		return "", "", false
+	}
+	parts := strings.Split(model, "/")
+	// projects/<p>/locations/<l>/publishers/google/models/<id>
+	if len(parts) >= 4 && parts[0] == "projects" && parts[2] == "locations" && parts[1] != "" && parts[3] != "" {
+		return parts[1], parts[3], true
+	}
+	return "", "", false
 }
 
 // ResolvedTarget describes the project/location/model an eval WILL call, after
@@ -81,15 +160,34 @@ type ResolvedTarget struct {
 // value: the native path is regional (cfg.Location); the custom_schema/genai
 // path is global (spike-custom).
 func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string) ResolvedTarget {
+	// resolveModel is also called in Engine.Run; this second call (for the
+	// pre-flight echo) is an intentional, negligible cost — a first-non-empty
+	// scan over four strings. The echo and the actual run are separate entry
+	// points and each independently needs the resolved model, so a shared-state
+	// cache would add more surface than it saves (review n4).
+	model := e.resolveModel(tmpl, override)
 	target := ResolvedTarget{
 		Project:  e.projectID,
 		Location: e.location,
-		Model:    bareModelID(e.resolveModel(tmpl, override)),
+		Model:    bareModelID(model),
 		Path:     "native",
 	}
 	if tmpl.Kind == registry.KindCustomSchema {
+		// The genai path is global regardless of a fully-qualified template
+		// model: genaiModelID reduces it to the bare id sent to the global
+		// client, so the location shown here is always GenaiLocation.
 		target.Location = GenaiLocation
 		target.Path = "genai"
+		return target
+	}
+	// Native path: a fully-qualified "projects/.../models/..." model (from a
+	// template or --model) is forwarded verbatim by expandAutoraterModel, so its
+	// embedded project/location are what the API will actually use — reflect them
+	// in the pre-flight line rather than the engine's configured defaults (review
+	// n3).
+	if p, l, ok := parseFullModelResource(model); ok {
+		target.Project = p
+		target.Location = l
 	}
 	return target
 }
