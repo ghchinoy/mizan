@@ -37,10 +37,17 @@ command output.
 - **`custom_schema` metric execution** via the `genai` fallback path — not wired
   in yet.
 - **Template packs and sharing** (`mizan pack init|validate|add`,
-  `registry import|export`) — no `pack` command exists in the built binary at
-  all right now. A companion repo,
-  [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates),
-  is scaffolded for this but nothing in this repo talks to it yet.
+  `registry import|export`) — no `pack` command and no `registry
+  import|export` exist in the built `mizan` binary yet. The intended model:
+  packs are contributed via pull requests to the dedicated
+  [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates)
+  repo (data + CI only, no Mizan application code), validated there by its
+  `validate-packs` CI workflow, then pulled in with `mizan registry import`
+  (that repo is the configured default source) once the command exists.
+  `mizan-templates` is not just a stub — it already holds a real worked
+  example pack (`packs/google-brand/`), its own pack-format docs, and an
+  active CI gate — but this repo's binary has no code path that talks to it
+  yet.
 - **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets).
 - **The Wails desktop app** (`cmd/mizan-desktop`) — design-stage scaffolding
   only; there is no built or runnable desktop app.

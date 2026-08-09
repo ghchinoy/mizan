@@ -255,10 +255,17 @@ values) as forward-looking scaffolding, not a working feature:
 - **`custom_schema` metric execution** via the `genai` `GenerateContent`
   fallback — roadmap work item WI-P1-5.
 - **Template packs and sharing** (`mizan pack init|validate|add`, `registry
-  import|export`) — no `pack` command exists in the built binary yet
-  (roadmap phase P2, the collaboration layer). The companion
+  import|export`) — no `pack` command and no `registry import|export` exist
+  in the built binary yet (roadmap phase P2, the collaboration layer). The
+  intended model: packs are contributed via pull requests to the dedicated
   [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates)
-  repo is scaffolded for this but nothing in this repo talks to it yet.
+  repo (data + CI only, no Mizan application code), validated there by its
+  `validate-packs` CI workflow, then pulled in with `mizan registry import`
+  (that repo is the configured default source) once the command exists.
+  `mizan-templates` is not just a stub — it already holds a real worked
+  example pack (`packs/google-brand/`), its own pack-format docs, and an
+  active CI gate — but this repo's binary has no code path that talks to it
+  yet.
 - **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets) —
   roadmap phase P3.
 - **The Wails desktop app** (`cmd/mizan-desktop`) — design-stage scaffolding
