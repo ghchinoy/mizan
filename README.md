@@ -41,8 +41,11 @@ command output.
   import|export` exist in the built `mizan` binary yet. The intended model:
   packs are contributed via pull requests to the dedicated
   [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates)
-  repo (data + CI only, no Mizan application code), validated there by its
-  `validate-packs` CI workflow, then pulled in with `mizan registry import`
+  repo (data + CI only, no Mizan application code); its `validate-packs` CI
+  workflow is already wired up and runs on every PR there, but it currently
+  fails for the same reason — the validation step invokes `mizan pack
+  validate`, which doesn't exist yet — so that gate goes green once the
+  command ships. Packs are then pulled in with `mizan registry import`
   (that repo is the configured default source) once the command exists.
   `mizan-templates` is not just a stub — it already holds a real worked
   example pack (`packs/google-brand/`), its own pack-format docs, and an
