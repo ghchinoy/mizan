@@ -201,7 +201,7 @@ This mirrors patterns already used in this user's other repos
   `gs://` stripped, `VERTEX_API_ENDPOINT` optional). Reuse this shape for
   Mizan's config.
 - `eldamo-app/` -- mature Wails v2 (v2.13.0) + Go 1.25 reference architecture.
-  See `docs/architecture.md` for how Mizan should mirror its
+  See `docs/architecture-final.md` §3 for how Mizan should mirror its
   `internal/<domain>` + `internal/app` + `cmd/` split.
 
 ## 6. Multimodal input handling -- asset ingestion

@@ -131,7 +131,7 @@ that exercises `config`, `registry.Store`, `registry.Service`, `eval.Engine`,
   bytes** (unlike native eval) — keep the two content converters distinct
   (arch §6). *Depends: Spike 4.*
 - **WI-P1-6 — CLI surface.** `registry create|list|get|update|delete`,
-  `eval run|pairwise`, `config show|set` (architecture.md §6). Output `json|table`.
+  `eval run|pairwise`, `config show|set` (architecture-final.md §12). Output `json|table`.
 - **WI-P1-7 — Asset ingestion + GCS staging.** `asset/mime.go` (DetectContentType
   + extension fallback — **mismatched MIME silently drops the asset**, spike-core,
   so detection must be correct); `asset/gcs.go` **uploads local non-text assets to
@@ -251,7 +251,7 @@ over the same `registry.Service` + `eval.Engine`; no new domain logic.
 - **WI-P4-2 — Wails scaffold.** `cmd/mizan-desktop` from `eldamo-app` shape;
   Lit+Vite frontend; Wails v2.13.0 (toolchain pin per Spike 6). *Depends: Spike 6.*
 - **WI-P4-3 — App bindings.** `internal/app/app.go`: List/Save/Delete templates,
-  RunEvaluation, PickFile, Get/SaveConfig (architecture.md §7), plus
+  RunEvaluation, PickFile, Get/SaveConfig (architecture-final.md §13), plus
   import/export if P2 shipped. Adjust struct shapes for clean TS codegen per
   **Spike 6 verdict** (`*float32`/`map[string]any` trouble spots).
 - **WI-P4-4 — Frontend views.** Template list/editor, eval runner, config setup

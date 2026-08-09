@@ -3,12 +3,14 @@
 Status: design for review (pre-implementation)
 Date: 2026-08-09
 Author: mizan-architect
-Supersedes: docs/architecture.md (draft, 2026-08-07) — reconciled here.
+Supersedes and REPLACES docs/architecture.md (draft, 2026-08-07): its unique,
+           still-accurate content is folded in here and the standalone draft file
+           has been removed (2026-08-09).
 Companion: design/collaboration-design.md (contribution layer),
            design/implementation-plan.md (phasing + acceptance criteria)
 Ground truth (do not re-derive): docs/research.md.
 
-This document confirms what docs/architecture.md got right, folds in the
+This document confirms what the retired 2026-08-07 draft got right, folds in the
 collaboration layer, and records the decisions the draft left open. Where a
 decision depends on a spike still running, it is marked **pending spike verdict**
 and the dependent detail is deferred, not guessed.
@@ -56,11 +58,11 @@ and consistent with research.md:
 - `apiv1beta1` + `apiv1beta1/aiplatformpb` **exclusively** for eval; GA `apiv1`
   is never imported (lacks multimodal, autorater config, batch — research.md §2).
 - `google.golang.org/genai` only for the **custom_schema** fallback path.
-- Engine dispatch by `MetricKind` (architecture.md §4), with `content.go`
+- Engine dispatch by `MetricKind` (see §6), with `content.go`
   supplying the two small converters between `aiplatformpb.Part` and
   `genai.Part` (they are distinct types — retained note).
 - `config.LoadConfig()` returns an **error** (not `log.Fatal`) so the GUI can
-  show a setup dialog; CLI treats it as fatal. (architecture.md §5.)
+  show a setup dialog; CLI treats it as fatal. (see §7)
 - Cobra for CLI; Wails v2 + Lit/Vite for desktop (user's established stacks).
 - Testing: pure unit tests for `registry`; `eval` behind a narrow mockable
   `EvaluationClient` interface; live calls behind `//go:build integration`.
@@ -105,7 +107,7 @@ mizan/
       batch.go                    (Phase 3) EvaluateDataset wrapper
     asset/        mime.go gcs.go   gcs.go staging is now a P1 prerequisite — see §6
     app/          app.go          (Phase 4) Wails bindings over registry.Service
-  docs/           research.md architecture.md spikes.md
+  docs/           research.md spikes.md
                   collaboration-design.md architecture-final.md implementation-plan.md
   # NOTE (rev 3): NO packs/ tree and NO validate-packs workflow live in THIS repo.
   # Canonical template packs live in the dedicated github.com/ghchinoy/mizan-templates
@@ -125,6 +127,14 @@ relocating one CI file — see collaboration-design.md §3.3/§3.7.
 `sqlite`/`sync`/`codec`. Nothing in `cmd/*` imports `sqlite`, `sync`, `codec`, or
 `aiplatformpb` directly. This is what keeps model B a drop-in and is an explicit
 acceptance check (collaboration-design §8).
+
+**Persistence.** Default `Store` is a SQLite file at `RegistryDBPath` (§7,
+`~/.config/mizan/registry.db` via `os.UserConfigDir()`) using the pure-Go
+`modernc.org/sqlite` driver recommended in §8 (to be confirmed in P1). Schema is a
+single `metric_templates` table;
+complex fields (`Modalities`, `RubricGroup`, `ResponseSchema`, `Inputs`) are
+JSON-serialized into TEXT columns. The `Store` interface (§3 `store.go`) keeps a
+future Firestore-backed impl a drop-in (§9).
 
 ---
 
@@ -171,9 +181,11 @@ land in the CLI's module graph.
 ## 6. Domain model & engine
 
 The authoritative `MetricTemplate` struct is in **collaboration-design.md §6**
-(it extends architecture.md §3 with `Inputs`, attribution, and provenance/sync
-fields). The engine and eval-time proto materialization are unchanged from
-architecture.md §3–§4:
+(it extends the retired draft's §3 domain struct with `Inputs`, attribution, and
+provenance/sync fields). The engine and eval-time proto materialization are folded
+from the retired draft; the eval-layer types are given below and the authoritative
+dispatch is the bullets that follow. (CLI surface and desktop bindings folded from
+the retired draft are in §12 and §13.)
 
 - `pointwise`/`pairwise`, text-only → `*MetricSpec` + `JsonInstance`.
 - `pointwise`/`pairwise`, any non-text asset → `*MetricSpec` +
@@ -184,6 +196,35 @@ architecture.md §3–§4:
 
 `AutoraterConfig` (SamplingCount, FlipEnabled, AutoraterModel) is populated from
 the template's `autorater.*` fields.
+
+The eval-layer types (folded from the retired draft §3):
+
+```go
+// internal/eval/engine.go
+type Instance struct {
+    // Named placeholders -> content. For text, a plain string is enough;
+    // for other modalities, a reference to an asset (path or gs:// URI).
+    Fields map[string]AssetRef
+}
+type AssetRef struct {
+    Modality Modality
+    Text     string // for ModalityText
+    FilePath string // local file; staged to gs:// for native eval (inline only on the genai custom-schema path)
+    GCSUri   string // pre-staged asset
+    MimeType string // detected or explicit
+}
+type Result struct {
+    Score          *float32
+    PairwiseChoice string // "" unless pairwise
+    Explanation    string
+    RawOutput      []string          // if ReturnRawOutput
+    CustomOutput   map[string]any    // if KindCustomSchema
+}
+
+type Engine interface {
+    Run(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error)
+}
+```
 
 > **Spike 1–3 verdicts — RESOLVED (spike-core, 2026-08-09):**
 >
@@ -229,7 +270,8 @@ the template's `autorater.*` fields.
 
 ## 7. Config
 
-Per architecture.md §5 (`mcp-common` shape), with the collaboration additions:
+Per the mcp-common shape (folded from the retired draft), with the collaboration
+additions:
 
 ```go
 type Config struct {
@@ -337,3 +379,70 @@ accordingly.
 - Remaining **pending spike verdicts** (§10 Q4) are resolved and recorded in
   docs/research.md §7 before the packages they gate are implemented; the
   spike-core verdicts (§5/§6/§7/§8) are already folded in here.
+
+---
+
+## 12. CLI surface (Cobra)
+
+Folded from the retired draft §6 and reconciled to the rev-3 command set (§3).
+This is **design-level (pre-implementation); exact flags confirmed during P1.**
+
+```
+# Registry — local working-copy CRUD
+mizan registry create --name <n> --kind pointwise --modality text \
+    --prompt-template ./template.txt [--modality image ...]
+mizan registry list
+mizan registry get <name>
+mizan registry update <name> [--prompt-template ./template.txt] [...]
+mizan registry delete <name>
+
+# Registry — share (contribution layer; see collaboration-design.md §3.6)
+mizan registry import <src> [--strategy newer|skip|overwrite|fork] \
+    [--namespace <ns>] [--dry-run]   # src = git URL | pack dir; bare src = default templates repo
+mizan registry export <name> --out <dir>          # write template(s) as an on-disk pack
+
+# Packs — author/scaffold and validate locally
+mizan pack init <dir>                             # scaffold a new pack (manifest + skeleton)
+mizan pack validate <dir>                         # structural + lint validation
+mizan pack add <dir> <name>                       # add a template to a pack
+
+# Eval
+mizan eval run --metric <name> \
+    --field response=./output.mp4 \
+    --field prompt="a dog running in a park" \
+    [--sampling-count 4] [--flip] [--output json|table]
+mizan eval pairwise --metric <name> \
+    --candidate ./a.mp3 --baseline ./b.mp3 --field context="..."
+
+# Config
+mizan config show
+mizan config set project-id ...
+```
+
+Follows the `drivectl` precedent: `cobra.Command.GroupID` groups the `registry`,
+`pack`, `eval`, and `config` subcommand families. Per the dependency direction in
+§3, `cmd/mizan` imports only `registry.Service`, `eval.Engine`, and `config` —
+never `sqlite`/`sync`/`codec`/`aiplatformpb`.
+
+---
+
+## 13. Wails desktop bindings (Phase 4)
+
+Folded from the retired draft §7. **Phase 4 — not the MVP.** `internal/app/app.go`
+binds a thin layer that wraps `registry.Service` and `eval.Engine` (the rev-3 seam,
+§3); it holds no domain logic of its own:
+
+```go
+func (a *App) ListMetricTemplates() ([]registry.MetricTemplate, error)
+func (a *App) SaveMetricTemplate(t registry.MetricTemplate) error
+func (a *App) DeleteMetricTemplate(id string) error
+func (a *App) RunEvaluation(metricID string, fields map[string]string) (eval.Result, error)
+func (a *App) PickFile() (string, error)          // wraps wails runtime.OpenFileDialog
+func (a *App) GetConfig() (config.Config, error)
+func (a *App) SaveConfig(c config.Config) error
+```
+
+Frontend stack: Lit + Vite, matching the `eldamo-app` precedent (avoids
+introducing React/Vue tooling churn); `wails.json` adapted from `eldamo-app` with
+name/paths adjusted. The Go and Wails toolchain versions are governed by §4 and §5
+and are deliberately not restated here to avoid drift.

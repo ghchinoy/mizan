@@ -3,18 +3,18 @@
 Status: draft for review, pre-implementation
 Date: 2026-08-07
 
-Purpose: de-risk the unknowns in docs/research.md and docs/architecture.md
+Purpose: de-risk the unknowns in docs/research.md and docs/architecture-final.md
 before committing to full implementation. Each spike is small, time-boxed,
 and produces a throwaway or promotable prototype plus a written verdict.
 
 ## Spike 0 — Project scaffolding (0.5 day)
 
 **Goal:** stand up `go.mod`, directory skeleton, and decide the
-single-module vs `go.work` two-module question from architecture.md section 9.
+single-module vs `go.work` two-module question from architecture-final.md §5.
 
 Tasks:
 - [ ] `go mod init github.com/ghchinoy/mizan` (confirm module path with user)
-- [ ] Create directory skeleton per architecture.md section 2
+- [ ] Create directory skeleton per architecture-final.md §3
 - [ ] Prototype both layouts (single module vs go.work) far enough to run
       `go build ./...` successfully in each, compare `go mod graph` size
 - [ ] **Verdict needed:** single module or go.work split?
@@ -131,7 +131,7 @@ Tasks:
 - [ ] Scaffold `cmd/mizan-desktop` from `eldamo-app`'s `wails.json` +
       `main.go` shape
 - [ ] Bind `ListMetricTemplates`/`SaveMetricTemplate`/`RunEvaluation` per
-      architecture.md section 7
+      architecture-final.md §13
 - [ ] Run `wails dev`, confirm generated TypeScript bindings in
       `frontend/wailsjs/` look reasonable for the domain types (especially
       pointer fields like `*float32` in `Result.Score` and `map[string]any`

@@ -3,7 +3,7 @@
 Status: design for review (pre-implementation)
 Date: 2026-08-09 (rev 3)
 Author: mizan-architect
-Inputs: docs/research.md (ground truth), docs/architecture.md (draft), design/plan-v1.md,
+Inputs: docs/research.md (ground truth), docs/architecture-final.md (which folded in the retired 2026-08-07 draft), design/plan-v1.md,
         user decisions 2026-08-09 (briefs mizan-architect.md, mizan-architect-2.md),
         research/spike-verdicts-registry.md (Spike 5 PASS)
 
@@ -307,7 +307,7 @@ The mapping from this file's `spec` to the runtime protos
 (`PointwiseMetricSpec` / `PairwiseMetricSpec` / `LLMBasedMetricSpec` /
 `AutoraterConfig`, or the `genai.GenerateContentConfig.ResponseSchema` for
 `custom_schema`) is exactly the `MetricTemplate` domain type in
-architecture.md §3 — the pack file is the on-disk projection of that struct.
+architecture-final.md §6 — the pack file is the on-disk projection of that struct.
 See §6 for the reconciled struct.
 
 > **Placeholder syntax — RESOLVED (spike-core, 2026-08-09):** the eval API accepts
@@ -477,7 +477,7 @@ mizan registry import <src> \                    # src = repo/tree w/ packs/ | p
     [--namespace <ns>] [--namespace-remap <old>=<new>] [--dry-run]
 
 # Local working copy (CRUD — used by CLI and, via Service, by GUI)
-mizan registry create|list|get|update|delete ... # (as in architecture.md §6)
+mizan registry create|list|get|update|delete ... # (as in architecture-final.md §12)
 ```
 
 - **Default shared source is the dedicated templates repo:**
@@ -627,7 +627,7 @@ counts with per-template reasons.
 
 ### 3.9 Provenance in the local Store
 
-The SQLite `metric_templates` table (architecture.md §8) gains columns to make
+The SQLite `metric_templates` table (architecture-final.md §3 (Persistence)) gains columns to make
 the working copy sync-aware — these also serve the future Firestore backend:
 
 - `source` TEXT — origin (`pack:google-brand@github.com/ghchinoy/mizan-templates`
@@ -636,7 +636,7 @@ the working copy sync-aware — these also serve the future Firestore backend:
 - `imported_at` TIMESTAMP, `updated_at` TIMESTAMP.
 - `dirty` INTEGER (bool) — set when locally edited after import.
 
-These are additive to the schema in architecture.md §8 and carry no meaning for a
+These are additive to the schema in architecture-final.md §3 (Persistence) and carry no meaning for a
 purely local user, but they are exactly what a Store-to-Store sync (model B)
 needs, so we pay for them once, now.
 
@@ -751,7 +751,7 @@ repo only changes the **default import URL** and (recommended) the SQLite driver
 
 ## 6. Reconciled `MetricTemplate` (authoritative struct)
 
-This supersedes architecture.md §3 by adding the fields the collaboration layer
+This supersedes the retired 2026-08-07 draft's §3 domain struct by adding the fields the collaboration layer
 requires. It is the single in-memory model the `Codec` (YAML) and future
 Firestore document mapping both target.
 
