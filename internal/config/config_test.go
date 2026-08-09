@@ -20,7 +20,7 @@ func clearEnv(t *testing.T) {
 		"MIZAN_LOCATION", "LOCATION",
 		"MIZAN_STAGING_BUCKET", "GENMEDIA_BUCKET",
 		"MIZAN_API_ENDPOINT", "VERTEX_API_ENDPOINT",
-		"MIZAN_TEMPLATES_REPO",
+		"MIZAN_TEMPLATES_REPO", "MIZAN_DEFAULT_MODEL",
 		"MIZAN_REGISTRY_DB", "MIZAN_PACK_CACHE",
 		"MIZAN_ENV_FILE", "MIZAN_ALLOW_CUSTOM_ENDPOINT",
 	} {
@@ -70,6 +70,25 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 	if c.StagingBucket != "" {
 		t.Errorf("StagingBucket = %q, want empty when unset", c.StagingBucket)
+	}
+	// DefaultModel is intentionally empty when unset so the eval resolution chain
+	// falls through to the built-in (WI-F3).
+	if c.DefaultModel != "" {
+		t.Errorf("DefaultModel = %q, want empty when unset", c.DefaultModel)
+	}
+}
+
+func TestLoadConfigDefaultModel(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("PROJECT_ID", "proj-123")
+	t.Setenv("MIZAN_DEFAULT_MODEL", "gemini-3.5-flash")
+
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.DefaultModel != "gemini-3.5-flash" {
+		t.Errorf("DefaultModel = %q, want gemini-3.5-flash (from MIZAN_DEFAULT_MODEL)", c.DefaultModel)
 	}
 }
 

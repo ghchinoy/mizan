@@ -1,0 +1,290 @@
+package eval
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
+	"google.golang.org/genai"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/ghchinoy/mizan/internal/registry"
+)
+
+// TestResolveModelPrecedence exercises the WI-F3 precedence chain
+// (flag > template > config default > built-in) directly on the resolver.
+func TestResolveModelPrecedence(t *testing.T) {
+	cases := []struct {
+		name        string
+		override    string // eval-time --model
+		tmplModel   string // template.AutoraterModel
+		configModel string // config default-model (engine.defaultModel)
+		want        string
+	}{
+		{"flag wins over all", "flag-model", "tmpl-model", "cfg-model", "flag-model"},
+		{"template when no flag", "", "tmpl-model", "cfg-model", "tmpl-model"},
+		{"config when no flag/template", "", "", "cfg-model", "cfg-model"},
+		{"built-in when nothing set", "", "", "", BuiltinDefaultModel},
+		{"flag over template only", "flag-model", "tmpl-model", "", "flag-model"},
+		{"config over built-in", "", "", "cfg-model", "cfg-model"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := NewEngine(&fakeClient{}, "p", "us-central1", WithDefaultModel(tc.configModel))
+			tmpl := registry.MetricTemplate{AutoraterModel: tc.tmplModel}
+			if got := eng.resolveModel(tmpl, tc.override); got != tc.want {
+				t.Errorf("resolveModel = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestResolveModelNativePathExpanded verifies the resolved model reaches the
+// native EvaluateInstances request expanded to the full resource name, honoring
+// precedence end-to-end (flag > template > config > built-in).
+func TestResolveModelNativePathExpanded(t *testing.T) {
+	cases := []struct {
+		name        string
+		override    string
+		tmplModel   string
+		configModel string
+		wantBare    string
+	}{
+		{"flag override", "gemini-flag", "gemini-tmpl", "gemini-cfg", "gemini-flag"},
+		{"template", "", "gemini-tmpl", "gemini-cfg", "gemini-tmpl"},
+		{"config default", "", "", "gemini-cfg", "gemini-cfg"},
+		{"built-in fallback", "", "", "", BuiltinDefaultModel},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fc := &fakeClient{
+				resp: &aiplatformpb.EvaluateInstancesResponse{
+					EvaluationResults: &aiplatformpb.EvaluateInstancesResponse_PointwiseMetricResult{
+						PointwiseMetricResult: &aiplatformpb.PointwiseMetricResult{
+							Score: proto.Float32(1), Explanation: "ok",
+						},
+					},
+				},
+			}
+			eng := NewEngine(fc, "proj", "us-central1", WithDefaultModel(tc.configModel))
+			tmpl := pointwiseTemplate()
+			tmpl.AutoraterModel = tc.tmplModel
+
+			_, err := eng.Run(context.Background(), tmpl, Instance{
+				Fields: map[string]AssetRef{"response": {Text: "hi"}},
+			}, WithModel(tc.override))
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			want := "projects/proj/locations/us-central1/publishers/google/models/" + tc.wantBare
+			if got := fc.gotReq.GetAutoraterConfig().GetAutoraterModel(); got != want {
+				t.Errorf("AutoraterModel = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestResolveModelGenaiPath verifies the resolved model reaches the genai
+// (custom_schema) path as the bare id, honoring the same precedence chain — in
+// particular that an empty template model inherits the config default (and, with
+// no config, the built-in) instead of erroring.
+func TestResolveModelGenaiPath(t *testing.T) {
+	cases := []struct {
+		name        string
+		override    string
+		tmplModel   string
+		configModel string
+		want        string
+	}{
+		{"flag override", "gemini-flag", "gemini-tmpl", "gemini-cfg", "gemini-flag"},
+		{"template", "", "gemini-tmpl", "gemini-cfg", "gemini-tmpl"},
+		{"config default (empty template inherits)", "", "", "gemini-cfg", "gemini-cfg"},
+		{"built-in fallback", "", "", "", BuiltinDefaultModel},
+		{"publisher-relative reduced to bare", "publishers/google/models/gemini-x", "", "", "gemini-x"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fg := &fakeGenai{respText: `{"overall_score":1,"compliant":true,"flagged_issues":[],"explanation":"x"}`}
+			eng := NewEngine(&fakeClient{}, "p", "us-central1",
+				WithGenaiClient(fg), WithDefaultModel(tc.configModel))
+			tmpl := customSchemaTemplate()
+			tmpl.AutoraterModel = tc.tmplModel
+
+			_, err := eng.Run(context.Background(), tmpl, Instance{
+				Fields: map[string]AssetRef{"creative": {Text: "x"}},
+			}, WithModel(tc.override))
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if fg.gotModel != tc.want {
+				t.Errorf("genai model = %q, want %q", fg.gotModel, tc.want)
+			}
+		})
+	}
+}
+
+// TestResolveReflectsPerPathLocation checks the pre-flight ResolvedTarget (WI-F7)
+// reports the regional location for native kinds and global for custom_schema,
+// with the model run through the precedence chain.
+func TestResolveReflectsPerPathLocation(t *testing.T) {
+	eng := NewEngine(&fakeClient{}, "proj", "us-central1", WithDefaultModel("cfg-model"))
+
+	native := eng.Resolve(pointwiseTemplate(), "")
+	if native.Path != "native" || native.Location != "us-central1" {
+		t.Errorf("native target = %+v, want path=native location=us-central1", native)
+	}
+	if native.Model != "gemini-2.5-flash" { // template pins this
+		t.Errorf("native model = %q, want template value", native.Model)
+	}
+	if native.Project != "proj" {
+		t.Errorf("project = %q, want proj", native.Project)
+	}
+
+	genai := eng.Resolve(customSchemaTemplate(), "flag-model")
+	if genai.Path != "genai" || genai.Location != GenaiLocation {
+		t.Errorf("genai target = %+v, want path=genai location=%s", genai, GenaiLocation)
+	}
+	if genai.Model != "flag-model" { // override wins
+		t.Errorf("genai model = %q, want flag-model", genai.Model)
+	}
+
+	// Empty template model on the genai path inherits the config default.
+	tmpl := customSchemaTemplate()
+	tmpl.AutoraterModel = ""
+	if got := eng.Resolve(tmpl, "").Model; got != "cfg-model" {
+		t.Errorf("empty-template genai model = %q, want cfg-model", got)
+	}
+}
+
+// sanity: ensure Resolve's bare-id reduction matches genaiModelID for a
+// fully-qualified resource name.
+func TestResolveBareModelID(t *testing.T) {
+	eng := NewEngine(&fakeClient{}, "p", "us-central1")
+	tmpl := pointwiseTemplate()
+	tmpl.AutoraterModel = "projects/x/locations/global/publishers/google/models/gemini-z"
+	if got := eng.Resolve(tmpl, "").Model; got != "gemini-z" {
+		t.Errorf("bare model = %q, want gemini-z", got)
+	}
+	if !strings.HasPrefix(BuiltinDefaultModel, "gemini-") {
+		t.Errorf("BuiltinDefaultModel = %q looks wrong", BuiltinDefaultModel)
+	}
+}
+
+// TestNativeEmptyModelInheritsBuiltin proves the native path no longer
+// hard-errors on an empty template model: it inherits the built-in via the
+// resolution chain and produces a valid expanded resource name (WI-F3 item 3).
+func TestNativeEmptyModelInheritsBuiltin(t *testing.T) {
+	fc := &fakeClient{
+		resp: &aiplatformpb.EvaluateInstancesResponse{
+			EvaluationResults: &aiplatformpb.EvaluateInstancesResponse_PointwiseMetricResult{
+				PointwiseMetricResult: &aiplatformpb.PointwiseMetricResult{
+					Score: proto.Float32(2), Explanation: "ok",
+				},
+			},
+		},
+	}
+	eng := NewEngine(fc, "proj", "us-central1") // no config default
+	tmpl := pointwiseTemplate()
+	tmpl.AutoraterModel = "" // previously an error on the native path
+
+	_, err := eng.Run(context.Background(), tmpl, Instance{
+		Fields: map[string]AssetRef{"response": {Text: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("Run with empty template model should inherit built-in, got: %v", err)
+	}
+	want := "projects/proj/locations/us-central1/publishers/google/models/" + BuiltinDefaultModel
+	if got := fc.gotReq.GetAutoraterConfig().GetAutoraterModel(); got != want {
+		t.Errorf("AutoraterModel = %q, want %q", got, want)
+	}
+}
+
+// --- WI-F4 stats plumbing ---
+
+// TestStatsDurationAlwaysSet asserts Duration is populated on every path and
+// TokenUsage is nil on the native path (no usage metadata available).
+func TestStatsDurationAlwaysSet(t *testing.T) {
+	fc := &fakeClient{
+		resp: &aiplatformpb.EvaluateInstancesResponse{
+			EvaluationResults: &aiplatformpb.EvaluateInstancesResponse_PointwiseMetricResult{
+				PointwiseMetricResult: &aiplatformpb.PointwiseMetricResult{
+					Score: proto.Float32(3), Explanation: "ok",
+				},
+			},
+		},
+	}
+	eng := NewEngine(fc, "p", "us-central1")
+	res, err := eng.Run(context.Background(), pointwiseTemplate(), Instance{
+		Fields: map[string]AssetRef{"response": {Text: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Stats.Duration <= 0 {
+		t.Errorf("Duration = %v, want > 0", res.Stats.Duration)
+	}
+	if res.Stats.TokenUsage != nil {
+		t.Errorf("native TokenUsage = %+v, want nil", res.Stats.TokenUsage)
+	}
+}
+
+// TestStatsTokenUsageGenaiPath asserts TokenUsage is populated from the genai
+// response's UsageMetadata, and Duration is set.
+func TestStatsTokenUsageGenaiPath(t *testing.T) {
+	fg := &fakeGenaiWithUsage{
+		respText: `{"overall_score":1,"compliant":true,"flagged_issues":[],"explanation":"x"}`,
+		usage:    &genai.GenerateContentResponseUsageMetadata{PromptTokenCount: 12, CandidatesTokenCount: 34, TotalTokenCount: 46},
+	}
+	eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
+	res, err := eng.Run(context.Background(), customSchemaTemplate(), Instance{
+		Fields: map[string]AssetRef{"creative": {Text: "x"}},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Stats.Duration <= 0 {
+		t.Errorf("Duration = %v, want > 0", res.Stats.Duration)
+	}
+	tu := res.Stats.TokenUsage
+	if tu == nil {
+		t.Fatal("genai TokenUsage = nil, want populated")
+	}
+	if tu.PromptTokens != 12 || tu.CandidatesTokens != 34 || tu.TotalTokens != 46 {
+		t.Errorf("TokenUsage = %+v, want {12,34,46}", tu)
+	}
+}
+
+// TestStatsTokenUsageNilWhenNoMetadata asserts a genai response WITHOUT usage
+// metadata leaves TokenUsage nil (defensive: the API may omit it).
+func TestStatsTokenUsageNilWhenNoMetadata(t *testing.T) {
+	fg := &fakeGenai{respText: `{"overall_score":1,"compliant":true,"flagged_issues":[],"explanation":"x"}`}
+	eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
+	res, err := eng.Run(context.Background(), customSchemaTemplate(), Instance{
+		Fields: map[string]AssetRef{"creative": {Text: "x"}},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Stats.TokenUsage != nil {
+		t.Errorf("TokenUsage = %+v, want nil when response has no UsageMetadata", res.Stats.TokenUsage)
+	}
+}
+
+// fakeGenaiWithUsage returns a canned response that carries UsageMetadata so the
+// stats-capture path (custom.go) is exercised.
+type fakeGenaiWithUsage struct {
+	respText string
+	usage    *genai.GenerateContentResponseUsageMetadata
+	gotModel string
+}
+
+func (f *fakeGenaiWithUsage) GenerateContent(_ context.Context, model string, _ []*genai.Content, _ *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	f.gotModel = model
+	return &genai.GenerateContentResponse{
+		Candidates: []*genai.Candidate{{
+			Content: &genai.Content{Parts: []*genai.Part{{Text: f.respText}}},
+		}},
+		UsageMetadata: f.usage,
+	}, nil
+}
