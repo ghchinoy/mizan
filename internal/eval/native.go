@@ -35,11 +35,11 @@ func NewClient(ctx context.Context, location, apiEndpoint string) (*aiplatform.E
 // use a JsonInstance; instances with any non-text asset use a ContentMapInstance
 // with gs:// FileData (staging local files first — spike-core: native accepts
 // gs:// only).
-func (e *Engine) runPointwise(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error) {
+func (e *Engine) runPointwise(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
 	if tmpl.MetricPromptTemplate == "" {
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}
-	return e.runNativePointwise(ctx, tmpl, inst, tmpl.MetricPromptTemplate, "")
+	return e.runNativePointwise(ctx, tmpl, inst, tmpl.MetricPromptTemplate, "", model)
 }
 
 // runNativePointwise is the shared native pointwise materialization used by both
@@ -53,12 +53,12 @@ func (e *Engine) runPointwise(ctx context.Context, tmpl registry.MetricTemplate,
 // no placeholders), so the instance keys are the same on both paths. label
 // annotates error messages with the calling path (e.g. "rubric") and is empty
 // for plain pointwise.
-func (e *Engine) runNativePointwise(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, prompt, label string) (Result, error) {
+func (e *Engine) runNativePointwise(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, prompt, label, model string) (Result, error) {
 	if e.client == nil {
 		return Result{}, fmt.Errorf("eval: no evaluation client configured")
 	}
 
-	model, err := expandAutoraterModel(tmpl.AutoraterModel, e.projectID, e.location)
+	fullModel, err := expandAutoraterModel(model, e.projectID, e.location)
 	if err != nil {
 		return Result{}, err
 	}
@@ -75,7 +75,7 @@ func (e *Engine) runNativePointwise(ctx context.Context, tmpl registry.MetricTem
 		spec.SystemInstruction = proto.String(tmpl.SystemInstruction)
 	}
 
-	autorater := &aiplatformpb.AutoraterConfig{AutoraterModel: model}
+	autorater := &aiplatformpb.AutoraterConfig{AutoraterModel: fullModel}
 	if tmpl.SamplingCount > 0 {
 		autorater.SamplingCount = proto.Int32(tmpl.SamplingCount)
 	}
@@ -157,7 +157,7 @@ func (e *Engine) buildPointwiseInstance(ctx context.Context, varTemplate string,
 // So Mizan renders the inline rubric criteria into the pointwise judge prompt on
 // the native path — the criteria still drive the autorater and the result maps
 // to the same {score, explanation}. See design/project-log for the deviation.
-func (e *Engine) runRubric(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error) {
+func (e *Engine) runRubric(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
 	if tmpl.MetricPromptTemplate == "" {
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}
@@ -165,7 +165,7 @@ func (e *Engine) runRubric(ctx context.Context, tmpl registry.MetricTemplate, in
 		return Result{}, fmt.Errorf("eval: rubric template %q has no rubric groups", tmpl.ID)
 	}
 	prompt := tmpl.MetricPromptTemplate + "\n\n" + renderRubricGroups(tmpl.RubricGroups)
-	return e.runNativePointwise(ctx, tmpl, inst, prompt, "rubric")
+	return e.runNativePointwise(ctx, tmpl, inst, prompt, "rubric", model)
 }
 
 // renderRubricGroups turns the inline RubricGroups map into a deterministic,

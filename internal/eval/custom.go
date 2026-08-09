@@ -24,11 +24,6 @@ import (
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
-// defaultGenaiModel is used when a custom_schema template does not pin an
-// autorater model. gemini-2.5-flash was verified live on location=global
-// (spike-custom).
-const defaultGenaiModel = "gemini-2.5-flash"
-
 // retryPolicy controls the exponential-backoff retry for genai calls. Only
 // RESOURCE_EXHAUSTED (HTTP 429) is retried; every other error fails fast
 // (spike-custom).
@@ -74,7 +69,7 @@ func NewGenaiClient(ctx context.Context, projectID, location string) (GenaiClien
 // Parts), maps the template's ResponseSchema into a *genai.Schema, calls
 // GenerateContent with strict JSON output and exponential backoff, and parses
 // the JSON response into Result.CustomOutput (with the raw text in RawOutput).
-func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error) {
+func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
 	if e.genai == nil {
 		return Result{}, fmt.Errorf("eval: no genai client configured for custom_schema (wire WithGenaiClient)")
 	}
@@ -107,7 +102,7 @@ func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTempla
 		cfg.SystemInstruction = genai.NewContentFromText(tmpl.SystemInstruction, genai.RoleUser)
 	}
 
-	resp, err := e.generateWithBackoff(ctx, genaiModelID(tmpl.AutoraterModel), contents, cfg)
+	resp, err := e.generateWithBackoff(ctx, genaiModelID(model), contents, cfg)
 	if err != nil {
 		return Result{}, err
 	}
@@ -117,10 +112,21 @@ func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTempla
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{
+	res := Result{
 		CustomOutput: out,
 		RawOutput:    []string{raw},
-	}, nil
+	}
+	// Token usage is available ONLY on this genai path, from the response's
+	// UsageMetadata (WI-F4). The native EvaluateInstances response carries none,
+	// so Result.Stats.TokenUsage stays nil there.
+	if um := resp.UsageMetadata; um != nil {
+		res.Stats.TokenUsage = &TokenUsage{
+			PromptTokens:     um.PromptTokenCount,
+			CandidatesTokens: um.CandidatesTokenCount,
+			TotalTokens:      um.TotalTokenCount,
+		}
+	}
+	return res, nil
 }
 
 // generateWithBackoff calls GenerateContent, retrying only on
@@ -276,10 +282,7 @@ func stripJSONFence(s string) string {
 // genai does not require the full project-scoped resource name.
 func genaiModelID(model string) string {
 	if model == "" {
-		return defaultGenaiModel
+		return BuiltinDefaultModel
 	}
-	if i := strings.LastIndex(model, "/"); i >= 0 {
-		return model[i+1:]
-	}
-	return model
+	return bareModelID(model)
 }

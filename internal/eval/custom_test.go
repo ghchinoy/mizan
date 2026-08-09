@@ -242,7 +242,7 @@ func TestGenaiModelID(t *testing.T) {
 	cases := map[string]string{
 		"gemini-2.5-flash":                        "gemini-2.5-flash",
 		"publishers/google/models/gemini-2.5-pro": "gemini-2.5-pro",
-		"": defaultGenaiModel,
+		"": BuiltinDefaultModel,
 	}
 	for in, want := range cases {
 		if got := genaiModelID(in); got != want {

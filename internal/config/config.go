@@ -37,6 +37,7 @@ type Config struct {
 	RegistryDBPath       string // default: <UserConfigDir>/mizan/registry.db
 	PackCacheDir         string // default: <UserCacheDir>/mizan/packs (for import <git-url>)
 	DefaultTemplatesRepo string // default: github.com/ghchinoy/mizan-templates
+	DefaultModel         string // default autorater model (env: MIZAN_DEFAULT_MODEL); "" -> built-in (WI-F3)
 }
 
 // ErrMissingProjectID is returned by LoadConfig when no project ID is set.
@@ -59,6 +60,11 @@ func LoadConfig() (*Config, error) {
 		StagingBucket:        strings.TrimPrefix(firstNonEmpty(os.Getenv("MIZAN_STAGING_BUCKET"), os.Getenv("GENMEDIA_BUCKET")), "gs://"),
 		APIEndpoint:          firstNonEmpty(os.Getenv("MIZAN_API_ENDPOINT"), os.Getenv("VERTEX_API_ENDPOINT")),
 		DefaultTemplatesRepo: firstNonEmpty(os.Getenv("MIZAN_TEMPLATES_REPO"), DefaultTemplatesRepo),
+		// DefaultModel is intentionally left empty when unset: the eval engine's
+		// precedence chain (flag > template > config default > built-in) treats an
+		// empty value as "fall through to the built-in", so no default is baked in
+		// here (WI-F3).
+		DefaultModel: os.Getenv("MIZAN_DEFAULT_MODEL"),
 	}
 
 	c.RegistryDBPath = firstNonEmpty(os.Getenv("MIZAN_REGISTRY_DB"), defaultDBPath())

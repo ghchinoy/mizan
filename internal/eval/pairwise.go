@@ -26,7 +26,7 @@ import (
 const pairwiseDefaultSamplingCount int32 = 4
 
 // runPairwise materializes and runs a native pairwise evaluation.
-func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error) {
+func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
 	if e.client == nil {
 		return Result{}, fmt.Errorf("eval: no evaluation client configured")
 	}
@@ -40,7 +40,7 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 		return Result{}, err
 	}
 
-	model, err := expandAutoraterModel(tmpl.AutoraterModel, e.projectID, e.location)
+	fullModel, err := expandAutoraterModel(model, e.projectID, e.location)
 	if err != nil {
 		return Result{}, err
 	}
@@ -73,7 +73,7 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 	// P2 registry change (add a nullable/tri-state field) — see the WI-P1-4 log.
 	flip := true
 	autorater := &aiplatformpb.AutoraterConfig{
-		AutoraterModel: model,
+		AutoraterModel: fullModel,
 		SamplingCount:  proto.Int32(sampling),
 		FlipEnabled:    proto.Bool(flip),
 	}

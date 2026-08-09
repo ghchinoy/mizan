@@ -9,6 +9,8 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
+
+	"github.com/ghchinoy/mizan/internal/eval"
 )
 
 // configKeys maps friendly `config set` keys to their environment-variable
@@ -22,6 +24,7 @@ var configKeys = map[string]string{
 	"registry-db":    "MIZAN_REGISTRY_DB",
 	"pack-cache":     "MIZAN_PACK_CACHE",
 	"templates-repo": "MIZAN_TEMPLATES_REPO",
+	"default-model":  "MIZAN_DEFAULT_MODEL",
 }
 
 // dotenvPath returns the trusted env-file path <UserConfigDir>/mizan/.env that
@@ -67,6 +70,7 @@ func newConfigShowCmd() *cobra.Command {
 			fmt.Fprintf(tw, "RegistryDBPath:\t%s\n", cfg.RegistryDBPath)
 			fmt.Fprintf(tw, "PackCacheDir:\t%s\n", cfg.PackCacheDir)
 			fmt.Fprintf(tw, "DefaultTemplatesRepo:\t%s\n", cfg.DefaultTemplatesRepo)
+			fmt.Fprintf(tw, "DefaultModel:\t%s\n", orBuiltinModel(cfg.DefaultModel))
 			return tw.Flush()
 		},
 	}
@@ -109,6 +113,17 @@ func newConfigSetCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// orBuiltinModel renders the resolved default model for `config show`: the
+// configured default-model when set, otherwise the built-in fallback annotated
+// as such so the user sees exactly what an eval will use when neither a flag nor
+// a template pins a model (WI-F3).
+func orBuiltinModel(s string) string {
+	if s == "" {
+		return eval.BuiltinDefaultModel + " (built-in)"
+	}
+	return s
 }
 
 func orUnset(s string) string {

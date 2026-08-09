@@ -57,13 +57,19 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 
 	// The genai custom_schema path uses location=global, distinct from the
 	// native regional EvaluationClient above.
-	genaiClient, err := eval.NewGenaiClient(ctx, cfg.ProjectID, "global")
+	genaiClient, err := eval.NewGenaiClient(ctx, cfg.ProjectID, eval.GenaiLocation)
 	if err != nil {
 		_ = client.Close()
 		return nil, nil, err
 	}
 
-	opts := []eval.Option{eval.WithGenaiClient(genaiClient)}
+	// The config default-model (WI-F3) is the lowest-precedence input to the
+	// engine's model resolution chain (below the flag and the template's own
+	// model, above the built-in). An empty value falls through to the built-in.
+	opts := []eval.Option{
+		eval.WithGenaiClient(genaiClient),
+		eval.WithDefaultModel(cfg.DefaultModel),
+	}
 	closeFn := client.Close
 
 	// Build the GCS asset stager ONLY when a staging bucket is configured. When
