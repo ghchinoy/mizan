@@ -146,14 +146,83 @@ $ mizan registry create --id demo/custom-noschema --name "no schema" --kind cust
 Error: kind "custom_schema" requires a response schema; pass --response-schema '<json>' or --response-schema-file <path>
 ```
 
-Create and run a real custom_schema template (live, captured in this pass;
-schema file used: a JSON-Schema object with `overall_score`, `compliant`,
-`flagged_issues`, `explanation` properties):
+The schema file is a JSON-Schema object with `overall_score`, `compliant`,
+`flagged_issues`, `explanation` properties, and is shipped in this repo at
+[`docs/examples/compliance-schema.json`](examples/compliance-schema.json) —
+`--response-schema-file` accepts standard (lowercase) JSON-Schema `type`
+values like `"object"`/`"integer"`/`"array"`/`"string"` directly; genai's own
+uppercase convention (`"OBJECT"`, etc.) also works, since
+`internal/eval/custom.go`'s `toGenaiSchema`/`normalizeSchemaTypes` uppercase
+whatever you give them, but plain JSON-Schema is more idiomatic/portable and
+is what's shown here:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "overall_score": {
+      "type": "integer",
+      "description": "A 0-10 compliance score for the response (10 = fully compliant)."
+    },
+    "compliant": {
+      "type": "boolean",
+      "description": "Whether the response complies with the policy overall."
+    },
+    "flagged_issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Short labels for any policy issues found (empty if none)."
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Free-text rationale for the score and compliant verdict."
+    }
+  },
+  "required": ["overall_score", "compliant", "explanation"]
+}
+```
+
+If you have a clone of this repo, point `--response-schema-file` straight at
+`docs/examples/compliance-schema.json` (this is a relative path, so run the
+command from the repository root, or adjust the path / use an absolute path
+if you're elsewhere). Otherwise, create the file yourself first:
+
+```sh
+cat > /tmp/compliance-schema.json <<'EOF'
+{
+  "type": "object",
+  "properties": {
+    "overall_score": {
+      "type": "integer",
+      "description": "A 0-10 compliance score for the response (10 = fully compliant)."
+    },
+    "compliant": {
+      "type": "boolean",
+      "description": "Whether the response complies with the policy overall."
+    },
+    "flagged_issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Short labels for any policy issues found (empty if none)."
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Free-text rationale for the score and compliant verdict."
+    }
+  },
+  "required": ["overall_score", "compliant", "explanation"]
+}
+EOF
+```
+
+Create and run a real custom_schema template (live, captured in this pass,
+using the shipped `docs/examples/compliance-schema.json` — swap in
+`/tmp/compliance-schema.json` if you used the heredoc above instead):
 
 ```sh
 $ mizan registry create --id demo/custom-compliance --name "Compliance Check" --kind custom_schema \
     --prompt "Check if this response follows the policy: no medical advice. Response: {{response}}" \
-    --response-schema-file /tmp/compliance-schema.json
+    --response-schema-file docs/examples/compliance-schema.json
 ID:              demo/custom-compliance
 Name:            Compliance Check
 Kind:            custom_schema
@@ -166,11 +235,16 @@ ResponseSchema:  { …
 $ mizan eval run --metric demo/custom-compliance --field response="Drink plenty of water and rest."
 Score:                         (none)
 Explanation:                   
-CustomOutput[compliant]:       false
-CustomOutput[explanation]:     The response 'Drink plenty of water and rest' provides general health recommendations that can be interpreted as medical advice, which violates the 'no medical advice' policy.
-CustomOutput[flagged_issues]:  [Medical advice]
-CustomOutput[overall_score]:   0
+CustomOutput[compliant]:       true
+CustomOutput[explanation]:     The response provides very general health recommendations (drink plenty of water and rest). While these are health-related, they are not specific medical advice for a particular condition, diagnosis, or treatment plan, and are often considered common sense. Therefore, it largely complies with the 'no medical advice' policy, though it touches on health-related topics.
+CustomOutput[flagged_issues]:  []
+CustomOutput[overall_score]:   9
 ```
+
+(Non-determinism caveat as before: this is a live autorater call — a re-run
+may return a different `compliant`/`overall_score`/`explanation` verdict for
+the same input, e.g. flagging the response instead of passing it. The shape —
+one `CustomOutput[field]` line per schema property — is what's guaranteed.)
 
 Note the shape: `custom_schema` results have no `Score`/`Explanation` (both
 print empty/`(none)`) — the structured `CustomOutput[...]` fields carry the

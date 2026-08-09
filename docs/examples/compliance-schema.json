@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_score": {
+      "type": "integer",
+      "description": "A 0-10 compliance score for the response (10 = fully compliant)."
+    },
+    "compliant": {
+      "type": "boolean",
+      "description": "Whether the response complies with the policy overall."
+    },
+    "flagged_issues": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Short labels for any policy issues found (empty if none)."
+    },
+    "explanation": {
+      "type": "string",
+      "description": "Free-text rationale for the score and compliant verdict."
+    }
+  },
+  "required": ["overall_score", "compliant", "explanation"]
+}

@@ -34,6 +34,7 @@ source of truth even as code lands.
 | `implementation-plan.md` | Phasing (P1→P4) and acceptance criteria. | Design for review — P1 vertical slice landed; P2-P4 not started. |
 | `spikes.md` | De-risking spikes for the unknowns in `research.md` and `architecture-final.md`. | Working notes. |
 | `diagrams/` | Graphviz sources (`.dot`) and rendered WebP images for the component-architecture and eval-sequence diagrams embedded in `architecture-final.md`. | Current. |
+| `examples/` | Shipped fixture files referenced by copy-pasteable recipes in `testing-guide.md` (e.g. `compliance-schema.json` for the `custom_schema` recipe). | Current. |
 
 ## Reconciliation note (2026-08-09)
 
