@@ -1,10 +1,16 @@
 # Mizan User Guide
 
 This guide covers what Mizan can actually do today: manage a local metric
-registry, configure credentials/project settings, and run a text pointwise
-evaluation against the live Vertex AI Gen AI Evaluation Service. Every command
-and output shown below was run against the built CLI; where a capability isn't
-implemented yet, this guide says so explicitly rather than implying it works.
+registry, configure credentials/project settings, and run evaluations —
+pointwise, rubric, custom_schema, and pairwise, including multimodal
+(image/audio/video/music) assets — against the live Vertex AI Gen AI
+Evaluation Service. Phase 1 is complete: all four metric kinds and multimodal
+are implemented and CLI-runnable end-to-end. Every command and output shown
+below was run against the built CLI; where a capability isn't implemented
+yet, this guide says so explicitly rather than implying it works. For
+deeper, copy-pasteable recipes for every metric kind (including live error
+output for the pairwise placeholder contract and the create-time rubric/
+schema validation), see [`docs/testing-guide.md`](testing-guide.md).
 
 For the underlying design, see [`architecture-final.md`](architecture-final.md).
 For phase-by-phase roadmap detail, see
@@ -126,33 +132,30 @@ Prompt templates use double-brace `{{var}}` placeholders. Every placeholder in
 the prompt must be supplied as a `--field` when you run the metric (see
 below), or the run fails before it ever calls the API.
 
-`--kind` accepts `pointwise`, `pairwise`, `rubric`, or `custom_schema`, but
-they are not all runnable today, and not for the same reason in each case:
+`--kind` accepts `pointwise`, `pairwise`, `rubric`, or `custom_schema`, and
+all four are runnable end-to-end today. Two kinds need extra authoring flags,
+and one has an extra structural requirement on its prompt:
 
-- **`pointwise`** works end-to-end today — see
+- **`pointwise`** — no extra flags needed beyond `--prompt`; see
   [Running an evaluation](#running-a-text-pointwise-evaluation-end-to-end)
   below.
-- **`rubric` and `custom_schema`** are implemented and integration-tested at
-  the `eval.Engine` level (`rubric` renders its inline rubric criteria as
-  text into the same `PointwiseMetricSpec`/`EvaluateInstances` mechanism
-  `pointwise` uses, since the synchronous API exposes no structured
-  rubric-groups field; `custom_schema` uses `genai.GenerateContent` +
-  `ResponseSchema`) —
-  but `registry create`/`update` currently expose **no flag** to set the
-  `RubricGroups` or `ResponseSchema` fields those paths require. A template
-  created via `--kind rubric` or `--kind custom_schema` therefore saves fine
-  but fails as soon as you `eval run` it, because the fields the engine needs
-  were never populated. This is a CLI-authoring gap, not a missing engine
-  feature. See [`docs/testing-guide.md`](testing-guide.md) for the exact
-  errors and verified reproduction steps.
-- **`pairwise`** has no engine support at all yet — `eval.Engine.Run` returns
-  `not implemented in P1 slice: pairwise (WI-P1-4)` for any pairwise
-  template. PR #9 (multimodal + pairwise) is in review; see
-  [Coming soon](#coming-soon--roadmap).
+- **`rubric`** — also requires `--rubric-group "name=criterion
+  one;criterion two"` (repeatable) or `--rubric-groups-file <path>`; `create`
+  rejects the template immediately if neither is given.
+- **`custom_schema`** — also requires `--response-schema '<json>'` or
+  `--response-schema-file <path>`; `create` rejects the template immediately
+  if neither is given.
+- **`pairwise`** — also requires `--baseline-field`/`--candidate-field`, and
+  the `--prompt` text must reference those field names as `{{name}}`
+  placeholders (the run fails otherwise, since the API rejects instance keys
+  the template doesn't reference). Use the dedicated `mizan eval pairwise
+  --baseline key=value --candidate key=value` command, which makes the
+  baseline/candidate roles explicit (generic `eval run --field` also
+  technically works, since pairwise fields are ordinary placeholders, but
+  `eval pairwise` is the documented, less error-prone path).
 
-In every case, `--kind` is validated structurally at creation time only — the
-registry does not know at `create` time whether the template will later be
-runnable.
+See [`docs/testing-guide.md`](testing-guide.md) for full recipes and live
+output for every kind.
 
 Other useful create flags: `--system` (system instruction), `--sampling-count`
 (autorater sampling count, default 4), `--modality` (repeatable; default
@@ -216,11 +219,12 @@ Explanation:  The response 'The cat sat on the mat.' is a very short, direct, an
 ```
 
 This is a **live call** to Vertex AI's `EvaluateInstances` API in the
-configured region (`us-central1` by default). Every `--field key=value` is
-treated as plain text — there is currently no way to pass a file, image, or
-other asset via the CLI (multimodal isn't wired up at the CLI level at all in
-this slice, independent of the engine-level GCS-staging gap noted in the
-roadmap).
+configured region (`us-central1` by default). `--field key=value` is treated
+as plain text; for image/audio/video/music assets, use `--file key=/path`
+(local file, auto-staged to your configured GCS staging bucket) or `--gcs
+key=gs://...` (a pre-staged asset) instead — see
+[`docs/testing-guide.md`](testing-guide.md#multimodal) for a full multimodal
+walkthrough.
 
 ### Interpreting the result
 
@@ -243,23 +247,34 @@ without one.)
 Your prompt template has a `{{var}}` placeholder with no matching `--field
 var=value` on the command line. Add the missing `--field`.
 
-**`Error: eval: not implemented in P1 slice: pairwise (WI-P1-4)`**
-You created a `--kind pairwise` template and ran it. Pairwise has no engine
-implementation yet (PR #9, in review, adds it). See
-[Coming soon](#coming-soon--roadmap).
+**`Error: kind "rubric" requires rubric groups; pass --rubric-group
+"name=crit1;crit2" (repeatable) or --rubric-groups-file <path>`**
+You ran `registry create --kind rubric` without either rubric-authoring flag.
+This is caught immediately at create time (as of PR #11) — add
+`--rubric-group "name=criterion one;criterion two"` (repeatable) or
+`--rubric-groups-file <path-to-json-object>`. See
+[`docs/testing-guide.md`](testing-guide.md#rubric) for a full recipe.
 
-**`Error: eval: rubric template "<id>" has no rubric groups`**
-You created a `--kind rubric` template and ran it. The rubric engine path is
-implemented, but there is currently no `registry create`/`update` flag to set
-`RubricGroups`, so every CLI-authored rubric template hits this error. This is
-a CLI-surface gap (tracked as follow-up CLI work), not an engine limitation —
-see [`docs/testing-guide.md`](testing-guide.md).
+**`Error: kind "custom_schema" requires a response schema; pass
+--response-schema '<json>' or --response-schema-file <path>`**
+Same as above, for `--kind custom_schema`: add `--response-schema '<json>'`
+or `--response-schema-file <path>`. See
+[`docs/testing-guide.md`](testing-guide.md#custom-schema) for a full recipe.
 
-**`Error: eval: custom_schema template "<id>" has no response schema`**
-Same story as the rubric error above, for `--kind custom_schema`: the engine
-(`genai.GenerateContent` + `ResponseSchema`) is implemented, but there is no
-CLI flag to set `ResponseSchema` on the template, so it's always empty for a
-CLI-authored template.
+**`Error: eval: pairwise template "<id>" metric prompt must reference the
+baseline {{<name>}} and candidate {{<name>}} placeholder(s); the API rejects
+instance keys not present in the template`**
+Your pairwise template's `--prompt` text doesn't contain `{{<baseline-field>}}`
+and `{{<candidate-field>}}` placeholders matching the field names you passed
+at `create` time via `--baseline-field`/`--candidate-field`. Update the prompt
+to reference both. See
+[`docs/testing-guide.md`](testing-guide.md#placeholder-contract-real-verified).
+
+**`--flip-enabled=false` doesn't disable flipping**
+This is a known P1 limitation, not a bug: the registry's `FlipEnabled` field
+is a plain `bool` that can't distinguish an explicit "false" from "unset," so
+P1 always runs pairwise with flip enabled regardless of what you pass. See
+[`docs/testing-guide.md`](testing-guide.md#flip-enabled-known-p1-limitation).
 
 **`Error: registry: template not found`**
 The `<id>` you passed to `get`/`update`/`delete`/`eval run --metric` doesn't
@@ -274,37 +289,10 @@ endpoint. If you really need a custom endpoint (e.g. a local test proxy), set
 
 ## Coming soon / roadmap
 
-These are **not usable end-to-end via the CLI** in the current build — don't
-expect them to work, and treat any resemblance in `--help` output (e.g.
-accepted `--kind` values) as forward-looking scaffolding, not a working
-feature:
+Phase 1 (all four metric kinds + multimodal) is complete. What's **not usable
+end-to-end via the CLI** in the current build is the P2/P3/P4 work below —
+don't expect these to work:
 
-- **Multimodal evaluation** (image/audio/video/music) — the native
-  `EvaluateInstances` path requires staging non-text assets to GCS
-  (`gs://` URIs) first; that staging step (`internal/asset` MIME detection +
-  upload) isn't wired into the CLI or engine yet. A separate `genai`-based
-  custom-schema fallback that could accept inline bytes also isn't wired in.
-  PR #9 (open, in review) adds this.
-- **Pairwise evaluation** (`eval pairwise`, flip-bias mitigation) — no engine
-  support at all yet (roadmap work item WI-P1-4); `eval.Engine.Run` returns
-  `not implemented in P1 slice: pairwise (WI-P1-4)`. PR #9 (open, in review)
-  adds this.
-- **Rubric-based metrics** — the *engine* work (WI-P1-5) is **done**: merged
-  in PR #6, implemented and covered by integration tests. The native path
-  renders inline rubric criteria as text into the same
-  `PointwiseMetricSpec`/`EvaluateInstances` mechanism `pointwise` uses, since
-  the synchronous API has no structured rubric-groups field. What's still
-  roadmap is the
-  **CLI-authoring surface**: `registry create`/`update` has no flag to set
-  `RubricGroups`, so a CLI-created rubric template cannot be run yet. This
-  gap is part of the still-incomplete `WI-P1-6` CLI surface and is tracked as
-  a follow-up. See [`docs/testing-guide.md`](testing-guide.md) for the
-  verified failure mode.
-- **`custom_schema` metric execution** via the `genai` `GenerateContent`
-  fallback — same status as rubric: the *engine* work (WI-P1-5) is **done**
-  (merged in PR #6, integration-tested), but `registry create`/`update` has
-  no flag to set `ResponseSchema`, so a CLI-created `custom_schema` template
-  cannot be run yet. Also part of the follow-up `WI-P1-6` CLI work.
 - **Template packs and sharing** (`mizan pack init|validate|add`, `registry
   import|export`) — no `pack` command and no `registry import|export` exist
   in the built binary yet (roadmap phase P2, the collaboration layer). The
@@ -332,7 +320,10 @@ detail and acceptance criteria.
 ## How it fits together
 
 For a text-pointwise `eval run`, the request flows entirely through
-implemented code paths — see the sequence below (and
-[`architecture-final.md`](architecture-final.md) §6 for the domain model):
+implemented code paths — see the sequence below. This is one example of a
+fully implemented path; rubric, custom_schema, pairwise, and multimodal are
+also implemented end-to-end (see
+[`architecture-final.md`](architecture-final.md) §6 for the domain model and
+the component diagram):
 
 ![Sequence diagram: mizan eval run flows from the CLI through config, registry.Service, and eval.Engine to a live Vertex AI EvaluateInstances call and back](diagrams/eval-sequence.webp)

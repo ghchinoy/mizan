@@ -9,9 +9,11 @@ work-item IDs (`WI-P1-*`), see
 [`docs/implementation-plan.md`](implementation-plan.md).
 
 Every command and every line of output below was run, in this pass, against a
-binary built from current `main` (PRs #1–#8 merged; PR #9 — multimodal +
-pairwise — still open, see the [Pairwise and multimodal](#pairwise-and-multimodal-pr-9-in-review) section). Nothing here is copied from another doc or
-invented.
+binary built from current `main` (PRs #1–#11 merged — **Phase 1 is complete**:
+all four metric kinds — pointwise, rubric, custom_schema, pairwise — and
+multimodal (image/audio/video/music) are implemented and CLI-runnable
+end-to-end). Nothing here is copied from another doc or invented; scores and
+explanations are live autorater output and are expected to vary run-to-run.
 
 ## Minimal setup
 
@@ -33,11 +35,12 @@ See [`docs/user_guide.md`](user_guide.md#prerequisites) for the full
 prerequisites/install/config explanation (env-var overrides, `.env` file
 location, the custom-endpoint safeguard, etc.) — it isn't repeated here.
 
-## Text pointwise (fully testable today)
+## Text pointwise
 
-This is the one path that is completely implemented and wired end-to-end:
+The original, simplest path — fully implemented and wired end-to-end:
 CLI → `registry.Service` → `eval.Engine` → live Vertex AI
-`EvaluateInstances`.
+`EvaluateInstances`. (All four metric kinds share this same live-call shape;
+see the sections below for rubric, custom_schema, pairwise, and multimodal.)
 
 Create the template:
 
@@ -79,149 +82,272 @@ guaranteed.
 - **`Explanation`** is free-text rationale from the autorater model. Treat it
   as a qualitative aid, not a machine-parseable field.
 
-## Rubric (engine built, not yet CLI-testable)
+## Rubric
 
 The native rubric path is implemented in `internal/eval/native.go`
 (`runRubric`, which renders the inline rubric criteria as text into the same
 `PointwiseMetricSpec`/`EvaluateInstances` judge-prompt mechanism `pointwise`
 uses, via `renderRubricGroups` — the synchronous API has no
-`LLMBasedMetricSpec`/structured `rubric_groups` field to pass them as) and is
-covered by integration tests:
-`internal/eval/rubric_test.go` and
-`internal/eval/rubric_custom_integration_test.go`.
+`LLMBasedMetricSpec`/structured `rubric_groups` field to pass them as), and is
+now fully CLI-authorable as of PR #11 (`WI-P1-6`): `registry create`/`update`
+take a repeatable `--rubric-group "name=criterion one;criterion two"` flag, or
+`--rubric-groups-file <path>` pointing at a JSON object of
+`{"group": ["crit1", "crit2"], ...}`.
 
-What's missing is CLI authoring: `cmd/mizan/registry.go`'s `templateFlags`
-struct has no flag to set `RubricGroups` on a `registry.MetricTemplate` —
-confirm yourself with `grep -n "RubricGroups" cmd/mizan/*.go` (no matches).
-The field is only ever populated directly in Go structs in
-`internal/eval/*_test.go`. So a rubric template created through the CLI
-always has an empty `RubricGroups`, and running it fails. Reproduced live:
+Creating a rubric template with **no** rubric flag now fails immediately at
+create time (this is new, better UX from PR #11 — previously it saved and
+only failed at `eval run`):
 
 ```sh
-$ mizan registry create --id demo/rubric-test --name "Rubric test" --kind rubric \
-    --prompt "Evaluate the response: {{response}}"
-ID:             demo/rubric-test
-Name:           Rubric test
-Kind:           rubric
-Modalities:     text
-Model:          gemini-2.5-flash
-SamplingCount:  4
-Prompt:         Evaluate the response: {{response}}
-
-$ mizan eval run --metric demo/rubric-test --field response="test"
-Error: eval: rubric template "demo/rubric-test" has no rubric groups
+$ mizan registry create --id demo/rubric-nogroup --name "no group" --kind rubric \
+    --prompt "Evaluate: {{response}}"
+Error: kind "rubric" requires rubric groups; pass --rubric-group "name=crit1;crit2" (repeatable) or --rubric-groups-file <path>
 ```
 
-This is a known, tracked gap in the CLI surface (part of the still-incomplete
-`WI-P1-6` CLI work), not a bug report and not an engine limitation — a fix
-(adding a way to author rubric groups from the CLI) is planned as follow-up
-engineering work. There is no workaround via the CLI today: `cmd/mizan/*.go`
-has no stdin/JSON-file input path either (confirm with
-`grep -rn "os.Stdin\|json.NewDecoder" cmd/mizan/*.go` — no matches), so do not
-expect a `--rubric-group` flag or similar; it doesn't exist.
-
-## Custom schema (engine built, not yet CLI-testable)
-
-Same situation as rubric, for the `custom_schema` kind. The engine path is
-implemented in `internal/eval/custom.go` (`runCustomSchema`, calling
-`genai.GenerateContent` with a `ResponseSchema` and exponential backoff) and
-is covered by `internal/eval/custom_test.go` and
-`internal/eval/rubric_custom_integration_test.go`.
-
-`templateFlags` has no flag to set `ResponseSchema` either (same grep as
-above returns nothing). Reproduced live:
+Create and run a real rubric template (live, captured in this pass):
 
 ```sh
-$ mizan registry create --id demo/custom-test --name "Custom schema test" --kind custom_schema \
-    --prompt "Evaluate the response: {{response}}"
-ID:             demo/custom-test
-Name:           Custom schema test
-Kind:           custom_schema
-Modalities:     text
-Model:          gemini-2.5-flash
-SamplingCount:  4
-Prompt:         Evaluate the response: {{response}}
+$ mizan registry create --id demo/rubric-quality --name "Response Quality Rubric" --kind rubric \
+    --prompt "Evaluate this response: {{response}}" \
+    --rubric-group "clarity=Is the response clear;Is it free of jargon" \
+    --rubric-group "correctness=Is the factual content accurate"
+ID:                        demo/rubric-quality
+Name:                      Response Quality Rubric
+Kind:                      rubric
+Modalities:                text
+Model:                     gemini-2.5-flash
+SamplingCount:             4
+Prompt:                    Evaluate this response: {{response}}
+RubricGroup[clarity]:      Is the response clear; Is it free of jargon
+RubricGroup[correctness]:  Is the factual content accurate
 
-$ mizan eval run --metric demo/custom-test --field response="test"
-Error: eval: custom_schema template "demo/custom-test" has no response schema
+$ mizan eval run --metric demo/rubric-quality --field response="The Eiffel Tower is located in Paris, France, and was completed in 1889."
+Score:        5
+Explanation:  The response is perfectly clear, free of jargon, and all factual content (location and completion date of the Eiffel Tower) is accurate.
 ```
 
-Same status as rubric: tracked CLI-surface gap, no workaround, fix planned as
-follow-up engineering work.
+(Same non-determinism caveat as pointwise: score/explanation text will vary
+run to run — the `Score`/`Explanation` shape is what's guaranteed.)
 
-## Pairwise and multimodal (PR #9, in review)
+## Custom schema
 
-Checked at the time of writing:
+Same underlying path as rubric for CLI-authoring status: the engine
+(`internal/eval/custom.go`'s `runCustomSchema`, calling
+`genai.GenerateContent` with a `ResponseSchema` and exponential backoff) has
+been implemented and integration-tested since PR #6, and PR #11 added the
+CLI-authoring flags: `--response-schema '<json>'` (inline) or
+`--response-schema-file <path>` pointing at a JSON-Schema object.
+
+Same create-time validation as rubric — no schema flag fails immediately:
 
 ```sh
-$ gh pr view 9 --json state,mergedAt
-{"state":"OPEN","mergedAt":null}
+$ mizan registry create --id demo/custom-noschema --name "no schema" --kind custom_schema \
+    --prompt "Evaluate: {{response}}"
+Error: kind "custom_schema" requires a response schema; pass --response-schema '<json>' or --response-schema-file <path>
 ```
 
-PR #9 is **still open** (explicitly marked "Do not merge — eng-manager gates
-merge" in its description), so neither capability is testable via any built
-binary yet — this section is a preview, not a recipe. Once it merges, this
-section should be replaced with full verified recipes (build from merged
-`main`, run real commands, paste real output) rather than left as a preview.
-
-Per the PR description and [`docs/implementation-plan.md`](implementation-plan.md)
-(`WI-P1-4`), it will add:
-
-- **Native multimodal pointwise** — image/audio/video/music evaluation via
-  `gs://`-staged `FileData` (native `EvaluateInstances` does not accept
-  inline bytes; local files get staged to GCS first, pre-staged `gs://` URIs
-  pass through as-is).
-- **Native pairwise** (`KindPairwise`) plus a new `eval pairwise` CLI command
-  (`--metric --baseline key=… --candidate key=… [--field/--file/--gcs …]`
-  per the PR description), returning a `PairwiseChoice` result.
-
-Confirm today's pairwise state yourself in the meantime — running a
-`--kind pairwise` template against the current `main` build fails at the
-engine, not the CLI-authoring layer (unlike rubric/custom_schema above):
+Create and run a real custom_schema template (live, captured in this pass;
+schema file used: a JSON-Schema object with `overall_score`, `compliant`,
+`flagged_issues`, `explanation` properties):
 
 ```sh
-$ mizan registry create --id demo/pairwise-test --name "Pairwise test" --kind pairwise \
-    --prompt "Compare: {{baseline}} vs {{candidate}}" \
-    --candidate-field candidate --baseline-field baseline
-ID:             demo/pairwise-test
-Name:           Pairwise test
+$ mizan registry create --id demo/custom-compliance --name "Compliance Check" --kind custom_schema \
+    --prompt "Check if this response follows the policy: no medical advice. Response: {{response}}" \
+    --response-schema-file /tmp/compliance-schema.json
+ID:              demo/custom-compliance
+Name:            Compliance Check
+Kind:            custom_schema
+Modalities:      text
+Model:           gemini-2.5-flash
+SamplingCount:   4
+Prompt:          Check if this response follows the policy: no medical advice. Response: {{response}}
+ResponseSchema:  { …
+
+$ mizan eval run --metric demo/custom-compliance --field response="Drink plenty of water and rest."
+Score:                         (none)
+Explanation:                   
+CustomOutput[compliant]:       false
+CustomOutput[explanation]:     The response 'Drink plenty of water and rest' provides general health recommendations that can be interpreted as medical advice, which violates the 'no medical advice' policy.
+CustomOutput[flagged_issues]:  [Medical advice]
+CustomOutput[overall_score]:   0
+```
+
+Note the shape: `custom_schema` results have no `Score`/`Explanation` (both
+print empty/`(none)`) — the structured `CustomOutput[...]` fields carry the
+result instead, one line per property in your `ResponseSchema`.
+
+## Pairwise
+
+Pairwise now has a full native engine path (`internal/eval/pairwise.go`) and
+a dedicated `mizan eval pairwise` CLI command (added in PR #9), confirmed via
+`--help`:
+
+```
+mizan eval pairwise --metric <id> --baseline key=… --candidate key=… [--field/--file/--gcs …]
+```
+
+Create a pairwise template (the `--candidate-field`/`--baseline-field` flags
+name the placeholders that `eval pairwise --baseline`/`--candidate` fill) and
+run it (live, captured in this pass):
+
+```sh
+$ mizan registry create --id demo/pairwise-quality --name "Pairwise Quality" --kind pairwise \
+    --prompt "Which response better answers the question 'What is the capital of France?' Baseline: {{baseline_response}} Candidate: {{candidate_response}}" \
+    --candidate-field candidate_response --baseline-field baseline_response
+ID:             demo/pairwise-quality
+Name:           Pairwise Quality
 Kind:           pairwise
 Modalities:     text
 Model:          gemini-2.5-flash
 SamplingCount:  4
-Prompt:         Compare: {{baseline}} vs {{candidate}}
+Prompt:         Which response better answers the question 'What is the capital of France?' Baseline: {{baseline_response}} Candidate: {{candidate_response}}
 
-$ mizan eval run --metric demo/pairwise-test --field baseline="a" --field candidate="b"
-Error: eval: not implemented in P1 slice: pairwise (WI-P1-4)
+$ mizan eval pairwise --metric demo/pairwise-quality \
+    --baseline baseline_response="Paris." \
+    --candidate candidate_response="The capital of France is Paris, a city renowned for the Eiffel Tower and its rich cultural history."
+Score:        (none)
+Choice:       BASELINE
+Explanation:  The baseline response is more direct and concise, providing only the information specifically asked for in the question, which is generally preferred for simple factual queries.
 ```
 
-(Confirm in code: `grep -n "KindPairwise" internal/eval/engine.go` shows the
-`not implemented` branch.)
+`Choice` is non-deterministic across runs like `Score`/`Explanation` — a
+re-run of the exact same command may return `CANDIDATE` instead of
+`BASELINE`; both are valid live autorater outcomes.
+
+### Placeholder contract (real, verified)
+
+The metric prompt template **must** reference the baseline and candidate
+field names as `{{name}}` placeholders matching
+`--baseline-field`/`--candidate-field`. This isn't a suggestion — it's
+enforced, because the underlying API rejects instance keys that aren't
+present in the template. Reproduced live:
+
+```sh
+$ mizan registry create --id demo/pairwise-badprompt --name "Pairwise Bad Prompt" --kind pairwise \
+    --prompt "Which response is better?" \
+    --candidate-field candidate_response --baseline-field baseline_response
+ID:             demo/pairwise-badprompt
+Name:           Pairwise Bad Prompt
+Kind:           pairwise
+Modalities:     text
+Model:          gemini-2.5-flash
+SamplingCount:  4
+Prompt:         Which response is better?
+
+$ mizan eval pairwise --metric demo/pairwise-badprompt \
+    --baseline baseline_response="Paris." \
+    --candidate candidate_response="The capital of France is Paris."
+Error: eval: pairwise template "demo/pairwise-badprompt" metric prompt must reference the baseline {{baseline_response}} and candidate {{candidate_response}} placeholder(s); the API rejects instance keys not present in the template
+```
+
+### flip-enabled known P1 limitation
+
+`registry create --kind pairwise` accepts a `--flip-enabled` flag (default
+`true`), but **P1 always runs pairwise with flip enabled regardless of the
+flag's value** — the registry's `FlipEnabled` field is a plain `bool`, which
+can't represent an explicit "false" distinctly from "unset" (both are the Go
+zero value), so P1 cannot honor an explicit opt-out
+(source: `internal/eval/pairwise.go` comments, and
+`docs/project-log/p1-wi4-multimodal-pairwise-mizan-p1-dev-5.md`). Passing
+`--flip-enabled=false` at create time is accepted without error, but does
+**not** actually disable flipping — treat that as an honest gap, not a
+working toggle, until a tri-state field lands (tracked as P2 registry work).
+
+## Multimodal
+
+Native multimodal pointwise (and pairwise) evaluation is implemented: local
+files passed with `--file key=/path` are auto-staged to your configured
+`StagingBucket` (`internal/asset`: MIME detection + content-addressed upload
+to `gs://.../mizan-staging/<sha256>.<ext>`), and pre-staged assets can be
+passed directly with `--gcs key=gs://...`.
+
+Generate a tiny test image (any real image/audio/video/music file works —
+this is just the smallest thing to synthesize without external
+dependencies):
+
+```sh
+python3 -c "
+import struct, zlib
+def chunk(tag, data):
+    return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag+data) & 0xffffffff)
+w, h = 4, 4
+raw = b''.join(b'\x00' + bytes([255,0,0]*w) for _ in range(h))
+png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', w,h,8,2,0,0,0)) + chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b'')
+open('/tmp/test-image.png', 'wb').write(png)
+"
+```
+
+Create an image metric and run it against a local file (live, captured in
+this pass against a 4x4 solid-red synthetic PNG at `/tmp/test-image.png`):
+
+```sh
+$ mizan registry create --id demo/image-description --name "Image Color Check" --kind pointwise \
+    --prompt "What is the dominant color in this image? {{photo}}" --modality image --modality text
+ID:             demo/image-description
+Name:           Image Color Check
+Kind:           pointwise
+Modalities:     image,text
+Model:          gemini-2.5-flash
+SamplingCount:  4
+Prompt:         What is the dominant color in this image? {{photo}}
+
+$ mizan eval run --metric demo/image-description --file photo=/tmp/test-image.png
+Score:        5
+Explanation:  The image is a solid color, and that color is unmistakably red, making it the dominant color.
+```
+
+Staging genuinely happens and is content-addressed by SHA-256 — the local
+file's hash matches the object name Mizan uploads:
+
+```sh
+$ sha256sum /tmp/test-image.png
+3fd6e6be528c182d768563a63b65ac5a70d022149a01eeeaaa30396d75f426e0  /tmp/test-image.png
+
+$ gcloud storage ls gs://ghchinoy-genai-sa-mizan-staging/mizan-staging/
+gs://ghchinoy-genai-sa-mizan-staging/mizan-staging/3fd6e6be528c182d768563a63b65ac5a70d022149a01eeeaaa30396d75f426e0.png
+gs://ghchinoy-genai-sa-mizan-staging/mizan-staging/de95a16efc9d3dd418391f23f03d1b34358fe64e1187e13aa9cc096a79926011.png
+```
+
+(The second object is a leftover from an earlier verification pass against
+the same bucket — the content-addressed naming means re-staging identical
+bytes is idempotent, it doesn't create a duplicate.)
+
+`--gcs` reuses a pre-staged URI directly, without re-uploading (live,
+captured in this pass, reusing the URI just staged above):
+
+```sh
+$ mizan eval run --metric demo/image-description --gcs photo=gs://ghchinoy-genai-sa-mizan-staging/mizan-staging/3fd6e6be528c182d768563a63b65ac5a70d022149a01eeeaaa30396d75f426e0.png
+Score:        5
+Explanation:  The image is a solid block of color, and that color is red, making it the unequivocally dominant color.
+```
+
+Audio/video/music follow the same `--modality`/`--file`/`--gcs` shape; image
+is shown here because it's the easiest asset to synthesize for a
+reproducible test.
 
 ## What each result means
 
-- **`Score` + `Explanation`** (pointwise, and rubric once CLI-authorable) —
-  demonstrated above for pointwise. A float score plus free-text rationale.
+- **`Score` + `Explanation`** (pointwise and rubric) — demonstrated live
+  above for both. A float score plus free-text rationale.
 - **`CustomOutput`** (`custom_schema`) — a typed JSON object matching the
   template's `ResponseSchema`, surfaced as `map[string]any` on
   `eval.Result.CustomOutput` (source: `internal/eval/engine.go`'s `Result`
-  struct, and `internal/eval/custom_test.go`'s fixtures, e.g. an
-  `overall_score`/`compliant`/`flagged_issues`/`explanation` shape). Not
-  demonstrable live yet since custom_schema isn't CLI-runnable — this is read
-  from code/tests, not observed via a CLI run.
+  struct). **Demonstrated live above** (the `demo/custom-compliance` run) —
+  `Score`/`Explanation` print empty, and one `CustomOutput[field]` line is
+  printed per property in your `ResponseSchema`.
 - **`PairwiseChoice`** (pairwise) — an enum-like string result:
   `BASELINE=1`, `CANDIDATE=2`, `TIE=3` (source:
-  [`docs/architecture-final.md`](architecture-final.md) §6, and
-  [`docs/implementation-plan.md`](implementation-plan.md)'s `WI-P1-4`
-  description). Not demonstrable live yet — pairwise has no engine
-  implementation on `main` as of this pass; this mapping is documented from
-  the spec/code, not from a run.
+  [`docs/architecture-final.md`](architecture-final.md) §6). **Demonstrated
+  live above** as the `Choice:` line in the `eval pairwise` output — expect
+  it to vary run to run since it's a live autorater judgment.
 
 ## Not yet testable / roadmap
 
-Kept consistent with [`docs/user_guide.md`](user_guide.md#coming-soon--roadmap)
-— see that section for the full picture. Verified absent from the built
-binary in this pass:
+Phase 1 is complete, so this list now only covers P2/P3/P4 work — unrelated
+to the P1 metric-kind work above, but re-verified absent from the built
+binary in this pass rather than assumed unchanged. Kept consistent with
+[`docs/user_guide.md`](user_guide.md#coming-soon--roadmap) — see that section
+for the full picture.
 
 - **Template packs and registry import/export** — `mizan pack` and
   `mizan registry import`/`export` do not exist:

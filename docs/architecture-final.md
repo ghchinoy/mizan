@@ -136,12 +136,15 @@ complex fields (`Modalities`, `RubricGroup`, `ResponseSchema`, `Inputs`) are
 JSON-serialized into TEXT columns. The `Store` interface (§3 `store.go`) keeps a
 future Firestore-backed impl a drop-in (§9).
 
-**Component diagram (current build vs roadmap).** Solid boxes/edges are
-implemented and verified; dashed/grey elements (the Firestore `SyncBackend`,
-the `genai` custom-schema fallback, pairwise/rubric dispatch, GCS staging, and
-the external `mizan-templates` repo) are roadmap only:
+**Component diagram (current build vs roadmap).** Phase 1 is now complete: all
+four metric kinds (pointwise, rubric, custom_schema, pairwise) and GCS
+multimodal staging are implemented and CLI-runnable end-to-end, so those
+nodes/edges are solid. Only two elements remain genuinely dashed/roadmap: the
+Firestore/GCS `SyncBackend` (still a planned drop-in, not built) and the
+external `mizan-templates` repo integration (`registry import|export`/`pack`
+still don't exist in this binary — P2):
 
-![Mizan component architecture diagram showing cmd/mizan composed via internal/wire over registry.Service and eval.Engine, with the sqlite.Store implementation solid and the Firestore SyncBackend, genai fallback, pairwise/rubric dispatch, GCS staging, and mizan-templates repo shown dashed as roadmap](diagrams/component-architecture.webp)
+![Mizan component architecture diagram showing cmd/mizan composed via internal/wire over registry.Service and eval.Engine, with the sqlite.Store implementation and all four metric-kind dispatch paths (pointwise, rubric, custom_schema, pairwise) plus GCS staging shown solid, and only the Firestore SyncBackend and the mizan-templates repo shown dashed as roadmap](diagrams/component-architecture.webp)
 
 ---
 
@@ -198,7 +201,13 @@ the retired draft are in §12 and §13.)
 - `pointwise`/`pairwise`, any non-text asset → `*MetricSpec` +
   `ContentMapInstance` with **`FileData` (`gs://`) only** — see the inline-bytes
   finding below.
-- `rubric` → `LLMBasedMetricSpec` + inline `rubric_groups`.
+- `rubric` → shares the native `PointwiseMetricSpec`/`EvaluateInstances` path
+  with `pointwise` (`runRubric` in `internal/eval/native.go`), because the
+  synchronous `EvaluateInstances` API has no `LLMBasedMetricSpec` input for
+  inline rubric groups (that message exists only on the batch
+  `EvaluateDataset` path, and there it references rubric groups by key, not
+  inline) — instead the rubric criteria are rendered as additional judge-prompt
+  text via `renderRubricGroups` and appended to the metric prompt.
 - `custom_schema` → `genai.GenerateContent` with `ResponseSchema` + backoff retry.
 
 `AutoraterConfig` (SamplingCount, FlipEnabled, AutoraterModel) is populated from
@@ -274,7 +283,8 @@ type Engine interface {
 > P1). They do **not** change the module layout or the domain model.
 
 **Sequence diagram — text-pointwise `eval run` (fully implemented).** This is
-the one path that is entirely built and verified end-to-end today:
+one example of a fully implemented path; rubric, custom_schema, pairwise, and
+multimodal are also implemented end-to-end — see the component diagram above:
 
 ![Sequence diagram of mizan eval run for a text-pointwise metric: CLI loads config, opens registry.Service and eval.Engine via wire, fetches the MetricTemplate, expands the autorater model to a full resource name, builds the PointwiseMetricSpec/JsonInstance/AutoraterConfig, calls Vertex AI EvaluateInstances, and renders the mapped Result to stdout](diagrams/eval-sequence.webp)
 
@@ -330,10 +340,9 @@ need a C toolchain. Adopting the pure-Go `modernc.org/sqlite` driver (drop-in
 `setup-go` runner — for the templates CI *and* for end users installing the CLI.
 Spike 5 validated the storage layer against `mattn/go-sqlite3`, but the interface
 and JSON-column approach are driver-agnostic, so swapping the driver is low-risk.
-**Recommendation: adopt `modernc.org/sqlite`; confirm in P1 (WI-P1-1).** If cgo is
-retained instead, the templates CI must enable cgo (record the trade-off).
-Replace the `mattn/go-sqlite3` line above with `modernc.org/sqlite <pin>`
-accordingly.
+**Confirmed in P1 (WI-P1-1):** `go.mod` pins `modernc.org/sqlite v1.56.0`; the
+`mattn/go-sqlite3` line in the dependency block above is superseded and kept
+only as the historical rationale for why the pure-Go driver was chosen.
 
 ---
 
@@ -355,9 +364,9 @@ accordingly.
 ## 10. Open Questions (architecture level)
 
 1. **Module layout** — **RESOLVED (spike-core Spike 0): single Go module.** §5.
-2. **SQLite driver** — **recommended: pure-Go `modernc.org/sqlite`** (cgo-free
-   `go install` for the rev-3 templates CI and end users). *Confirm in P1
-   (WI-P1-1).* §8.
+2. **SQLite driver** — **RESOLVED (confirmed in P1, WI-P1-1): pure-Go
+   `modernc.org/sqlite`** (cgo-free `go install` for the rev-3 templates CI and
+   end users; see `go.mod`). §8.
 3. **Eval-service region / placeholder syntax / inline bytes** — **RESOLVED
    (spike-core):** default `us-central1`; double-brace `{{x}}`; **inline bytes
    unsupported on native eval → GCS staging mandatory for multimodal.** §6/§7.
@@ -397,7 +406,12 @@ accordingly.
 ## 12. CLI surface (Cobra)
 
 Folded from the retired draft §6 and reconciled to the rev-3 command set (§3).
-This is **design-level (pre-implementation); exact flags confirmed during P1.**
+This block is kept as **historical/design-level** and is not updated
+flag-by-flag as the CLI evolved (for example, the shipped flags are `--prompt`
+and `--flip-enabled`, not `--prompt-template`/`--flip` as sketched below). For
+the real, current, live-verified CLI surface, see
+[`docs/testing-guide.md`](testing-guide.md) and
+[`docs/user_guide.md`](user_guide.md).
 
 ```
 # Registry — local working-copy CRUD
