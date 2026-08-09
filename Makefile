@@ -6,69 +6,59 @@
 #
 # Quality gates are intentionally limited to `go vet`, `gofmt`, and
 # `govulncheck` — golangci-lint is deliberately NOT used.
+#
+# Per-target help text is the inline `## ` comment on each target line; the
+# default `help` target auto-generates its listing from those comments, so the
+# doc text has a single source of truth and cannot drift.
 
-# Run `gofmt`/`go vet`/etc. against the whole module.
+# Toolchain overrides — set on the command line to substitute a different binary.
 GO             ?= go
+GOFMT          ?= gofmt
 BIN_DIR        := bin
 
 .DEFAULT_GOAL := help
 
 .PHONY: help build install desktop test integration-test vet fmt fmt-check vuln clean
 
-## help: list available targets (default)
-help:
+help: ## list available targets (default)
 	@echo "Mizan — available make targets:"
-	@echo "  build             Build the mizan CLI to bin/mizan (CGO_ENABLED=0)"
-	@echo "  install           go install the mizan CLI into GOBIN/GOPATH"
-	@echo "  desktop           Build the mizan-desktop stub to bin/mizan-desktop"
-	@echo "  test              Run unit tests (go test ./...)"
-	@echo "  integration-test  Run integration-tagged tests (needs PROJECT_ID)"
-	@echo "  vet               Run go vet ./..."
-	@echo "  fmt               Format all Go source in place (gofmt -w .)"
-	@echo "  fmt-check         List files needing formatting (gofmt -l .)"
-	@echo "  vuln              Run govulncheck ./..."
-	@echo "  clean             Remove the bin/ directory"
+	@grep -E '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) \
+		| sort \
+		| awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
 
-## build: compile the mizan CLI (CGO-free) to bin/mizan
-build:
+build: ## Build the mizan CLI to bin/mizan (CGO_ENABLED=0)
 	CGO_ENABLED=0 $(GO) build -o $(BIN_DIR)/mizan ./cmd/mizan
 
-## install: install the mizan CLI onto the local system
-install:
+install: ## go install the mizan CLI into GOBIN/GOPATH
 	$(GO) install ./cmd/mizan
 
-## desktop: build the mizan-desktop stub (Wails wiring lands in a later phase;
-## this target adds NO Wails toolchain dependency).
-desktop:
+# desktop: Wails wiring lands in a later phase; this target adds NO Wails
+# toolchain dependency (mizan-desktop is a Wails-free stub for now).
+desktop: ## Build the mizan-desktop stub to bin/mizan-desktop
 	$(GO) build -o $(BIN_DIR)/mizan-desktop ./cmd/mizan-desktop
 
-## test: run the unit test suite
-test:
+test: ## Run unit tests (go test ./...)
 	$(GO) test ./...
 
-## integration-test: run integration-tagged tests. These require a Google Cloud
-## project: set PROJECT_ID or MIZAN_PROJECT_ID, otherwise the integration tests
-## skip themselves.
-integration-test:
+# integration-test: requires a Google Cloud project — set PROJECT_ID or
+# MIZAN_PROJECT_ID, otherwise the integration-tagged tests skip themselves.
+integration-test: ## Run integration-tagged tests (needs PROJECT_ID/MIZAN_PROJECT_ID)
 	$(GO) test -tags integration ./...
 
-## vet: run go vet across the module
-vet:
+vet: ## Run go vet ./...
 	$(GO) vet ./...
 
-## fmt: format all Go source in place
-fmt:
-	gofmt -w .
+fmt: ## Format all Go source in place (gofmt -w .)
+	$(GOFMT) -w .
 
-## fmt-check: list files that are not gofmt-clean (empty output = clean)
-fmt-check:
-	gofmt -l .
+# fmt-check: fail (non-zero exit) when any file is not gofmt-clean, so this is a
+# usable CI gate — `gofmt -l` alone always exits 0.
+fmt-check: ## List files needing formatting; fail if any (gofmt -l .)
+	@out=$$($(GOFMT) -l .); [ -z "$$out" ] || { echo "$$out"; exit 1; }
 
-## vuln: scan for known vulnerabilities. Requires govulncheck:
-## go install golang.org/x/vuln/cmd/govulncheck@latest
-vuln:
+# vuln: requires govulncheck — go install golang.org/x/vuln/cmd/govulncheck@latest
+vuln: ## Run govulncheck ./...
 	govulncheck ./...
 
-## clean: remove build output
-clean:
+clean: ## Remove the bin/ directory
 	rm -rf $(BIN_DIR)
