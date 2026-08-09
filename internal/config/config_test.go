@@ -187,6 +187,36 @@ func TestValidateEndpoint(t *testing.T) {
 	}
 }
 
+func TestValidateGenaiBaseURL(t *testing.T) {
+	cases := []struct {
+		name    string
+		raw     string
+		allow   string
+		wantErr bool
+	}{
+		{"empty is allowed", "", "", false},
+		{"vertex googleapis base url", "https://us-central1-aiplatform.googleapis.com/", "", false},
+		{"gemini googleapis base url", "https://generativelanguage.googleapis.com/", "", false},
+		{"apex googleapis", "https://googleapis.com/v1beta1/", "", false},
+		{"non-google host rejected", "https://evil.attacker.example/", "", true},
+		{"lookalike suffix rejected", "https://googleapis.com.evil.example/", "", true},
+		{"unparseable rejected", "://not a url", "", true},
+		{"non-google allowed with override", "https://evil.attacker.example/", "1", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("MIZAN_ALLOW_CUSTOM_ENDPOINT", tc.allow)
+			err := ValidateGenaiBaseURL(tc.raw)
+			if tc.wantErr && err == nil {
+				t.Errorf("ValidateGenaiBaseURL(%q) = nil, want error", tc.raw)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("ValidateGenaiBaseURL(%q) = %v, want nil", tc.raw, err)
+			}
+		})
+	}
+}
+
 func TestLoadConfigRejectsCustomEndpoint(t *testing.T) {
 	clearEnv(t)
 	t.Setenv("PROJECT_ID", "proj-123")
