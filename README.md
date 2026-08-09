@@ -29,13 +29,20 @@ command output.
 ### Roadmap (not built yet — do not expect these to work)
 
 - **Multimodal evaluation** (image/audio/video/music) — requires GCS staging on
-  the native path; not wired into the CLI or engine yet.
+  the native path; not wired into the CLI or engine yet. PR #9 (open, in
+  review) adds this.
 - **Pairwise evaluation** (`eval pairwise`, flip-bias mitigation) — `registry
   create --kind pairwise` accepts the flag today, but `eval run` against a
-  pairwise template fails fast with `not implemented in P1 slice`.
-- **Rubric-based metrics** — same story: creatable, not runnable yet.
-- **`custom_schema` metric execution** via the `genai` fallback path — not wired
-  in yet.
+  pairwise template fails fast with `not implemented in P1 slice`; there is
+  no engine implementation yet. PR #9 (open, in review) adds this.
+- **Rubric-based metrics** — the evaluation engine actually supports these
+  today (native path, integration-tested), but `registry create`/`update`
+  has no flag to set the required `RubricGroups`, so a CLI-created template
+  can't be run yet — see [`docs/testing-guide.md`](docs/testing-guide.md).
+- **`custom_schema` metric execution** via the `genai` fallback path — same
+  story as rubric: the engine path works and is tested, but there's no CLI
+  flag to set `ResponseSchema` yet — see
+  [`docs/testing-guide.md`](docs/testing-guide.md).
 - **Template packs and sharing** (`mizan pack init|validate|add`,
   `registry import|export`) — no `pack` command and no `registry
   import|export` exist in the built `mizan` binary yet. The intended model:

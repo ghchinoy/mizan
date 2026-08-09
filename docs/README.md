@@ -26,6 +26,7 @@ source of truth even as code lands.
 | Doc | Purpose | Status |
 |---|---|---|
 | `user_guide.md` | End-user guide: install, configure, registry walkthrough, running evaluations, troubleshooting, roadmap. | Current — verified against the built CLI. |
+| `testing-guide.md` | Hands-on, copy-pasteable recipes for exercising each built capability, including the exact failure modes for kinds that aren't fully CLI-runnable yet (rubric, custom_schema, pairwise). | Current — verified against the built CLI. |
 | `research.md` | Ground-truth research: eval service, API, modalities, precedents. | Reference (do not re-derive). |
 | `architecture-final.md` | Current, authoritative architecture (rev 3). Module layout, domain model & engine, config, deps, CLI surface (§12), desktop bindings (§13). Now includes embedded architecture/sequence diagrams. | Current, updated as code lands. |
 | `collaboration-design.md` | The contribution layer: template-pack format, versioning, validation, the Store/codec/sync seam, and the authoritative `MetricTemplate` struct (§6). | Design for review (rev 3) — not yet implemented. |
