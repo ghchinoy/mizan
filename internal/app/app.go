@@ -17,11 +17,11 @@ import (
 // App binds the core packages for a desktop frontend.
 type App struct {
 	store  registry.Store
-	engine eval.Engine
+	engine *eval.Engine
 }
 
 // New returns an App backed by the given store and engine.
-func New(store registry.Store, engine eval.Engine) *App {
+func New(store registry.Store, engine *eval.Engine) *App {
 	return &App{store: store, engine: engine}
 }
 

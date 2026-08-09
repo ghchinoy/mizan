@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ghchinoy/mizan/internal/registry"
+	"github.com/ghchinoy/mizan/internal/wire"
 )
 
 // templateFlags collects the fields a user can set on create/update.
@@ -105,7 +106,7 @@ func newRegistryCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			svc, closeSvc, err := openService(cfg)
+			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
 				return err
 			}
@@ -140,7 +141,7 @@ func newRegistryListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			svc, closeSvc, err := openService(cfg)
+			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
 				return err
 			}
@@ -172,7 +173,7 @@ func newRegistryGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			svc, closeSvc, err := openService(cfg)
+			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
 				return err
 			}
@@ -199,7 +200,7 @@ func newRegistryUpdateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			svc, closeSvc, err := openService(cfg)
+			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
 				return err
 			}
@@ -234,7 +235,7 @@ func newRegistryDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			svc, closeSvc, err := openService(cfg)
+			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
 				return err
 			}

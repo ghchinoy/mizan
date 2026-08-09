@@ -9,6 +9,7 @@ import (
 
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
+	"github.com/ghchinoy/mizan/internal/wire"
 )
 
 // newEvalCmd wires the `mizan eval` command family.
@@ -41,7 +42,7 @@ func newEvalRunCmd() *cobra.Command {
 				return err
 			}
 
-			svc, closeSvc, err := openService(cfg)
+			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
 				return err
 			}

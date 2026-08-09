@@ -62,12 +62,6 @@ func validOutput(format string) error {
 	}
 }
 
-// openService constructs a registry.Service via the composition root. cmd/*
-// never touches the concrete SQLite store (dependency-direction rule).
-func openService(cfg *config.Config) (*registry.Service, func() error, error) {
-	return wire.OpenService(cfg)
-}
-
 // openEngine constructs a live eval.Engine via the composition root. It
 // requires a project ID.
 func openEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() error, error) {
