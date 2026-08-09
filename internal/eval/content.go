@@ -2,8 +2,14 @@ package eval
 
 import (
 	"fmt"
+	"net/http"
+	"os"
 	"regexp"
 	"strings"
+
+	"google.golang.org/genai"
+
+	"github.com/ghchinoy/mizan/internal/registry"
 )
 
 // content.go holds helpers that turn an AssetRef / template into the request
@@ -86,9 +92,32 @@ func toNativeFileDataPart(_ AssetRef) error {
 	return fmt.Errorf("%w: native multimodal FileData converter (WI-P1-4)", errNotImplemented)
 }
 
-// toGenaiInlinePart will convert an AssetRef into a genai inline Part for the
-// custom_schema fallback path, which — unlike native eval — DOES accept inline
-// bytes. Implemented in WI-P1-4/5.
-func toGenaiInlinePart(_ AssetRef) error {
-	return fmt.Errorf("%w: genai inline converter (WI-P1-4/5)", errNotImplemented)
+// toGenaiInlinePart converts an AssetRef into a genai Part for the custom_schema
+// path, which — unlike native EvaluateInstances — DOES accept inline bytes
+// (spike-core / spike-custom). It reads a local file's bytes and sends them
+// inline (no GCS staging needed on this path); a pre-staged gs:// URI is sent as
+// FileData. Text is sent as a text Part.
+func toGenaiInlinePart(ref AssetRef) (*genai.Part, error) {
+	switch {
+	case ref.Modality == registry.ModalityText || (ref.FilePath == "" && ref.GCSUri == "" && ref.Text != ""):
+		return genai.NewPartFromText(ref.Text), nil
+	case ref.GCSUri != "":
+		mime := ref.MimeType
+		if mime == "" {
+			return nil, fmt.Errorf("eval: gs:// asset %q needs a MIME type", ref.GCSUri)
+		}
+		return genai.NewPartFromURI(ref.GCSUri, mime), nil
+	case ref.FilePath != "":
+		data, err := os.ReadFile(ref.FilePath)
+		if err != nil {
+			return nil, fmt.Errorf("eval: read asset %q: %w", ref.FilePath, err)
+		}
+		mime := ref.MimeType
+		if mime == "" {
+			mime = http.DetectContentType(data)
+		}
+		return genai.NewPartFromBytes(data, mime), nil
+	default:
+		return nil, fmt.Errorf("eval: asset ref has no text, file path, or gs:// URI")
+	}
 }

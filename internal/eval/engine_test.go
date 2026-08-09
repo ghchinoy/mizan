@@ -140,13 +140,21 @@ func TestRunPointwiseRejectsMultimodal(t *testing.T) {
 }
 
 func TestRunUnsupportedKinds(t *testing.T) {
+	// Pairwise remains WI-P1-4; rubric and custom_schema are wired by WI-P1-5.
 	eng := NewEngine(&fakeClient{}, "p", "us-central1")
-	for _, kind := range []registry.MetricKind{registry.KindPairwise, registry.KindRubric, registry.KindCustomSchema} {
+	for _, kind := range []registry.MetricKind{registry.KindPairwise} {
 		tmpl := pointwiseTemplate()
 		tmpl.Kind = kind
 		if _, err := eng.Run(context.Background(), tmpl, Instance{}); !errors.Is(err, errNotImplemented) {
 			t.Errorf("kind %s: want errNotImplemented, got %v", kind, err)
 		}
+	}
+
+	// An unknown kind is a distinct, clearly-worded error.
+	tmpl := pointwiseTemplate()
+	tmpl.Kind = "bogus"
+	if _, err := eng.Run(context.Background(), tmpl, Instance{}); err == nil || !strings.Contains(err.Error(), "unknown metric kind") {
+		t.Errorf("unknown kind: got %v", err)
 	}
 }
 
