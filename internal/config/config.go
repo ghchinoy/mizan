@@ -135,19 +135,31 @@ func ValidateEndpoint(ep string) error {
 // the SDK honors — verified in genai v1.67.0). Unlike ValidateEndpoint the value
 // is a full URL (e.g. "https://host/"), so the host is parsed out. This gives
 // the genai (custom_schema) path endpoint parity with the native path, closing
-// the ADC-token-redirection gap flagged in the WI-5 audit. The same
-// MIZAN_ALLOW_CUSTOM_ENDPOINT=1 escape hatch applies; ADC/TLS are never weakened.
+// the ADC-token-redirection gap flagged in the WI-5 audit.
+//
+// The scheme MUST be https: the genai client attaches an ADC OAuth bearer token
+// to every request, and a cleartext (http) transport would expose it to an
+// on-path/downgrade attacker even when the host is on-Google (WI-4 audit LOW-1).
+// The https requirement is enforced UNCONDITIONALLY — the
+// MIZAN_ALLOW_CUSTOM_ENDPOINT=1 escape hatch relaxes only the host allow-list
+// (e.g. a local emulator on a *.googleapis.com-lookalike host), never the
+// transport. ADC/TLS are never weakened.
 func ValidateGenaiBaseURL(raw string) error {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil
 	}
-	if os.Getenv("MIZAN_ALLOW_CUSTOM_ENDPOINT") == "1" {
-		return nil
-	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" {
 		return fmt.Errorf("config: refusing genai base URL %q: not a parseable URL (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", raw)
+	}
+	// Enforce https before (and regardless of) the escape hatch so the ADC
+	// bearer token is never sent over cleartext, even under a custom endpoint.
+	if u.Scheme != "https" {
+		return fmt.Errorf("config: refusing genai base URL %q: scheme must be https, not %q (transport is never downgraded, even with MIZAN_ALLOW_CUSTOM_ENDPOINT=1)", raw, u.Scheme)
+	}
+	if os.Getenv("MIZAN_ALLOW_CUSTOM_ENDPOINT") == "1" {
+		return nil
 	}
 	if endpointHostAllowed(u.Hostname()) {
 		return nil

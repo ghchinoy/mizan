@@ -202,6 +202,16 @@ func TestValidateGenaiBaseURL(t *testing.T) {
 		{"lookalike suffix rejected", "https://googleapis.com.evil.example/", "", true},
 		{"unparseable rejected", "://not a url", "", true},
 		{"non-google allowed with override", "https://evil.attacker.example/", "1", false},
+		// LOW-1: https is enforced so the ADC bearer token never travels cleartext.
+		{"http scheme rejected on google host", "http://googleapis.com/", "", true},
+		{"http scheme rejected on vertex host", "http://us-central1-aiplatform.googleapis.com/", "", true},
+		// The escape hatch relaxes the HOST allow-list, never the transport: http
+		// is still rejected even with MIZAN_ALLOW_CUSTOM_ENDPOINT=1.
+		{"http rejected even with override", "http://googleapis.com/", "1", true},
+		{"http rejected even with override, custom host", "http://localhost:8080/", "1", true},
+		// A custom https host is still permitted by the escape hatch (host relaxed,
+		// transport intact).
+		{"custom https host allowed with override", "https://localhost:8080/", "1", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

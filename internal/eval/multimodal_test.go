@@ -2,6 +2,7 @@ package eval
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -162,6 +163,46 @@ func TestRunPointwiseMultimodalMissingVar(t *testing.T) {
 	}
 	if fc.gotReq != nil {
 		t.Error("client should not be called when a variable is missing")
+	}
+}
+
+// TestRunPointwiseStagerError proves the native multimodal path propagates a
+// Stager failure as a clear, wrapped error before any API call (test-4 gap 1:
+// the stager.Stage error branch).
+func TestRunPointwiseStagerError(t *testing.T) {
+	fs := &fakeStager{err: errors.New("boom: upload failed")}
+	fc := &fakeClient{}
+	eng := NewEngine(fc, "p", "us-central1", WithStager(fs))
+
+	tmpl := pointwiseTemplate()
+	tmpl.MetricPromptTemplate = "Describe {{response}}"
+	_, err := eng.Run(context.Background(), tmpl, Instance{
+		Fields: map[string]AssetRef{
+			"response": {Modality: registry.ModalityImage, FilePath: "/local/cat.png"},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected an error when the stager fails")
+	}
+	if !strings.Contains(err.Error(), "stage asset") || !strings.Contains(err.Error(), "boom") {
+		t.Errorf("error should wrap the stager failure with 'stage asset' context: %v", err)
+	}
+	if fc.gotReq != nil {
+		t.Error("client must not be called when staging fails")
+	}
+}
+
+// TestToNativeFileDataPartNoURIOrText proves the converter's default error branch:
+// a non-text ref with neither a FilePath nor a gs:// URI is rejected (test-4 gap
+// 2).
+func TestToNativeFileDataPartNoURIOrText(t *testing.T) {
+	eng := NewEngine(&fakeClient{}, "p", "us-central1")
+	_, err := eng.toNativeFileDataPart(context.Background(), AssetRef{Modality: registry.ModalityImage})
+	if err == nil {
+		t.Fatal("expected an error for a media ref with no file path or gs:// URI")
+	}
+	if !strings.Contains(err.Error(), "no file path or gs:// URI") {
+		t.Errorf("error = %v, want it to name the missing file path / gs:// URI", err)
 	}
 }
 

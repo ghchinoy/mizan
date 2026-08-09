@@ -11,6 +11,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 	"google.golang.org/protobuf/proto"
@@ -35,6 +36,9 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 	if tmpl.BaselineFieldName == "" || tmpl.CandidateFieldName == "" {
 		return Result{}, fmt.Errorf("eval: pairwise template %q must set BaselineFieldName and CandidateFieldName", tmpl.ID)
 	}
+	if err := validatePairwisePlaceholders(tmpl); err != nil {
+		return Result{}, err
+	}
 
 	model, err := expandAutoraterModel(tmpl.AutoraterModel, e.projectID, e.location)
 	if err != nil {
@@ -55,19 +59,19 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 		spec.SystemInstruction = proto.String(tmpl.SystemInstruction)
 	}
 
-	// Pairwise defaults (implementation-plan WI-P1-4): FlipEnabled on for
-	// position-bias mitigation, SamplingCount >= 4. The P1 registry model has no
-	// tri-state for FlipEnabled, so an unset (zero-value false) template gets the
-	// default-on behavior; a non-zero SamplingCount is honored as-is. See the
-	// WI-P1-4 project log for the tri-state follow-up.
+	// Pairwise defaults (implementation-plan WI-P1-4). A non-zero template
+	// SamplingCount is honored as-is; otherwise it defaults to >= 4.
 	sampling := tmpl.SamplingCount
 	if sampling <= 0 {
 		sampling = pairwiseDefaultSamplingCount
 	}
-	flip := tmpl.FlipEnabled
-	if !flip {
-		flip = true
-	}
+	// FlipEnabled is unconditionally true in P1 for position-bias mitigation.
+	// The P1 registry model stores FlipEnabled as a plain bool, which cannot
+	// express a tri-state: an unset field is indistinguishable from an operator
+	// explicitly setting false (both are the zero value), so P1 cannot honor an
+	// explicit-false and always enables flip. A real explicit-false override is a
+	// P2 registry change (add a nullable/tri-state field) — see the WI-P1-4 log.
+	flip := true
 	autorater := &aiplatformpb.AutoraterConfig{
 		AutoraterModel: model,
 		SamplingCount:  proto.Int32(sampling),
@@ -123,6 +127,32 @@ func (e *Engine) buildPairwiseInstance(ctx context.Context, tmpl registry.Metric
 	return &aiplatformpb.PairwiseMetricInstance{
 		Instance: &aiplatformpb.PairwiseMetricInstance_JsonInstance{JsonInstance: jsonInstance},
 	}, nil
+}
+
+// validatePairwisePlaceholders fails fast, client-side, when the metric prompt
+// template does not reference the baseline and/or candidate field-name
+// placeholders as {{name}}. The Eval Service rejects a pairwise instance whose
+// keys are absent from the template (confirmed live — dev note WI-P1-4) with an
+// opaque server-side error; this converts that into a clear, actionable message
+// naming the missing placeholder(s) BEFORE any API call. It reuses extractVars so
+// the double-brace parsing matches the rest of the engine and a valid template
+// (one that does reference both) is never rejected.
+func validatePairwisePlaceholders(tmpl registry.MetricTemplate) error {
+	vars := map[string]bool{}
+	for _, v := range extractVars(tmpl.MetricPromptTemplate) {
+		vars[v] = true
+	}
+	var missing []string
+	if !vars[tmpl.BaselineFieldName] {
+		missing = append(missing, fmt.Sprintf("baseline {{%s}}", tmpl.BaselineFieldName))
+	}
+	if !vars[tmpl.CandidateFieldName] {
+		missing = append(missing, fmt.Sprintf("candidate {{%s}}", tmpl.CandidateFieldName))
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("eval: pairwise template %q metric prompt must reference the %s placeholder(s); the API rejects instance keys not present in the template", tmpl.ID, strings.Join(missing, " and "))
+	}
+	return nil
 }
 
 // pairwiseKeys returns the instance keys a pairwise eval references: the baseline

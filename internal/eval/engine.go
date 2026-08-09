@@ -12,7 +12,6 @@ package eval
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
@@ -22,9 +21,6 @@ import (
 	"github.com/ghchinoy/mizan/internal/asset"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
-
-// errNotImplemented marks paths that are not part of the P1 vertical slice.
-var errNotImplemented = errors.New("eval: not implemented in P1 slice")
 
 // EvaluationClient is the narrow, mockable seam over the Vertex AI
 // EvaluateInstances RPC. The concrete *aiplatform.EvaluationClient satisfies

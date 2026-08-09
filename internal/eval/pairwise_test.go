@@ -178,6 +178,64 @@ func TestRunPairwiseMissingVariable(t *testing.T) {
 	}
 }
 
+// TestRunPairwisePlaceholderValidation proves the client-side fail-fast check on
+// the metric prompt template: a template missing the baseline and/or candidate
+// {{placeholder}} errors before any API call naming what is missing, while a
+// template that references both passes (rev-5 nit 3). It must NOT reject valid
+// templates.
+func TestRunPairwisePlaceholderValidation(t *testing.T) {
+	cases := []struct {
+		name    string
+		prompt  string
+		wantErr string // substring; "" means the template is valid
+	}{
+		{
+			name:    "both present is valid",
+			prompt:  "Question {{prompt}}. Baseline: {{baseline}} Candidate: {{candidate}}. Which is better?",
+			wantErr: "",
+		},
+		{
+			name:    "missing baseline placeholder",
+			prompt:  "Question {{prompt}}. Candidate: {{candidate}}. Which is better?",
+			wantErr: "baseline {{baseline}}",
+		},
+		{
+			name:    "missing candidate placeholder",
+			prompt:  "Question {{prompt}}. Baseline: {{baseline}}. Which is better?",
+			wantErr: "candidate {{candidate}}",
+		},
+		{
+			name:    "missing both placeholders",
+			prompt:  "Which response is better overall?",
+			wantErr: "baseline {{baseline}} and candidate {{candidate}}",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fc := &fakeClient{resp: pairwiseResp(aiplatformpb.PairwiseChoice_BASELINE, "ok")}
+			eng := NewEngine(fc, "p", "us-central1")
+			tmpl := pairwiseTemplate()
+			tmpl.MetricPromptTemplate = tc.prompt
+			_, err := eng.Run(context.Background(), tmpl, pairwiseInstance())
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("valid template rejected: %v", err)
+				}
+				if fc.gotReq == nil {
+					t.Error("client should be called for a valid template")
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("want error containing %q, got %v", tc.wantErr, err)
+			}
+			if fc.gotReq != nil {
+				t.Error("client must not be called when a placeholder is missing")
+			}
+		})
+	}
+}
+
 // TestRunPairwiseMultimodalGCS proves multimodal pairwise: media baseline and
 // candidate produce a ContentMap with gs:// FileData for each.
 func TestRunPairwiseMultimodalGCS(t *testing.T) {
@@ -186,7 +244,9 @@ func TestRunPairwiseMultimodalGCS(t *testing.T) {
 	eng := NewEngine(fc, "p", "us-central1", WithStager(fs))
 
 	tmpl := pairwiseTemplate()
-	tmpl.MetricPromptTemplate = "Which image is better?"
+	// A valid multimodal pairwise template still references the baseline and
+	// candidate placeholders (the ContentMap binds those keys to the images).
+	tmpl.MetricPromptTemplate = "Which image is better: {{baseline}} or {{candidate}}?"
 	inst := Instance{Fields: map[string]AssetRef{
 		"baseline":  {Modality: registry.ModalityImage, GCSUri: "gs://bkt/base.png"},
 		"candidate": {Modality: registry.ModalityImage, GCSUri: "gs://bkt/cand.png"},
