@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	// Registers the pure-Go "sqlite" driver with database/sql (side-effect
+	// import); no symbols are referenced directly.
 	_ "modernc.org/sqlite"
 
 	"github.com/ghchinoy/mizan/internal/registry"
@@ -222,7 +224,9 @@ func (s *Store) List(ctx context.Context, f registry.ListFilter) ([]registry.Met
 	}
 	q := selectCols + " FROM metric_templates"
 	if len(where) > 0 {
-		q += " WHERE " + strings.Join(where, " AND ")
+		// where holds only constant SQL fragments built above; every user value
+		// is bound through args placeholders, so this is not an injection point.
+		q += " WHERE " + strings.Join(where, " AND ") //nolint:gosec // G202: constant clause fragments only; values are parameterized via args
 	}
 	q += " ORDER BY id"
 
