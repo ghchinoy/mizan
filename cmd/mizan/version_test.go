@@ -56,6 +56,27 @@ func TestVersionCommandJSONOutput(t *testing.T) {
 	}
 }
 
+// TestVersionCommandJSONExactShape pins the exact bytes of the --output json
+// form: 2-space indentation, field order, and the trailing newline emitted by
+// printJSON (the repo's JSON convention). A plain `go test` build injects no
+// ldflags, so the defaults appear. This complements the round-trip test above
+// by catching indentation/ordering/convention regressions that still parse as
+// valid JSON.
+func TestVersionCommandJSONExactShape(t *testing.T) {
+	out, err := executeRoot(t, "--output", "json", "version")
+	if err != nil {
+		t.Fatalf("version --output json: %v (out=%q)", err, out)
+	}
+	want := "{\n" +
+		"  \"version\": \"dev\",\n" +
+		"  \"commit\": \"none\",\n" +
+		"  \"date\": \"unknown\"\n" +
+		"}\n"
+	if out != want {
+		t.Errorf("version --output json =\n%q\nwant\n%q", out, want)
+	}
+}
+
 // TestVersionCommandRejectsArgs guards cobra.NoArgs.
 func TestVersionCommandRejectsArgs(t *testing.T) {
 	out, err := executeRoot(t, "version", "extra")
