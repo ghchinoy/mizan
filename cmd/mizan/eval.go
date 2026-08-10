@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/wire"
@@ -104,7 +105,9 @@ func newEvalRunCmd() *cobra.Command {
 			// Pre-flight echo (WI-F7): the resolved project/location/model line is
 			// on by default (cheap, high-value) and reflects the actual per-path
 			// location (native=regional, genai=global; rubric-detail is genai/global).
-			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model, rubricDetail))
+			target := eng.Resolve(*tmpl, model, rubricDetail)
+			projSrc, locSrc := preflightSources(cfg, target)
+			printPreflight(cmd.ErrOrStderr(), target, projSrc, locSrc)
 
 			res, err := eng.Run(cmd.Context(), *tmpl, inst, runOpts...)
 			if err != nil {
@@ -191,7 +194,9 @@ func newEvalPairwiseCmd() *cobra.Command {
 
 			// Pre-flight echo (WI-F7): default-on resolved project/location/model.
 			// Pairwise never uses the rubric-detail lever.
-			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model, false))
+			target := eng.Resolve(*tmpl, model, false)
+			projSrc, locSrc := preflightSources(cfg, target)
+			printPreflight(cmd.ErrOrStderr(), target, projSrc, locSrc)
 
 			res, err := eng.Run(cmd.Context(), *tmpl, inst, eval.WithModel(model))
 			if err != nil {
@@ -268,7 +273,7 @@ func parseFields(fields []string) (eval.Instance, error) {
 // --output json result on stdout, yet is always visible so a wrong project or an
 // unexpected global location surfaces immediately instead of only when the API
 // rejects the call.
-func printPreflight(w io.Writer, t eval.ResolvedTarget) {
+func printPreflight(w io.Writer, t eval.ResolvedTarget, projSrc, locSrc string) {
 	// Sanitize every interpolated value at the output boundary so the echo is
 	// ALWAYS exactly one line, regardless of input. A fully-qualified
 	// "projects/.../models/<seg>" model is trusted verbatim by the resolution
@@ -277,9 +282,36 @@ func printPreflight(w io.Writer, t eval.ResolvedTarget) {
 	// caller's own stderr. Stripping control chars here closes that stderr-
 	// injection class for both the bare and fully-qualified forms (security audit
 	// INFO / review FYI2).
-	fmt.Fprintf(w, "mizan: autorater → project=%s location=%s model=%s (path=%s)\n",
-		sanitizeEchoValue(t.Project), sanitizeEchoValue(t.Location),
+	//
+	// The project/location source hints (src=env/env-file/default) reuse the
+	// config source-resolution helper so an operator can see why a value is in
+	// effect — the visibility gap the config-precedence findings flagged (POLA #1).
+	fmt.Fprintf(w, "mizan: autorater → project=%s (src=%s) location=%s (src=%s) model=%s (path=%s)\n",
+		sanitizeEchoValue(t.Project), sanitizeEchoValue(projSrc),
+		sanitizeEchoValue(t.Location), sanitizeEchoValue(locSrc),
 		sanitizeEchoValue(t.Model), sanitizeEchoValue(t.Path))
+}
+
+// preflightSources attributes the pre-flight project/location values to their
+// origin, reusing the config source-resolution helper (POLA #1). When the
+// resolved target matches the configured project/location, the value carries its
+// config source (env/env-file/default); when a fully-qualified --model resource
+// or the genai/global path overrides them, that override is named instead so the
+// echo never claims a config source it did not actually use.
+func preflightSources(cfg *config.Config, t eval.ResolvedTarget) (projSrc, locSrc string) {
+	projSrc = "model" // a fully-qualified model resource carried its own project
+	if t.Project == cfg.ProjectID {
+		projSrc = cfg.SourceOf("project-id").String()
+	}
+	switch {
+	case t.Location == cfg.Location:
+		locSrc = cfg.SourceOf("location").String()
+	case t.Path == "genai":
+		locSrc = "global-path" // the genai path is always global (spike-custom)
+	default:
+		locSrc = "model" // a fully-qualified model resource carried its own location
+	}
+	return projSrc, locSrc
 }
 
 // emitWarnings surfaces non-fatal run warnings (e.g. the pairwise flip caveat or

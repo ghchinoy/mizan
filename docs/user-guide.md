@@ -59,18 +59,32 @@ mizan config set location us-central1
 > The multi-region value `us` is **not** valid for the native eval path and
 > will 404 — always use a concrete region such as `us-central1`.
 
-Check the resolved configuration:
+Check the resolved configuration (`mizan config list` is an alias for
+`mizan config show`):
 
 ```sh
 $ mizan config show
-ProjectID:             my-project
-Location:              us-central1
-StagingBucket:         (unset)
-APIEndpoint:           (unset)
-RegistryDBPath:        /home/you/.config/mizan/registry.db
-PackCacheDir:          /home/you/.cache/mizan/packs
-DefaultTemplatesRepo:  github.com/ghchinoy/mizan-templates
+KEY             VALUE                                 SOURCE
+project-id      my-project                            env-file
+location        us-central1                           default
+staging-bucket  (unset)                               default
+api-endpoint    (unset)                               default
+registry-db     /home/you/.config/mizan/registry.db   default
+pack-cache      /home/you/.cache/mizan/packs          default
+templates-repo  github.com/ghchinoy/mizan-templates   default
+default-model   gemini-2.5-flash (built-in)           default
 ```
+
+Each row is labelled by the **exact `config set` key**, so what `config show`
+prints round-trips directly into `config set <key> <value>` — no need to consult
+`config set --help` to discover the key names. The `SOURCE` column shows where
+each value came from:
+
+| Source | Meaning |
+|---|---|
+| `env` | an exported environment variable (wins over everything) |
+| `env-file` | the persisted `<UserConfigDir>/mizan/.env` |
+| `default` | the built-in default (or unset, for values with none) |
 
 `config show` works fine with no project ID set (it prints `(unset)`) — only
 `eval run` hard-requires a project ID. `registry` and `config` commands work
@@ -79,8 +93,8 @@ without one.
 `mizan config set` persists values to `<UserConfigDir>/mizan/.env` (e.g.
 `~/.config/mizan/.env` on Linux), created with restrictive permissions
 (`chmod 0600` on the file, `0700` on the directory). Valid keys: `api-endpoint`,
-`location`, `pack-cache`, `project-id`, `registry-db`, `staging-bucket`,
-`templates-repo`.
+`default-model`, `location`, `pack-cache`, `project-id`, `registry-db`,
+`staging-bucket`, `templates-repo`.
 
 You can also configure via environment variables instead of (or in addition
 to) the persisted file — real environment variables always win over the
@@ -95,8 +109,23 @@ to) the persisted file — real environment variables always win over the
 | Registry DB path | `MIZAN_REGISTRY_DB` |
 | Pack cache dir | `MIZAN_PACK_CACHE` |
 | Templates repo | `MIZAN_TEMPLATES_REPO` |
+| Default model | `MIZAN_DEFAULT_MODEL` |
 
 You can also point Mizan at an explicit env file with `MIZAN_ENV_FILE`.
+
+**Unknown-variable warning:** if you export a `MIZAN_*` variable Mizan does not
+recognize — for example the easy-to-mistype `MIZAN_PROJECT` instead of
+`MIZAN_PROJECT_ID` — Mizan prints a warning to stderr and *ignores* the value
+rather than silently dropping it:
+
+```
+mizan: warning: ignoring unknown env var MIZAN_PROJECT (did you mean MIZAN_PROJECT_ID?)
+```
+
+Combined with the `SOURCE` column in `config show` (and the `src=` hints in the
+`eval` pre-flight line), this makes it obvious when a value came from a place you
+did not expect. Note that a mistyped variable is *ignored*, not applied — use the
+exact name from the table above.
 
 **Security note:** Mizan refuses a custom `--api-endpoint` / `MIZAN_API_ENDPOINT`
 whose host isn't `*.googleapis.com`, because the Vertex client attaches your
