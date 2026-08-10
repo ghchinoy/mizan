@@ -25,6 +25,9 @@ func pairwiseTemplate() registry.MetricTemplate {
 		AutoraterModel:       "gemini-2.5-flash",
 		BaselineFieldName:    "baseline",
 		CandidateFieldName:   "candidate",
+		// A template created via the CLI defaults --flip-enabled to true; mirror
+		// that here so the helper reflects a normally-authored pairwise template.
+		FlipEnabled: true,
 	}
 }
 
@@ -125,6 +128,36 @@ func TestRunPairwiseSpecAndDefaults(t *testing.T) {
 		if !strings.Contains(ji, want) {
 			t.Errorf("JsonInstance missing %q: %s", want, ji)
 		}
+	}
+}
+
+// TestRunPairwiseHonorsFlipEnabled proves the request's
+// AutoraterConfig.FlipEnabled tracks the template's FlipEnabled field (the
+// --flip-enabled flag is live, not hardcoded), and that the flip caveat warning
+// is attached iff flip is in effect (eval-triage Symptom #4).
+func TestRunPairwiseHonorsFlipEnabled(t *testing.T) {
+	for _, flip := range []bool{true, false} {
+		t.Run(map[bool]string{true: "on", false: "off"}[flip], func(t *testing.T) {
+			fc := &fakeClient{resp: pairwiseResp(aiplatformpb.PairwiseChoice_CANDIDATE, "b")}
+			tmpl := pairwiseTemplate()
+			tmpl.FlipEnabled = flip
+			eng := NewEngine(fc, "p", "us-central1")
+			res, err := eng.Run(context.Background(), tmpl, pairwiseInstance())
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if got := fc.gotReq.GetAutoraterConfig().GetFlipEnabled(); got != flip {
+				t.Errorf("AutoraterConfig.FlipEnabled = %v, want %v (must track tmpl.FlipEnabled)", got, flip)
+			}
+			switch {
+			case flip && len(res.Warnings) != 1:
+				t.Errorf("Warnings = %v, want exactly 1 flip caveat when flip is on", res.Warnings)
+			case flip && !strings.Contains(res.Warnings[0], "authoritative"):
+				t.Errorf("flip warning %q missing the authoritative-Choice caveat", res.Warnings[0])
+			case !flip && len(res.Warnings) != 0:
+				t.Errorf("Warnings = %v, want none when flip is off", res.Warnings)
+			}
+		})
 	}
 }
 

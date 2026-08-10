@@ -169,8 +169,10 @@ See [`docs/testing-guide.md`](testing-guide.md) for full recipes and live
 output for every kind.
 
 Other useful create flags: `--system` (system instruction), `--sampling-count`
-(autorater sampling count, default 4), `--modality` (repeatable; default
-`text`), `--tag` (repeatable).
+(autorater sampling count, default 4 — lowering it trades self-consistency for
+latency), `--modality` (repeatable; default `text`), `--tag` (repeatable),
+`--flip-enabled` (pairwise position-bias mitigation, default `true`; see the
+pairwise flip note below).
 
 ### List
 
@@ -390,11 +392,20 @@ at `create` time via `--baseline-field`/`--candidate-field`. Update the prompt
 to reference both. See
 [`docs/testing-guide.md`](testing-guide.md#placeholder-contract-real-verified).
 
-**`--flip-enabled=false` doesn't disable flipping**
-This is a known P1 limitation, not a bug: the registry's `FlipEnabled` field
-is a plain `bool` that can't distinguish an explicit "false" from "unset," so
-P1 always runs pairwise with flip enabled regardless of what you pass. See
-[`docs/testing-guide.md`](testing-guide.md#flip-enabled-known-p1-limitation).
+**Pairwise flip and the `Choice` is authoritative**
+Pairwise runs with position-bias mitigation ("flip") controlled by the template's
+`--flip-enabled` flag at `create` time (**default `true`**). With flip on, the
+judge evaluates both position orderings and returns a de-biased, aggregated
+`Choice` — **the `Choice` is the authoritative verdict**. The `Explanation`,
+however, is a single sampled artifact whose "baseline"/"candidate" wording may
+reflect a flipped ordering, so it can read as though it praises the *other*
+response. `mizan eval pairwise` prints a one-line warning to stderr when flip is
+in effect (and serializes it under `warnings` in `--output json`). If you need
+the explanation's wording to match the order you presented, create the template
+with `--flip-enabled=false`; the trade-off is losing position-bias mitigation.
+Because the P1 registry stores `FlipEnabled` as a plain `bool` (no tri-state),
+`false` is only distinguishable from the default at `create` time — set it
+explicitly on the template.
 
 **`Error: registry: template not found`**
 The `<id>` you passed to `get`/`update`/`delete`/`eval run --metric` doesn't

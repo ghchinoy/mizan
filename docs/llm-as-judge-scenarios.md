@@ -115,8 +115,10 @@ more than an absolute number.
 baseline/candidate field names and calls native `EvaluateInstances`; the result
 is a `PairwiseChoice` mapped to `BASELINE` / `CANDIDATE` / `TIE`
 (`internal/eval/pairwise.go`, `runPairwise` → `pairwiseChoiceString`). To counter
-position bias, pairwise runs with **flip enabled** and multiple samples
-(default `SamplingCount` = 4, `pairwiseDefaultSamplingCount`).
+position bias, pairwise runs with **flip enabled** (the template's
+`--flip-enabled` flag, **default `true`**) and multiple samples (default
+`SamplingCount` = 4, `pairwiseDefaultSamplingCount`; lower it to trade
+self-consistency for latency).
 
 **Author and run:**
 
@@ -131,25 +133,35 @@ mizan eval pairwise --metric demo/pairwise-quality \
 ```
 
 ```
-Score:        (none)
 Choice:       BASELINE
 Explanation:  The baseline response is more direct and concise, providing only
               the information asked for.
+
+(stderr) pairwise flip is enabled: the Choice is the de-biased, authoritative
+verdict; the explanation ... may not match your input. ...
 ```
 
 **What the output tells you.** `Choice` names the winner (`BASELINE`,
-`CANDIDATE`, or `TIE`); there is no numeric `Score`. `Explanation` justifies the
-pick.
+`CANDIDATE`, or `TIE`) — pairwise yields no numeric `Score`, so no `Score:` line
+is printed. **The `Choice` is authoritative.** `Explanation` justifies the pick,
+but see the flip caveat below.
 
 **Limits / caveats.**
 - **Placeholder contract (enforced):** the prompt template *must* reference both
   the baseline and candidate field names as `{{name}}` placeholders — the API
   rejects instance keys absent from the template, so Mizan fails fast client-side
   with a clear message (`validatePairwisePlaceholders`).
-- **`--flip-enabled=false` is a no-op in P1.** The flag is accepted, but the
-  engine always enables flip; the registry's `FlipEnabled` bool can't distinguish
-  "explicitly false" from "unset." A real opt-out needs a tri-state field (P2
-  registry change) — see the note in [`docs/testing-guide.md`](testing-guide.md#flip-enabled-known-p1-limitation).
+- **The `Choice` is authoritative; the `Explanation` may not be, under flip.**
+  With flip on (the default), the judge evaluates both position orderings and
+  returns a de-biased, aggregated `Choice`. The `Explanation`, however, is one
+  sampled artifact whose "baseline"/"candidate" wording may reflect a flipped
+  ordering — so it can read as though it praises the *other* response even though
+  the `Choice` is correct. `mizan eval pairwise` warns about this on stderr (and
+  serializes it under `warnings` in `--output json`).
+- **`--flip-enabled` is honored.** Create the template with `--flip-enabled=false`
+  to keep the explanation's wording aligned with the presented order, at the cost
+  of position-bias mitigation. Because the P1 registry stores `FlipEnabled` as a
+  plain `bool` (no tri-state), set it explicitly at `create` time.
 
 ---
 
@@ -548,8 +560,10 @@ These are **not implemented** — do not expect them to work today. See
 - **Template packs / registry import & export** — sharing and versioning
   templates via `mizan pack` and `mizan registry import`/`export`. Not wired.
   *Roadmap phase P2.*
-- **Pairwise explicit flip opt-out** — honoring `--flip-enabled=false` (needs a
-  tri-state registry field). *P2 registry change.*
+- **Pairwise tri-state flip default** — the engine now honors the template's
+  `--flip-enabled` (including `false`), but the P1 registry stores it as a plain
+  `bool`, so "unset ⇒ default true" can't be distinguished from an explicit
+  `false`. A nullable/tri-state field is a *P2 registry change.*
 - **Desktop app** — the Wails GUI is design-stage scaffolding only. *Roadmap
   phase P4.*
 

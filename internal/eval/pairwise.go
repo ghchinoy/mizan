@@ -25,6 +25,17 @@ import (
 // WI-P1-4).
 const pairwiseDefaultSamplingCount int32 = 4
 
+// pairwiseFlipWarning is attached to a pairwise Result when FlipEnabled is in
+// effect. Flip runs both position orderings across the samples and correctly
+// aggregates/un-flips the CHOICE (so the Choice is the de-biased, authoritative
+// verdict), but the returned EXPLANATION is a single sampled artifact whose
+// "baseline"/"candidate" wording may reflect a flipped ordering — so it may not
+// match the caller's baseline/candidate assignment (eval-triage Symptom #4).
+const pairwiseFlipWarning = "pairwise flip is enabled: the Choice is the de-biased, authoritative verdict; " +
+	"the explanation is a sampled artifact whose 'baseline'/'candidate' wording may reflect a flipped ordering " +
+	"and may not match your input. Disable flip (--flip-enabled=false on the template) to keep the explanation's " +
+	"wording aligned with the presented order, at the cost of position-bias mitigation."
+
 // runPairwise materializes and runs a native pairwise evaluation.
 func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
 	if e.client == nil {
@@ -60,13 +71,18 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 	if sampling <= 0 {
 		sampling = pairwiseDefaultSamplingCount
 	}
-	// FlipEnabled is unconditionally true in P1 for position-bias mitigation.
-	// The P1 registry model stores FlipEnabled as a plain bool, which cannot
-	// express a tri-state: an unset field is indistinguishable from an operator
-	// explicitly setting false (both are the zero value), so P1 cannot honor an
-	// explicit-false and always enables flip. A real explicit-false override is a
-	// P2 registry change (add a nullable/tri-state field) — see the WI-P1-4 log.
-	flip := true
+	// Honor the template's FlipEnabled setting (the --flip-enabled create flag,
+	// registry.go, default true, populates it). Flip runs both position orderings
+	// to reduce position bias and correctly un-flips the aggregated Choice, but it
+	// can scramble the sampled explanation's baseline/candidate wording — hence the
+	// warning below when it is on. A user can now turn flip OFF (--flip-enabled=false)
+	// to keep the explanation's wording aligned with the presented order.
+	//
+	// The P1 registry model stores FlipEnabled as a plain bool and cannot express a
+	// tri-state ("unset ⇒ default true"); a nullable/tri-state default is a P2
+	// registry change — see the WI-P1-4 log. The create flag's default (true) keeps
+	// default behavior unchanged.
+	flip := tmpl.FlipEnabled
 
 	// build re-materializes the request per attempt so req.Location and the
 	// autorater location match the host actually used, enabling the R-GLOBAL
@@ -98,10 +114,14 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 	if pr == nil {
 		return Result{}, fmt.Errorf("eval: pairwise response contained no pairwise metric result")
 	}
-	return Result{
+	res := Result{
 		PairwiseChoice: pairwiseChoiceString(pr.GetPairwiseChoice()),
 		Explanation:    pr.GetExplanation(),
-	}, nil
+	}
+	if flip {
+		res.Warnings = append(res.Warnings, pairwiseFlipWarning)
+	}
+	return res, nil
 }
 
 // buildPairwiseInstance builds the native pairwise instance from the baseline and

@@ -201,6 +201,13 @@ func newEvalPairwiseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Surface non-fatal run warnings (e.g. the pairwise flip caveat) on
+			// stderr in text mode, mirroring the pre-flight echo (WI-F7) so they
+			// never break the human table on stdout. In --output json mode they ALSO
+			// serialize under "warnings" (Result's `warnings,omitempty` tag).
+			for _, warning := range res.Warnings {
+				fmt.Fprintln(cmd.ErrOrStderr(), warning)
+			}
 			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
@@ -331,9 +338,13 @@ func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 		return renderRubricDetailResult(w, res, showStats)
 	}
 	tw := newTabWriter(w)
-	if res.Score != nil {
+	switch {
+	case res.Score != nil:
 		fmt.Fprintf(tw, "Score:\t%g\n", *res.Score)
-	} else {
+	case res.PairwiseChoice != "":
+		// Pairwise yields a Choice, not a Score; suppress the misleading
+		// "Score: (none)" line and print only the Choice below (eval-triage #4).
+	default:
 		fmt.Fprintf(tw, "Score:\t(none)\n")
 	}
 	if res.PairwiseChoice != "" {
