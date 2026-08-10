@@ -1,0 +1,113 @@
+# Release workflow — builds cross-platform mizan binaries and attaches them to
+# the GitHub Release for the pushed tag.
+#
+# How to cut a release:
+#   git tag v1.2.3
+#   git push origin v1.2.3
+# The tag push triggers this workflow. Once a vX.Y.Z tag exists, the
+# `mizan-templates` validate-packs CI can pin MIZAN_VERSION=vX.Y.Z instead of
+# tracking @main.
+#
+# Plain Go cross-compilation is used (no GoReleaser) — it is fully self-contained,
+# CGO-free, and injects the same ldflags vars defined in internal/version, so the
+# reported `mizan version` matches the tag.
+#
+# Two jobs, deliberately:
+#   build   — matrix over the target OS/arch set; builds + uploads each leg's
+#             artifacts. Runs with contents:read only. NO release step, so the
+#             legs never race to create/upload the same release.
+#   release — runs once (needs: build); downloads every leg's artifacts and does
+#             a SINGLE gh-release step that creates the release and uploads all
+#             assets. contents:write is scoped to this job alone.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Least privilege at the top level; the release job elevates to contents:write.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          PKG="github.com/ghchinoy/mizan/internal/version"
+          LDFLAGS="-s -w -X ${PKG}.version=${VERSION} -X ${PKG}.commit=${COMMIT} -X ${PKG}.date=${DATE}"
+          NAME="mizan_${VERSION}_${GOOS}_${GOARCH}"
+          mkdir -p "dist/${NAME}"
+          go build -trimpath -ldflags "${LDFLAGS}" -o "dist/${NAME}/mizan" ./cmd/mizan
+          cp README.md "dist/${NAME}/"
+          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          ( cd dist && sha256sum "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256" )
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mizan-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.sha256
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    # contents:write is scoped to this single job — the only one that mutates the
+    # repository (creating the release).
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        # Third-party action running with contents:write — pinned to a full
+        # commit SHA rather than the mutable v2 tag.
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256

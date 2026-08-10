@@ -16,6 +16,18 @@ GO             ?= go
 GOFMT          ?= gofmt
 BIN_DIR        := bin
 
+# Version metadata injected into the binary via -ldflags -X. The git calls are
+# guarded (2>/dev/null || echo <fallback>) so `make build` still works outside a
+# git checkout or with no tags. Override any of these on the command line
+# (e.g. `make build VERSION=v1.2.3`).
+VERSION_PKG    := github.com/ghchinoy/mizan/internal/version
+VERSION        ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+COMMIT         ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
+DATE           ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)
+LDFLAGS        := -X $(VERSION_PKG).version=$(VERSION) \
+                  -X $(VERSION_PKG).commit=$(COMMIT) \
+                  -X $(VERSION_PKG).date=$(DATE)
+
 .DEFAULT_GOAL := help
 
 .PHONY: help build install desktop test integration-test vet fmt fmt-check vuln clean
@@ -27,10 +39,10 @@ help: ## list available targets (default)
 		| awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
 
 build: ## Build the mizan CLI to bin/mizan (CGO_ENABLED=0)
-	CGO_ENABLED=0 $(GO) build -o $(BIN_DIR)/mizan ./cmd/mizan
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/mizan ./cmd/mizan
 
-install: ## go install the mizan CLI into GOBIN/GOPATH
-	$(GO) install ./cmd/mizan
+install: ## go install the mizan CLI into GOBIN/GOPATH (CGO_ENABLED=0)
+	CGO_ENABLED=0 $(GO) install -ldflags "$(LDFLAGS)" ./cmd/mizan
 
 # desktop: Wails wiring lands in a later phase; this target adds NO Wails
 # toolchain dependency (mizan-desktop is a Wails-free stub for now).

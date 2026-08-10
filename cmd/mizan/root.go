@@ -34,6 +34,6 @@ func newRootCmd() *cobra.Command {
 		return validOutput(outputFormat)
 	}
 
-	root.AddCommand(newRegistryCmd(), newEvalCmd(), newConfigCmd())
+	root.AddCommand(newRegistryCmd(), newEvalCmd(), newConfigCmd(), newVersionCmd())
 	return root
 }
