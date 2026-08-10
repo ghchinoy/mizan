@@ -110,14 +110,10 @@ func newEvalRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// Surface non-fatal run warnings (e.g. R-R2 rubric reconciliation
-			// extras) on stderr in text mode, mirroring the pre-flight echo (WI-F7)
-			// so they never break the human table on stdout. In --output json mode
-			// they ALSO serialize into the result body under "warnings" (Result has
-			// the `warnings,omitempty` json tag), so machine consumers see them too.
-			for _, warning := range res.Warnings {
-				fmt.Fprintln(cmd.ErrOrStderr(), warning)
-			}
+			// Surface non-fatal run warnings on stderr (never stdout) in text mode;
+			// in --output json mode they also serialize under "warnings". See
+			// emitWarnings for the shared emission behavior.
+			emitWarnings(cmd.ErrOrStderr(), res.Warnings)
 			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
@@ -202,12 +198,9 @@ func newEvalPairwiseCmd() *cobra.Command {
 				return err
 			}
 			// Surface non-fatal run warnings (e.g. the pairwise flip caveat) on
-			// stderr in text mode, mirroring the pre-flight echo (WI-F7) so they
-			// never break the human table on stdout. In --output json mode they ALSO
-			// serialize under "warnings" (Result's `warnings,omitempty` tag).
-			for _, warning := range res.Warnings {
-				fmt.Fprintln(cmd.ErrOrStderr(), warning)
-			}
+			// stderr (never stdout) in text mode; in --output json mode they also
+			// serialize under "warnings". See emitWarnings for the shared behavior.
+			emitWarnings(cmd.ErrOrStderr(), res.Warnings)
 			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
@@ -287,6 +280,20 @@ func printPreflight(w io.Writer, t eval.ResolvedTarget) {
 	fmt.Fprintf(w, "mizan: autorater → project=%s location=%s model=%s (path=%s)\n",
 		sanitizeEchoValue(t.Project), sanitizeEchoValue(t.Location),
 		sanitizeEchoValue(t.Model), sanitizeEchoValue(t.Path))
+}
+
+// emitWarnings surfaces non-fatal run warnings (e.g. the pairwise flip caveat or
+// R-R2 rubric reconciliation extras) on stderr in text mode, mirroring the
+// pre-flight echo (WI-F7) so they never break the human table on stdout. In
+// --output json mode the warnings ALSO serialize into the result body under
+// "warnings" (Result's `warnings,omitempty` tag), so machine consumers still see
+// them; this helper only handles the text-mode stderr echo. Each warning is
+// written verbatim on its own line, preserving the returned order. This is the
+// single emission site shared by the eval-run and pairwise RunE paths.
+func emitWarnings(w io.Writer, warnings []string) {
+	for _, warning := range warnings {
+		fmt.Fprintln(w, warning)
+	}
 }
 
 // sanitizeEchoValue drops control characters (newlines, carriage returns, and
