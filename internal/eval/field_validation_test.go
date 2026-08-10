@@ -97,8 +97,16 @@ func TestValidateFields_CaseB_SingleBraceNative(t *testing.T) {
 	if err == nil {
 		t.Fatal("want error for a single-brace (unmatched) placeholder + field, got nil")
 	}
-	if !strings.Contains(err.Error(), "{{") {
-		t.Errorf("error should steer the author toward double-brace {{...}} syntax: %v", err)
+	// The message must name the offending single-brace token AND steer the author
+	// to the double-brace fix, so the mistake is diagnosable at a glance.
+	for _, want := range []string{"single-brace", "{response}", "{{response}}"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should mention %q to steer toward double-brace syntax: %v", want, err)
+		}
+	}
+	// Security: the field VALUE must never appear in the error (names/placeholders only).
+	if strings.Contains(err.Error(), "The cat sat.") {
+		t.Errorf("error must not echo the field value: %v", err)
 	}
 	if fc.gotReq != nil {
 		t.Error("client must NOT be called; the single-brace template drops the field")
@@ -254,5 +262,63 @@ func TestValidateFields_HappyPathPairwise(t *testing.T) {
 	ji := fc.gotReq.GetPairwiseMetricInput().GetInstance().GetJsonInstance()
 	if !strings.Contains(ji, "Answer A") || !strings.Contains(ji, "Answer B") {
 		t.Errorf("pairwise JsonInstance %q does not carry the supplied baseline/candidate values", ji)
+	}
+}
+
+// --- Rubric-detail path: the FIX-1 guard lives at Engine.Run (before dispatch),
+// so it must apply on the --rubric-detail (genai) route too, not only the native
+// paths. These pin an unknown-field error AND the valid-field happy path there. ---
+
+// rubricDetailResp is the full authored per_criterion set for rubricTemplate(),
+// so reconciliation is a happy-path no-op and the run reaches a clean Result.
+const rubricDetailResp = `{
+	"per_criterion": [
+		{"group":"clarity","criterion":"The message is unambiguous","score":4,"rationale":"clear"},
+		{"group":"clarity","criterion":"No jargon","score":5,"rationale":"plain"},
+		{"group":"tone","criterion":"Matches a professional brand voice","score":3,"rationale":"ok"}
+	],
+	"overall_score": 4,
+	"explanation": "Solid."
+}`
+
+func TestValidateFields_ExtraFieldRubricDetail(t *testing.T) {
+	fg := &fakeGenai{respText: rubricDetailResp}
+	eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
+
+	inst := rubricInstance() // has the valid "copy" field
+	inst.Fields["bogus"] = AssetRef{Modality: registry.ModalityText, Text: "ignored?"}
+
+	_, err := eng.Run(context.Background(), rubricTemplate(), inst, WithRubricDetail(1, 5))
+	if err == nil {
+		t.Fatal("want error for an extra unknown field on the rubric-detail path, got nil")
+	}
+	if !strings.Contains(err.Error(), "bogus") || !strings.Contains(err.Error(), rubricTemplate().ID) {
+		t.Errorf("error must name the unknown key and the template: %v", err)
+	}
+	if fg.calls != 0 {
+		t.Errorf("genai client must NOT be called when a field would be dropped; got %d calls", fg.calls)
+	}
+}
+
+func TestValidateFields_HappyPathRubricDetail(t *testing.T) {
+	fg := &fakeGenai{respText: rubricDetailResp}
+	eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
+
+	res, err := eng.Run(context.Background(), rubricTemplate(), rubricInstance(), WithRubricDetail(1, 5))
+	if err != nil {
+		t.Fatalf("valid rubric-detail template+field rejected: %v", err)
+	}
+	if !res.RubricDetail {
+		t.Error("RubricDetail marker not set on a rubric-detail result")
+	}
+	if fg.calls == 0 {
+		t.Fatal("genai client should be called for a valid rubric-detail template+field")
+	}
+	// Proof the field reached the rendered judge prompt (not silently dropped).
+	if len(fg.gotContents) == 0 || len(fg.gotContents[0].Parts) == 0 {
+		t.Fatalf("unexpected contents shape: %+v", fg.gotContents)
+	}
+	if txt := fg.gotContents[0].Parts[0].Text; !strings.Contains(txt, "Buy now, save big.") {
+		t.Errorf("rendered prompt %q does not carry the supplied field value", txt)
 	}
 }

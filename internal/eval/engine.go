@@ -14,7 +14,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
@@ -339,6 +341,15 @@ func expectedInstanceFields(tmpl registry.MetricTemplate) []string {
 //	    supplied — the values cannot reach the judge; the template is almost
 //	    certainly mis-authored (missing a {{...}} placeholder). This is the exact
 //	    silent-drop that returned a confidently-wrong score for the owner.
+//
+// LIMITATION / follow-up: this guard is invoked from a single chokepoint,
+// Engine.Run (before dispatch). Every current eval path funnels through Run, so
+// the guard is comprehensive today. Any FUTURE code path that reaches a per-kind
+// runner (runPointwise/runRubric/runRubricStructured/runCustomSchema/runPairwise)
+// WITHOUT going through Run — e.g. a batch or streaming entry point added later —
+// MUST call validateInstanceFields itself, or it will reintroduce the silent-drop
+// defect. If a second caller appears, prefer lifting this into a shared
+// pre-dispatch step rather than duplicating the call.
 func validateInstanceFields(expected []string, tmpl registry.MetricTemplate, inst Instance) error {
 	// (b) No placeholders but fields supplied: the strongest signal of a
 	// mis-authored template. Reported first so the message points at the template,
@@ -347,7 +358,21 @@ func validateInstanceFields(expected []string, tmpl registry.MetricTemplate, ins
 		if len(inst.Fields) == 0 {
 			return nil
 		}
-		return fmt.Errorf("eval: template %q references no {{placeholders}} but %d field(s) were supplied (%v); the value(s) will NOT reach the judge — add a {{...}} placeholder to the template (e.g. {{response}}) or check the template id", tmpl.ID, len(inst.Fields), fieldKeys(inst))
+		msg := fmt.Sprintf("eval: template %q references no {{placeholders}} but %d field(s) were supplied (%v); the value(s) will NOT reach the judge", tmpl.ID, len(inst.Fields), fieldKeys(inst))
+		// Targeted hint for the common single-brace mistake: the template DOES
+		// carry {word} tokens, but Mizan only recognizes double-brace {{word}}
+		// (extractVars/varPattern), so extractVars found nothing. Point the author
+		// at the exact tokens to fix. Names/placeholders only — never field values.
+		if sb := singleBraceVars(tmpl.MetricPromptTemplate); len(sb) > 0 {
+			singles := make([]string, len(sb))
+			doubles := make([]string, len(sb))
+			for i, name := range sb {
+				singles[i] = "{" + name + "}"
+				doubles[i] = "{{" + name + "}}"
+			}
+			return fmt.Errorf("%s; found single-brace %s which is NOT a placeholder — placeholders must be double-brace: use %s", msg, strings.Join(singles, ", "), strings.Join(doubles, ", "))
+		}
+		return fmt.Errorf("%s — add a {{...}} placeholder to the template (e.g. {{response}}) or check the template id", msg)
 	}
 
 	// (a) Fields present but not referenced by any placeholder.
@@ -366,6 +391,37 @@ func validateInstanceFields(expected []string, tmpl registry.MetricTemplate, ins
 		return fmt.Errorf("eval: unknown instance field(s) %v for template %q; it references placeholders %v — a field that matches no placeholder is silently dropped and never reaches the judge (check for a typo, or add the placeholder to the template)", unknown, tmpl.ID, expected)
 	}
 	return nil
+}
+
+// singleBracePattern matches a single-brace {name} token, e.g. {response}. It
+// mirrors varPattern (content.go) but with ONE brace on each side; it exists
+// only to power a targeted hint, never to substitute values.
+var singleBracePattern = regexp.MustCompile(`\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}`)
+
+// singleBraceVars returns the unique single-brace {name} tokens in s, in
+// first-seen order, EXCLUDING any that are actually part of a double-brace
+// {{name}} token (which is a real placeholder). It is used to detect the common
+// authoring mistake of writing {var} instead of {{var}}.
+func singleBraceVars(s string) []string {
+	var out []string
+	seen := make(map[string]bool)
+	for _, loc := range singleBracePattern.FindAllStringSubmatchIndex(s, -1) {
+		start, end := loc[0], loc[1]
+		// Adjacent brace on either side ⇒ this is part of a {{...}} token, not a
+		// single-brace mistake; skip it.
+		if start > 0 && s[start-1] == '{' {
+			continue
+		}
+		if end < len(s) && s[end] == '}' {
+			continue
+		}
+		name := s[loc[2]:loc[3]]
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // fieldKeys returns the instance's field names in sorted order for stable,
