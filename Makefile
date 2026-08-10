@@ -39,7 +39,7 @@ help: ## list available targets (default)
 		| awk 'BEGIN {FS = ":.*## "} {printf "  %-18s %s\n", $$1, $$2}'
 
 build: ## Build the mizan CLI to bin/mizan (CGO_ENABLED=0)
-	CGO_ENABLED=0 $(GO) build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/mizan ./cmd/mizan
+	CGO_ENABLED=0 $(GO) build -trimpath -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/mizan ./cmd/mizan
 
 install: ## go install the mizan CLI into GOBIN/GOPATH (CGO_ENABLED=0)
 	CGO_ENABLED=0 $(GO) install -ldflags "$(LDFLAGS)" ./cmd/mizan
