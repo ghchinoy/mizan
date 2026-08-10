@@ -43,19 +43,10 @@ func TestEndpointFor(t *testing.T) {
 	}
 }
 
-// TestNewClientUsesRegionalHost is a light integration check that NewClient
-// succeeds for a regional location and returns a closable client (it does not
-// dial until the first RPC, so no credentials are needed to construct it). The
-// exact host string is asserted by TestEndpointFor above.
-func TestNewClientUsesRegionalHost(t *testing.T) {
-	c, err := NewClient(context.Background(), "us-central1", "")
-	if err != nil {
-		t.Fatalf("NewClient: %v", err)
-	}
-	if err := c.Close(); err != nil {
-		t.Errorf("Close: %v", err)
-	}
-}
+// NOTE: NewClient itself is intentionally NOT exercised here — constructing the
+// real *aiplatform.EvaluationClient resolves ADC credentials, which CI does not
+// have (creds-free by design). The credential-free part of NewClient — the raw
+// host mapping — is the pure endpointFor function covered by TestEndpointFor.
 
 // TestRoute_FullyQualifiedRegionalModel_GlobalRetrySucceeds documents the
 // host-decides behavior (R-GLOBAL review FYI): a FULLY-QUALIFIED regional
