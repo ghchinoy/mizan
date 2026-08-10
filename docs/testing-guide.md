@@ -365,10 +365,13 @@ Prompt:         Which response better answers the question 'What is the capital 
 $ mizan eval pairwise --metric demo/pairwise-quality \
     --baseline baseline_response="Paris." \
     --candidate candidate_response="The capital of France is Paris, a city renowned for the Eiffel Tower and its rich cultural history."
-Score:        (none)
 Choice:       BASELINE
 Explanation:  The baseline response is more direct and concise, providing only the information specifically asked for in the question, which is generally preferred for simple factual queries.
 ```
+
+Because flip is on by default, `mizan eval pairwise` also prints a flip
+warning to stderr — see "Pairwise flip and why the Choice is authoritative"
+below for what it means.
 
 `Choice` is non-deterministic across runs like `Score`/`Explanation` — a
 re-run of the exact same command may return `CANDIDATE` instead of
@@ -400,17 +403,32 @@ $ mizan eval pairwise --metric demo/pairwise-badprompt \
 Error: eval: pairwise template "demo/pairwise-badprompt" metric prompt must reference the baseline {{baseline_response}} and candidate {{candidate_response}} placeholder(s); the API rejects instance keys not present in the template
 ```
 
-### flip-enabled known limitation
+### Pairwise flip and why the Choice is authoritative
 
 `registry create --kind pairwise` accepts a `--flip-enabled` flag (default
-`true`), but **pairwise always runs with flip enabled regardless of the flag's
-value** — the registry's `FlipEnabled` field is a plain `bool`, which can't
-represent an explicit "false" distinctly from "unset" (both are the Go zero
-value), so an explicit opt-out is not currently honored (source:
-`internal/eval/pairwise.go` comments). Passing `--flip-enabled=false` at create
-time is accepted without error, but does **not** actually disable flipping —
-treat that as an honest gap, not a working toggle; honoring it would require a
-tri-state field.
+`true`), and pairwise evaluation honors it. With flip on, the autorater runs
+both position orderings across samples to mitigate position bias, and the
+returned `Choice` is the de-biased, authoritative verdict — trust it.
+
+The catch is the `Explanation`: under flip it is a single sampled artifact
+whose `baseline`/`candidate` wording may reflect a flipped ordering and may
+not match the order you presented. It can read as praising the other response
+even when the `Choice` is correct. When flip is in effect, `mizan eval
+pairwise` emits this warning on stderr (and, with `--output json`, under the
+`warnings` array):
+
+```text
+# stderr
+pairwise flip is enabled: the Choice is the de-biased, authoritative verdict; the explanation is a sampled artifact whose 'baseline'/'candidate' wording may reflect a flipped ordering and may not match your input. Disable flip (--flip-enabled=false on the template) to keep the explanation's wording aligned with the presented order, at the cost of position-bias mitigation.
+```
+
+To keep the explanation's wording aligned with the presented order, create the
+template with `--flip-enabled=false` (the trade-off: you lose position-bias
+mitigation). Set the flag explicitly at create time to opt out.
+
+For the same guidance framed for end users, see "Pairwise flip and the
+`Choice` is authoritative" in `docs/user-guide.md`, and
+`docs/llm-as-judge-scenarios.md#scenario-2-compare-two-responses-pairwise`.
 
 ## Multimodal
 
