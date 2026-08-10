@@ -213,6 +213,48 @@ func TestRenderResultRubricDetailJSON(t *testing.T) {
 	}
 }
 
+// TestRenderResultRubricDetailPartialEntries proves the per-criterion table
+// renderer is defensive: a non-map entry is skipped, and an entry missing
+// fields (e.g. no rationale) renders blanks rather than panicking. It also
+// covers a nil overall Score rendering as "(none)" and the explanation falling
+// back to CustomOutput["explanation"].
+func TestRenderResultRubricDetailPartialEntries(t *testing.T) {
+	outputFormat = outputTable
+	res := eval.Result{
+		// Score deliberately nil (judge omitted overall_score upstream).
+		CustomOutput: map[string]any{
+			"per_criterion": []any{
+				map[string]any{"group": "clarity", "criterion": "has all", "score": 4, "rationale": "good"},
+				map[string]any{"group": "tone", "criterion": "no rationale", "score": 2}, // missing rationale
+				"not-a-map-entry", // must be skipped, not panic
+			},
+			"explanation": "from custom output",
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Score:\t(none)") && !strings.Contains(out, "Score: (none)") {
+		// tab or space separated depending on tabwriter; accept either.
+		if !strings.Contains(out, "(none)") {
+			t.Errorf("nil Score should render (none):\n%s", out)
+		}
+	}
+	if !strings.Contains(out, "from custom output") {
+		t.Errorf("explanation fallback to CustomOutput missing:\n%s", out)
+	}
+	for _, want := range []string{"has all", "good", "no rationale"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("partial per-criterion table missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "not-a-map-entry") {
+		t.Errorf("non-map per_criterion entry should be skipped, leaked:\n%s", out)
+	}
+}
+
 // TestPrintPreflightLine verifies the default-on pre-flight echo is a single
 // concise line carrying the resolved project/location/model and path.
 func TestPrintPreflightLine(t *testing.T) {
