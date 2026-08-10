@@ -111,8 +111,10 @@ func newEvalRunCmd() *cobra.Command {
 				return err
 			}
 			// Surface non-fatal run warnings (e.g. R-R2 rubric reconciliation
-			// extras) on stderr, mirroring the pre-flight echo (WI-F7): keeping
-			// them off stdout means they never pollute --output json results.
+			// extras) on stderr in text mode, mirroring the pre-flight echo (WI-F7)
+			// so they never break the human table on stdout. In --output json mode
+			// they ALSO serialize into the result body under "warnings" (Result has
+			// the `warnings,omitempty` json tag), so machine consumers see them too.
 			for _, warning := range res.Warnings {
 				fmt.Fprintln(cmd.ErrOrStderr(), warning)
 			}
