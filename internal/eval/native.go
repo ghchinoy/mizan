@@ -58,11 +58,6 @@ func (e *Engine) runNativePointwise(ctx context.Context, tmpl registry.MetricTem
 		return Result{}, fmt.Errorf("eval: no evaluation client configured")
 	}
 
-	fullModel, err := expandAutoraterModel(model, e.projectID, e.location)
-	if err != nil {
-		return Result{}, err
-	}
-
 	metricInstance, err := e.buildPointwiseInstance(ctx, tmpl.MetricPromptTemplate, inst)
 	if err != nil {
 		return Result{}, err
@@ -75,30 +70,30 @@ func (e *Engine) runNativePointwise(ctx context.Context, tmpl registry.MetricTem
 		spec.SystemInstruction = proto.String(tmpl.SystemInstruction)
 	}
 
-	autorater := &aiplatformpb.AutoraterConfig{AutoraterModel: fullModel}
-	if tmpl.SamplingCount > 0 {
-		autorater.SamplingCount = proto.Int32(tmpl.SamplingCount)
-	}
-
-	req := &aiplatformpb.EvaluateInstancesRequest{
-		Location: fmt.Sprintf("projects/%s/locations/%s", e.projectID, e.location),
-		MetricInputs: &aiplatformpb.EvaluateInstancesRequest_PointwiseMetricInput{
-			PointwiseMetricInput: &aiplatformpb.PointwiseMetricInput{
-				MetricSpec: spec,
-				Instance:   metricInstance,
+	// build re-materializes the request per attempt (regional, then a possible
+	// global retry) so req.Location and the autorater location always match the
+	// host actually used (R-GLOBAL). The metric spec/instance are location-
+	// independent and captured once.
+	build := func(loc, fullModel string) *aiplatformpb.EvaluateInstancesRequest {
+		autorater := &aiplatformpb.AutoraterConfig{AutoraterModel: fullModel}
+		if tmpl.SamplingCount > 0 {
+			autorater.SamplingCount = proto.Int32(tmpl.SamplingCount)
+		}
+		return &aiplatformpb.EvaluateInstancesRequest{
+			Location: fmt.Sprintf("projects/%s/locations/%s", e.projectID, loc),
+			MetricInputs: &aiplatformpb.EvaluateInstancesRequest_PointwiseMetricInput{
+				PointwiseMetricInput: &aiplatformpb.PointwiseMetricInput{
+					MetricSpec: spec,
+					Instance:   metricInstance,
+				},
 			},
-		},
-		AutoraterConfig: autorater,
+			AutoraterConfig: autorater,
+		}
 	}
 
-	ctxLabel := ""
-	if label != "" {
-		ctxLabel = " (" + label + ")"
-	}
-
-	resp, err := e.client.EvaluateInstances(ctx, req)
+	resp, err := e.evaluateRouted(ctx, model, label, build)
 	if err != nil {
-		return Result{}, fmt.Errorf("eval: EvaluateInstances%s: %w", ctxLabel, err)
+		return Result{}, err
 	}
 
 	pr := resp.GetPointwiseMetricResult()

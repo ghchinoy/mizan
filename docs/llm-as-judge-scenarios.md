@@ -200,8 +200,9 @@ typically names which criteria were met or missed.
 **Limits / caveats.**
 - You get a **single** roll-up score — not one score per criterion. For that, use
   `--rubric-detail` (Scenario 4).
-- Runs on the native regional path, so it keeps `AutoraterConfig` sampling but
-  cannot use a global-only judge model (see Scenario 7).
+- Runs on the native regional path, so it keeps `AutoraterConfig` sampling. A
+  global-only judge model still works here — Mizan auto-routes the call to the
+  global host (see Scenario 7) — but that global run is not region-pinned.
 
 ---
 
@@ -425,22 +426,50 @@ mizan config set default-model gemini-2.5-flash          # account-wide default
 mizan eval run --metric demo/conciseness --model gemini-2.5-flash --field response="…"   # per-run override
 ```
 
-**Limits / caveats — global-only judges.** Newer models such as
-`gemini-3.5-flash` / `-flash-lite` are **global-only**: they resolve on the
+**Global-only judges are auto-routed to the global host (R-GLOBAL).** Newer models
+such as `gemini-3.5-flash` / `-flash-lite` are **global-only**: they resolve on the
 global eval endpoint but **404 on the regional native path** (verified live —
-`design/spike-eval-region-autorater.md`). The deciding factor is the eval
-endpoint *host*, not the model's location path. Consequences:
+`design/spike-eval-region-autorater.md`). The deciding factor is the eval endpoint
+*host*, not the model's location path — so overriding only the autorater's location
+while keeping a regional host still 404s. Mizan therefore moves the **whole**
+`EvaluateInstances` call to the global host (`aiplatform.googleapis.com` /
+`locations/global`) when the resolved autorater is global-only. You no longer need
+to set `--location global` by hand.
 
-- The **genai path** (`custom_schema`, and rubric `--rubric-detail`) already runs
-  at `location=global` (`GenaiLocation`), so it can use a global-only judge
-  directly.
-- The **native path** (`pointwise` / `rubric` / `pairwise`) runs at your
-  configured region (default `us-central1`). To use a global-only judge there,
-  set `mizan config set location global` (env `MIZAN_LOCATION=global`), which
-  routes the native call to the global endpoint.
-- This is why the built-in default stays `gemini-2.5-flash` — it is served on
-  *both* the regional and global endpoints, so it never surprises the native
-  path.
+- **The genai path** (`custom_schema`, and rubric `--rubric-detail`) already runs
+  at `location=global` (`GenaiLocation`), so it uses a global-only judge directly.
+- **The native path** (`pointwise` / `rubric` / `pairwise`) normally runs at your
+  configured region (default `us-central1`). When the resolved judge is
+  global-only, the engine runs that native call against the global host instead
+  (`internal/eval/route.go`).
+
+**How the routing is detected.** Two layers, so it is both fast and future-proof:
+
+1. **Known-model fast-path.** A resolved autorater whose id begins with a
+   documented global-only prefix (today the `gemini-3.5` family — the list lives in
+   one place, `globalOnlyModelPrefixes` in `internal/eval/route.go`) is routed
+   straight to the global host, skipping a guaranteed-to-404 regional attempt. The
+   pre-flight echo (Scenario 8) then shows `location=global` up front.
+2. **Self-correcting retry (safety net).** For any global-only judge *not* in that
+   list, the first (regional) attempt fails with the specific
+   `NOT_FOUND … Autorater model not found` error; Mizan matches that narrowly
+   (gRPC `NotFound` **and** an autorater-model message) and transparently retries
+   the same call on the global host. A non-autorater `NOT_FOUND` (e.g. a missing
+   template) is **not** retried. If the global retry also fails, the original
+   error is surfaced with context.
+
+**`--location` is kept for labeling, not honored as residency for a global-only
+judge.** A global-only judge cannot run in your region, so the routing is forced to
+global regardless of `--location` / `MIZAN_LOCATION`. Your configured location is
+still used for output/labeling, and Mizan prints a one-line notice to **stderr** so
+this is never silent:
+
+```
+mizan: autorater gemini-3.5-flash is global-only (…); routing this eval to the GLOBAL host (location=global). Your configured --location is kept for labeling only.
+```
+
+The built-in default stays `gemini-2.5-flash` — served on *both* regional and
+global endpoints — so a default run never triggers routing at all.
 
 ---
 
@@ -464,6 +493,11 @@ hit — *before* it happens.
   ```
   mizan: autorater → project=my-proj location=us-central1 model=gemini-2.5-flash (path=native)
   ```
+
+  For a **known global-only judge** the echo already shows `location=global` (the
+  routing is detected up front — Scenario 7). For a global-only judge discovered
+  only via the retry, Mizan additionally prints a "routing this eval to the GLOBAL
+  host" notice to stderr at run time so the forced-global routing is never silent.
 
 - **`--stats` (opt-in).** Adds a footer with wall-clock **duration** (always
   measured) and, on the genai path only, **token usage**
@@ -495,7 +529,9 @@ hit — *before* it happens.
 
 *"regional" = your configured `location` (default `us-central1`); "global" =
 `aiplatform.googleapis.com` / `locations/global`. Native local `--file` assets
-are auto-staged to GCS; genai paths accept inline bytes (≤ 20 MiB).*
+are auto-staged to GCS; genai paths accept inline bytes (≤ 20 MiB). A native run
+whose resolved autorater is **global-only** is auto-routed to the global host
+regardless of your `location` (Scenario 7).*
 
 ---
 
