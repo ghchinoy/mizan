@@ -257,6 +257,48 @@ set, matched by the exact **(group, criterion)** pair:
   a warning is printed to **stderr** — extras are informative, not corrupting, so
   they do not fail the run.
 
+## Version and releases
+
+Check which build you're running:
+
+```sh
+$ mizan version
+mizan v1.2.3 (commit a1b2c3d, built 2026-08-10T00:00:00Z)
+```
+
+Like every other command, `version` honors `-o/--output json|table` (default a
+plain line) for scripting:
+
+```sh
+$ mizan version -o json
+{
+  "version": "v1.2.3",
+  "commit": "a1b2c3d",
+  "date": "2026-08-10T00:00:00Z"
+}
+```
+
+The three values are injected at build time via `-ldflags`. A plain
+`go build ./cmd/mizan` (no ldflags) reports the placeholders
+`dev`/`none`/`unknown`; `make build` and `make install` populate them from
+`git describe --tags --always --dirty`, the short commit, and a UTC timestamp.
+
+### Cutting a release
+
+Releases are tag-driven. Push a `vX.Y.Z` tag and the
+[`release` workflow](../.github/workflows/release.yml) cross-compiles CGO-free
+binaries (linux/darwin × amd64/arm64), stamps them with the tag via the same
+ldflags, and attaches the tarballs plus `.sha256` sums to the GitHub Release:
+
+```sh
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+Once a `vX.Y.Z` tag exists, downstreams (e.g. the `mizan-templates`
+`validate-packs` CI) can pin `MIZAN_VERSION=vX.Y.Z` instead of tracking
+`@main`.
+
 ## Troubleshooting
 
 **`Error: config: project ID not set (set MIZAN_PROJECT_ID or PROJECT_ID)`**
