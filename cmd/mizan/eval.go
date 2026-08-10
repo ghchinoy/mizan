@@ -5,6 +5,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -29,6 +31,8 @@ func newEvalCmd() *cobra.Command {
 func newEvalRunCmd() *cobra.Command {
 	var (
 		metric string
+		model  string
+		stats  bool
 		fields []string
 		files  []string
 		gcs    []string
@@ -69,20 +73,34 @@ func newEvalRunCmd() *cobra.Command {
 				return err
 			}
 
+			// Validate the user-supplied --model BEFORE it is echoed to stderr or
+			// composed into a Vertex resource name, so a malformed value fails
+			// locally instead of injecting into the pre-flight line / remote call.
+			if err := eval.ValidateModel(model); err != nil {
+				return err
+			}
+
 			eng, closeEng, err := openEngine(cmd.Context(), cfg)
 			if err != nil {
 				return err
 			}
 			defer closeEng()
 
-			res, err := eng.Run(cmd.Context(), *tmpl, inst)
+			// Pre-flight echo (WI-F7): the resolved project/location/model line is
+			// on by default (cheap, high-value) and reflects the actual per-path
+			// location (native=regional, genai=global).
+			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model))
+
+			res, err := eng.Run(cmd.Context(), *tmpl, inst, eval.WithModel(model))
 			if err != nil {
 				return err
 			}
-			return renderResult(cmd.OutOrStdout(), res)
+			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
 	cmd.Flags().StringVar(&metric, "metric", "", "template id to run (required)")
+	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
+	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "text instance field as key=value (repeatable)")
 	cmd.Flags().StringArrayVar(&files, "file", nil, "local asset field as key=/path; engine stages to GCS (repeatable)")
 	cmd.Flags().StringArrayVar(&gcs, "gcs", nil, "pre-staged asset field as key=gs://… (repeatable)")
@@ -92,6 +110,8 @@ func newEvalRunCmd() *cobra.Command {
 func newEvalPairwiseCmd() *cobra.Command {
 	var (
 		metric    string
+		model     string
+		stats     bool
 		baseline  string
 		candidate string
 		fields    []string
@@ -136,20 +156,31 @@ func newEvalPairwiseCmd() *cobra.Command {
 				return err
 			}
 
+			// Validate the user-supplied --model BEFORE it is echoed to stderr or
+			// composed into a Vertex resource name (see eval run).
+			if err := eval.ValidateModel(model); err != nil {
+				return err
+			}
+
 			eng, closeEng, err := openEngine(cmd.Context(), cfg)
 			if err != nil {
 				return err
 			}
 			defer closeEng()
 
-			res, err := eng.Run(cmd.Context(), *tmpl, inst)
+			// Pre-flight echo (WI-F7): default-on resolved project/location/model.
+			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model))
+
+			res, err := eng.Run(cmd.Context(), *tmpl, inst, eval.WithModel(model))
 			if err != nil {
 				return err
 			}
-			return renderResult(cmd.OutOrStdout(), res)
+			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
 	cmd.Flags().StringVar(&metric, "metric", "", "pairwise template id to run (required)")
+	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
+	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
 	cmd.Flags().StringVar(&baseline, "baseline", "", "baseline response as key=value (key = template BaselineFieldName)")
 	cmd.Flags().StringVar(&candidate, "candidate", "", "candidate response as key=value (key = template CandidateFieldName)")
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "additional text field as key=value (repeatable)")
@@ -206,8 +237,43 @@ func parseFields(fields []string) (eval.Instance, error) {
 	return buildInstance(fields, nil, nil)
 }
 
-// renderResult prints an eval result as JSON or a small table.
-func renderResult(w io.Writer, res eval.Result) error {
+// printPreflight writes the default-on, one-line resolved-target echo to stderr
+// BEFORE the eval call (WI-F7). Keeping it on stderr means it never pollutes the
+// --output json result on stdout, yet is always visible so a wrong project or an
+// unexpected global location surfaces immediately instead of only when the API
+// rejects the call.
+func printPreflight(w io.Writer, t eval.ResolvedTarget) {
+	// Sanitize every interpolated value at the output boundary so the echo is
+	// ALWAYS exactly one line, regardless of input. A fully-qualified
+	// "projects/.../models/<seg>" model is trusted verbatim by the resolution
+	// path, so a self-supplied --model with a control character (e.g. a newline)
+	// in the trailing segment could otherwise inject an extra line into the
+	// caller's own stderr. Stripping control chars here closes that stderr-
+	// injection class for both the bare and fully-qualified forms (security audit
+	// INFO / review FYI2).
+	fmt.Fprintf(w, "mizan: autorater → project=%s location=%s model=%s (path=%s)\n",
+		sanitizeEchoValue(t.Project), sanitizeEchoValue(t.Location),
+		sanitizeEchoValue(t.Model), sanitizeEchoValue(t.Path))
+}
+
+// sanitizeEchoValue drops control characters (newlines, carriage returns, and
+// other C0/C1 control runes) from a value before it is written to the one-line
+// pre-flight echo, guaranteeing the echo stays a single line.
+func sanitizeEchoValue(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// renderResult prints an eval result as JSON or a small table. When showStats is
+// true (the opt-in --stats flag), the table gains a stats footer: the wall-clock
+// duration (always available) and the genai-path token usage, or a clear note
+// that token usage is not available on the native path (WI-F4). JSON output
+// always includes the stats object; --stats controls only the human footer.
+func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 	if outputFormat == outputJSON {
 		return printJSON(w, res)
 	}
@@ -229,6 +295,15 @@ func renderResult(w io.Writer, res eval.Result) error {
 		sort.Strings(keys)
 		for _, k := range keys {
 			fmt.Fprintf(tw, "CustomOutput[%s]:\t%v\n", k, res.CustomOutput[k])
+		}
+	}
+	if showStats {
+		fmt.Fprintf(tw, "Duration:\t%s\n", res.Stats.Duration.Round(time.Millisecond))
+		if tu := res.Stats.TokenUsage; tu != nil {
+			fmt.Fprintf(tw, "Tokens:\tprompt=%d candidates=%d total=%d\n",
+				tu.PromptTokens, tu.CandidatesTokens, tu.TotalTokens)
+		} else {
+			fmt.Fprintf(tw, "Tokens:\ttoken usage not available on this path (native EvaluateInstances returns no usage)\n")
 		}
 	}
 	return tw.Flush()

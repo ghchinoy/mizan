@@ -49,7 +49,12 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	fl.StringVar(&f.kind, "kind", string(registry.KindPointwise), "metric kind: pointwise|pairwise|rubric|custom_schema")
 	fl.StringVar(&f.prompt, "prompt", "", "metric prompt template ({{var}} placeholders)")
 	fl.StringVar(&f.system, "system", "", "system instruction")
-	fl.StringVar(&f.model, "model", "gemini-2.5-flash", "autorater model (publisher-relative id)")
+	// Default is empty (WI-F3): an unset --model leaves the template's
+	// AutoraterModel blank so the eval-time resolution chain
+	// (flag > template > config default-model > built-in) applies, instead of
+	// baking the built-in id into every created template. The single built-in
+	// default lives in eval.BuiltinDefaultModel.
+	fl.StringVar(&f.model, "model", "", "autorater model (publisher-relative id; empty = resolve default at eval time)")
 	fl.Int32Var(&f.samplingCount, "sampling-count", 4, "autorater sampling count (1-32)")
 	fl.BoolVar(&f.flipEnabled, "flip-enabled", true, "pairwise: flip candidate/baseline to reduce bias")
 	fl.StringSliceVar(&f.modalities, "modality", []string{"text"}, "accepted modalities (repeatable)")

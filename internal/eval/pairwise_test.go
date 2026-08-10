@@ -236,6 +236,62 @@ func TestRunPairwisePlaceholderValidation(t *testing.T) {
 	}
 }
 
+// TestRunPairwiseModelPrecedence proves the WI-F3 model-resolution chain also
+// governs the pairwise native path (a SEPARATE materialization from pointwise):
+// a --model override wins, an empty template inherits the config default, and
+// with neither set the built-in is used — each reaching the expanded
+// AutoraterModel resource name. Without this, a pairwise-only regression in the
+// resolution wiring would go uncaught, since the other precedence tests exercise
+// only the pointwise and genai paths.
+func TestRunPairwiseModelPrecedence(t *testing.T) {
+	cases := []struct {
+		name        string
+		override    string
+		tmplModel   string
+		configModel string
+		wantBare    string
+	}{
+		{"flag override wins", "gemini-flag", "gemini-tmpl", "gemini-cfg", "gemini-flag"},
+		{"template when no flag", "", "gemini-tmpl", "gemini-cfg", "gemini-tmpl"},
+		{"config default when empty template", "", "", "gemini-cfg", "gemini-cfg"},
+		{"built-in fallback", "", "", "", BuiltinDefaultModel},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fc := &fakeClient{resp: pairwiseResp(aiplatformpb.PairwiseChoice_BASELINE, "ok")}
+			eng := NewEngine(fc, "proj", "us-central1", WithDefaultModel(tc.configModel))
+			tmpl := pairwiseTemplate()
+			tmpl.AutoraterModel = tc.tmplModel
+
+			if _, err := eng.Run(context.Background(), tmpl, pairwiseInstance(), WithModel(tc.override)); err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			want := "projects/proj/locations/us-central1/publishers/google/models/" + tc.wantBare
+			if got := fc.gotReq.GetAutoraterConfig().GetAutoraterModel(); got != want {
+				t.Errorf("AutoraterModel = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestRunPairwiseStatsDuration proves Duration is populated on the pairwise
+// native path too (WI-F4: timing is measured centrally in Engine.Run for every
+// kind) and that TokenUsage stays nil (native carries no usage metadata).
+func TestRunPairwiseStatsDuration(t *testing.T) {
+	fc := &fakeClient{resp: pairwiseResp(aiplatformpb.PairwiseChoice_TIE, "")}
+	eng := NewEngine(fc, "p", "us-central1")
+	res, err := eng.Run(context.Background(), pairwiseTemplate(), pairwiseInstance())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Stats.Duration <= 0 {
+		t.Errorf("Duration = %v, want > 0", res.Stats.Duration)
+	}
+	if res.Stats.TokenUsage != nil {
+		t.Errorf("native pairwise TokenUsage = %+v, want nil", res.Stats.TokenUsage)
+	}
+}
+
 // TestRunPairwiseMultimodalGCS proves multimodal pairwise: media baseline and
 // candidate produce a ContentMap with gs:// FileData for each.
 func TestRunPairwiseMultimodalGCS(t *testing.T) {

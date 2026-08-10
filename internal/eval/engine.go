@@ -13,6 +13,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"time"
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 	gax "github.com/googleapis/gax-go/v2"
@@ -65,18 +66,39 @@ type Result struct {
 	Explanation    string
 	RawOutput      []string       // if ReturnRawOutput
 	CustomOutput   map[string]any // if KindCustomSchema
+	Stats          Stats          // per-run telemetry (WI-F4)
+}
+
+// Stats holds per-run telemetry (WI-F4). Duration is ALWAYS populated with the
+// wall-clock time around the dispatch (see Engine.Run). TokenUsage is populated
+// ONLY on the custom_schema / genai path (from resp.UsageMetadata); the native
+// EvaluateInstances response exposes no token usage, so it is nil on the native
+// pointwise/rubric/pairwise paths.
+type Stats struct {
+	Duration   time.Duration `json:"duration_ns"`
+	TokenUsage *TokenUsage   `json:"token_usage,omitempty"`
+}
+
+// TokenUsage is the genai-path token breakdown lifted from
+// GenerateContentResponseUsageMetadata. It is nil on the native path, which
+// carries no usage metadata.
+type TokenUsage struct {
+	PromptTokens     int32 `json:"prompt_tokens"`
+	CandidatesTokens int32 `json:"candidates_tokens"`
+	TotalTokens      int32 `json:"total_tokens"`
 }
 
 // Engine runs a metric template against an instance. It depends only on the
 // registry domain model and the two narrow client seams (EvaluationClient for
 // the native path, GenaiClient for the custom_schema path).
 type Engine struct {
-	client    EvaluationClient
-	genai     GenaiClient
-	stager    asset.Stager
-	projectID string
-	location  string
-	retry     retryPolicy
+	client       EvaluationClient
+	genai        GenaiClient
+	stager       asset.Stager
+	projectID    string
+	location     string
+	defaultModel string // config default-model (WI-F3); "" falls back to BuiltinDefaultModel
+	retry        retryPolicy
 }
 
 // Option configures an Engine at construction time. New optional dependencies
@@ -89,6 +111,15 @@ type Option func(*Engine)
 // eval may run, so the native-only paths never build a genai client.
 func WithGenaiClient(g GenaiClient) Option {
 	return func(e *Engine) { e.genai = g }
+}
+
+// WithDefaultModel sets the config-level default autorater model (WI-F3, from
+// config.DefaultModel / MIZAN_DEFAULT_MODEL). It sits BELOW the flag override
+// and the template's own AutoraterModel but ABOVE the built-in default in the
+// precedence chain (see Engine.resolveModel). An empty value is a no-op: the
+// chain then falls through to BuiltinDefaultModel.
+func WithDefaultModel(model string) Option {
+	return func(e *Engine) { e.defaultModel = model }
 }
 
 // WithStager sets the asset.Stager used to materialize non-text assets into the
@@ -119,20 +150,63 @@ func NewEngine(client EvaluationClient, projectID, location string, opts ...Opti
 	return e
 }
 
+// RunOption configures a single Run call (WI-F3). It is distinct from the
+// construction-time Option so a per-run override (e.g. --model) never mutates the
+// Engine.
+type RunOption func(*runConfig)
+
+type runConfig struct {
+	modelOverride string
+}
+
+// WithModel supplies a per-run autorater model override (the eval-time --model
+// flag). It is the HIGHEST-precedence input to the resolution chain — see
+// Engine.resolveModel.
+func WithModel(model string) RunOption {
+	return func(rc *runConfig) { rc.modelOverride = model }
+}
+
 // Run dispatches on the template's MetricKind. Pointwise (text + multimodal) and
 // rubric use the native path; pairwise uses the native pairwise path;
 // custom_schema uses the genai path. Non-text native assets are staged to gs://
 // FileData via the configured Stager (spike-core: native accepts gs:// only).
-func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Instance) (Result, error) {
+//
+// The autorater model is resolved ONCE here, uniformly for the native and genai
+// paths, via the precedence chain (flag > template > config default > built-in),
+// and the wall-clock duration is always recorded in Result.Stats (WI-F3/WI-F4).
+func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, opts ...RunOption) (Result, error) {
+	var rc runConfig
+	for _, opt := range opts {
+		opt(&rc)
+	}
+	model := e.resolveModel(tmpl, rc.modelOverride)
+	// Reject a clearly-malformed model id (from the flag, template, or config
+	// default) here, uniformly for the native and genai paths, so it fails with a
+	// crisp LOCAL error before being composed into a Vertex resource name or sent
+	// to the genai SDK, rather than being bounced by the remote API.
+	if err := ValidateModel(model); err != nil {
+		return Result{}, err
+	}
+
+	start := time.Now()
+	res, err := e.dispatch(ctx, tmpl, inst, model)
+	res.Stats.Duration = time.Since(start)
+	return res, err
+}
+
+// dispatch routes to the per-kind path with the already-resolved model. Keeping
+// resolution and timing in Run means every path shares one model chain and one
+// wall-clock measurement.
+func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
 	switch tmpl.Kind {
 	case registry.KindPointwise:
-		return e.runPointwise(ctx, tmpl, inst)
+		return e.runPointwise(ctx, tmpl, inst, model)
 	case registry.KindRubric:
-		return e.runRubric(ctx, tmpl, inst)
+		return e.runRubric(ctx, tmpl, inst, model)
 	case registry.KindCustomSchema:
-		return e.runCustomSchema(ctx, tmpl, inst)
+		return e.runCustomSchema(ctx, tmpl, inst, model)
 	case registry.KindPairwise:
-		return e.runPairwise(ctx, tmpl, inst)
+		return e.runPairwise(ctx, tmpl, inst, model)
 	default:
 		return Result{}, fmt.Errorf("eval: unknown metric kind %q", tmpl.Kind)
 	}

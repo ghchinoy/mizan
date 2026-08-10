@@ -239,10 +239,13 @@ func TestParseCustomOutputFenceStrip(t *testing.T) {
 }
 
 func TestGenaiModelID(t *testing.T) {
+	// genaiModelID only reduces to the bare id now; the empty-string fallback
+	// branch was removed (the model is resolved+validated in Engine.Run before it
+	// reaches here), so "" is no longer special-cased.
 	cases := map[string]string{
-		"gemini-2.5-flash":                        "gemini-2.5-flash",
-		"publishers/google/models/gemini-2.5-pro": "gemini-2.5-pro",
-		"": defaultGenaiModel,
+		"gemini-2.5-flash":                                              "gemini-2.5-flash",
+		"publishers/google/models/gemini-2.5-pro":                       "gemini-2.5-pro",
+		"projects/x/locations/global/publishers/google/models/gemini-z": "gemini-z",
 	}
 	for in, want := range cases {
 		if got := genaiModelID(in); got != want {
