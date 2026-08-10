@@ -127,6 +127,14 @@ Combined with the `SOURCE` column in `config show` (and the `src=` hints in the
 did not expect. Note that a mistyped variable is *ignored*, not applied — use the
 exact name from the table above.
 
+**No per-invocation `--project` flag (yet):** Mizan does not currently provide a
+per-command `--project` flag to override the project for a single invocation. The
+project ID comes only from the environment (`MIZAN_PROJECT_ID` / `PROJECT_ID`) or
+the persisted `.env` file (via `mizan config set project-id`). To target a
+different project for one command, export the variable for that command, e.g.
+`MIZAN_PROJECT_ID=other-project mizan eval run ...`. A per-invocation `--project`
+flag is a documented follow-up.
+
 **Security note:** Mizan refuses a custom `--api-endpoint` / `MIZAN_API_ENDPOINT`
 whose host isn't `*.googleapis.com`, because the Vertex client attaches your
 ADC bearer token to every request — an arbitrary endpoint could exfiltrate it.

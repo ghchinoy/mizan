@@ -179,13 +179,40 @@ func resolveSources(realEnv, fileVars map[string]string) map[string]Source {
 }
 
 // resolveSource walks a field's env vars in precedence order and returns the
-// origin of the first one that supplies a non-empty value: a real (exported)
-// variable wins over the env file for the same name, mirroring godotenv.Load's
-// no-override behavior. Returns SourceDefault when nothing supplies a value.
+// origin of the winning value, mirroring godotenv.Load's no-override behavior
+// exactly so the reported source can never disagree with the value that actually
+// won:
+//
+//   - A real (exported) variable that is PRESENT wins over the env file for the
+//     same name — even when its value is empty. godotenv.Load treats any name
+//     present in os.Environ() (including an exported-but-empty NAME=) as
+//     already-set and does NOT load the file's value for it. So an exported-empty
+//     var that shadows a non-empty .env entry is attributed to `env` (the source
+//     that actually wins), NOT `env-file`: the file value never took effect. This
+//     closes the narrow source-attribution corner where the label wrongly claimed
+//     `env-file` for a value the exported (empty) variable had shadowed.
+//   - An exported-empty var with NO env-file entry of the same name supplies no
+//     value and shadows nothing, so scanning continues down the precedence list
+//     (and ultimately falls through to SourceDefault); this keeps the built-in
+//     default correctly attributed to `default`.
+//   - A name absent from the real env but supplied non-empty by the env file is
+//     attributed to `env-file`.
+//
+// Returns SourceDefault when nothing supplies a value.
 func resolveSource(envVars []string, realEnv, fileVars map[string]string) Source {
 	for _, name := range envVars {
-		if v, ok := realEnv[name]; ok && v != "" {
-			return SourceEnv
+		if v, ok := realEnv[name]; ok {
+			if v != "" {
+				return SourceEnv
+			}
+			// Exported-but-empty: godotenv.Load leaves it untouched. If it shadows
+			// a non-empty env-file entry of the same name, the exported var is what
+			// wins (suppressing the file value), so label it `env`.
+			if fileVars[name] != "" {
+				return SourceEnv
+			}
+			// No file value to shadow: this name contributes nothing; keep scanning.
+			continue
 		}
 		if fileVars[name] != "" {
 			return SourceEnvFile

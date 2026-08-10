@@ -53,6 +53,34 @@ func TestSourceAttribution(t *testing.T) {
 				t.Setenv("MIZAN_ENV_FILE", envPath)
 			},
 		},
+		{
+			// Narrow corner: an EXPORTED-BUT-EMPTY variable shadows a non-empty
+			// env-file entry of the same name. godotenv.Load treats the present
+			// (empty) variable as already-set and does NOT load the file value, so
+			// the exported var is what actually wins — the resolved value is the
+			// empty string, NOT the file's "from-file". The source must therefore
+			// be attributed to `env` (the winning source), never `env-file` (which
+			// would falsely imply the shadowed file value took effect).
+			name: "env shadows env-file: exported-empty var suppresses the .env value",
+			key:  "project-id",
+			want: SourceEnv,
+			setup: func(t *testing.T) {
+				dir := t.TempDir()
+				envPath := filepath.Join(dir, "mizan.env")
+				if err := os.WriteFile(envPath, []byte("MIZAN_PROJECT_ID=from-file\n"), 0o600); err != nil {
+					t.Fatalf("write env file: %v", err)
+				}
+				// Export MIZAN_PROJECT_ID as an empty string: present in the
+				// environment but with no value. It must shadow the file's
+				// non-empty entry (godotenv.Load leaves the present var untouched),
+				// so the resolved value is "" and the source is `env`. PROJECT_ID
+				// stays unset; the resulting ErrMissingProjectID is tolerated by
+				// the harness below, keeping this corner isolated.
+				t.Setenv("MIZAN_PROJECT_ID", "")
+				os.Unsetenv("PROJECT_ID")
+				t.Setenv("MIZAN_ENV_FILE", envPath)
+			},
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
