@@ -503,8 +503,12 @@ hit — *before* it happens.
   pollutes `--output json` on stdout.
 
   ```
-  mizan: autorater → project=my-proj location=us-central1 model=gemini-2.5-flash (path=native)
+  mizan: autorater → project=my-proj (src=env-file) location=us-central1 (src=default) model=gemini-2.5-flash (path=native)
   ```
+
+  The `src=` hints (`env` / `env-file` / `default`) name where the project and
+  location came from — the same source attribution `config show` prints — so a
+  value from an unexpected place is obvious at a glance.
 
   For a **known global-only judge** the echo already shows `location=global` (the
   routing is detected up front — Scenario 7). For a global-only judge discovered

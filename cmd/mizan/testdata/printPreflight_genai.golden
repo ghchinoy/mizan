@@ -1,1 +1,1 @@
-mizan: autorater → project=my-project location=global model=gemini-3.5-flash (path=genai)
+mizan: autorater → project=my-project (src=env) location=global (src=global-path) model=gemini-3.5-flash (path=genai)

@@ -38,7 +38,18 @@ type Config struct {
 	PackCacheDir         string // default: <UserCacheDir>/mizan/packs (for import <git-url>)
 	DefaultTemplatesRepo string // default: github.com/ghchinoy/mizan-templates
 	DefaultModel         string // default autorater model (env: MIZAN_DEFAULT_MODEL); "" -> built-in (WI-F3)
+
+	// Sources records where each field's resolved value came from (real env /
+	// env file / built-in default), keyed by `config set` key. It powers the
+	// per-value source hint in `config show` and the eval pre-flight echo
+	// (config-precedence POLA #1). Populated by LoadConfig; omitted from JSON
+	// when empty.
+	Sources map[string]Source `json:",omitempty"`
 }
+
+// SourceOf reports where the value for a `config set` key resolved from. An
+// unknown or unpopulated key reports SourceDefault.
+func (c *Config) SourceOf(key string) Source { return c.Sources[key] }
 
 // ErrMissingProjectID is returned by LoadConfig when no project ID is set.
 // It is non-fatal to callers that do not need eval (e.g. registry CRUD): the
@@ -52,7 +63,20 @@ var ErrMissingProjectID = errors.New("config: project ID not set (set MIZAN_PROJ
 // rather than exiting so callers can decide how to react (CLI: fatal for eval;
 // GUI: setup screen).
 func LoadConfig() (*Config, error) {
-	loadEnvFile()
+	// Snapshot the REAL process environment BEFORE the env file is loaded so we
+	// can attribute each resolved value's source: a name present here supplied a
+	// real (exported) value; a name only in the env file came from the file;
+	// neither means the built-in default. godotenv.Load never overrides an
+	// already-present variable, so this snapshot is the ground truth for "real
+	// env" (config-precedence POLA #1).
+	realEnv := realEnvSnapshot()
+	fileVars := loadEnvFile()
+
+	// Warn (stderr) on any unrecognized MIZAN_* variable so a typo like
+	// MIZAN_PROJECT (instead of MIZAN_PROJECT_ID) is no longer silently ignored
+	// (config-precedence POLA #2). Recognized names derive from the same single
+	// source of truth as `config set`.
+	emitUnknownEnvWarnings(os.Stderr)
 
 	c := &Config{
 		ProjectID:            firstNonEmpty(os.Getenv("MIZAN_PROJECT_ID"), os.Getenv("PROJECT_ID")),
@@ -69,6 +93,8 @@ func LoadConfig() (*Config, error) {
 
 	c.RegistryDBPath = firstNonEmpty(os.Getenv("MIZAN_REGISTRY_DB"), defaultDBPath())
 	c.PackCacheDir = firstNonEmpty(os.Getenv("MIZAN_PACK_CACHE"), defaultPackCacheDir())
+
+	c.Sources = resolveSources(realEnv, fileVars)
 
 	// Reject a custom API endpoint that could redirect ADC bearer tokens to a
 	// non-Google host (token-exfil defense). Never weakens auth/TLS.
@@ -92,28 +118,107 @@ func LoadConfig() (*Config, error) {
 //
 // godotenv.Load does not override already-set variables, so real environment
 // values always win. The env file actually loaded is announced on stderr so any
-// redirect of configuration is visible to the operator.
-func loadEnvFile() {
+// redirect of configuration is visible to the operator. It returns the variables
+// the loaded file defined (name -> value) so the caller can attribute each
+// resolved value's source (env-file vs real env vs default); the map is nil when
+// no file is loaded.
+func loadEnvFile() map[string]string {
 	if p := os.Getenv("MIZAN_ENV_FILE"); p != "" {
 		// The path is an explicit, operator-supplied opt-in (see doc comment
 		// above); statting it is intended, not attacker-controlled traversal.
 		if _, err := os.Stat(p); err == nil { //nolint:gosec // G304: MIZAN_ENV_FILE is a trusted, explicit operator path
+			fileVars, _ := godotenv.Read(p) // best-effort: source attribution only
 			if err := godotenv.Load(p); err == nil {
 				fmt.Fprintf(os.Stderr, "mizan: loaded env file %s (MIZAN_ENV_FILE)\n", p)
+				return fileVars
 			}
 		}
-		return
+		return nil
 	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
-		return
+		return nil
 	}
 	p := filepath.Join(dir, "mizan", ".env")
 	if _, err := os.Stat(p); err == nil {
+		fileVars, _ := godotenv.Read(p) // best-effort: source attribution only
 		if err := godotenv.Load(p); err == nil {
 			fmt.Fprintf(os.Stderr, "mizan: loaded env file %s\n", p)
+			return fileVars
 		}
 	}
+	return nil
+}
+
+// realEnvSnapshot captures the process environment as a name -> value map. Taken
+// BEFORE loadEnvFile runs, it is the ground truth for which values came from a
+// real (exported) variable rather than the env file.
+func realEnvSnapshot() map[string]string {
+	env := os.Environ()
+	m := make(map[string]string, len(env))
+	for _, kv := range env {
+		if i := strings.IndexByte(kv, '='); i >= 0 {
+			m[kv[:i]] = kv[i+1:]
+		}
+	}
+	return m
+}
+
+// resolveSources attributes every field's resolved value to its origin (real env
+// / env file / built-in default), reusing the SAME Field precedence order used to
+// read the value so the source can never disagree with what was loaded. realEnv
+// is the process environment captured before the env file loaded; fileVars is
+// what the env file defined. It is the single source-resolution helper shared by
+// `config show` and the eval pre-flight echo.
+func resolveSources(realEnv, fileVars map[string]string) map[string]Source {
+	src := make(map[string]Source, len(Fields()))
+	for _, f := range Fields() {
+		src[f.Key] = resolveSource(f.EnvVars, realEnv, fileVars)
+	}
+	return src
+}
+
+// resolveSource walks a field's env vars in precedence order and returns the
+// origin of the winning value, mirroring godotenv.Load's no-override behavior
+// exactly so the reported source can never disagree with the value that actually
+// won:
+//
+//   - A real (exported) variable that is PRESENT wins over the env file for the
+//     same name — even when its value is empty. godotenv.Load treats any name
+//     present in os.Environ() (including an exported-but-empty NAME=) as
+//     already-set and does NOT load the file's value for it. So an exported-empty
+//     var that shadows a non-empty .env entry is attributed to `env` (the source
+//     that actually wins), NOT `env-file`: the file value never took effect. This
+//     closes the narrow source-attribution corner where the label wrongly claimed
+//     `env-file` for a value the exported (empty) variable had shadowed.
+//   - An exported-empty var with NO env-file entry of the same name supplies no
+//     value and shadows nothing, so scanning continues down the precedence list
+//     (and ultimately falls through to SourceDefault); this keeps the built-in
+//     default correctly attributed to `default`.
+//   - A name absent from the real env but supplied non-empty by the env file is
+//     attributed to `env-file`.
+//
+// Returns SourceDefault when nothing supplies a value.
+func resolveSource(envVars []string, realEnv, fileVars map[string]string) Source {
+	for _, name := range envVars {
+		if v, ok := realEnv[name]; ok {
+			if v != "" {
+				return SourceEnv
+			}
+			// Exported-but-empty: godotenv.Load leaves it untouched. If it shadows
+			// a non-empty env-file entry of the same name, the exported var is what
+			// wins (suppressing the file value), so label it `env`.
+			if fileVars[name] != "" {
+				return SourceEnv
+			}
+			// No file value to shadow: this name contributes nothing; keep scanning.
+			continue
+		}
+		if fileVars[name] != "" {
+			return SourceEnvFile
+		}
+	}
+	return SourceDefault
 }
 
 // ValidateEndpoint rejects a non-empty APIEndpoint whose host is not under

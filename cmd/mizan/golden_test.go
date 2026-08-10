@@ -176,18 +176,20 @@ func TestGolden(t *testing.T) {
 		})
 	})
 
-	// printPreflight — native regional target.
+	// printPreflight — native regional target, project from the env file and the
+	// default location (the source hints reuse the config resolver — POLA #1).
 	t.Run("printPreflight_native", func(t *testing.T) {
 		checkGolden(t, "printPreflight_native", func(w io.Writer) error {
-			printPreflight(w, eval.ResolvedTarget{Project: "my-project", Location: "us-central1", Model: "gemini-2.5-flash", Path: "native"})
+			printPreflight(w, eval.ResolvedTarget{Project: "my-project", Location: "us-central1", Model: "gemini-2.5-flash", Path: "native"}, "env-file", "default")
 			return nil
 		})
 	})
 
-	// printPreflight — genai/global target.
+	// printPreflight — genai/global target; project from an exported env var and
+	// the global location forced by the genai path.
 	t.Run("printPreflight_genai", func(t *testing.T) {
 		checkGolden(t, "printPreflight_genai", func(w io.Writer) error {
-			printPreflight(w, eval.ResolvedTarget{Project: "my-project", Location: "global", Model: "gemini-3.5-flash", Path: "genai"})
+			printPreflight(w, eval.ResolvedTarget{Project: "my-project", Location: "global", Model: "gemini-3.5-flash", Path: "genai"}, "env", "global-path")
 			return nil
 		})
 	})

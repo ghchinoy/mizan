@@ -10,21 +10,26 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 
+	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/eval"
 )
 
 // configKeys maps friendly `config set` keys to their environment-variable
-// names. `config set` persists to <UserConfigDir>/mizan/.env, the same trusted
-// location LoadConfig reads (never the current working directory).
-var configKeys = map[string]string{
-	"project-id":     "MIZAN_PROJECT_ID",
-	"location":       "MIZAN_LOCATION",
-	"staging-bucket": "MIZAN_STAGING_BUCKET",
-	"api-endpoint":   "MIZAN_API_ENDPOINT",
-	"registry-db":    "MIZAN_REGISTRY_DB",
-	"pack-cache":     "MIZAN_PACK_CACHE",
-	"templates-repo": "MIZAN_TEMPLATES_REPO",
-	"default-model":  "MIZAN_DEFAULT_MODEL",
+// names. It is DERIVED from config.Fields — the single source of truth shared
+// with `config show` — so the keys `config set` accepts and their target env
+// vars can never drift from what `config show` displays. `config set` persists
+// to <UserConfigDir>/mizan/.env, the same trusted location LoadConfig reads
+// (never the current working directory).
+var configKeys = buildConfigKeys()
+
+// buildConfigKeys derives the friendly-key -> env-var map from config.Fields
+// (the canonical env var is EnvVars[0], the name `config set` writes).
+func buildConfigKeys() map[string]string {
+	m := make(map[string]string, len(config.Fields()))
+	for _, f := range config.Fields() {
+		m[f.Key] = f.EnvVars[0]
+	}
+	return m
 }
 
 // dotenvPath returns the trusted env-file path <UserConfigDir>/mizan/.env that
@@ -51,8 +56,15 @@ func newConfigCmd() *cobra.Command {
 
 func newConfigShowCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "show",
-		Short: "Show resolved configuration",
+		Use: "show",
+		// `config list` is an alias for `config show`, for parity with
+		// `registry list`.
+		Aliases: []string{"list"},
+		Short:   "Show resolved configuration (alias: list)",
+		Long: "Show the resolved configuration. Each row is labelled by the exact " +
+			"`config set` KEY (so the output round-trips into `config set`) and carries " +
+			"its SOURCE: env (an exported variable), env-file (the loaded .env), or " +
+			"default (built-in).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := mustConfig()
 			if err != nil {
@@ -63,17 +75,30 @@ func newConfigShowCmd() *cobra.Command {
 				return printJSON(w, cfg)
 			}
 			tw := newTabWriter(w)
-			fmt.Fprintf(tw, "ProjectID:\t%s\n", orUnset(cfg.ProjectID))
-			fmt.Fprintf(tw, "Location:\t%s\n", cfg.Location)
-			fmt.Fprintf(tw, "StagingBucket:\t%s\n", orUnset(cfg.StagingBucket))
-			fmt.Fprintf(tw, "APIEndpoint:\t%s\n", orUnset(cfg.APIEndpoint))
-			fmt.Fprintf(tw, "RegistryDBPath:\t%s\n", cfg.RegistryDBPath)
-			fmt.Fprintf(tw, "PackCacheDir:\t%s\n", cfg.PackCacheDir)
-			fmt.Fprintf(tw, "DefaultTemplatesRepo:\t%s\n", cfg.DefaultTemplatesRepo)
-			fmt.Fprintf(tw, "DefaultModel:\t%s\n", orBuiltinModel(cfg.DefaultModel))
+			fmt.Fprintln(tw, "KEY\tVALUE\tSOURCE")
+			// Rows derive from the SAME source of truth as `config set`, so labels
+			// (the keys) can never drift from the accepted keys.
+			for _, f := range config.Fields() {
+				fmt.Fprintf(tw, "%s\t%s\t%s\n", f.Key, showValue(f, cfg), cfg.SourceOf(f.Key))
+			}
 			return tw.Flush()
 		},
 	}
+}
+
+// showValue renders a field's value for `config show`. An empty value becomes
+// "(unset)"; the default-model field additionally annotates the built-in
+// fallback so the user sees exactly what an eval will use when neither a flag nor
+// a template pins a model (WI-F3).
+func showValue(f config.Field, cfg *config.Config) string {
+	v := f.Value(cfg)
+	if f.Key == "default-model" {
+		return orBuiltinModel(v)
+	}
+	if v == "" {
+		return "(unset)"
+	}
+	return v
 }
 
 func newConfigSetCmd() *cobra.Command {
@@ -122,13 +147,6 @@ func newConfigSetCmd() *cobra.Command {
 func orBuiltinModel(s string) string {
 	if s == "" {
 		return eval.BuiltinDefaultModel + " (built-in)"
-	}
-	return s
-}
-
-func orUnset(s string) string {
-	if s == "" {
-		return "(unset)"
 	}
 	return s
 }

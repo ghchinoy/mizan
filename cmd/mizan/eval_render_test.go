@@ -405,12 +405,12 @@ func TestPrintPreflightLine(t *testing.T) {
 	var buf bytes.Buffer
 	printPreflight(&buf, eval.ResolvedTarget{
 		Project: "proj", Location: "global", Model: "gemini-3.5-flash", Path: "genai",
-	})
+	}, "env", "global-path")
 	out := buf.String()
 	if lines := strings.Count(strings.TrimRight(out, "\n"), "\n"); lines != 0 {
 		t.Errorf("pre-flight should be one line, got %q", out)
 	}
-	for _, want := range []string{"project=proj", "location=global", "model=gemini-3.5-flash", "path=genai"} {
+	for _, want := range []string{"project=proj", "location=global", "model=gemini-3.5-flash", "path=genai", "src=env", "src=global-path"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("pre-flight missing %q; got %q", want, out)
 		}
@@ -430,7 +430,7 @@ func TestPrintPreflightSanitizesControlChars(t *testing.T) {
 		// bare AND fully-qualified-trailing-segment newline injection attempts.
 		Model: "gemini-2.5-flash\ninjected: evil",
 		Path:  "native",
-	})
+	}, "env-file", "default")
 	out := buf.String()
 	// Exactly one trailing newline, no interior newlines/CRs → one line.
 	if strings.Count(out, "\n") != 1 {

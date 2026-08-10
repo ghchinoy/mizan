@@ -1,1 +1,1 @@
-mizan: autorater → project=my-project location=us-central1 model=gemini-2.5-flash (path=native)
+mizan: autorater → project=my-project (src=env-file) location=us-central1 (src=default) model=gemini-2.5-flash (path=native)
