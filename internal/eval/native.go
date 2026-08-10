@@ -19,15 +19,27 @@ import (
 // endpoint 404s and must never be used (spike-core). Callers close the returned
 // client. The concrete *aiplatform.EvaluationClient satisfies EvaluationClient.
 func NewClient(ctx context.Context, location, apiEndpoint string) (*aiplatform.EvaluationClient, error) {
-	endpoint := apiEndpoint
-	if endpoint == "" {
-		if location == "" || location == "global" {
-			endpoint = "aiplatform.googleapis.com:443"
-		} else {
-			endpoint = fmt.Sprintf("%s-aiplatform.googleapis.com:443", location)
-		}
+	return aiplatform.NewEvaluationClient(ctx, option.WithEndpoint(endpointFor(location, apiEndpoint)))
+}
+
+// endpointFor computes the gRPC host:port NewClient dials for a given location.
+// An explicit apiEndpoint override wins verbatim; otherwise "" and "global" map
+// to the bare global host aiplatform.googleapis.com:443 (the only host that
+// resolves a global-only autorater — spike-eval-region-autorater), and any other
+// location maps to its regional host {location}-aiplatform.googleapis.com:443.
+// The "us" multi-region endpoint 404s and must never be produced (spike-core).
+//
+// It is a pure function extracted from NewClient so this HOST mapping — the piece
+// R-GLOBAL deliberately left for R-GAPS — is unit-testable without opening a real
+// gRPC client (which would need ADC). NewClient's behavior is unchanged.
+func endpointFor(location, apiEndpoint string) string {
+	if apiEndpoint != "" {
+		return apiEndpoint
 	}
-	return aiplatform.NewEvaluationClient(ctx, option.WithEndpoint(endpoint))
+	if location == "" || location == "global" {
+		return "aiplatform.googleapis.com:443"
+	}
+	return fmt.Sprintf("%s-aiplatform.googleapis.com:443", location)
 }
 
 // runPointwise materializes a PointwiseMetricSpec + instance + AutoraterConfig,

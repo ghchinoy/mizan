@@ -1,0 +1,7 @@
+Score:                        (none)
+Explanation:                  meets the brand guidelines
+CustomOutput[compliant]:      true
+CustomOutput[issues]:         []
+CustomOutput[overall_score]:  8
+Duration:                     1.5s
+Tokens:                       prompt=120 candidates=34 total=154

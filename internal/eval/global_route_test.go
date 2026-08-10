@@ -2,7 +2,7 @@ package eval
 
 // global_route_test.go covers the R-GLOBAL auto-routing of a global-only judge
 // onto the GLOBAL eval host. It uses the reusable R-SMOKE fakes
-// (FakeEvaluationClient) injected as TWO DISTINCT clients — one for the regional
+// (evaltest.FakeEvaluationClient) injected as TWO DISTINCT clients — one for the regional
 // host, one for the global host — so the test can assert WHICH client received
 // the call. The raw host<->endpoint mapping (NewClient) is invisible to the fake
 // and is unit-tested separately by R-GAPS at the wire level; here we prove the
@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/ghchinoy/mizan/internal/eval/evaltest"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -30,7 +31,7 @@ func autoraterNotFound(resource string) error {
 
 // newRoutingEngine builds an engine with distinct regional + global fakes and a
 // discardable notice writer, at the given configured location.
-func newRoutingEngine(location string, regional, global *FakeEvaluationClient) *Engine {
+func newRoutingEngine(location string, regional, global *evaltest.FakeEvaluationClient) *Engine {
 	return NewEngine(regional, "my-project", location,
 		WithGlobalClient(global),
 		WithNoticeWriter(&strings.Builder{}),
@@ -52,8 +53,8 @@ func helpfulnessInstance() Instance {
 // 1. global-only judge (prefix fast-path) -> routes straight to the GLOBAL client
 // with Location=.../locations/global; the regional client is never called.
 func TestRoute_GlobalOnlyModel_RoutesGlobal(t *testing.T) {
-	regional := &FakeEvaluationClient{}
-	global := (&FakeEvaluationClient{}).PushResponse(NewPointwiseResponse(5, "great"))
+	regional := &evaltest.FakeEvaluationClient{}
+	global := (&evaltest.FakeEvaluationClient{}).PushResponse(evaltest.NewPointwiseResponse(5, "great"))
 	eng := newRoutingEngine("us-central1", regional, global)
 
 	res, err := eng.Run(context.Background(), globalOnlyTemplate(), helpfulnessInstance())
@@ -80,8 +81,8 @@ func TestRoute_GlobalOnlyModel_RoutesGlobal(t *testing.T) {
 
 // 2. regional judge -> stays regional; the global client is NEVER touched.
 func TestRoute_RegionalModel_StaysRegional(t *testing.T) {
-	regional := (&FakeEvaluationClient{}).PushResponse(NewPointwiseResponse(4, "ok"))
-	global := &FakeEvaluationClient{}
+	regional := (&evaltest.FakeEvaluationClient{}).PushResponse(evaltest.NewPointwiseResponse(4, "ok"))
+	global := &evaltest.FakeEvaluationClient{}
 	eng := newRoutingEngine("us-central1", regional, global)
 
 	if _, err := eng.Run(context.Background(), pointwiseTemplate(), helpfulnessInstance()); err != nil {
@@ -103,9 +104,9 @@ func TestRoute_RegionalModel_StaysRegional(t *testing.T) {
 // transparently retried on the GLOBAL client -> success. Regional gets 1 call,
 // global gets 1 call.
 func TestRoute_AutoraterNotFound_RetriesGlobal(t *testing.T) {
-	regional := (&FakeEvaluationClient{}).PushError(
+	regional := (&evaltest.FakeEvaluationClient{}).PushError(
 		autoraterNotFound("projects/my-project/locations/us-central1/publishers/google/models/gemini-4.0-preview"))
-	global := (&FakeEvaluationClient{}).PushResponse(NewPointwiseResponse(3, "recovered"))
+	global := (&evaltest.FakeEvaluationClient{}).PushResponse(evaltest.NewPointwiseResponse(3, "recovered"))
 	eng := newRoutingEngine("us-central1", regional, global)
 
 	tmpl := pointwiseTemplate()
@@ -137,9 +138,9 @@ func TestRoute_AutoraterNotFound_RetriesGlobal(t *testing.T) {
 // 4. narrowness: a NON-autorater NotFound (a different NotFound message) does NOT
 // trigger a global retry — it fails as before, and the global client is untouched.
 func TestRoute_NonAutoraterNotFound_DoesNotRetry(t *testing.T) {
-	regional := (&FakeEvaluationClient{}).PushError(
+	regional := (&evaltest.FakeEvaluationClient{}).PushError(
 		status.New(codes.NotFound, "Metric template not found in the registry.").Err())
-	global := &FakeEvaluationClient{}
+	global := &evaltest.FakeEvaluationClient{}
 	eng := newRoutingEngine("us-central1", regional, global)
 
 	_, err := eng.Run(context.Background(), pointwiseTemplate(), helpfulnessInstance())
@@ -156,9 +157,9 @@ func TestRoute_NonAutoraterNotFound_DoesNotRetry(t *testing.T) {
 
 // 4b. narrowness: a non-NotFound error (e.g. RESOURCE_EXHAUSTED) does not retry.
 func TestRoute_OtherError_DoesNotRetry(t *testing.T) {
-	regional := (&FakeEvaluationClient{}).PushError(
+	regional := (&evaltest.FakeEvaluationClient{}).PushError(
 		status.New(codes.ResourceExhausted, "quota exceeded").Err())
-	global := &FakeEvaluationClient{}
+	global := &evaltest.FakeEvaluationClient{}
 	eng := newRoutingEngine("us-central1", regional, global)
 
 	if _, err := eng.Run(context.Background(), pointwiseTemplate(), helpfulnessInstance()); err == nil {
@@ -172,9 +173,9 @@ func TestRoute_OtherError_DoesNotRetry(t *testing.T) {
 // 5. both hosts fail: the global retry error surfaces the ORIGINAL regional error
 // plus context (so the actionable autorater-not-found is not lost).
 func TestRoute_BothFail_ReturnsOriginalPlusContext(t *testing.T) {
-	regional := (&FakeEvaluationClient{}).PushError(
+	regional := (&evaltest.FakeEvaluationClient{}).PushError(
 		autoraterNotFound("projects/my-project/locations/us-central1/publishers/google/models/gemini-4.0-preview"))
-	global := (&FakeEvaluationClient{}).PushError(
+	global := (&evaltest.FakeEvaluationClient{}).PushError(
 		status.New(codes.PermissionDenied, "caller lacks aiplatform.endpoints.predict").Err())
 	eng := newRoutingEngine("us-central1", regional, global)
 
@@ -197,7 +198,7 @@ func TestRoute_BothFail_ReturnsOriginalPlusContext(t *testing.T) {
 // 6. the pre-flight echo reflects global up front for a KNOWN global-only judge
 // (prefix fast-path), and stays regional for an ordinary judge.
 func TestResolve_GlobalOnlyModel_EchoesGlobal(t *testing.T) {
-	eng := NewEngine(&FakeEvaluationClient{}, "p", "us-central1", WithGlobalClient(&FakeEvaluationClient{}))
+	eng := NewEngine(&evaltest.FakeEvaluationClient{}, "p", "us-central1", WithGlobalClient(&evaltest.FakeEvaluationClient{}))
 
 	got := eng.Resolve(globalOnlyTemplate(), "", false)
 	if got.Location != globalLocation {
@@ -217,7 +218,7 @@ func TestResolve_GlobalOnlyModel_EchoesGlobal(t *testing.T) {
 // judge simply runs on the primary client (which IS the global host); no separate
 // global client is required and the fast-path does not need it.
 func TestRoute_AlreadyGlobal_UsesPrimaryClient(t *testing.T) {
-	primary := (&FakeEvaluationClient{}).PushResponse(NewPointwiseResponse(5, "ok"))
+	primary := (&evaltest.FakeEvaluationClient{}).PushResponse(evaltest.NewPointwiseResponse(5, "ok"))
 	// No global client injected; location is already global.
 	eng := NewEngine(primary, "my-project", "global", WithNoticeWriter(&strings.Builder{}))
 

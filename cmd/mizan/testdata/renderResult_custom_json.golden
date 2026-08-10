@@ -1,0 +1,19 @@
+{
+  "Score": null,
+  "PairwiseChoice": "",
+  "Explanation": "meets the brand guidelines",
+  "RawOutput": null,
+  "CustomOutput": {
+    "compliant": true,
+    "issues": [],
+    "overall_score": 8
+  },
+  "Stats": {
+    "duration_ns": 1500000000,
+    "token_usage": {
+      "prompt_tokens": 120,
+      "candidates_tokens": 34,
+      "total_tokens": 154
+    }
+  }
+}

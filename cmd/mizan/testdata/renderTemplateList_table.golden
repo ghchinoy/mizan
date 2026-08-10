@@ -1,0 +1,3 @@
+ID                    NAME             KIND       MODEL
+google-brand/ad-copy  Ad Copy Quality  rubric     gemini-2.5-flash
+core/helpfulness      Helpfulness      pointwise  gemini-3.5-flash

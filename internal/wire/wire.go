@@ -19,6 +19,30 @@ import (
 	"github.com/ghchinoy/mizan/internal/registry/sqlite"
 )
 
+// closableEvalClient is the native EvaluationClient the composition root builds
+// and later closes. The concrete *aiplatform.EvaluationClient satisfies it
+// (EvaluateInstances + Close); a fake satisfies it in wire's unit tests.
+type closableEvalClient interface {
+	eval.EvaluationClient
+	Close() error
+}
+
+// newNativeClient and newGenaiClient are the seams NewEngine builds its clients
+// through. They are package-level vars ONLY so wire's unit tests can substitute
+// fakes and assert the config->client wiring — specifically the native-vs-global
+// endpoint selection (which location each native client is constructed for) and
+// that the genai client targets eval.GenaiLocation — without opening real gRPC
+// clients (which need ADC). Production always uses the eval constructors below;
+// the wiring and its behavior are unchanged.
+var (
+	newNativeClient = func(ctx context.Context, location, apiEndpoint string) (closableEvalClient, error) {
+		return eval.NewClient(ctx, location, apiEndpoint)
+	}
+	newGenaiClient = func(ctx context.Context, projectID, location string) (eval.GenaiClient, error) {
+		return eval.NewGenaiClient(ctx, projectID, location)
+	}
+)
+
 // OpenService returns a registry.Service backed by the default SQLite store at
 // cfg.RegistryDBPath, plus a close function the caller must invoke.
 func OpenService(cfg *config.Config) (*registry.Service, func() error, error) {
@@ -36,7 +60,7 @@ func OpenService(cfg *config.Config) (*registry.Service, func() error, error) {
 // clients/locations distinct (spike-core). The genai client is built here, in
 // the composition root, and never in cmd/*.
 func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() error, error) {
-	client, err := eval.NewClient(ctx, cfg.Location, cfg.APIEndpoint)
+	client, err := newNativeClient(ctx, cfg.Location, cfg.APIEndpoint)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,7 +81,7 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 
 	// The genai custom_schema path uses location=global, distinct from the
 	// native regional EvaluationClient above.
-	genaiClient, err := eval.NewGenaiClient(ctx, cfg.ProjectID, eval.GenaiLocation)
+	genaiClient, err := newGenaiClient(ctx, cfg.ProjectID, eval.GenaiLocation)
 	if err != nil {
 		_ = client.Close()
 		return nil, nil, err
@@ -75,7 +99,7 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 	// costs only a cheap handle, keeping this wiring simple and the seam uniform.
 	// When cfg.Location is already "global" the regional client above IS the
 	// global host and the engine skips this one; we still build it for uniformity.
-	globalClient, err := eval.NewClient(ctx, eval.GenaiLocation, cfg.APIEndpoint)
+	globalClient, err := newNativeClient(ctx, eval.GenaiLocation, cfg.APIEndpoint)
 	if err != nil {
 		_ = client.Close()
 		return nil, nil, err
