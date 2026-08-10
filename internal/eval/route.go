@@ -137,7 +137,7 @@ func (e *Engine) autoraterPermissionDeniedError(ctxLabel, model string, raw erro
 		"(b) grant the project's Vertex AI Service Agent (service-<projnum>@gcp-sa-aiplatform.iam.gserviceaccount.com) "+
 		"the roles/aiplatform.serviceAgent role so it can invoke %s; "+
 		"(c) if the metric references a gs:// asset, grant that service agent roles/storage.objectViewer on the staging bucket for cross-project reads. "+
-		"(raw: %v)",
+		"(raw: %w)",
 		ctxLabel, e.projectID, e.location, e.projectID, bareModelID(model), raw)
 }
 
