@@ -11,6 +11,8 @@ permissions:
 
 # De-duplicate runs: cancel any in-progress run for the same ref when a new
 # push arrives, so re-pushes don't pile up.
+# cancel-in-progress also cancels superseded main pushes — intentional: the
+# newest commit on a ref is the one whose CI result matters.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -25,13 +27,18 @@ jobs:
       # of the build so binaries stay statically linkable and reproducible.
       CGO_ENABLED: "0"
     steps:
+      # Major-version action pins (@v4/@v5) kept intentionally: this workflow has
+      # contents: read only, no secrets, and no pull_request_target, so blast
+      # radius is minimal; major pins stay readable and auto-receive patch/security
+      # fixes. Revisit SHA-pinning if permissions broaden or secrets are added.
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.26.x"
+          # Single source of truth for the Go toolchain — track go.mod.
+          go-version-file: go.mod
 
       - name: Build (CGO_ENABLED=0)
         run: CGO_ENABLED=0 go build ./...
@@ -42,19 +49,19 @@ jobs:
       - name: gofmt check
         run: make fmt-check
 
-      - name: Test
-        run: make test
-
       - name: Install govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          # Pinned to a released tag for reproducibility; bump deliberately.
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: govulncheck
         run: govulncheck ./...
 
-      - name: Coverage (measure + print, no floor)
+      - name: Test + coverage (measure + print, no floor)
         run: |
+          # Single canonical test run: -coverprofile runs all tests AND produces
+          # the profile, so a test failure still fails CI (tests run once).
           go test -coverprofile=coverage.out ./...
           echo "::group::Per-function coverage"
           go tool cover -func=coverage.out
