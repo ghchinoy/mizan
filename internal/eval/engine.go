@@ -66,7 +66,14 @@ type Result struct {
 	Explanation    string
 	RawOutput      []string       // if ReturnRawOutput
 	CustomOutput   map[string]any // if KindCustomSchema
-	Stats          Stats          // per-run telemetry (WI-F4)
+	// RubricDetail is set by the rubric per-criterion transparency path
+	// (runRubricStructured) to mark that CustomOutput carries the
+	// {per_criterion, overall_score, explanation} structure. The renderer routes
+	// on THIS explicit signal rather than sniffing CustomOutput's shape, so a
+	// custom_schema result that happens to contain a "per_criterion" array is not
+	// misrendered as a rubric table.
+	RubricDetail bool  `json:"rubric_detail,omitempty"`
+	Stats        Stats // per-run telemetry (WI-F4)
 }
 
 // Stats holds per-run telemetry (WI-F4). Duration is ALWAYS populated with the

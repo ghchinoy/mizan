@@ -70,6 +70,12 @@ func NewGenaiClient(ctx context.Context, projectID, location string) (GenaiClien
 // GenerateContent with strict JSON output and exponential backoff, and parses
 // the JSON response into Result.CustomOutput (with the raw text in RawOutput).
 func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
+	// Guard the genai client FIRST so the error precedence is unchanged from
+	// before the runGenaiStructured extraction (a missing client fails with the
+	// client error, ahead of prompt/schema validation).
+	if e.genai == nil {
+		return Result{}, fmt.Errorf("eval: no genai client configured for custom_schema (wire WithGenaiClient)")
+	}
 	if tmpl.MetricPromptTemplate == "" {
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}

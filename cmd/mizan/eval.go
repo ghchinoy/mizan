@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -116,7 +117,7 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
 	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
 	cmd.Flags().BoolVar(&rubricDetail, "rubric-detail", false, "for a rubric template, return per-criterion scores via the genai structured path (location=global; drops sampling)")
-	cmd.Flags().StringVar(&rubricScale, "rubric-scale", "1-5", "Likert scale for --rubric-detail as \"<min>-<max>\" (integers, min<max)")
+	cmd.Flags().StringVar(&rubricScale, "rubric-scale", "1-5", "Likert scale for --rubric-detail as \"<min>-<max>\" (two non-negative integers, min<max; negative bounds not supported)")
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "text instance field as key=value (repeatable)")
 	cmd.Flags().StringArrayVar(&files, "file", nil, "local asset field as key=/path; engine stages to GCS (repeatable)")
 	cmd.Flags().StringArrayVar(&gcs, "gcs", nil, "pre-staged asset field as key=gs://… (repeatable)")
@@ -285,6 +286,30 @@ func sanitizeEchoValue(s string) string {
 	}, s)
 }
 
+// ansiEscapePattern matches ANSI/VT escape sequences: CSI (ESC [ … final),
+// OSC (ESC ] … BEL/ST), and single-character/other escapes (ESC <byte>). Judge
+// output is untrusted, so these are stripped whole before any control-char pass
+// (otherwise stripping the lone ESC byte would leave visible parameter text like
+// "[31m").
+var ansiEscapePattern = regexp.MustCompile("\x1b\\[[0-9;?]*[ -/]*[@-~]" + // CSI
+	"|\x1b\\][^\x07\x1b]*(?:\x07|\x1b\\\\)" + // OSC … BEL or ST
+	"|\x1b[@-Z\\\\-_]") // two-char / other escapes
+
+// sanitizeCell makes a judge-controlled string safe for a single terminal table
+// cell: it strips ANSI escape sequences, then removes ALL control runes
+// (including tabs and newlines, which would otherwise break the tabwriter column
+// layout / spill a criterion across rows). Ordinary spaces are preserved, so the
+// intended column content is kept intact (security O1).
+func sanitizeCell(s string) string {
+	s = ansiEscapePattern.ReplaceAllString(s, "")
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 // renderResult prints an eval result as JSON or a small table. When showStats is
 // true (the opt-in --stats flag), the table gains a stats footer: the wall-clock
 // duration (always available) and the genai-path token usage, or a clear note
@@ -294,7 +319,7 @@ func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 	if outputFormat == outputJSON {
 		return printJSON(w, res)
 	}
-	if isRubricDetail(res.CustomOutput) {
+	if res.RubricDetail {
 		return renderRubricDetailResult(w, res, showStats)
 	}
 	tw := newTabWriter(w)
@@ -329,18 +354,6 @@ func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 	return tw.Flush()
 }
 
-// isRubricDetail reports whether a result carries the rubric per-criterion
-// structure (a "per_criterion" array in CustomOutput). It selects the dedicated
-// rubric-detail table renderer WITHOUT regressing the generic CustomOutput
-// rendering used by other custom_schema results.
-func isRubricDetail(out map[string]any) bool {
-	if len(out) == 0 {
-		return false
-	}
-	_, ok := out["per_criterion"].([]any)
-	return ok
-}
-
 // renderStatsFooter appends the opt-in --stats footer (duration always; token
 // usage on the genai path, else the native "not available" note) to tw.
 func renderStatsFooter(tw io.Writer, res eval.Result) {
@@ -370,7 +383,13 @@ func renderRubricDetailResult(w io.Writer, res eval.Result, showStats bool) erro
 			explanation = s
 		}
 	}
-	fmt.Fprintf(tw, "Explanation:\t%s\n", explanation)
+	// The explanation and all per-criterion cells below are judge-controlled text.
+	// Sanitize them (strip ANSI escapes and control chars) before writing to
+	// stdout so a hostile/garbled judge response cannot inject terminal escape
+	// sequences or break the table's one-row-per-criterion layout (security O1).
+	// Scope is ONLY this rubric-detail renderer; the generic CustomOutput renderer
+	// is left unchanged.
+	fmt.Fprintf(tw, "Explanation:\t%s\n", sanitizeCell(explanation))
 	if err := tw.Flush(); err != nil {
 		return err
 	}
@@ -384,9 +403,9 @@ func renderRubricDetailResult(w io.Writer, res eval.Result, showStats bool) erro
 			if !ok {
 				continue
 			}
-			fmt.Fprintf(ptw, "%v\t%v\t%v\t%v\n",
-				fieldString(m, "group"), fieldString(m, "criterion"),
-				fieldValue(m, "score"), fieldString(m, "rationale"))
+			fmt.Fprintf(ptw, "%s\t%s\t%v\t%s\n",
+				sanitizeCell(fieldString(m, "group")), sanitizeCell(fieldString(m, "criterion")),
+				fieldValue(m, "score"), sanitizeCell(fieldString(m, "rationale")))
 		}
 	}
 	if err := ptw.Flush(); err != nil {

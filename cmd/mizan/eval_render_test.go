@@ -130,7 +130,8 @@ func TestRenderResultJSONOmitsTokenUsageWhenNil(t *testing.T) {
 func rubricDetailResult() eval.Result {
 	score := float32(4)
 	return eval.Result{
-		Score: &score,
+		Score:        &score,
+		RubricDetail: true,
 		CustomOutput: map[string]any{
 			"per_criterion": []any{
 				map[string]any{"group": "clarity", "criterion": "The message is unambiguous", "score": 4, "rationale": "mostly clear"},
@@ -189,6 +190,93 @@ func TestRenderResultGenericCustomOutputUnchanged(t *testing.T) {
 	}
 }
 
+// TestRenderResultPerCriterionNotMisrouted proves routing is on the explicit
+// Result.RubricDetail signal, NOT the CustomOutput shape: a custom_schema result
+// that happens to carry a "per_criterion" array (with RubricDetail=false) is
+// rendered by the GENERIC CustomOutput renderer, not the rubric per-criterion
+// table (O2).
+func TestRenderResultPerCriterionNotMisrouted(t *testing.T) {
+	outputFormat = outputTable
+	res := eval.Result{
+		Explanation:  "custom schema, not rubric",
+		RubricDetail: false, // explicit: this is NOT a rubric-detail result
+		CustomOutput: map[string]any{
+			"per_criterion": []any{
+				map[string]any{"group": "g", "criterion": "c", "score": 3, "rationale": "r"},
+			},
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "Per-criterion:") {
+		t.Errorf("custom_schema with a per_criterion array was misrouted to the rubric table:\n%s", out)
+	}
+	if !strings.Contains(out, "CustomOutput[per_criterion]") {
+		t.Errorf("generic CustomOutput rendering expected for a non-rubric result:\n%s", out)
+	}
+}
+
+// TestRenderResultRubricDetailSanitizesCells proves judge-controlled cell values
+// (criterion, rationale, explanation) are stripped of control chars and ANSI
+// escapes before hitting stdout, and that a newline in a cell does NOT spill the
+// criterion across multiple table rows (security O1).
+func TestRenderResultRubricDetailSanitizesCells(t *testing.T) {
+	outputFormat = outputTable
+	res := eval.Result{
+		RubricDetail: true,
+		CustomOutput: map[string]any{
+			"per_criterion": []any{
+				map[string]any{
+					"group":     "clarity",
+					"criterion": "line1\nline2", // embedded newline
+					"score":     4,
+					"rationale": "red\x1b[31mALERT\x1b[0m\ttab", // ANSI + tab
+				},
+			},
+			"explanation": "expl\x1b[1mbold\x1b[0m\nsecond",
+		},
+	}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+
+	// No raw control chars or ESC bytes survive.
+	if strings.ContainsRune(out, '\x1b') {
+		t.Errorf("ANSI escape byte leaked to output: %q", out)
+	}
+	if strings.Contains(out, "\r") {
+		t.Errorf("carriage return leaked to output: %q", out)
+	}
+	// The visible letters survive; only the escape sequence is removed.
+	for _, want := range []string{"redALERTtab", "line1line2", "explboldsecond"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("sanitized text missing %q\noutput:\n%s", want, out)
+		}
+	}
+	// One header row + exactly one data row (the newline in criterion must NOT
+	// create a second criterion row). Count non-empty lines under "Per-criterion:".
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	var dataRows int
+	seenHeader := false
+	for _, ln := range lines {
+		if strings.Contains(ln, "GROUP") && strings.Contains(ln, "CRITERION") {
+			seenHeader = true
+			continue
+		}
+		if seenHeader && strings.TrimSpace(ln) != "" {
+			dataRows++
+		}
+	}
+	if dataRows != 1 {
+		t.Errorf("expected exactly 1 per-criterion data row, got %d\noutput:\n%s", dataRows, out)
+	}
+}
+
 // TestRenderResultRubricDetailJSON verifies the JSON output contract: the FULL
 // structure (per_criterion + overall_score + explanation) appears in --output
 // json.
@@ -222,6 +310,7 @@ func TestRenderResultRubricDetailPartialEntries(t *testing.T) {
 	outputFormat = outputTable
 	res := eval.Result{
 		// Score deliberately nil (judge omitted overall_score upstream).
+		RubricDetail: true,
 		CustomOutput: map[string]any{
 			"per_criterion": []any{
 				map[string]any{"group": "clarity", "criterion": "has all", "score": 4, "rationale": "good"},

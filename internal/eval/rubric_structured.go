@@ -34,6 +34,11 @@ import (
 // {per_criterion, overall_score, explanation} structure is kept in
 // Result.CustomOutput.
 func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, min, max int) (Result, error) {
+	// Guard the genai client FIRST (matching runCustomSchema's ordering) so a
+	// missing client fails with the client error before any prompt/schema work.
+	if e.genai == nil {
+		return Result{}, fmt.Errorf("eval: no genai client configured for rubric detail (wire WithGenaiClient)")
+	}
 	if tmpl.MetricPromptTemplate == "" {
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}
@@ -58,6 +63,9 @@ func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTe
 		f := float32(s)
 		res.Score = &f
 	}
+	// Mark the result so the renderer routes on this explicit signal rather than
+	// sniffing CustomOutput's shape.
+	res.RubricDetail = true
 	return res, nil
 }
 
@@ -207,19 +215,26 @@ func clampInt(v, min, max int) int {
 // ParseRubricScale parses the --rubric-scale flag value in the form "<min>-<max>"
 // (two integers, min < max), returning a crisp local error for any malformed
 // value so it fails before the eval call rather than being sent to the judge.
+//
+// DELIBERATE LIMITATION: only NON-NEGATIVE Likert ranges are supported. "-" is
+// the field separator, so a negative bound (e.g. "-2-5") splits into more than
+// two fields and is rejected as malformed. This is intentional — practical Likert
+// rubric scales are non-negative (e.g. "1-5", "0-10") — and is NOT an oversight;
+// negative-bound parsing is explicitly out of scope. Callers wanting a signed
+// range would need a different flag format (a follow-up, not this task).
 func ParseRubricScale(s string) (min, max int, err error) {
 	trimmed := strings.TrimSpace(s)
 	parts := strings.Split(trimmed, "-")
 	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: want \"<min>-<max>\" with two integers, e.g. \"1-5\"", s)
+		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: want \"<min>-<max>\" with two non-negative integers, e.g. \"1-5\" or \"0-10\" (negative bounds are not supported)", s)
 	}
 	min, err = strconv.Atoi(strings.TrimSpace(parts[0]))
 	if err != nil {
-		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: min is not an integer: %v", s, err)
+		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: min is not a non-negative integer: %v", s, err)
 	}
 	max, err = strconv.Atoi(strings.TrimSpace(parts[1]))
 	if err != nil {
-		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: max is not an integer: %v", s, err)
+		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: max is not a non-negative integer: %v", s, err)
 	}
 	if min >= max {
 		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: min (%d) must be less than max (%d)", s, min, max)

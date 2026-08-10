@@ -109,6 +109,9 @@ func TestRunRubricStructuredRoundTrip(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 
+	if !res.RubricDetail {
+		t.Error("RubricDetail marker not set on a rubric-detail result")
+	}
 	// One entry per authored criterion (2 clarity + 1 tone).
 	pc, ok := res.CustomOutput["per_criterion"].([]any)
 	if !ok || len(pc) != 3 {
@@ -268,6 +271,9 @@ func TestRubricDetailOffUnchanged(t *testing.T) {
 	}
 	if len(res.CustomOutput) != 0 {
 		t.Errorf("native rubric run should have no CustomOutput, got %v", res.CustomOutput)
+	}
+	if res.RubricDetail {
+		t.Error("RubricDetail marker should be false on the native (detail-off) path")
 	}
 }
 
