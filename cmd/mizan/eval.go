@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -30,12 +31,14 @@ func newEvalCmd() *cobra.Command {
 
 func newEvalRunCmd() *cobra.Command {
 	var (
-		metric string
-		model  string
-		stats  bool
-		fields []string
-		files  []string
-		gcs    []string
+		metric       string
+		model        string
+		stats        bool
+		rubricDetail bool
+		rubricScale  string
+		fields       []string
+		files        []string
+		gcs          []string
 	)
 	cmd := &cobra.Command{
 		Use:   "run --metric <id> [--field key=value] [--file key=/path] [--gcs key=gs://…]",
@@ -80,6 +83,18 @@ func newEvalRunCmd() *cobra.Command {
 				return err
 			}
 
+			// --rubric-detail routes a rubric template through the genai
+			// structured-output path for per-criterion transparency. Parse the
+			// scale locally so a malformed --rubric-scale fails before any call.
+			runOpts := []eval.RunOption{eval.WithModel(model)}
+			if rubricDetail {
+				min, max, err := eval.ParseRubricScale(rubricScale)
+				if err != nil {
+					return err
+				}
+				runOpts = append(runOpts, eval.WithRubricDetail(min, max))
+			}
+
 			eng, closeEng, err := openEngine(cmd.Context(), cfg)
 			if err != nil {
 				return err
@@ -88,10 +103,10 @@ func newEvalRunCmd() *cobra.Command {
 
 			// Pre-flight echo (WI-F7): the resolved project/location/model line is
 			// on by default (cheap, high-value) and reflects the actual per-path
-			// location (native=regional, genai=global).
-			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model))
+			// location (native=regional, genai=global; rubric-detail is genai/global).
+			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model, rubricDetail))
 
-			res, err := eng.Run(cmd.Context(), *tmpl, inst, eval.WithModel(model))
+			res, err := eng.Run(cmd.Context(), *tmpl, inst, runOpts...)
 			if err != nil {
 				return err
 			}
@@ -101,6 +116,8 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&metric, "metric", "", "template id to run (required)")
 	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
 	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
+	cmd.Flags().BoolVar(&rubricDetail, "rubric-detail", false, "for a rubric template, return per-criterion scores via the genai structured path (location=global; drops sampling)")
+	cmd.Flags().StringVar(&rubricScale, "rubric-scale", "1-5", "Likert scale for --rubric-detail as \"<min>-<max>\" (two non-negative integers, min<max; negative bounds not supported)")
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "text instance field as key=value (repeatable)")
 	cmd.Flags().StringArrayVar(&files, "file", nil, "local asset field as key=/path; engine stages to GCS (repeatable)")
 	cmd.Flags().StringArrayVar(&gcs, "gcs", nil, "pre-staged asset field as key=gs://… (repeatable)")
@@ -169,7 +186,8 @@ func newEvalPairwiseCmd() *cobra.Command {
 			defer closeEng()
 
 			// Pre-flight echo (WI-F7): default-on resolved project/location/model.
-			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model))
+			// Pairwise never uses the rubric-detail lever.
+			printPreflight(cmd.ErrOrStderr(), eng.Resolve(*tmpl, model, false))
 
 			res, err := eng.Run(cmd.Context(), *tmpl, inst, eval.WithModel(model))
 			if err != nil {
@@ -268,6 +286,30 @@ func sanitizeEchoValue(s string) string {
 	}, s)
 }
 
+// ansiEscapePattern matches ANSI/VT escape sequences: CSI (ESC [ … final),
+// OSC (ESC ] … BEL/ST), and single-character/other escapes (ESC <byte>). Judge
+// output is untrusted, so these are stripped whole before any control-char pass
+// (otherwise stripping the lone ESC byte would leave visible parameter text like
+// "[31m").
+var ansiEscapePattern = regexp.MustCompile("\x1b\\[[0-9;?]*[ -/]*[@-~]" + // CSI
+	"|\x1b\\][^\x07\x1b]*(?:\x07|\x1b\\\\)" + // OSC … BEL or ST
+	"|\x1b[@-Z\\\\-_]") // two-char / other escapes
+
+// sanitizeCell makes a judge-controlled string safe for a single terminal table
+// cell: it strips ANSI escape sequences, then removes ALL control runes
+// (including tabs and newlines, which would otherwise break the tabwriter column
+// layout / spill a criterion across rows). Ordinary spaces are preserved, so the
+// intended column content is kept intact (security O1).
+func sanitizeCell(s string) string {
+	s = ansiEscapePattern.ReplaceAllString(s, "")
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 // renderResult prints an eval result as JSON or a small table. When showStats is
 // true (the opt-in --stats flag), the table gains a stats footer: the wall-clock
 // duration (always available) and the genai-path token usage, or a clear note
@@ -276,6 +318,9 @@ func sanitizeEchoValue(s string) string {
 func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 	if outputFormat == outputJSON {
 		return printJSON(w, res)
+	}
+	if res.RubricDetail {
+		return renderRubricDetailResult(w, res, showStats)
 	}
 	tw := newTabWriter(w)
 	if res.Score != nil {
@@ -307,4 +352,87 @@ func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 		}
 	}
 	return tw.Flush()
+}
+
+// renderStatsFooter appends the opt-in --stats footer (duration always; token
+// usage on the genai path, else the native "not available" note) to tw.
+func renderStatsFooter(tw io.Writer, res eval.Result) {
+	fmt.Fprintf(tw, "Duration:\t%s\n", res.Stats.Duration.Round(time.Millisecond))
+	if tu := res.Stats.TokenUsage; tu != nil {
+		fmt.Fprintf(tw, "Tokens:\tprompt=%d candidates=%d total=%d\n",
+			tu.PromptTokens, tu.CandidatesTokens, tu.TotalTokens)
+	} else {
+		fmt.Fprintf(tw, "Tokens:\ttoken usage not available on this path (native EvaluateInstances returns no usage)\n")
+	}
+}
+
+// renderRubricDetailResult prints a rubric per-criterion result: the overall
+// Score + Explanation (the explanation comes from CustomOutput on the genai
+// path), then a readable per-criterion table (group / criterion / score /
+// rationale) in its own aligned block, then the optional --stats footer.
+func renderRubricDetailResult(w io.Writer, res eval.Result, showStats bool) error {
+	tw := newTabWriter(w)
+	if res.Score != nil {
+		fmt.Fprintf(tw, "Score:\t%g\n", *res.Score)
+	} else {
+		fmt.Fprintf(tw, "Score:\t(none)\n")
+	}
+	explanation := res.Explanation
+	if explanation == "" {
+		if s, ok := res.CustomOutput["explanation"].(string); ok {
+			explanation = s
+		}
+	}
+	// The explanation and all per-criterion cells below are judge-controlled text.
+	// Sanitize them (strip ANSI escapes and control chars) before writing to
+	// stdout so a hostile/garbled judge response cannot inject terminal escape
+	// sequences or break the table's one-row-per-criterion layout (security O1).
+	// Scope is ONLY this rubric-detail renderer; the generic CustomOutput renderer
+	// is left unchanged.
+	fmt.Fprintf(tw, "Explanation:\t%s\n", sanitizeCell(explanation))
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(w, "Per-criterion:")
+	ptw := newTabWriter(w)
+	fmt.Fprintln(ptw, "GROUP\tCRITERION\tSCORE\tRATIONALE")
+	if pc, ok := res.CustomOutput["per_criterion"].([]any); ok {
+		for _, item := range pc {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			fmt.Fprintf(ptw, "%s\t%s\t%v\t%s\n",
+				sanitizeCell(fieldString(m, "group")), sanitizeCell(fieldString(m, "criterion")),
+				fieldValue(m, "score"), sanitizeCell(fieldString(m, "rationale")))
+		}
+	}
+	if err := ptw.Flush(); err != nil {
+		return err
+	}
+
+	if showStats {
+		stw := newTabWriter(w)
+		renderStatsFooter(stw, res)
+		return stw.Flush()
+	}
+	return nil
+}
+
+// fieldString returns m[key] as a string, or "" if absent/non-string.
+func fieldString(m map[string]any, key string) string {
+	if s, ok := m[key].(string); ok {
+		return s
+	}
+	return ""
+}
+
+// fieldValue returns m[key] for %v rendering (scores may be int after clamping
+// or a raw JSON float64), or "" if absent.
+func fieldValue(m map[string]any, key string) any {
+	if v, ok := m[key]; ok {
+		return v
+	}
+	return ""
 }

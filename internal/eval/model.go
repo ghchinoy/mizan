@@ -158,8 +158,11 @@ type ResolvedTarget struct {
 // Resolve reports the target an eval of tmpl (with an optional --model override)
 // would call, WITHOUT performing it. The location reflects the ACTUAL per-path
 // value: the native path is regional (cfg.Location); the custom_schema/genai
-// path is global (spike-custom).
-func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string) ResolvedTarget {
+// path is global (spike-custom). rubricDetail signals that a KindRubric run will
+// take the genai structured-output path (--rubric-detail), which — like
+// custom_schema — is global; the pre-flight echo must reflect that actual target
+// rather than the native regional default.
+func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string, rubricDetail bool) ResolvedTarget {
 	// resolveModel is also called in Engine.Run; this second call (for the
 	// pre-flight echo) is an intentional, negligible cost — a first-non-empty
 	// scan over four strings. The echo and the actual run are separate entry
@@ -172,10 +175,11 @@ func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string) Resolved
 		Model:    bareModelID(model),
 		Path:     "native",
 	}
-	if tmpl.Kind == registry.KindCustomSchema {
+	if tmpl.Kind == registry.KindCustomSchema || (rubricDetail && tmpl.Kind == registry.KindRubric) {
 		// The genai path is global regardless of a fully-qualified template
 		// model: genaiModelID reduces it to the bare id sent to the global
-		// client, so the location shown here is always GenaiLocation.
+		// client, so the location shown here is always GenaiLocation. A
+		// rubric-detail run takes this same genai/global path.
 		target.Location = GenaiLocation
 		target.Path = "genai"
 		return target
