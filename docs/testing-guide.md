@@ -8,12 +8,32 @@ resolution works, full CRUD walkthroughs), see
 work-item IDs (`WI-P1-*`), see
 [`docs/implementation-plan.md`](implementation-plan.md).
 
-Every command and every line of output below was run, in this pass, against a
-binary built from current `main` (PRs #1–#11 merged — **Phase 1 is complete**:
-all four metric kinds — pointwise, rubric, custom_schema, pairwise — and
-multimodal (image/audio/video/music) are implemented and CLI-runnable
-end-to-end). Nothing here is copied from another doc or invented; scores and
-explanations are live autorater output and are expected to vary run-to-run.
+This guide now also covers **Phase R** (PRs #19–#26, all merged to `main`): the
+`mizan version` command and release/tag workflow (R-RELEASE), strict
+per-criterion rubric reconciliation (R-R2), global-only judge auto-routing
+(R-GLOBAL), and the CI/lint/coverage tooling (R-CI, R-LINT, R-GAPS, R-SMOKE).
+The conceptual narrative for these already lives in
+[`docs/user-guide.md`](user-guide.md) and
+[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md) — this guide adds
+the hands-on manual checks and cross-references, rather than duplicating, that
+narrative.
+
+The Phase-1 metric-kind recipes below (pointwise, rubric, custom_schema,
+pairwise, multimodal) were run live against a binary built from `main`, with
+output captured in the pass noted per section; Phase 1 is complete — all four
+metric kinds and multimodal (image/audio/video/music) are implemented and
+CLI-runnable end-to-end. Scores and explanations are live autorater output and
+are expected to vary run-to-run.
+
+**Honesty note on this Phase-R pass.** Not every recipe below was re-run against
+live Vertex in this pass, and each says which it is: the `mizan version` section
+and the `make` targets under "Dev & CI setup" **were** run against the built
+`./bin/mizan` this pass (output captured verbatim); the two Vertex-hitting
+Phase-R recipes — per-criterion rubric reconciliation and global-only
+auto-routing — require ADC and a project and were **not** executed against live
+Vertex here. Their expected output is transcribed from the shipped source and
+the design docs, and each is marked **ADC-required** inline. Nothing here
+implies a live Vertex run that did not happen.
 
 ## Minimal setup
 
@@ -34,6 +54,81 @@ export MIZAN_REGISTRY_DB=/tmp/mizan-testing.db
 See [`docs/user-guide.md`](user-guide.md#prerequisites) for the full
 prerequisites/install/config explanation (env-var overrides, `.env` file
 location, the custom-endpoint safeguard, etc.) — it isn't repeated here.
+
+## Version and build metadata
+
+`mizan version` is a pure-local check — it needs **no** project and **no** ADC,
+so it is the one Phase-R recipe you can run anywhere. It prints the version, git
+commit, and build date, and honors the global `-o/--output json|table` flag
+(default is a plain one-line form; `table` prints that same plain line, `json`
+an object). The three values are injected at build time via `-ldflags`; for the
+release/tag workflow that stamps them, see
+[`docs/user-guide.md`](user-guide.md#version-and-releases) — this section does
+not repeat it.
+
+There are three build flavors and the version string differs in each. Flavors 1
+and 2 below were run against the built binary in this pass.
+
+**1. `make build` in an untagged checkout (the common dev case — verified this
+pass).** `make build` derives the version from `git describe --tags --always
+--dirty`. With no reachable `vX.Y.Z` tag, `git describe` falls back to the short
+commit, so the **version equals the commit** — this surprises people, so call it
+out:
+
+```sh
+$ ./bin/mizan version
+mizan 7da080f (commit 7da080f, built 2026-08-10T14:58:30Z)
+
+$ ./bin/mizan version -o json
+{
+  "version": "7da080f",
+  "commit": "7da080f",
+  "date": "2026-08-10T14:58:30Z"
+}
+```
+
+(`version == commit` here is the `git describe` fallback, not a bug. Your own
+commit hash and timestamp will differ. This equality holds on a **clean** tree;
+uncommitted local edits make `git describe --tags --always --dirty` append
+`-dirty`, e.g. `mizan 7da080f-dirty (commit 7da080f, …)`, so the version and
+commit then differ by that suffix.)
+
+**2. Plain `go build ./cmd/mizan` (no ldflags — verified this pass).** With no
+`-ldflags` at all, the three values keep their in-source placeholders
+`dev`/`none`/`unknown`:
+
+```sh
+$ go build -o /tmp/mizan-plain ./cmd/mizan && /tmp/mizan-plain version
+mizan dev (commit none, built unknown)
+
+$ /tmp/mizan-plain version -o json
+{
+  "version": "dev",
+  "commit": "none",
+  "date": "unknown"
+}
+```
+
+**3. A released / tagged build** (`make build` or `make install` from a checkout
+that has a reachable `vX.Y.Z` tag, or a downloaded release binary). `git
+describe` resolves to the tag, so the version *is* the tag:
+
+```sh
+$ mizan version
+mizan v1.2.3 (commit a1b2c3d, built 2026-08-10T00:00:00Z)
+
+$ mizan version -o json
+{
+  "version": "v1.2.3",
+  "commit": "a1b2c3d",
+  "date": "2026-08-10T00:00:00Z"
+}
+```
+
+(This tagged example is illustrative of the *shape* — the real `version`,
+`commit`, and `date` come from the tag, commit, and build timestamp of the build
+you are running. It was not produced from a tagged checkout in this pass;
+flavors 1 and 2 are the ones captured live here.)
 
 ## Text pointwise
 
@@ -399,6 +494,186 @@ Audio/video/music follow the same `--modality`/`--file`/`--gcs` shape; image
 is shown here because it's the easiest asset to synthesize for a
 reproducible test.
 
+## Per-criterion rubric detail and reconciliation (`--rubric-detail`)
+
+> **ADC-required.** Every command in this section makes a live Vertex AI call
+> (via the genai structured-output path at `location=global`) and needs ADC + a
+> configured project. It was **not** run against live Vertex in this pass; the
+> per-criterion scores are live and non-deterministic, and the expected outputs
+> below are transcribed from the shipped source
+> (`internal/eval/rubric_structured.go`) and the design docs. For the narrative
+> and output shape see
+> [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-4-explainable-per-criterion-rubric-scoring---rubric-detail)
+> (Scenario 4) and the reconciliation contract in
+> [`docs/user-guide.md`](user-guide.md#per-criterion-rubric-detail---rubric-detail).
+
+Add `--rubric-detail` to `eval run` on a `rubric` template to get a score and
+rationale per authored criterion plus an overall roll-up. Reuse
+`demo/rubric-quality` from the [Rubric](#rubric) recipe above — it authors three
+criteria: `clarity` = "Is the response clear" / "Is it free of jargon", and
+`correctness` = "Is the factual content accurate".
+
+The judge's returned criteria are **strictly reconciled** against your authored
+set, matched by the exact **(group, criterion)** pair (R-R2). There are three
+cases.
+
+**(a) Happy path — all authored criteria returned.** You get the full
+per-criterion scorecard: an overall `Score` + `Explanation`, then the
+`Per-criterion` table (one row per authored `(group, criterion)`). The table
+shape is exactly as shown in Scenario 4 of
+[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-4-explainable-per-criterion-rubric-scoring---rubric-detail)
+— not re-derived here:
+
+```sh
+$ mizan eval run --metric demo/rubric-quality --rubric-detail --rubric-scale 1-5 \
+    --field response="The Eiffel Tower is in Paris, France, completed in 1889."
+```
+
+Set the Likert range with `--rubric-scale "<min>-<max>"` (default `1-5`;
+non-negative integers, `min < max`).
+
+**(b) A missing or duplicated authored criterion → hard error, non-zero exit.**
+If the judge omits an authored `(group, criterion)` pair, or returns the same
+pair more than once, the run **fails** with an `eval:` error naming the
+offending pair(s) — no partial scorecard is surfaced. Exact format from source
+(pairs are rendered inside `[...]` by `formatPairs`):
+
+```
+Error: eval: rubric reconciliation failed: missing authored criterion(s): [group="clarity" criterion="Is it free of jargon"]
+```
+
+```
+Error: eval: rubric reconciliation failed: duplicated authored criterion(s): [group="clarity" criterion="Is the response clear"]
+```
+
+If both categories occur in one run they are reported together, joined with
+`;`:
+
+```
+Error: eval: rubric reconciliation failed: missing authored criterion(s): [group="clarity" criterion="Is it free of jargon"]; duplicated authored criterion(s): [group="clarity" criterion="Is the response clear"]
+```
+
+Missing/duplicate are **judge-behavior-dependent** and hard to force
+deterministically — treat these as "what you'll see *if* the judge returns a
+missing or duplicated pair," not a reproducible command. The contract they
+enforce is documented in
+[`docs/user-guide.md`](user-guide.md#per-criterion-rubric-detail---rubric-detail)
+and Scenario 4.
+
+**(c) An extra (unauthored) criterion → kept in output + a warning.** If the
+judge returns a `(group, criterion)` pair you did not author, it is **kept** in
+the output and a warning is emitted — extras are informative, not corrupting, so
+they do **not** fail the run. The warning shows up on two surfaces:
+
+- **Text mode** — one warning line per extra, on **stderr** (exact from
+  source):
+
+  ```
+  mizan: rubric reconciliation warning: judge returned unauthored criterion (group="extra_group", criterion="some unauthored criterion"); kept in output
+  ```
+
+- **`--output json` mode** — the same message(s) also serialize into the result
+  body under the `warnings` array (`Result` carries a `warnings,omitempty` JSON
+  tag), alongside the kept criterion, so machine consumers see them too:
+
+  ```json
+  {
+    "Score": 4.5,
+    "CustomOutput": {
+      "per_criterion": [
+        { "group": "extra_group", "criterion": "some unauthored criterion", "score": 4, "rationale": "…" }
+      ]
+    },
+    "warnings": [
+      "mizan: rubric reconciliation warning: judge returned unauthored criterion (group=\"extra_group\", criterion=\"some unauthored criterion\"); kept in output"
+    ]
+  }
+  ```
+
+  (JSON keys/shape illustrate the `warnings` field next to the kept criterion;
+  the exact surrounding fields depend on your template and the live response.)
+
+## Global-only judge auto-routing (R-GLOBAL)
+
+> **ADC-required.** Every command in this section makes a live Vertex AI call
+> and needs ADC + a configured project. It was **not** run against live Vertex
+> in this pass; the routing notices, pre-flight echoes, and final result shape
+> below are transcribed from the shipped source
+> (`internal/eval/route.go`, `internal/eval/model.go`, `cmd/mizan/eval.go`) and
+> the design spike. For the full narrative see Scenario 7 in
+> [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-7-choose-the-judge-model),
+> which cites the `design/spike-eval-region-autorater.md` spike; the deciding
+> factor is the eval endpoint **host**, not the autorater's location path.
+
+Some newer judges — the `gemini-3.5` family (`gemini-3.5-flash` /
+`-flash-lite`) — are **global-only**: they resolve only on Vertex's global eval
+host and 404 on a regional native endpoint. When the resolved autorater is
+global-only, Mizan forces the whole native `EvaluateInstances` call onto the
+global host, regardless of your `--location`. You don't set `--location global`
+by hand. (The genai paths — `custom_schema` and rubric `--rubric-detail` —
+already run at `location=global` by design, so this routing only concerns the
+native `pointwise` / `rubric` / `pairwise` paths.)
+
+**Run a global-only judge from a regional config and watch it route.** Set a
+regional location (e.g. `us-central1`) and select a known global-only judge with
+`--model`:
+
+```sh
+$ mizan eval run --metric demo/conciseness --model gemini-3.5-flash \
+    --field response="The cat sat on the mat."
+```
+
+All of the following go to **stderr** (so they never pollute `--output json` on
+stdout):
+
+1. The pre-flight echo shows `location=global` **up front** for a known
+   global-only judge (the fast-path classifies it before the call), with
+   `path=native`:
+
+   ```
+   mizan: autorater → project=<proj> location=global model=gemini-3.5-flash (path=native)
+   ```
+
+2. A forced-global notice (the known-prefix fast-path), exact from source:
+
+   ```
+   mizan: autorater gemini-3.5-flash is global-only (gemini-3.5-flash is a known global-only judge); routing this eval to the GLOBAL host (location=global). Your configured --location is kept for labeling only.
+   ```
+
+3. Then the ordinary successful result of the underlying kind — here a pointwise
+   `Score` + `Explanation`.
+
+**The self-correcting retry (safety net).** For a global-only model *not* in the
+known-prefix list, the first regional attempt fails with a narrow gRPC
+`NotFound` + "autorater model not found", and Mizan transparently retries the
+same eval on the global host, printing a sibling notice at run time:
+
+```
+mizan: autorater <model> not found in location <loc>; retrying this eval on the global host (<host>, location=global). Your configured --location is kept for labeling only.
+```
+
+(A non-autorater `NOT_FOUND`, e.g. a missing template, is **not** retried.)
+
+**Contrast case — a regional judge stays regional.** Run the same metric with
+the built-in-default-class regional judge `gemini-2.5-flash` from `us-central1`:
+
+```sh
+$ mizan eval run --metric demo/conciseness --model gemini-2.5-flash \
+    --field response="The cat sat on the mat."
+```
+
+The pre-flight echo shows **your region**, there is **no** routing notice, and
+the call stays regional:
+
+```
+mizan: autorater → project=<proj> location=us-central1 model=gemini-2.5-flash (path=native)
+```
+
+For a global-only judge, `--location` / `MIZAN_LOCATION` is kept for output
+**labeling only** — it is not honored as a residency region for that run,
+because the judge cannot run in your region. Use placeholders like `<proj>` in
+anything you share; don't paste real project IDs.
+
 ## What each result means
 
 - **`Score` + `Explanation`** (pointwise and rubric) — demonstrated live
@@ -414,6 +689,37 @@ reproducible test.
   [`docs/architecture-final.md`](architecture-final.md) §6). **Demonstrated
   live above** as the `Choice:` line in the `eval pairwise` output — expect
   it to vary run to run since it's a live autorater judgment.
+
+## Dev & CI setup
+
+Contributor-facing quality gates, all runnable locally with no project/ADC. The
+`make` targets below were run against this checkout in this pass.
+
+- **`make lint`** — runs `golangci-lint` (v2.12.2; curated set in
+  `.golangci.yml`) over the module. Part of CI. Verified clean this pass
+  (`0 issues.`).
+- **`make cover`** — one CGO-free `go test -coverprofile` run; writes
+  `coverage.out` and prints the total (78.5% this pass). CI enforces a **soft,
+  non-blocking** coverage floor of 75.0 — it warns below the floor but never
+  fails the build, so don't treat it as a gate.
+- **CI runs on PRs** (`.github/workflows/ci.yml`): build, `go vet`, `gofmt`
+  check, `go test`, `govulncheck`, and coverage, plus `golangci-lint` and a
+  `doc-drift` guard as separate jobs.
+- **Test-suite structure (dev-facing, not manual steps):** R-SMOKE adds
+  creds-free end-to-end smoke tests across all metric kinds, and R-GAPS adds
+  golden-output tests — regenerate the goldens with
+  `go test ./cmd/mizan -run TestGolden -update` and review the diff before
+  committing. These run automatically under `make test`/CI; they are not steps
+  you drive by hand.
+
+**Docs Definition of Done (PR template).** The
+[`pull_request_template.md`](../.github/pull_request_template.md) checklist
+requires each PR to update the user/reference docs, the scenarios doc + decision
+matrix, and add or verify a `testing-guide.md` recipe for the change — or mark
+each item **`docs: N/A`** with a reason (the `doc-drift` CI job enforces this).
+This is contribution process, not part of the manual functional test plan; it's
+noted here only so a recipe like the ones above is expected for every
+behavior-changing PR.
 
 ## Not yet testable / roadmap
 
