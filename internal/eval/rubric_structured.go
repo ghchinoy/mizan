@@ -59,6 +59,17 @@ func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTe
 	// overall_score as Result.Score while keeping the full structure in
 	// CustomOutput.
 	clampRubricOutput(res.CustomOutput, min, max)
+
+	// Reconcile the judge-returned per_criterion list against the AUTHORED
+	// (group, criterion) set (R-R2). MISSING and DUPLICATE authored criteria are
+	// hard errors (they corrupt the scorecard); EXTRA (unauthored) criteria are
+	// kept in the output and surfaced as warnings on res.Warnings.
+	warnings, err := reconcileRubricOutput(res.CustomOutput, tmpl.RubricGroups)
+	if err != nil {
+		return Result{}, err
+	}
+	res.Warnings = warnings
+
 	if s, ok := overallScore(res.CustomOutput); ok {
 		f := float32(s)
 		res.Score = &f
@@ -159,6 +170,126 @@ func clampRubricOutput(out map[string]any, min, max int) {
 			}
 		}
 	}
+}
+
+// rubricPair identifies an authored criterion by its (group, criterion) pair,
+// matched by EXACT string equality on both fields — the same strings that were
+// SENT to the judge by renderRubricInstruction (group names and criterion
+// strings, verbatim). Using a struct key (rather than a joined string) keeps the
+// two fields independent, so identical criterion strings in different groups stay
+// distinct and no delimiter can collide.
+type rubricPair struct {
+	group     string
+	criterion string
+}
+
+// reconcileRubricOutput reconciles the judge-returned per_criterion entries in
+// out against the AUTHORED (group, criterion) set from groups, enforcing the
+// R-R2 owner-locked semantics:
+//
+//   - MISSING (authored but not returned): HARD ERROR — missing criteria corrupt
+//     the scorecard. The returned error names the missing pair(s).
+//   - DUPLICATE (the same authored pair returned more than once): HARD ERROR —
+//     duplicates corrupt the scorecard. The error names the duplicated pair(s).
+//   - EXTRA (returned but not authored): WARN + PASSTHROUGH — extras are
+//     informative, not corrupting; they are LEFT in out and reported as warnings.
+//   - HAPPY PATH (exact 1:1 authored<->returned): no error, no warnings.
+//
+// Errors use the existing eval:-prefixed style; the returned warnings are
+// surfaced by the caller (Result.Warnings, printed to stderr by the CLI).
+func reconcileRubricOutput(out map[string]any, groups map[string][]string) ([]string, error) {
+	// Authored pairs (and their canonical order for deterministic messages).
+	authored := make(map[rubricPair]bool, len(groups))
+	names := make([]string, 0, len(groups))
+	for name := range groups {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	authoredOrder := make([]rubricPair, 0)
+	for _, name := range names {
+		for _, criterion := range groups[name] {
+			p := rubricPair{group: name, criterion: criterion}
+			if !authored[p] {
+				authored[p] = true
+				authoredOrder = append(authoredOrder, p)
+			}
+		}
+	}
+
+	// Count how many times the judge returned each authored pair, and collect
+	// extras (unauthored pairs) in returned order for stable warnings.
+	returnedCount := make(map[rubricPair]int, len(authored))
+	var extras []rubricPair
+	if pc, ok := out["per_criterion"].([]any); ok {
+		for _, item := range pc {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			p := rubricPair{group: fieldAsString(m, "group"), criterion: fieldAsString(m, "criterion")}
+			if authored[p] {
+				returnedCount[p]++
+			} else {
+				extras = append(extras, p)
+			}
+		}
+	}
+
+	// MISSING and DUPLICATE authored pairs -> hard error (both categories are
+	// reported together so one run surfaces every scorecard-corrupting problem).
+	var missing, duplicate []rubricPair
+	for _, p := range authoredOrder {
+		switch returnedCount[p] {
+		case 0:
+			missing = append(missing, p)
+		case 1:
+			// exact match, nothing to do
+		default:
+			duplicate = append(duplicate, p)
+		}
+	}
+	if len(missing) > 0 || len(duplicate) > 0 {
+		var b strings.Builder
+		b.WriteString("eval: rubric reconciliation failed:")
+		if len(missing) > 0 {
+			fmt.Fprintf(&b, " missing authored criterion(s): %s", formatPairs(missing))
+		}
+		if len(duplicate) > 0 {
+			if len(missing) > 0 {
+				b.WriteString(";")
+			}
+			fmt.Fprintf(&b, " duplicated authored criterion(s): %s", formatPairs(duplicate))
+		}
+		return nil, fmt.Errorf("%s", b.String())
+	}
+
+	// EXTRA pairs -> warn + passthrough (kept in out, one warning per extra entry).
+	var warnings []string
+	for _, p := range extras {
+		warnings = append(warnings, fmt.Sprintf(
+			"mizan: rubric reconciliation warning: judge returned unauthored criterion (group=%q, criterion=%q); kept in output",
+			p.group, p.criterion))
+	}
+	return warnings, nil
+}
+
+// fieldAsString returns m[key] as a string, or "" if absent or non-string. Used
+// to read a per_criterion entry's identity fields for reconciliation.
+func fieldAsString(m map[string]any, key string) string {
+	if s, ok := m[key].(string); ok {
+		return s
+	}
+	return ""
+}
+
+// formatPairs renders a slice of rubricPair for an error message, e.g.
+// [group="clarity" criterion="No jargon", group="tone" criterion="..."].
+func formatPairs(pairs []rubricPair) string {
+	parts := make([]string, len(pairs))
+	for i, p := range pairs {
+		parts[i] = fmt.Sprintf("group=%q criterion=%q", p.group, p.criterion)
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 // overallScore extracts overall_score from the structured output as a float64.

@@ -236,6 +236,27 @@ walkthrough.
   not a fixed-format field — treat it as a qualitative aid, not something to
   parse programmatically.
 
+## Per-criterion rubric detail (`--rubric-detail`)
+
+For a `rubric` template, add `--rubric-detail` to `eval run` to get a score and
+rationale for **each authored criterion** (plus an overall roll-up), instead of a
+single score. Set the Likert scale with `--rubric-scale "<min>-<max>"` (default
+`1-5`; non-negative, `min < max`). See
+[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md) Scenario 4 for the
+full walkthrough and output shape.
+
+The judge's returned criteria are **strictly reconciled** against your authored
+set, matched by the exact **(group, criterion)** pair:
+
+- a **missing** authored criterion (authored but not returned by the judge) fails
+  the run with an `eval:` error naming the missing pair(s) — a partial scorecard
+  is never surfaced;
+- a **duplicated** authored criterion (the same pair returned more than once)
+  fails the run with an `eval:` error naming the duplicated pair(s);
+- an **extra** criterion (returned but not authored) is **kept in the output** and
+  a warning is printed to **stderr** — extras are informative, not corrupting, so
+  they do not fail the run.
+
 ## Troubleshooting
 
 **`Error: config: project ID not set (set MIZAN_PROJECT_ID or PROJECT_ID)`**

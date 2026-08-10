@@ -163,7 +163,15 @@ func TestRunRubricStructuredScaleConfigurable(t *testing.T) {
 		{0, 10, "0 to 10"},
 	}
 	for _, tc := range cases {
-		fg := &fakeGenai{respText: `{"per_criterion":[],"overall_score":1,"explanation":"x"}`}
+		// Return the full authored set so reconciliation is a happy-path no-op;
+		// this test only asserts the SCALE is threaded into the judge prompt.
+		fg := &fakeGenai{respText: `{
+			"per_criterion": [
+				{"group":"clarity","criterion":"The message is unambiguous","score":1,"rationale":"x"},
+				{"group":"clarity","criterion":"No jargon","score":1,"rationale":"x"},
+				{"group":"tone","criterion":"Matches a professional brand voice","score":1,"rationale":"x"}
+			],
+			"overall_score":1,"explanation":"x"}`}
 		eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
 		if _, err := eng.Run(context.Background(), rubricTemplate(), rubricInstance(), WithRubricDetail(tc.min, tc.max)); err != nil {
 			t.Fatalf("Run(%d-%d): %v", tc.min, tc.max, err)
@@ -178,11 +186,13 @@ func TestRunRubricStructuredScaleConfigurable(t *testing.T) {
 // TestRunRubricStructuredClamps verifies out-of-range judge scores are clamped
 // into [min,max] (both per-criterion and overall_score).
 func TestRunRubricStructuredClamps(t *testing.T) {
+	// Use the authored (group, criterion) pairs so reconciliation is a happy-path
+	// no-op; this test only asserts out-of-range scores are clamped.
 	resp := `{
 		"per_criterion": [
-			{"group":"clarity","criterion":"c1","score":7,"rationale":"too high"},
-			{"group":"clarity","criterion":"c2","score":-2,"rationale":"too low"},
-			{"group":"tone","criterion":"c3","score":3,"rationale":"ok"}
+			{"group":"clarity","criterion":"The message is unambiguous","score":7,"rationale":"too high"},
+			{"group":"clarity","criterion":"No jargon","score":-2,"rationale":"too low"},
+			{"group":"tone","criterion":"Matches a professional brand voice","score":3,"rationale":"ok"}
 		],
 		"overall_score": 9,
 		"explanation": "clamp me"

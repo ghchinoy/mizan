@@ -72,8 +72,15 @@ type Result struct {
 	// on THIS explicit signal rather than sniffing CustomOutput's shape, so a
 	// custom_schema result that happens to contain a "per_criterion" array is not
 	// misrendered as a rubric table.
-	RubricDetail bool  `json:"rubric_detail,omitempty"`
-	Stats        Stats // per-run telemetry (WI-F4)
+	RubricDetail bool `json:"rubric_detail,omitempty"`
+	// Warnings carries non-fatal, user-visible notes produced during a run. The
+	// rubric per-criterion path (runRubricStructured -> reconcileRubricOutput)
+	// populates this with one entry per EXTRA (unauthored) criterion the judge
+	// returned: extras are informative, not corrupting, so they are kept in
+	// CustomOutput and surfaced here rather than dropped or turned into errors
+	// (R-R2). The CLI prints these to stderr after the run (WI-F7 echo style).
+	Warnings []string `json:"warnings,omitempty"`
+	Stats    Stats    // per-run telemetry (WI-F4)
 }
 
 // Stats holds per-run telemetry (WI-F4). Duration is ALWAYS populated with the
