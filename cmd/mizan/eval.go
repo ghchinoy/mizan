@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -242,8 +243,29 @@ func parseFields(fields []string) (eval.Instance, error) {
 // unexpected global location surfaces immediately instead of only when the API
 // rejects the call.
 func printPreflight(w io.Writer, t eval.ResolvedTarget) {
+	// Sanitize every interpolated value at the output boundary so the echo is
+	// ALWAYS exactly one line, regardless of input. A fully-qualified
+	// "projects/.../models/<seg>" model is trusted verbatim by the resolution
+	// path, so a self-supplied --model with a control character (e.g. a newline)
+	// in the trailing segment could otherwise inject an extra line into the
+	// caller's own stderr. Stripping control chars here closes that stderr-
+	// injection class for both the bare and fully-qualified forms (security audit
+	// INFO / review FYI2).
 	fmt.Fprintf(w, "mizan: autorater → project=%s location=%s model=%s (path=%s)\n",
-		t.Project, t.Location, t.Model, t.Path)
+		sanitizeEchoValue(t.Project), sanitizeEchoValue(t.Location),
+		sanitizeEchoValue(t.Model), sanitizeEchoValue(t.Path))
+}
+
+// sanitizeEchoValue drops control characters (newlines, carriage returns, and
+// other C0/C1 control runes) from a value before it is written to the one-line
+// pre-flight echo, guaranteeing the echo stays a single line.
+func sanitizeEchoValue(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
 }
 
 // renderResult prints an eval result as JSON or a small table. When showStats is

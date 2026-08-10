@@ -142,3 +142,34 @@ func TestPrintPreflightLine(t *testing.T) {
 		}
 	}
 }
+
+// TestPrintPreflightSanitizesControlChars proves the pre-flight echo stays a
+// SINGLE line even when a resolved value carries a control character — e.g. a
+// self-supplied fully-qualified --model whose trailing segment contains a
+// newline (the fully-qualified passthrough is trusted verbatim by resolution).
+// This closes the stderr line-injection vector at the output boundary.
+func TestPrintPreflightSanitizesControlChars(t *testing.T) {
+	var buf bytes.Buffer
+	printPreflight(&buf, eval.ResolvedTarget{
+		Project:  "proj",
+		Location: "us-central1",
+		// bare AND fully-qualified-trailing-segment newline injection attempts.
+		Model: "gemini-2.5-flash\ninjected: evil",
+		Path:  "native",
+	})
+	out := buf.String()
+	// Exactly one trailing newline, no interior newlines/CRs → one line.
+	if strings.Count(out, "\n") != 1 {
+		t.Errorf("pre-flight is not a single line, got %q", out)
+	}
+	if strings.Contains(strings.TrimRight(out, "\n"), "\n") || strings.Contains(out, "\r") {
+		t.Errorf("control char leaked into echo: %q", out)
+	}
+	if strings.Contains(out, "injected: evil\n") && strings.Count(out, "\n") != 1 {
+		t.Errorf("injected line survived: %q", out)
+	}
+	// The visible characters are preserved (only the control char is dropped).
+	if !strings.Contains(out, "model=gemini-2.5-flashinjected: evil") {
+		t.Errorf("unexpected sanitized model rendering: %q", out)
+	}
+}
