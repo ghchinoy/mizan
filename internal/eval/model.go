@@ -33,7 +33,12 @@ const BuiltinDefaultModel = "gemini-2.5-flash"
 // The native EvaluateInstances path is regional (cfg.Location); the genai path
 // is global by design (spike-custom). It is defined once so the composition root
 // (wire) and the pre-flight echo (Engine.Resolve) always agree.
-const GenaiLocation = "global"
+//
+// It is an ALIAS of the single global-location source of truth (globalLocation
+// in route.go): the genai path's "global" and the R-GLOBAL eval-host "global" are
+// the same location string, and pinning them to one const means they cannot
+// silently drift (review OPTIONAL-1).
+const GenaiLocation = globalLocation
 
 // resolveModel applies the model precedence chain UNIFORMLY across the native
 // and genai paths:
@@ -200,7 +205,7 @@ func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string, rubricDe
 	// location above because the HOST — not the autorater path — is decisive
 	// (spike-eval-region-autorater). A global-only judge NOT in the prefix table
 	// is discovered only via the retry, so its echo stays regional and the
-	// run-time "forced global" notice covers it instead.
+	// run-time retry notice (noticeRetryGlobal) covers it instead.
 	if isGlobalOnlyModel(model) {
 		target.Location = globalLocation
 	}

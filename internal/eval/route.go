@@ -30,6 +30,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -38,11 +39,17 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// globalLocation is the location selector for the GLOBAL Vertex eval endpoint.
+// globalLocation is the SINGLE source of truth for the global-location string.
 // NewClient maps it to the bare host aiplatform.googleapis.com:443; the request
 // carries projects/{p}/locations/global. It is the ONLY host that resolves a
-// global-only autorater (spike-eval-region-autorater row 4a).
+// global-only autorater (spike-eval-region-autorater row 4a). The exported
+// GenaiLocation (model.go) aliases this const so the two cannot drift
+// (review OPTIONAL-1).
 const globalLocation = "global"
+
+// globalHost is the bare global eval endpoint host, named in the retry notice so
+// the user sees exactly where the call was re-routed.
+const globalHost = "aiplatform.googleapis.com"
 
 // globalOnlyModelPrefixes is the single documented place listing autorater model
 // families that are GLOBAL-ONLY: they do not exist on the regional native
@@ -124,7 +131,7 @@ func (e *Engine) evaluateRouted(ctx context.Context, model, label string, build 
 	// e.location is already "global" the regional client IS the global host, so we
 	// fall through to the ordinary attempt below (no separate global client needed).
 	if isGlobalOnlyModel(model) && e.canRouteGlobal() {
-		e.noticeForcedGlobal(model, fmt.Sprintf("%s is a known global-only judge", bareModelID(model)))
+		e.noticeGlobalOnly(model)
 		resp, err := e.evaluateAt(ctx, globalLocation, e.globalClient, model, build)
 		if err != nil {
 			return nil, fmt.Errorf("eval: EvaluateInstances%s: %w", ctxLabel, err)
@@ -140,7 +147,7 @@ func (e *Engine) evaluateRouted(ctx context.Context, model, label string, build 
 
 	// Self-correcting retry ONLY on the specific autorater-not-found error.
 	if e.canRouteGlobal() && isAutoraterNotFound(err) {
-		e.noticeForcedGlobal(model, "the regional host could not resolve the autorater")
+		e.noticeRetryGlobal(model)
 		gResp, gErr := e.evaluateAt(ctx, globalLocation, e.globalClient, model, build)
 		if gErr != nil {
 			// Global retry also failed: surface the ORIGINAL regional error plus the
@@ -172,16 +179,32 @@ func (e *Engine) evaluateAt(ctx context.Context, loc string, client EvaluationCl
 	return client.EvaluateInstances(ctx, build(loc, fullModel))
 }
 
-// noticeForcedGlobal surfaces (WI-F7 echo style, on stderr by default) that a
-// global-only judge forced the eval onto the global host, so the user is not
-// surprised their --location was not honored as a residency region. reason is a
-// short cause ("... is a known global-only judge" / "the regional host could not
-// resolve the autorater").
-func (e *Engine) noticeForcedGlobal(model, reason string) {
-	w := e.noticeW
-	if w == nil {
-		w = os.Stderr
+// noticeWriter returns the writer surfaced notices go to (stderr by default,
+// overridable via WithNoticeWriter for deterministic capture in tests).
+func (e *Engine) noticeWriter() io.Writer {
+	if e.noticeW != nil {
+		return e.noticeW
 	}
-	fmt.Fprintf(w, "mizan: autorater %s is global-only (%s); routing this eval to the GLOBAL host (location=global). Your configured --location is kept for labeling only.\n",
-		bareModelID(model), reason)
+	return os.Stderr
+}
+
+// noticeGlobalOnly surfaces (WI-F7 echo style, on stderr by default) that the
+// prefix FAST-PATH classified the autorater as a KNOWN global-only judge and so
+// routed the eval to the global host. Here we KNOW (via globalOnlyModelPrefixes)
+// the model is global-only, so the notice asserts that classification. The user
+// is told their --location was not honored as a residency region.
+func (e *Engine) noticeGlobalOnly(model string) {
+	fmt.Fprintf(e.noticeWriter(), "mizan: autorater %s is global-only (%s is a known global-only judge); routing this eval to the GLOBAL host (location=global). Your configured --location is kept for labeling only.\n",
+		bareModelID(model), bareModelID(model))
+}
+
+// noticeRetryGlobal surfaces (WI-F7 echo style, on stderr by default) that the
+// self-correcting RETRY fired: the autorater was not found on the configured
+// regional host, so the SAME call is being retried on the global host. Unlike the
+// fast-path, this route does NOT prove the model is global-only — it also fires
+// for a typo'd or otherwise unresolvable regional model — so the notice describes
+// the ACTION taken rather than asserting a global-only classification.
+func (e *Engine) noticeRetryGlobal(model string) {
+	fmt.Fprintf(e.noticeWriter(), "mizan: autorater %s not found in location %s; retrying this eval on the global host (%s, location=global). Your configured --location is kept for labeling only.\n",
+		bareModelID(model), e.location, globalHost)
 }

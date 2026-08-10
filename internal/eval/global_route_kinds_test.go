@@ -221,8 +221,10 @@ func TestNotice_FastPath_EmittedToWriter(t *testing.T) {
 	}
 }
 
-// 7b. surfacing (retry): the forced-global notice is emitted on the self-correcting
-// retry route, with the regional-resolution-failure reason.
+// 7b. surfacing (retry): the retry notice is emitted on the self-correcting retry
+// route. Unlike the fast-path it does NOT assert the model is "global-only" (the
+// retry also fires for a typo'd/unresolvable regional model) — it describes the
+// ACTION: not found in the configured location, retrying on the global host.
 func TestNotice_Retry_EmittedToWriter(t *testing.T) {
 	regional := (&FakeEvaluationClient{}).PushError(
 		autoraterNotFound("projects/my-project/locations/us-central1/publishers/google/models/gemini-4.0-preview"))
@@ -235,10 +237,14 @@ func TestNotice_Retry_EmittedToWriter(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	notice := w.String()
-	for _, want := range []string{"gemini-4.0-preview", "the regional host could not resolve the autorater", "location=global"} {
+	for _, want := range []string{"gemini-4.0-preview", "not found in location", "us-central1", "retrying", "aiplatform.googleapis.com", "location=global"} {
 		if !strings.Contains(notice, want) {
 			t.Errorf("retry notice %q missing %q", notice, want)
 		}
+	}
+	// The retry notice must NOT overclaim the model as global-only.
+	if strings.Contains(notice, "global-only") {
+		t.Errorf("retry notice %q must not assert the model is global-only", notice)
 	}
 }
 
