@@ -4,7 +4,7 @@ This guide is for **exercising each built capability with real, copy-pasteable
 commands** — it's a hands-on companion, not a replacement for the narrative
 docs. For conceptual/narrative detail (what a flag means, how config
 resolution works, full CRUD walkthroughs), see
-[`docs/user_guide.md`](user_guide.md). For phase-by-phase roadmap detail and
+[`docs/user-guide.md`](user-guide.md). For phase-by-phase roadmap detail and
 work-item IDs (`WI-P1-*`), see
 [`docs/implementation-plan.md`](implementation-plan.md).
 
@@ -31,7 +31,7 @@ registry:
 export MIZAN_REGISTRY_DB=/tmp/mizan-testing.db
 ```
 
-See [`docs/user_guide.md`](user_guide.md#prerequisites) for the full
+See [`docs/user-guide.md`](user-guide.md#prerequisites) for the full
 prerequisites/install/config explanation (env-var overrides, `.env` file
 location, the custom-endpoint safeguard, etc.) — it isn't repeated here.
 
@@ -420,7 +420,7 @@ reproducible test.
 Phase 1 is complete, so this list now only covers P2/P3/P4 work — unrelated
 to the P1 metric-kind work above, but re-verified absent from the built
 binary in this pass rather than assumed unchanged. Kept consistent with
-[`docs/user_guide.md`](user_guide.md#coming-soon--roadmap) — see that section
+[`docs/user-guide.md`](user-guide.md#coming-soon--roadmap) — see that section
 for the full picture.
 
 - **Template packs and registry import/export** — `mizan pack` and

@@ -411,7 +411,7 @@ flag-by-flag as the CLI evolved (for example, the shipped flags are `--prompt`
 and `--flip-enabled`, not `--prompt-template`/`--flip` as sketched below). For
 the real, current, live-verified CLI surface, see
 [`docs/testing-guide.md`](testing-guide.md) and
-[`docs/user_guide.md`](user_guide.md).
+[`docs/user-guide.md`](user-guide.md).
 
 ```
 # Registry — local working-copy CRUD

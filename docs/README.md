@@ -5,7 +5,7 @@ metric kinds (pointwise, rubric, custom_schema, pairwise) — including
 multimodal (image/audio/video/music) — are built, installable, and verified
 end-to-end against real Vertex AI. Template packs/sharing, batch eval, and the
 desktop app remain roadmap — see the
-[user guide](user_guide.md#coming-soon--roadmap) or the root
+[user guide](user-guide.md#coming-soon--roadmap) or the root
 [`README.md`](../README.md#roadmap-not-built-yet--do-not-expect-these-to-work)
 for the current boundary. The design documents below remain the architectural
 record; `architecture-final.md` in particular is kept current as the single
@@ -13,7 +13,7 @@ source of truth even as code lands.
 
 ## Start here
 
-1. **New to the CLI?** Read **`user_guide.md`** for install, configuration, and
+1. **New to the CLI?** Read **`user-guide.md`** for install, configuration, and
    a full command walkthrough with real output.
 2. **`research.md`** — the ground truth. It is the researched basis (Vertex AI
    Gen AI Evaluation Service, API surface, precedents) that every other doc
@@ -26,7 +26,7 @@ source of truth even as code lands.
 
 | Doc | Purpose | Status |
 |---|---|---|
-| `user_guide.md` | End-user guide: install, configure, registry walkthrough, running evaluations, troubleshooting, roadmap. | Current — verified against the built CLI. |
+| `user-guide.md` | End-user guide: install, configure, registry walkthrough, running evaluations, troubleshooting, roadmap. | Current — verified against the built CLI. |
 | `testing-guide.md` | Hands-on, copy-pasteable recipes for exercising every metric kind (pointwise, rubric, custom_schema, pairwise) and multimodal, plus the pairwise placeholder contract and the `--flip-enabled` P1 limitation. | Current — verified against the built CLI. |
 | `research.md` | Ground-truth research: eval service, API, modalities, precedents. | Reference (do not re-derive). |
 | `architecture-final.md` | Current, authoritative architecture (rev 3). Module layout, domain model & engine, config, deps, CLI surface (§12), desktop bindings (§13). Now includes embedded architecture/sequence diagrams. | Current, updated as code lands. |

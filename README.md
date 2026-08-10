@@ -36,7 +36,7 @@ hasn't actually shipped.
   pairwise` accept `--file key=/path` (auto-staged to your configured GCS
   staging bucket) or `--gcs key=gs://...` (pre-staged) for non-text fields.
 
-See the [user guide](docs/user_guide.md) and
+See the [user guide](docs/user-guide.md) and
 [testing guide](docs/testing-guide.md) for full walkthroughs with real,
 live-verified command output.
 
@@ -109,7 +109,7 @@ Explanation:  The response 'The cat sat on the mat.' is a very short, direct, an
 ```
 
 For the full walkthrough (registry lifecycle, interpreting results,
-troubleshooting), see the [user guide](docs/user_guide.md).
+troubleshooting), see the [user guide](docs/user-guide.md).
 
 ## Architecture
 
@@ -125,6 +125,6 @@ roadmap ones:
 ## Documentation
 
 - Start with the docs index: [`docs/README.md`](docs/README.md).
-- New to the CLI? Read the [user guide](docs/user_guide.md).
+- New to the CLI? Read the [user guide](docs/user-guide.md).
 - Current architecture (single source of truth):
   [`docs/architecture-final.md`](docs/architecture-final.md).
