@@ -15,6 +15,11 @@ source of truth even as code lands.
 
 1. **New to the CLI?** Read **`user-guide.md`** for install, configuration, and
    a full command walkthrough with real output.
+1. **Want to know what you can judge?** Read
+   **[`llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md)** — a
+   capability-first, goal-organized guide ("I want to score X / compare A vs B /
+   grade against a rubric") mapping each LLM-as-a-Judge scenario to the Mizan
+   template and command that achieves it.
 2. **`research.md`** — the ground truth. It is the researched basis (Vertex AI
    Gen AI Evaluation Service, API surface, precedents) that every other doc
    derives from. Do not re-derive its findings elsewhere.
@@ -27,6 +32,7 @@ source of truth even as code lands.
 | Doc | Purpose | Status |
 |---|---|---|
 | `user-guide.md` | End-user guide: install, configure, registry walkthrough, running evaluations, troubleshooting, roadmap. | Current — verified against the built CLI. |
+| `llm-as-judge-scenarios.md` | Capability-first use-case guide: the LLM-as-a-Judge scenarios you can achieve (pointwise, pairwise, rubric overall + per-criterion `--rubric-detail`, custom_schema, multimodal, model selection, observability), each mapped to a template/command and grounded in code. | Current — code-grounded against `main`. |
 | `testing-guide.md` | Hands-on, copy-pasteable recipes for exercising every metric kind (pointwise, rubric, custom_schema, pairwise) and multimodal, plus the pairwise placeholder contract and the `--flip-enabled` P1 limitation. | Current — verified against the built CLI. |
 | `research.md` | Ground-truth research: eval service, API, modalities, precedents. | Reference (do not re-derive). |
 | `architecture-final.md` | Current, authoritative architecture (rev 3). Module layout, domain model & engine, config, deps, CLI surface (§12), desktop bindings (§13). Now includes embedded architecture/sequence diagrams. | Current, updated as code lands. |
