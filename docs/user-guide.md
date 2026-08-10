@@ -418,6 +418,29 @@ deliberate safeguard against exfiltrating your ADC token to an untrusted
 endpoint. If you really need a custom endpoint (e.g. a local test proxy), set
 `MIZAN_ALLOW_CUSTOM_ENDPOINT=1`.
 
+**`Error: eval: EvaluateInstances: autorater GenerateContent was denied in
+project "<p>" (location "<loc>"). This is a project IAM/enablement issue, NOT a
+transient delay ...`**
+The Eval Service could not invoke the autorater model's inner `GenerateContent`
+call in your project. Vertex's underlying message ("*If you're using a new
+project, expect a delay and retry...*", preserved in the `(raw: ...)` tail) is
+misleading — this is **not** transient, so retrying will not help. It is a
+project-level permission/enablement condition. To fix, in the project that runs
+the eval:
+1. **Ensure the Vertex AI API is enabled** in the project.
+2. **Grant the project's Vertex AI Service Agent the Service Agent role.** The
+   agent is `service-<project-number>@gcp-sa-aiplatform.iam.gserviceaccount.com`;
+   give it `roles/aiplatform.serviceAgent` so it can invoke the autorater model.
+   Find the project number with `gcloud projects describe <project>
+   --format='value(projectNumber)'`. If the API was only just enabled, allow a
+   few minutes for the service agent to be provisioned.
+3. **If the metric references a `gs://` asset**, grant that same service agent
+   `roles/storage.objectViewer` on the staging bucket so it can read the object
+   (needed for cross-project reads, e.g. `gsutil iam ch
+   serviceAccount:service-<project-number>@gcp-sa-aiplatform.iam.gserviceaccount.com:roles/storage.objectViewer gs://<bucket>`).
+   Alternatively, run the eval in the project that owns the bucket, or stage the
+   asset into a bucket in the eval project.
+
 ## Coming soon / roadmap
 
 Phase 1 (all four metric kinds + multimodal) is complete. What's **not usable

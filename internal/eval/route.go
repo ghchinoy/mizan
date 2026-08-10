@@ -100,6 +100,47 @@ func isAutoraterNotFound(err error) bool {
 	return strings.Contains(strings.ToLower(st.Message()), "autorater model")
 }
 
+// isAutoraterPermissionDenied narrowly matches the SPECIFIC error the Eval
+// Service returns when the AUTORATER GenerateContent call is denied at the
+// project level: a gRPC codes.PermissionDenied whose message is about the
+// autorater model / the inner GenerateContent request (Vertex wraps it as
+// "Failed to make GenerateContent request to autorater model <resource>. If
+// you're using a new project, expect a delay and retry..."). The match requires
+// BOTH the PermissionDenied code AND an autorater/GenerateContent marker so an
+// unrelated PermissionDenied (a caller lacking evaluateInstances, a template ACL,
+// etc.) does NOT get the autorater-specific guidance. Unlike NotFound, this is
+// NOT host-dependent, so it deliberately does NOT trigger the global-host retry —
+// see evaluateRouted. status.FromError unwraps a wrapped gRPC/apierror error,
+// mirroring isAutoraterNotFound.
+func isAutoraterPermissionDenied(err error) bool {
+	if err == nil {
+		return false
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.PermissionDenied {
+		return false
+	}
+	msg := strings.ToLower(st.Message())
+	return strings.Contains(msg, "autorater model") || strings.Contains(msg, "generatecontent")
+}
+
+// autoraterPermissionDeniedError builds the ACTIONABLE error for a project-level
+// autorater PermissionDenied. The raw Vertex string ("...expect a delay and
+// retry...") misdirects the user toward a transient retry for what is actually a
+// non-transient project IAM/enablement condition, so this replaces that framing
+// with the concrete grants to make and APPENDS the raw underlying error so
+// nothing is lost. It fills project/location/model from the engine's scope.
+func (e *Engine) autoraterPermissionDeniedError(ctxLabel, model string, raw error) error {
+	return fmt.Errorf("eval: EvaluateInstances%s: autorater GenerateContent was denied in project %q (location %q). "+
+		"This is a project IAM/enablement issue, NOT a transient delay — retrying will not help. To fix: "+
+		"(a) ensure the Vertex AI API is enabled in project %q; "+
+		"(b) grant the project's Vertex AI Service Agent (service-<projnum>@gcp-sa-aiplatform.iam.gserviceaccount.com) "+
+		"the roles/aiplatform.serviceAgent role so it can invoke %s; "+
+		"(c) if the metric references a gs:// asset, grant that service agent roles/storage.objectViewer on the staging bucket for cross-project reads. "+
+		"(raw: %w)",
+		ctxLabel, e.projectID, e.location, e.projectID, bareModelID(model), raw)
+}
+
 // buildEvalRequest constructs an EvaluateInstancesRequest for a specific eval
 // location: it is called once per attempt so req.Location and the expanded
 // autorater always match the host actually used. fullModel is the autorater
@@ -134,6 +175,9 @@ func (e *Engine) evaluateRouted(ctx context.Context, model, label string, build 
 		e.noticeGlobalOnly(model)
 		resp, err := e.evaluateAt(ctx, globalLocation, e.globalClient, model, build)
 		if err != nil {
+			if isAutoraterPermissionDenied(err) {
+				return nil, e.autoraterPermissionDeniedError(ctxLabel, model, err)
+			}
 			return nil, fmt.Errorf("eval: EvaluateInstances%s: %w", ctxLabel, err)
 		}
 		return resp, nil
@@ -150,12 +194,27 @@ func (e *Engine) evaluateRouted(ctx context.Context, model, label string, build 
 		e.noticeRetryGlobal(model)
 		gResp, gErr := e.evaluateAt(ctx, globalLocation, e.globalClient, model, build)
 		if gErr != nil {
+			// The regional attempt was an autorater-NotFound; if the global retry was
+			// itself denied by a project-level PermissionDenied, THAT is the actionable
+			// signal (a permission denial is not host-dependent), so surface the
+			// concrete grants to make rather than the "not found" framing.
+			if isAutoraterPermissionDenied(gErr) {
+				return nil, e.autoraterPermissionDeniedError(ctxLabel, model, gErr)
+			}
 			// Global retry also failed: surface the ORIGINAL regional error plus the
 			// global-retry context (the original error is the actionable one).
 			return nil, fmt.Errorf("eval: EvaluateInstances%s: autorater %q not found on location %q and the global-host retry also failed (global error: %v): %w",
 				ctxLabel, bareModelID(model), e.location, gErr, err)
 		}
 		return gResp, nil
+	}
+
+	// A project-level autorater PermissionDenied is NOT host-dependent, so it is
+	// (correctly) never retried above; classify it here so the user gets actionable
+	// IAM/enablement guidance instead of the raw, misleading "expect a delay and
+	// retry" Vertex string. Any other error keeps its current verbatim behavior.
+	if isAutoraterPermissionDenied(err) {
+		return nil, e.autoraterPermissionDeniedError(ctxLabel, model, err)
 	}
 
 	return nil, fmt.Errorf("eval: EvaluateInstances%s: %w", ctxLabel, err)
