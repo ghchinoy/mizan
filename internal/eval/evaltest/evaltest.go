@@ -1,23 +1,27 @@
-package eval
-
-// fakeclient_test.go provides the REUSABLE, network-free test doubles for the
+// Package evaltest provides REUSABLE, network-free test doubles for the eval
 // engine's two client seams: FakeEvaluationClient (the native EvaluateInstances
-// seam) and FakeGenaiClient (the genai GenerateContent seam). They are shared
-// test-support for every *_test.go in package eval — the creds-free smoke
-// (smoke_test.go, R-SMOKE) and the later R-GLOBAL / R-GAPS work items build on
-// them, so the surface is deliberately small and ergonomic:
+// seam) and FakeGenaiClient (the genai GenerateContent seam), plus the response
+// and error builders used to script them.
 //
+// These live in their OWN package (not a _test.go file in package eval) so they
+// can be imported ACROSS package boundaries — internal/eval tests, internal/wire
+// tests, and cmd/mizan tests can all share one set of fakes. They were extracted
+// here from internal/eval/fakeclient_test.go (R-SMOKE) when internal/wire needed
+// them cross-package (R-GAPS); the same extraction normalized the capture-field
+// naming (both fakes now expose a consistently-named CallsLog).
+//
+// Because this is a normal (non-test) package, nothing links it into the mizan
+// binary unless a production package imports it — and none do; only *_test.go
+// files import evaltest, so it stays out of the shipped binary.
+//
+// Surface (deliberately small and ergonomic):
 //   - script responses:  PushResponse / PushError (per-call queue) or the sticky
 //     Resp / Err fallback used once the queue drains.
-//   - capture requests:  Requests (in call order) + LastRequest / Calls, so
-//     routing and spec assertions (e.g. R-GLOBAL asserting on Location) are
-//     possible.
-//   - drive errors:      PushError + the NewResourceExhausted helper, so the
-//     genai retry/backoff and native error paths (R-GAPS) can be exercised.
-//
-// Being test-only (a _test.go file), these types are compiled ONLY under `go
-// test` and are visible to any test in package eval; they add nothing to the
-// production binary.
+//   - capture calls:      CallsLog (in call order) + LastRequest / LastCall /
+//     Calls, so routing and spec assertions (e.g. Location) are possible.
+//   - drive errors:       PushError + the NewResourceExhausted helper, so the
+//     genai retry/backoff and native error paths can be exercised.
+package evaltest
 
 import (
 	"context"
@@ -36,24 +40,32 @@ type evalTurn struct {
 	err  error
 }
 
-// FakeEvaluationClient is a scriptable, network-free EvaluationClient. It records
-// every request it receives and returns scripted outcomes, so the engine's spec
-// materialization, result mapping, routing and error handling are all testable
-// without a live API call or credentials.
+// FakeEvaluationClient is a scriptable, network-free eval.EvaluationClient. It
+// records every request it receives and returns scripted outcomes, so the
+// engine's spec materialization, result mapping, routing and error handling are
+// all testable without a live API call or credentials.
 //
 // Outcome selection: if any turns were scripted via PushResponse/PushError they
 // are consumed in order, one per call; once the queue is empty the sticky Resp /
 // Err are returned for every subsequent call. A zero-value FakeEvaluationClient
 // therefore returns (nil, nil) — set Resp (or push a turn) for a useful default.
+//
+// It also implements Close so it satisfies the composition root's closable
+// native-client seam (internal/wire), which lets wire tests assert both native
+// clients are closed.
 type FakeEvaluationClient struct {
-	// Requests captures every EvaluateInstancesRequest received, in call order.
-	Requests []*aiplatformpb.EvaluateInstancesRequest
+	// CallsLog captures every EvaluateInstancesRequest received, in call order.
+	// (Named to match FakeGenaiClient.CallsLog — the R-SMOKE naming nit.)
+	CallsLog []*aiplatformpb.EvaluateInstancesRequest
 	// CallOpts captures the gax.CallOption slice passed to each call, in order.
 	CallOpts [][]gax.CallOption
 
 	// Resp / Err are the sticky fallback returned once the scripted queue drains.
 	Resp *aiplatformpb.EvaluateInstancesResponse
 	Err  error
+
+	// Closed counts Close() invocations (for wire close-path assertions).
+	Closed int
 
 	turns []evalTurn
 }
@@ -73,9 +85,9 @@ func (f *FakeEvaluationClient) PushError(err error) *FakeEvaluationClient {
 }
 
 // EvaluateInstances records the request and returns the next scripted outcome
-// (or the sticky Resp/Err fallback). It satisfies the EvaluationClient seam.
+// (or the sticky Resp/Err fallback). It satisfies the eval.EvaluationClient seam.
 func (f *FakeEvaluationClient) EvaluateInstances(_ context.Context, req *aiplatformpb.EvaluateInstancesRequest, opts ...gax.CallOption) (*aiplatformpb.EvaluateInstancesResponse, error) {
-	f.Requests = append(f.Requests, req)
+	f.CallsLog = append(f.CallsLog, req)
 	f.CallOpts = append(f.CallOpts, opts)
 	if len(f.turns) > 0 {
 		t := f.turns[0]
@@ -85,15 +97,22 @@ func (f *FakeEvaluationClient) EvaluateInstances(_ context.Context, req *aiplatf
 	return f.Resp, f.Err
 }
 
+// Close records the invocation and returns nil. It lets the fake satisfy the
+// closable-client seam the composition root (internal/wire) closes on shutdown.
+func (f *FakeEvaluationClient) Close() error {
+	f.Closed++
+	return nil
+}
+
 // Calls returns the number of EvaluateInstances calls received.
-func (f *FakeEvaluationClient) Calls() int { return len(f.Requests) }
+func (f *FakeEvaluationClient) Calls() int { return len(f.CallsLog) }
 
 // LastRequest returns the most recent request received, or nil if none.
 func (f *FakeEvaluationClient) LastRequest() *aiplatformpb.EvaluateInstancesRequest {
-	if len(f.Requests) == 0 {
+	if len(f.CallsLog) == 0 {
 		return nil
 	}
-	return f.Requests[len(f.Requests)-1]
+	return f.CallsLog[len(f.CallsLog)-1]
 }
 
 // NewPointwiseResponse builds an EvaluateInstancesResponse carrying a pointwise
@@ -139,18 +158,17 @@ type genaiTurn struct {
 	err  error
 }
 
-// FakeGenaiClient is a scriptable, network-free GenaiClient. It records every
-// call and returns scripted outcomes, so the genai structured-output path
+// FakeGenaiClient is a scriptable, network-free eval.GenaiClient. It records
+// every call and returns scripted outcomes, so the genai structured-output path
 // (custom_schema and rubric-detail), its JSON parsing, token-usage capture and
 // retry/backoff behavior are testable without credentials.
 //
 // Outcome selection mirrors FakeEvaluationClient: scripted turns are consumed in
 // order (one per call), then the sticky Resp / Err are returned. Scripting a
 // RESOURCE_EXHAUSTED error (see NewResourceExhausted) before a success drives the
-// engine's retry loop; pair it with the fastRetry Engine option to keep the
-// backoff instant.
+// engine's retry loop.
 type FakeGenaiClient struct {
-	// Calls captures every GenerateContent invocation's arguments, in order.
+	// CallsLog captures every GenerateContent invocation's arguments, in order.
 	CallsLog []GenaiCall
 
 	// Resp / Err are the sticky fallback returned once the scripted queue drains.
@@ -181,7 +199,7 @@ func (f *FakeGenaiClient) PushError(err error) *FakeGenaiClient {
 }
 
 // GenerateContent records the call and returns the next scripted outcome (or the
-// sticky Resp/Err fallback). It satisfies the GenaiClient seam.
+// sticky Resp/Err fallback). It satisfies the eval.GenaiClient seam.
 func (f *FakeGenaiClient) GenerateContent(_ context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
 	f.CallsLog = append(f.CallsLog, GenaiCall{Model: model, Contents: contents, Config: config})
 	if len(f.turns) > 0 {

@@ -23,6 +23,7 @@ import (
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 
+	"github.com/ghchinoy/mizan/internal/eval/evaltest"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -45,7 +46,7 @@ func nativeKinds() []nativeKind {
 			name: "pointwise",
 			tmpl: func(m string) registry.MetricTemplate { t := pointwiseTemplate(); t.AutoraterModel = m; return t },
 			inst: helpfulnessInstance(),
-			resp: func() *aiplatformpb.EvaluateInstancesResponse { return NewPointwiseResponse(5, "great") },
+			resp: func() *aiplatformpb.EvaluateInstancesResponse { return evaltest.NewPointwiseResponse(5, "great") },
 			verify: func(t *testing.T, res Result) {
 				t.Helper()
 				if res.Score == nil || *res.Score != 5 {
@@ -58,7 +59,7 @@ func nativeKinds() []nativeKind {
 			tmpl: func(m string) registry.MetricTemplate { t := rubricTemplate(); t.AutoraterModel = m; return t },
 			inst: rubricInstance(),
 			// The native rubric path reuses the pointwise result shape (score/explanation).
-			resp: func() *aiplatformpb.EvaluateInstancesResponse { return NewPointwiseResponse(3, "on brand") },
+			resp: func() *aiplatformpb.EvaluateInstancesResponse { return evaltest.NewPointwiseResponse(3, "on brand") },
 			verify: func(t *testing.T, res Result) {
 				t.Helper()
 				if res.Score == nil || *res.Score != 3 {
@@ -71,7 +72,7 @@ func nativeKinds() []nativeKind {
 			tmpl: func(m string) registry.MetricTemplate { t := pairwiseTemplate(); t.AutoraterModel = m; return t },
 			inst: pairwiseInstance(),
 			resp: func() *aiplatformpb.EvaluateInstancesResponse {
-				return NewPairwiseResponse(aiplatformpb.PairwiseChoice_BASELINE, "A is better")
+				return evaltest.NewPairwiseResponse(aiplatformpb.PairwiseChoice_BASELINE, "A is better")
 			},
 			verify: func(t *testing.T, res Result) {
 				t.Helper()
@@ -90,8 +91,8 @@ func TestRoute_AllNativeKinds_FastPathRoutesGlobal(t *testing.T) {
 	for _, k := range nativeKinds() {
 		k := k
 		t.Run(k.name, func(t *testing.T) {
-			regional := &FakeEvaluationClient{}
-			global := (&FakeEvaluationClient{}).PushResponse(k.resp())
+			regional := &evaltest.FakeEvaluationClient{}
+			global := (&evaltest.FakeEvaluationClient{}).PushResponse(k.resp())
 			eng := newRoutingEngine("us-central1", regional, global)
 
 			res, err := eng.Run(context.Background(), k.tmpl("gemini-3.5-flash"), k.inst)
@@ -124,9 +125,9 @@ func TestRoute_AllNativeKinds_SelfCorrectingRetry(t *testing.T) {
 	for _, k := range nativeKinds() {
 		k := k
 		t.Run(k.name, func(t *testing.T) {
-			regional := (&FakeEvaluationClient{}).PushError(
+			regional := (&evaltest.FakeEvaluationClient{}).PushError(
 				autoraterNotFound("projects/my-project/locations/us-central1/publishers/google/models/gemini-4.0-preview"))
-			global := (&FakeEvaluationClient{}).PushResponse(k.resp())
+			global := (&evaltest.FakeEvaluationClient{}).PushResponse(k.resp())
 			eng := newRoutingEngine("us-central1", regional, global)
 
 			// gemini-4.0-preview: global-only but NOT in the prefix table -> retry path.
@@ -157,9 +158,9 @@ func TestRoute_AllNativeKinds_SelfCorrectingRetry(t *testing.T) {
 // routing seam (the regional/global fakes) is NEVER touched. This is why the
 // native regional->global fast-path/retry does not — and must not — apply to it.
 func TestRoute_CustomSchema_IsGlobalByDesign_GenaiPath(t *testing.T) {
-	regional := &FakeEvaluationClient{}
-	global := &FakeEvaluationClient{}
-	genai := (&FakeGenaiClient{}).PushJSON(
+	regional := &evaltest.FakeEvaluationClient{}
+	global := &evaltest.FakeEvaluationClient{}
+	genai := (&evaltest.FakeGenaiClient{}).PushJSON(
 		`{"overall_score":8.5,"compliant":true,"flagged_issues":[],"explanation":"On brand."}`, nil)
 	eng := NewEngine(regional, "my-project", "us-central1",
 		WithGlobalClient(global),
@@ -193,7 +194,7 @@ func TestRoute_CustomSchema_IsGlobalByDesign_GenaiPath(t *testing.T) {
 
 // newRoutingEngineCapture is newRoutingEngine but returns the notice writer so a
 // test can assert the forced-global notice deterministically.
-func newRoutingEngineCapture(location string, regional, global *FakeEvaluationClient) (*Engine, *strings.Builder) {
+func newRoutingEngineCapture(location string, regional, global *evaltest.FakeEvaluationClient) (*Engine, *strings.Builder) {
 	var w strings.Builder
 	eng := NewEngine(regional, "my-project", location,
 		WithGlobalClient(global),
@@ -206,8 +207,8 @@ func newRoutingEngineCapture(location string, regional, global *FakeEvaluationCl
 // the prefix fast-path route, naming the model, the "known global-only judge"
 // reason, and location=global.
 func TestNotice_FastPath_EmittedToWriter(t *testing.T) {
-	regional := &FakeEvaluationClient{}
-	global := (&FakeEvaluationClient{}).PushResponse(NewPointwiseResponse(5, "x"))
+	regional := &evaltest.FakeEvaluationClient{}
+	global := (&evaltest.FakeEvaluationClient{}).PushResponse(evaltest.NewPointwiseResponse(5, "x"))
 	eng, w := newRoutingEngineCapture("us-central1", regional, global)
 
 	if _, err := eng.Run(context.Background(), globalOnlyTemplate(), helpfulnessInstance()); err != nil {
@@ -226,9 +227,9 @@ func TestNotice_FastPath_EmittedToWriter(t *testing.T) {
 // retry also fires for a typo'd/unresolvable regional model) — it describes the
 // ACTION: not found in the configured location, retrying on the global host.
 func TestNotice_Retry_EmittedToWriter(t *testing.T) {
-	regional := (&FakeEvaluationClient{}).PushError(
+	regional := (&evaltest.FakeEvaluationClient{}).PushError(
 		autoraterNotFound("projects/my-project/locations/us-central1/publishers/google/models/gemini-4.0-preview"))
-	global := (&FakeEvaluationClient{}).PushResponse(NewPointwiseResponse(3, "recovered"))
+	global := (&evaltest.FakeEvaluationClient{}).PushResponse(evaltest.NewPointwiseResponse(3, "recovered"))
 	eng, w := newRoutingEngineCapture("us-central1", regional, global)
 
 	tmpl := pointwiseTemplate()
@@ -251,8 +252,8 @@ func TestNotice_Retry_EmittedToWriter(t *testing.T) {
 // 7c. surfacing (negative): a regional (non-global-only) judge emits NO
 // forced-global notice — the writer stays empty.
 func TestNotice_RegionalJudge_NoNotice(t *testing.T) {
-	regional := (&FakeEvaluationClient{}).PushResponse(NewPointwiseResponse(4, "ok"))
-	global := &FakeEvaluationClient{}
+	regional := (&evaltest.FakeEvaluationClient{}).PushResponse(evaltest.NewPointwiseResponse(4, "ok"))
+	global := &evaltest.FakeEvaluationClient{}
 	eng, w := newRoutingEngineCapture("us-central1", regional, global)
 
 	if _, err := eng.Run(context.Background(), pointwiseTemplate(), helpfulnessInstance()); err != nil {

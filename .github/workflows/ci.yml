@@ -69,6 +69,22 @@ jobs:
           echo "Total coverage:"
           go tool cover -func=coverage.out | tail -1
 
+      - name: Coverage floor (soft, NON-BLOCKING)
+        run: |
+          # A soft nudge, NOT a gate: warn (never fail) when total coverage dips
+          # below the floor. Reuses coverage.out from the step above — no second
+          # test run. The floor is tuned a little BELOW current reality (R-GAPS
+          # measured ~78.5%) so it is a real signal with headroom, not an
+          # unmeetable bar; raise it deliberately as coverage grows.
+          FLOOR=75.0
+          TOTAL=$(go tool cover -func=coverage.out | awk '/^total:/ {print $3}' | tr -d '%')
+          echo "Total coverage: ${TOTAL}% (soft floor: ${FLOOR}%)"
+          if awk -v t="$TOTAL" -v f="$FLOOR" 'BEGIN { exit !(t < f) }'; then
+            echo "::warning::Total coverage ${TOTAL}% is below the soft floor ${FLOOR}% (non-blocking)."
+          else
+            echo "Coverage ${TOTAL}% is at or above the soft floor ${FLOOR}%."
+          fi
+
   lint:
     name: golangci-lint
     runs-on: ubuntu-latest

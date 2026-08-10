@@ -1,0 +1,10 @@
+ID:                    google-brand/ad-copy
+Name:                  Ad Copy Quality
+Kind:                  rubric
+Modalities:            text
+Model:                 gemini-2.5-flash
+SamplingCount:         4
+Description:           Judges ad copy against brand rubric
+Prompt:                Evaluate the ad copy: {{response}} …
+RubricGroup[clarity]:  The message is unambiguous
+RubricGroup[tone]:     Matches a professional brand voice; Avoids slang

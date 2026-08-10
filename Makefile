@@ -31,7 +31,10 @@ LDFLAGS        := -X $(VERSION_PKG).version=$(VERSION) \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build install desktop test integration-test vet fmt fmt-check lint vuln clean
+.PHONY: help build install desktop test integration-test cover vet fmt fmt-check lint vuln clean
+
+# COVER_PROFILE is the coverage output file; override to relocate it.
+COVER_PROFILE  ?= coverage.out
 
 help: ## list available targets (default)
 	@echo "Mizan — available make targets:"
@@ -57,6 +60,14 @@ test: ## Run unit tests (go test ./...)
 # MIZAN_PROJECT_ID, otherwise the integration-tagged tests skip themselves.
 integration-test: ## Run integration-tagged tests (needs PROJECT_ID/MIZAN_PROJECT_ID)
 	$(GO) test -tags integration ./...
+
+# cover: single CGO-free test run with a coverage profile, then print the total.
+# This is the same one-run measurement CI uses (go test -coverprofile ./...); it
+# does NOT gate — the soft coverage floor lives in CI as a non-blocking warning.
+cover: ## Run tests with coverage and print the total (writes $(COVER_PROFILE))
+	CGO_ENABLED=0 $(GO) test -coverprofile=$(COVER_PROFILE) ./...
+	@echo "Total coverage:"
+	@$(GO) tool cover -func=$(COVER_PROFILE) | tail -1
 
 vet: ## Run go vet ./...
 	$(GO) vet ./...

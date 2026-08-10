@@ -2,7 +2,7 @@ package eval
 
 // smoke_test.go is the creds-free, end-to-end engine smoke (R-SMOKE). It drives
 // Engine.Run for EVERY metric kind through the two narrow client seams — using
-// the reusable FakeEvaluationClient / FakeGenaiClient (fakeclient_test.go) so no
+// the reusable evaltest.FakeEvaluationClient / evaltest.FakeGenaiClient (internal/eval/evaltest) so no
 // GCP credentials, network, or live clients are involved — and asserts the mapped
 // Result for each. The renderer half (that each of these Results renders through
 // the actual CLI renderers without error) lives in cmd/mizan/smoke_test.go, since
@@ -19,6 +19,7 @@ import (
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
 
+	"github.com/ghchinoy/mizan/internal/eval/evaltest"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -30,8 +31,8 @@ const (
 // TestSmokePointwiseNative drives the native pointwise path end-to-end and
 // asserts the {score, explanation} mapping.
 func TestSmokePointwiseNative(t *testing.T) {
-	fc := &FakeEvaluationClient{}
-	fc.PushResponse(NewPointwiseResponse(4.5, "Clear and correct."))
+	fc := &evaltest.FakeEvaluationClient{}
+	fc.PushResponse(evaltest.NewPointwiseResponse(4.5, "Clear and correct."))
 	eng := NewEngine(fc, smokeProject, smokeLocation)
 
 	res, err := eng.Run(context.Background(), pointwiseTemplate(), Instance{
@@ -60,8 +61,8 @@ func TestSmokePointwiseNative(t *testing.T) {
 // TestSmokeRubricNative drives the native rubric path (no --rubric-detail) and
 // asserts it maps to {score, explanation} via the same native seam as pointwise.
 func TestSmokeRubricNative(t *testing.T) {
-	fc := &FakeEvaluationClient{}
-	fc.PushResponse(NewPointwiseResponse(3.0, "Clear but slightly informal."))
+	fc := &evaltest.FakeEvaluationClient{}
+	fc.PushResponse(evaltest.NewPointwiseResponse(3.0, "Clear but slightly informal."))
 	eng := NewEngine(fc, smokeProject, smokeLocation)
 
 	res, err := eng.Run(context.Background(), rubricTemplate(), Instance{
@@ -103,9 +104,9 @@ func TestSmokeRubricDetailGenai(t *testing.T) {
 		"overall_score": 9,
 		"explanation": "Strong overall."
 	}`
-	fg := &FakeGenaiClient{}
+	fg := &evaltest.FakeGenaiClient{}
 	fg.PushJSON(judgeJSON, nil)
-	eng := NewEngine(&FakeEvaluationClient{}, smokeProject, smokeLocation, WithGenaiClient(fg))
+	eng := NewEngine(&evaltest.FakeEvaluationClient{}, smokeProject, smokeLocation, WithGenaiClient(fg))
 
 	res, err := eng.Run(context.Background(), rubricTemplate(), Instance{
 		Fields: map[string]AssetRef{
@@ -153,12 +154,12 @@ func TestSmokeRubricDetailGenai(t *testing.T) {
 // JSON output is parsed into CustomOutput, RawOutput is set, and token usage is
 // captured into Stats (genai-only).
 func TestSmokeCustomSchemaGenai(t *testing.T) {
-	fg := &FakeGenaiClient{}
+	fg := &evaltest.FakeGenaiClient{}
 	fg.PushJSON(
 		`{"overall_score":8.5,"compliant":true,"flagged_issues":[],"explanation":"On brand."}`,
-		NewTokenUsage(120, 34, 154),
+		evaltest.NewTokenUsage(120, 34, 154),
 	)
-	eng := NewEngine(&FakeEvaluationClient{}, smokeProject, smokeLocation, WithGenaiClient(fg))
+	eng := NewEngine(&evaltest.FakeEvaluationClient{}, smokeProject, smokeLocation, WithGenaiClient(fg))
 
 	res, err := eng.Run(context.Background(), customSchemaTemplate(), Instance{
 		Fields: map[string]AssetRef{
@@ -189,8 +190,8 @@ func TestSmokeCustomSchemaGenai(t *testing.T) {
 // TestSmokePairwiseNative drives the native pairwise path and asserts the choice
 // enum maps to Result.PairwiseChoice.
 func TestSmokePairwiseNative(t *testing.T) {
-	fc := &FakeEvaluationClient{}
-	fc.PushResponse(NewPairwiseResponse(aiplatformpb.PairwiseChoice_CANDIDATE, "Candidate is more helpful."))
+	fc := &evaltest.FakeEvaluationClient{}
+	fc.PushResponse(evaltest.NewPairwiseResponse(aiplatformpb.PairwiseChoice_CANDIDATE, "Candidate is more helpful."))
 	eng := NewEngine(fc, smokeProject, smokeLocation)
 
 	res, err := eng.Run(context.Background(), pairwiseTemplate(), pairwiseInstance())
@@ -213,10 +214,10 @@ func TestSmokePairwiseNative(t *testing.T) {
 // success yields the mapped Result after exactly two calls. This is the seam
 // R-GAPS builds error-path coverage on.
 func TestSmokeGenaiRetryPath(t *testing.T) {
-	fg := &FakeGenaiClient{}
-	fg.PushError(NewResourceExhausted())
+	fg := &evaltest.FakeGenaiClient{}
+	fg.PushError(evaltest.NewResourceExhausted())
 	fg.PushJSON(`{"overall_score":7,"compliant":true,"flagged_issues":[],"explanation":"ok"}`, nil)
-	eng := NewEngine(&FakeEvaluationClient{}, smokeProject, smokeLocation, WithGenaiClient(fg))
+	eng := NewEngine(&evaltest.FakeEvaluationClient{}, smokeProject, smokeLocation, WithGenaiClient(fg))
 	fastRetry(eng) // keep the backoff instant for the scripted 429 → success path
 
 	res, err := eng.Run(context.Background(), customSchemaTemplate(), Instance{

@@ -1,0 +1,38 @@
+{
+  "ID": "google-brand/ad-copy",
+  "Name": "Ad Copy Quality",
+  "Description": "Judges ad copy against brand rubric",
+  "Version": "",
+  "Authors": null,
+  "Maintainers": null,
+  "License": "",
+  "Tags": null,
+  "Kind": "rubric",
+  "Modalities": [
+    "text"
+  ],
+  "Inputs": null,
+  "MetricPromptTemplate": "Evaluate the ad copy: {{response}}\nConsider tone and clarity.",
+  "SystemInstruction": "",
+  "CandidateFieldName": "",
+  "BaselineFieldName": "",
+  "RubricGroups": {
+    "clarity": [
+      "The message is unambiguous"
+    ],
+    "tone": [
+      "Matches a professional brand voice",
+      "Avoids slang"
+    ]
+  },
+  "ResponseSchema": null,
+  "AutoraterModel": "gemini-2.5-flash",
+  "SamplingCount": 4,
+  "FlipEnabled": false,
+  "Source": "",
+  "ContentHash": "",
+  "Dirty": false,
+  "CreatedAt": "0001-01-01T00:00:00Z",
+  "UpdatedAt": "0001-01-01T00:00:00Z",
+  "ImportedAt": "0001-01-01T00:00:00Z"
+}
