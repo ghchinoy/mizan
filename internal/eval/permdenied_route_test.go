@@ -10,6 +10,7 @@ package eval
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -61,6 +62,45 @@ func TestIsAutoraterPermissionDenied(t *testing.T) {
 		{
 			"other code (ResourceExhausted) + marker",
 			status.New(codes.ResourceExhausted, "autorater model quota exceeded for GenerateContent").Err(),
+			false,
+		},
+		// GAP-1: the spec calls out Internal/Unavailable/InvalidArgument by name —
+		// the classifier keys STRICTLY on codes.PermissionDenied, so even when the
+		// autorater/GenerateContent marker is present these transient/other codes
+		// must NOT be misclassified as the actionable permission-denied condition.
+		{
+			"other code (Internal) + marker",
+			status.New(codes.Internal, "internal error handling GenerateContent request to autorater model").Err(),
+			false,
+		},
+		{
+			"other code (Unavailable) + marker",
+			status.New(codes.Unavailable, "autorater model backend temporarily unavailable for GenerateContent").Err(),
+			false,
+		},
+		{
+			"other code (InvalidArgument) + marker",
+			status.New(codes.InvalidArgument, "invalid GenerateContent request to autorater model").Err(),
+			false,
+		},
+		// GAP-2: a wrapped/nested status error must still be classified — the fix
+		// relies on status.FromError, which unwraps via errors.As. A plain non-status
+		// error (no gRPC status anywhere in the chain) must stay false.
+		{
+			"wrapped permission-denied + marker (status.FromError unwrap)",
+			fmt.Errorf("evaluate call failed: %w",
+				autoraterPermissionDenied("projects/p/locations/global/publishers/google/models/gemini-2.5-flash")),
+			true,
+		},
+		{
+			"doubly-wrapped permission-denied + marker (nested unwrap)",
+			fmt.Errorf("outer: %w", fmt.Errorf("inner: %w",
+				status.New(codes.PermissionDenied, "Failed to make GenerateContent request.").Err())),
+			true,
+		},
+		{
+			"plain non-status error (no gRPC status in chain)",
+			fmt.Errorf("autorater model GenerateContent boom"),
 			false,
 		},
 	}
