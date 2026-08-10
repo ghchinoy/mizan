@@ -14,6 +14,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
+	"sort"
+	"strings"
 	"time"
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
@@ -252,6 +255,34 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		return Result{}, fmt.Errorf("eval: --rubric-detail only applies to rubric templates (template %q is kind %q)", tmpl.ID, tmpl.Kind)
 	}
 
+	// Symmetric client-side field validation (FIX-1). The per-kind paths build the
+	// request instance FROM the template's placeholders, not from the supplied
+	// fields, so a field whose key matches no placeholder is silently dropped and
+	// never reaches the judge — producing a confidently-wrong score rather than an
+	// error (the owner's "silent-drop" trap). This check is the reverse of the
+	// existing "instance is missing values for template variables" guard
+	// (content.go): validate here, at the one chokepoint that has both tmpl and
+	// inst, so it covers the native AND genai/custom_schema paths uniformly BEFORE
+	// dispatch.
+	//
+	// An EMPTY metric prompt template is deliberately left to the per-kind path's
+	// own "empty metric prompt template" guard, which is a more precise diagnosis
+	// than "no placeholders"; skipping it here keeps that error's precedence.
+	if tmpl.MetricPromptTemplate != "" {
+		// For pairwise, the structural placeholder-parity check (baseline/candidate
+		// must appear as {{...}} in the prompt) is a more specific and actionable
+		// error than the generic unknown-field message, so run it first when the
+		// field names are set. It is idempotent with runPairwise's own call.
+		if tmpl.Kind == registry.KindPairwise && tmpl.BaselineFieldName != "" && tmpl.CandidateFieldName != "" {
+			if err := validatePairwisePlaceholders(tmpl); err != nil {
+				return Result{}, err
+			}
+		}
+		if err := validateInstanceFields(expectedInstanceFields(tmpl), tmpl, inst); err != nil {
+			return Result{}, err
+		}
+	}
+
 	start := time.Now()
 	res, err := e.dispatch(ctx, tmpl, inst, model, rc)
 	res.Stats.Duration = time.Since(start)
@@ -277,4 +308,129 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 	default:
 		return Result{}, fmt.Errorf("eval: unknown metric kind %q", tmpl.Kind)
 	}
+}
+
+// expectedInstanceFields returns the placeholder key set the given template's
+// per-kind path will read from the instance when building its request. It is the
+// SAME source each path already uses, so validating inst.Fields against it is
+// exact (no false positives):
+//
+//   - pointwise / rubric / custom_schema: extractVars(MetricPromptTemplate) — the
+//     rubric and rubric-detail paths append instruction blocks that carry no
+//     placeholders, and renderGenaiPrompt runs varPattern over the same template.
+//   - pairwise: pairwiseKeys(tmpl) — the baseline/candidate field names plus any
+//     extra {{var}} placeholders in the prompt.
+func expectedInstanceFields(tmpl registry.MetricTemplate) []string {
+	if tmpl.Kind == registry.KindPairwise {
+		return pairwiseKeys(tmpl)
+	}
+	return extractVars(tmpl.MetricPromptTemplate)
+}
+
+// validateInstanceFields fails LOUD, client-side, when a supplied instance field
+// would never reach the judge. It is symmetric with the existing forward check
+// ("instance is missing values for template variables", content.go): that guards
+// a placeholder with no value; this guards a value with no placeholder.
+//
+// It returns an error when:
+//
+//	(a) inst.Fields carries a key that matches NO expected placeholder — the
+//	    value would be silently dropped from the request (case D, and the owner's
+//	    case A once the empty-expected branch below is factored out), or
+//	(b) the template references no {{placeholders}} at all yet fields were
+//	    supplied — the values cannot reach the judge; the template is almost
+//	    certainly mis-authored (missing a {{...}} placeholder). This is the exact
+//	    silent-drop that returned a confidently-wrong score for the owner.
+//
+// LIMITATION / follow-up: this guard is invoked from a single chokepoint,
+// Engine.Run (before dispatch). Every current eval path funnels through Run, so
+// the guard is comprehensive today. Any FUTURE code path that reaches a per-kind
+// runner (runPointwise/runRubric/runRubricStructured/runCustomSchema/runPairwise)
+// WITHOUT going through Run — e.g. a batch or streaming entry point added later —
+// MUST call validateInstanceFields itself, or it will reintroduce the silent-drop
+// defect. If a second caller appears, prefer lifting this into a shared
+// pre-dispatch step rather than duplicating the call.
+func validateInstanceFields(expected []string, tmpl registry.MetricTemplate, inst Instance) error {
+	// (b) No placeholders but fields supplied: the strongest signal of a
+	// mis-authored template. Reported first so the message points at the template,
+	// not at an individual "unknown" key.
+	if len(expected) == 0 {
+		if len(inst.Fields) == 0 {
+			return nil
+		}
+		msg := fmt.Sprintf("eval: template %q references no {{placeholders}} but %d field(s) were supplied (%v); the value(s) will NOT reach the judge", tmpl.ID, len(inst.Fields), fieldKeys(inst))
+		// Targeted hint for the common single-brace mistake: the template DOES
+		// carry {word} tokens, but Mizan only recognizes double-brace {{word}}
+		// (extractVars/varPattern), so extractVars found nothing. Point the author
+		// at the exact tokens to fix. Names/placeholders only — never field values.
+		if sb := singleBraceVars(tmpl.MetricPromptTemplate); len(sb) > 0 {
+			singles := make([]string, len(sb))
+			doubles := make([]string, len(sb))
+			for i, name := range sb {
+				singles[i] = "{" + name + "}"
+				doubles[i] = "{{" + name + "}}"
+			}
+			return fmt.Errorf("%s; found single-brace %s which is NOT a placeholder — placeholders must be double-brace: use %s", msg, strings.Join(singles, ", "), strings.Join(doubles, ", "))
+		}
+		return fmt.Errorf("%s — add a {{...}} placeholder to the template (e.g. {{response}}) or check the template id", msg)
+	}
+
+	// (a) Fields present but not referenced by any placeholder.
+	expectedSet := make(map[string]bool, len(expected))
+	for _, k := range expected {
+		expectedSet[k] = true
+	}
+	var unknown []string
+	for k := range inst.Fields {
+		if !expectedSet[k] {
+			unknown = append(unknown, k)
+		}
+	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return fmt.Errorf("eval: unknown instance field(s) %v for template %q; it references placeholders %v — a field that matches no placeholder is silently dropped and never reaches the judge (check for a typo, or add the placeholder to the template)", unknown, tmpl.ID, expected)
+	}
+	return nil
+}
+
+// singleBracePattern matches a single-brace {name} token, e.g. {response}. It
+// mirrors varPattern (content.go) but with ONE brace on each side; it exists
+// only to power a targeted hint, never to substitute values.
+var singleBracePattern = regexp.MustCompile(`\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}`)
+
+// singleBraceVars returns the unique single-brace {name} tokens in s, in
+// first-seen order, EXCLUDING any that are actually part of a double-brace
+// {{name}} token (which is a real placeholder). It is used to detect the common
+// authoring mistake of writing {var} instead of {{var}}.
+func singleBraceVars(s string) []string {
+	var out []string
+	seen := make(map[string]bool)
+	for _, loc := range singleBracePattern.FindAllStringSubmatchIndex(s, -1) {
+		start, end := loc[0], loc[1]
+		// Adjacent brace on either side ⇒ this is part of a {{...}} token, not a
+		// single-brace mistake; skip it.
+		if start > 0 && s[start-1] == '{' {
+			continue
+		}
+		if end < len(s) && s[end] == '}' {
+			continue
+		}
+		name := s[loc[2]:loc[3]]
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// fieldKeys returns the instance's field names in sorted order for stable,
+// human-readable error messages.
+func fieldKeys(inst Instance) []string {
+	keys := make([]string, 0, len(inst.Fields))
+	for k := range inst.Fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
