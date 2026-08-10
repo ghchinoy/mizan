@@ -128,9 +128,20 @@ Description:    Scores how concise a response is
 Prompt:         Rate how concise this response is from 0 (verbose) to 1 (concise). Response: {{response}}
 ```
 
-Prompt templates use double-brace `{{var}}` placeholders. Every placeholder in
-the prompt must be supplied as a `--field` when you run the metric (see
-below), or the run fails before it ever calls the API.
+Prompt templates use double-brace `{{var}}` placeholders. The check runs in
+**both directions** before any API call, so a mis-authored template or a stray
+`--field` fails fast with a clear error instead of silently producing a wrong
+score:
+
+- Every placeholder in the prompt must be supplied as a `--field` when you run
+  the metric (see below) — a missing value fails the run.
+- Conversely, every `--field` you supply must match a placeholder. A `--field`
+  whose key matches no `{{placeholder}}` (for example a typo, or an extra key)
+  is rejected — otherwise its value would be silently dropped and never reach
+  the judge. Likewise, running a template that contains **no** `{{placeholder}}`
+  at all while supplying `--field` values is an error: the values cannot reach
+  the judge, so Mizan tells you to add a `{{...}}` placeholder (single-brace
+  `{var}` is **not** recognized — use `{{var}}`).
 
 `--kind` accepts `pointwise`, `pairwise`, `rubric`, or `custom_schema`, and
 all four are runnable end-to-end today. Two kinds need extra authoring flags,
@@ -338,6 +349,23 @@ without one.)
 **`Error: eval: instance is missing values for template variables [...]`**
 Your prompt template has a `{{var}}` placeholder with no matching `--field
 var=value` on the command line. Add the missing `--field`.
+
+**`Error: eval: unknown instance field(s) [...] for template "<id>"; it
+references placeholders [...]`**
+The reverse of the above: you supplied a `--field` whose key matches no
+`{{placeholder}}` in the template — usually a typo (`--field respons=...` for a
+`{{response}}` placeholder) or an extra key. Such a field would be silently
+dropped and never reach the judge, so Mizan rejects it. Fix the field name to
+match a placeholder, or add the placeholder to the prompt.
+
+**`Error: eval: template "<id>" references no {{placeholders}} but N field(s)
+were supplied [...]; the value(s) will NOT reach the judge`**
+The template's prompt has no `{{...}}` placeholders at all, yet you passed
+`--field` values. Because substitution is placeholder-driven, those values
+cannot reach the judge — which previously yielded a confidently-wrong score
+against an empty input. Add a `{{...}}` placeholder to the prompt (for example
+`Response: {{response}}`), or check that you referenced the right template.
+Note that single-brace `{var}` is not recognized — use double braces `{{var}}`.
 
 **`Error: kind "rubric" requires rubric groups; pass --rubric-group
 "name=crit1;crit2" (repeatable) or --rubric-groups-file <path>`**
