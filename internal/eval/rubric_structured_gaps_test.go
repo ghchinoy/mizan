@@ -2,7 +2,9 @@ package eval
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -14,16 +16,50 @@ import (
 // empty/whitespace rationale. All run on the fake GenaiClient seam (no network).
 
 // runRubricDetail is a tiny helper: drive the rubric-detail path with a canned
-// judge JSON body on the given [min,max] scale and return the Result.
+// judge JSON body on the given [min,max] scale and return the Result. So these
+// clamp/coercion gap tests stay orthogonal to R-R2 reconciliation, the authored
+// RubricGroups are derived to EXACTLY match the (group, criterion) pairs in the
+// canned response (the happy path), leaving reconciliation a no-op here.
 func runRubricDetail(t *testing.T, respJSON string, min, max int) Result {
 	t.Helper()
 	fg := &fakeGenai{respText: respJSON}
 	eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
-	res, err := eng.Run(context.Background(), rubricTemplate(), rubricInstance(), WithRubricDetail(min, max))
+	tmpl := rubricTemplate()
+	tmpl.RubricGroups = groupsFromResponse(t, respJSON)
+	res, err := eng.Run(context.Background(), tmpl, rubricInstance(), WithRubricDetail(min, max))
 	if err != nil {
 		t.Fatalf("Run(scale %d-%d): %v", min, max, err)
 	}
 	return res
+}
+
+// groupsFromResponse extracts the authored RubricGroups implied by a canned judge
+// response: every (group, criterion) pair in per_criterion, deduped, preserving
+// first-seen order within each group. This keeps the clamp/coercion gap tests on
+// the reconciliation happy path regardless of the placeholder criterion strings
+// they use.
+func groupsFromResponse(t *testing.T, respJSON string) map[string][]string {
+	t.Helper()
+	var body struct {
+		PerCriterion []struct {
+			Group     string `json:"group"`
+			Criterion string `json:"criterion"`
+		} `json:"per_criterion"`
+	}
+	if err := json.Unmarshal([]byte(respJSON), &body); err != nil {
+		t.Fatalf("groupsFromResponse: %v", err)
+	}
+	groups := make(map[string][]string)
+	seen := make(map[[2]string]bool)
+	for _, e := range body.PerCriterion {
+		key := [2]string{e.Group, e.Criterion}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		groups[e.Group] = append(groups[e.Group], e.Criterion)
+	}
+	return groups
 }
 
 // pcScores extracts the per_criterion "score" values as a slice for comparison.
@@ -183,11 +219,14 @@ func TestRunRubricStructuredPreservesUnknownFields(t *testing.T) {
 	}
 }
 
-// TestRunRubricStructuredDuplicateCriteria locks the current behavior: the path
-// trusts the judge's list and does NOT deduplicate — two entries for the same
-// group+criterion both survive (each still independently clamped). If dedup is
-// ever desired this test documents that it is not happening today.
+// TestRunRubricStructuredDuplicateCriteria locks the R-R2 behavior: the judge
+// returning the SAME authored (group, criterion) pair more than once is a HARD
+// ERROR (duplicates corrupt the scorecard), superseding the earlier
+// trust-the-list-and-keep-both behavior. The template authors "dup" once; the
+// response returns it twice.
 func TestRunRubricStructuredDuplicateCriteria(t *testing.T) {
+	tmpl := rubricTemplate()
+	tmpl.RubricGroups = map[string][]string{"clarity": {"dup"}}
 	resp := `{
 		"per_criterion": [
 			{"group":"clarity","criterion":"dup","score":2,"rationale":"first"},
@@ -196,14 +235,16 @@ func TestRunRubricStructuredDuplicateCriteria(t *testing.T) {
 		"overall_score": 3,
 		"explanation": "dupes"
 	}`
-	res := runRubricDetail(t, resp, 1, 5)
-
-	pc := res.CustomOutput["per_criterion"].([]any)
-	if len(pc) != 2 {
-		t.Fatalf("duplicate criteria collapsed: got %d entries, want 2", len(pc))
+	fg := &fakeGenai{respText: resp}
+	eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
+	_, err := eng.Run(context.Background(), tmpl, rubricInstance(), WithRubricDetail(1, 5))
+	if err == nil {
+		t.Fatal("expected hard error for a duplicated authored criterion, got nil")
 	}
-	if got := pcScores(t, res); !reflect.DeepEqual(got, []any{2, 5}) {
-		t.Errorf("duplicate scores = %v, want [2 5] (each clamped independently)", got)
+	for _, want := range []string{"eval:", "duplicat", "dup"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q missing %q", err.Error(), want)
+		}
 	}
 }
 

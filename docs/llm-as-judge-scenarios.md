@@ -272,10 +272,15 @@ authored criterion with its score and rationale.
   kind fails with a crisp local error.
 - Scale bounds must be **non-negative** integers with `min < max` (`"1-5"`,
   `"0-10"`); negative bounds are intentionally unsupported.
-- The judge's returned criteria are **not** currently reconciled against your
-  authored set — a missing, extra, or duplicated criterion passes through as
-  returned. Strict reconciliation is a tracked follow-up (backlog item "R2"),
-  not yet shipped.
+- The judge's returned criteria are **strictly reconciled** against your authored
+  set, matched by the exact **(group, criterion)** pair (R-R2):
+  - a **missing** authored criterion (authored but not returned) is a **hard
+    error** naming the missing pair(s) — a partial scorecard is never surfaced;
+  - a **duplicated** authored criterion (the same pair returned more than once) is
+    a **hard error** naming the duplicated pair(s);
+  - an **extra** criterion (returned but not authored) is **kept in the output**
+    and reported as a **warning on stderr** (extras are informative, not
+    corrupting) — it does not fail the run.
 
 ---
 
@@ -507,10 +512,6 @@ These are **not implemented** — do not expect them to work today. See
 - **Template packs / registry import & export** — sharing and versioning
   templates via `mizan pack` and `mizan registry import`/`export`. Not wired.
   *Roadmap phase P2.*
-- **Strict per-criterion reconciliation** for `--rubric-detail` — validating the
-  judge's returned criteria against your authored set (error-or-fill on
-  missing/extra/duplicate) rather than passing them through. Tracked follow-up
-  ("R2"), not scheduled.
 - **Pairwise explicit flip opt-out** — honoring `--flip-enabled=false` (needs a
   tri-state registry field). *P2 registry change.*
 - **Desktop app** — the Wails GUI is design-stage scaffolding only. *Roadmap
