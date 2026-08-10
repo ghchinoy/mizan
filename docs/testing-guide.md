@@ -4,36 +4,30 @@ This guide is for **exercising each built capability with real, copy-pasteable
 commands** — it's a hands-on companion, not a replacement for the narrative
 docs. For conceptual/narrative detail (what a flag means, how config
 resolution works, full CRUD walkthroughs), see
-[`docs/user-guide.md`](user-guide.md). For phase-by-phase roadmap detail and
-work-item IDs (`WI-P1-*`), see
-[`docs/implementation-plan.md`](implementation-plan.md).
-
-This guide now also covers **Phase R** (PRs #19–#26, all merged to `main`): the
-`mizan version` command and release/tag workflow (R-RELEASE), strict
-per-criterion rubric reconciliation (R-R2), global-only judge auto-routing
-(R-GLOBAL), and the CI/lint/coverage tooling (R-CI, R-LINT, R-GAPS, R-SMOKE).
-The conceptual narrative for these already lives in
 [`docs/user-guide.md`](user-guide.md) and
-[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md) — this guide adds
-the hands-on manual checks and cross-references, rather than duplicating, that
-narrative.
+[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md).
 
-The Phase-1 metric-kind recipes below (pointwise, rubric, custom_schema,
-pairwise, multimodal) were run live against a binary built from `main`, with
-output captured in the pass noted per section; Phase 1 is complete — all four
-metric kinds and multimodal (image/audio/video/music) are implemented and
-CLI-runnable end-to-end. Scores and explanations are live autorater output and
-are expected to vary run-to-run.
+The guide covers the CLI's capabilities with copy-pasteable checks: the four
+metric kinds (pointwise, rubric, custom_schema, pairwise), multimodal
+(image/audio/video/music), the `mizan version` command, per-criterion rubric
+detail with strict reconciliation, and global-only judge auto-routing. Scores
+and explanations are live autorater output and are expected to vary
+run-to-run.
 
-**Honesty note on this Phase-R pass.** Not every recipe below was re-run against
-live Vertex in this pass, and each says which it is: the `mizan version` section
-and the `make` targets under "Dev & CI setup" **were** run against the built
-`./bin/mizan` this pass (output captured verbatim); the two Vertex-hitting
-Phase-R recipes — per-criterion rubric reconciliation and global-only
-auto-routing — require ADC and a project and were **not** executed against live
-Vertex here. Their expected output is transcribed from the shipped source and
-the design docs, and each is marked **ADC-required** inline. Nothing here
-implies a live Vertex run that did not happen.
+The metric-kind recipes below (pointwise, rubric, custom_schema, pairwise,
+multimodal) were run live against a binary built from `main`, with output
+captured verbatim — all four metric kinds and multimodal are CLI-runnable
+end-to-end.
+
+**How these checks were verified.** Not every recipe below was run against live
+Vertex, and each says which it is: the `mizan version` section and the `make`
+targets under "Dev & CI setup" **were** run against the built `./bin/mizan`
+(output captured verbatim); the two Vertex-hitting recipes — per-criterion
+rubric reconciliation and global-only auto-routing — require ADC and a project
+and were **not** executed against live Vertex. Their expected output is
+transcribed from the shipped source and the design docs, and each is marked
+**ADC-required** inline. Nothing here implies a live Vertex run that did not
+happen.
 
 ## Minimal setup
 
@@ -58,7 +52,7 @@ location, the custom-endpoint safeguard, etc.) — it isn't repeated here.
 ## Version and build metadata
 
 `mizan version` is a pure-local check — it needs **no** project and **no** ADC,
-so it is the one Phase-R recipe you can run anywhere. It prints the version, git
+so it is the one recipe you can run anywhere. It prints the version, git
 commit, and build date, and honors the global `-o/--output json|table` flag
 (default is a plain one-line form; `table` prints that same plain line, `json`
 an object). The three values are injected at build time via `-ldflags`; for the
@@ -183,15 +177,14 @@ The native rubric path is implemented in `internal/eval/native.go`
 (`runRubric`, which renders the inline rubric criteria as text into the same
 `PointwiseMetricSpec`/`EvaluateInstances` judge-prompt mechanism `pointwise`
 uses, via `renderRubricGroups` — the synchronous API has no
-`LLMBasedMetricSpec`/structured `rubric_groups` field to pass them as), and is
-now fully CLI-authorable as of PR #11 (`WI-P1-6`): `registry create`/`update`
-take a repeatable `--rubric-group "name=criterion one;criterion two"` flag, or
+`LLMBasedMetricSpec`/structured `rubric_groups` field to pass them as). Rubric
+templates are CLI-authorable via `registry create`/`update`: pass a repeatable
+`--rubric-group "name=criterion one;criterion two"` flag, or
 `--rubric-groups-file <path>` pointing at a JSON object of
 `{"group": ["crit1", "crit2"], ...}`.
 
-Creating a rubric template with **no** rubric flag now fails immediately at
-create time (this is new, better UX from PR #11 — previously it saved and
-only failed at `eval run`):
+Creating a rubric template with **no** rubric flag fails immediately at create
+time:
 
 ```sh
 $ mizan registry create --id demo/rubric-nogroup --name "no group" --kind rubric \
@@ -226,11 +219,10 @@ run to run — the `Score`/`Explanation` shape is what's guaranteed.)
 
 ## Custom schema
 
-Same underlying path as rubric for CLI-authoring status: the engine
+Same underlying path as rubric for CLI-authoring: the engine
 (`internal/eval/custom.go`'s `runCustomSchema`, calling
-`genai.GenerateContent` with a `ResponseSchema` and exponential backoff) has
-been implemented and integration-tested since PR #6, and PR #11 added the
-CLI-authoring flags: `--response-schema '<json>'` (inline) or
+`genai.GenerateContent` with a `ResponseSchema` and exponential backoff) is
+authored with `--response-schema '<json>'` (inline) or
 `--response-schema-file <path>` pointing at a JSON-Schema object.
 
 Same create-time validation as rubric — no schema flag fails immediately:
@@ -347,9 +339,8 @@ result instead, one line per property in your `ResponseSchema`.
 
 ## Pairwise
 
-Pairwise now has a full native engine path (`internal/eval/pairwise.go`) and
-a dedicated `mizan eval pairwise` CLI command (added in PR #9), confirmed via
-`--help`:
+Pairwise has a full native engine path (`internal/eval/pairwise.go`) and
+a dedicated `mizan eval pairwise` CLI command, confirmed via `--help`:
 
 ```
 mizan eval pairwise --metric <id> --baseline key=… --candidate key=… [--field/--file/--gcs …]
@@ -409,18 +400,17 @@ $ mizan eval pairwise --metric demo/pairwise-badprompt \
 Error: eval: pairwise template "demo/pairwise-badprompt" metric prompt must reference the baseline {{baseline_response}} and candidate {{candidate_response}} placeholder(s); the API rejects instance keys not present in the template
 ```
 
-### flip-enabled known P1 limitation
+### flip-enabled known limitation
 
 `registry create --kind pairwise` accepts a `--flip-enabled` flag (default
-`true`), but **P1 always runs pairwise with flip enabled regardless of the
-flag's value** — the registry's `FlipEnabled` field is a plain `bool`, which
-can't represent an explicit "false" distinctly from "unset" (both are the Go
-zero value), so P1 cannot honor an explicit opt-out
-(source: `internal/eval/pairwise.go` comments, and
-`docs/project-log/p1-wi4-multimodal-pairwise-mizan-p1-dev-5.md`). Passing
-`--flip-enabled=false` at create time is accepted without error, but does
-**not** actually disable flipping — treat that as an honest gap, not a
-working toggle, until a tri-state field lands (tracked as P2 registry work).
+`true`), but **pairwise always runs with flip enabled regardless of the flag's
+value** — the registry's `FlipEnabled` field is a plain `bool`, which can't
+represent an explicit "false" distinctly from "unset" (both are the Go zero
+value), so an explicit opt-out is not currently honored (source:
+`internal/eval/pairwise.go` comments). Passing `--flip-enabled=false` at create
+time is accepted without error, but does **not** actually disable flipping —
+treat that as an honest gap, not a working toggle; honoring it would require a
+tri-state field.
 
 ## Multimodal
 
@@ -514,8 +504,7 @@ criteria: `clarity` = "Is the response clear" / "Is it free of jargon", and
 `correctness` = "Is the factual content accurate".
 
 The judge's returned criteria are **strictly reconciled** against your authored
-set, matched by the exact **(group, criterion)** pair (R-R2). There are three
-cases.
+set, matched by the exact **(group, criterion)** pair. There are three cases.
 
 **(a) Happy path — all authored criteria returned.** You get the full
 per-criterion scorecard: an overall `Score` + `Explanation`, then the
@@ -593,7 +582,7 @@ they do **not** fail the run. The warning shows up on two surfaces:
   (JSON keys/shape illustrate the `warnings` field next to the kept criterion;
   the exact surrounding fields depend on your template and the live response.)
 
-## Global-only judge auto-routing (R-GLOBAL)
+## Global-only judge auto-routing
 
 > **ADC-required.** Every command in this section makes a live Vertex AI call
 > and needs ADC + a configured project. It was **not** run against live Vertex
@@ -693,41 +682,32 @@ anything you share; don't paste real project IDs.
 ## Dev & CI setup
 
 Contributor-facing quality gates, all runnable locally with no project/ADC. The
-`make` targets below were run against this checkout in this pass.
+`make` targets below were run against this checkout (output captured verbatim).
 
+- **`make test`** — runs the full test suite (unit, creds-free end-to-end smoke
+  tests across all metric kinds, and golden-output tests).
 - **`make lint`** — runs `golangci-lint` (v2.12.2; curated set in
-  `.golangci.yml`) over the module. Part of CI. Verified clean this pass
-  (`0 issues.`).
+  `.golangci.yml`) over the module. Part of CI. Verified clean (`0 issues.`).
 - **`make cover`** — one CGO-free `go test -coverprofile` run; writes
-  `coverage.out` and prints the total (78.5% this pass). CI enforces a **soft,
-  non-blocking** coverage floor of 75.0 — it warns below the floor but never
-  fails the build, so don't treat it as a gate.
+  `coverage.out` and prints the total. CI enforces a **soft, non-blocking**
+  coverage floor — it warns below the floor but never fails the build, so don't
+  treat it as a gate.
 - **CI runs on PRs** (`.github/workflows/ci.yml`): build, `go vet`, `gofmt`
   check, `go test`, `govulncheck`, and coverage, plus `golangci-lint` and a
   `doc-drift` guard as separate jobs.
-- **Test-suite structure (dev-facing, not manual steps):** R-SMOKE adds
-  creds-free end-to-end smoke tests across all metric kinds, and R-GAPS adds
-  golden-output tests — regenerate the goldens with
-  `go test ./cmd/mizan -run TestGolden -update` and review the diff before
-  committing. These run automatically under `make test`/CI; they are not steps
-  you drive by hand.
 
 **Docs Definition of Done (PR template).** The
 [`pull_request_template.md`](../.github/pull_request_template.md) checklist
 requires each PR to update the user/reference docs, the scenarios doc + decision
 matrix, and add or verify a `testing-guide.md` recipe for the change — or mark
 each item **`docs: N/A`** with a reason (the `doc-drift` CI job enforces this).
-This is contribution process, not part of the manual functional test plan; it's
-noted here only so a recipe like the ones above is expected for every
-behavior-changing PR.
 
-## Not yet testable / roadmap
+## Not yet available
 
-Phase 1 is complete, so this list now only covers P2/P3/P4 work — unrelated
-to the P1 metric-kind work above, but re-verified absent from the built
-binary in this pass rather than assumed unchanged. Kept consistent with
-[`docs/user-guide.md`](user-guide.md#coming-soon--roadmap) — see that section
-for the full picture.
+The following are **not built yet** — do not expect them to work, and don't
+write test recipes against them. Each was re-verified absent from the built
+binary rather than assumed. See
+[`docs/user-guide.md`](user-guide.md#coming-soon--roadmap) for the roadmap.
 
 - **Template packs and registry import/export** — `mizan pack` and
   `mizan registry import`/`export` do not exist:
@@ -745,11 +725,8 @@ for the full picture.
     update      Update a metric template
   ```
 
-  (No `import`/`export` subcommand is listed.) Roadmap phase P2.
+  (No `import`/`export` subcommand is listed.)
 - **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets) — no such
-  command exists yet. Roadmap phase P3.
+  command exists yet.
 - **The Wails desktop app** (`cmd/mizan-desktop`) — design-stage scaffolding
-  only; no built or runnable desktop app. Roadmap phase P4.
-
-See [`docs/implementation-plan.md`](implementation-plan.md) for the
-work-item breakdown and acceptance criteria behind each of these.
+  only; no built or runnable desktop app.
