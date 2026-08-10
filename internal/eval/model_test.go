@@ -130,7 +130,7 @@ func TestResolveModelGenaiPath(t *testing.T) {
 func TestResolveReflectsPerPathLocation(t *testing.T) {
 	eng := NewEngine(&fakeClient{}, "proj", "us-central1", WithDefaultModel("cfg-model"))
 
-	native := eng.Resolve(pointwiseTemplate(), "")
+	native := eng.Resolve(pointwiseTemplate(), "", false)
 	if native.Path != "native" || native.Location != "us-central1" {
 		t.Errorf("native target = %+v, want path=native location=us-central1", native)
 	}
@@ -141,7 +141,7 @@ func TestResolveReflectsPerPathLocation(t *testing.T) {
 		t.Errorf("project = %q, want proj", native.Project)
 	}
 
-	genai := eng.Resolve(customSchemaTemplate(), "flag-model")
+	genai := eng.Resolve(customSchemaTemplate(), "flag-model", false)
 	if genai.Path != "genai" || genai.Location != GenaiLocation {
 		t.Errorf("genai target = %+v, want path=genai location=%s", genai, GenaiLocation)
 	}
@@ -152,7 +152,7 @@ func TestResolveReflectsPerPathLocation(t *testing.T) {
 	// Empty template model on the genai path inherits the config default.
 	tmpl := customSchemaTemplate()
 	tmpl.AutoraterModel = ""
-	if got := eng.Resolve(tmpl, "").Model; got != "cfg-model" {
+	if got := eng.Resolve(tmpl, "", false).Model; got != "cfg-model" {
 		t.Errorf("empty-template genai model = %q, want cfg-model", got)
 	}
 }
@@ -163,7 +163,7 @@ func TestResolveBareModelID(t *testing.T) {
 	eng := NewEngine(&fakeClient{}, "p", "us-central1")
 	tmpl := pointwiseTemplate()
 	tmpl.AutoraterModel = "projects/x/locations/global/publishers/google/models/gemini-z"
-	if got := eng.Resolve(tmpl, "").Model; got != "gemini-z" {
+	if got := eng.Resolve(tmpl, "", false).Model; got != "gemini-z" {
 		t.Errorf("bare model = %q, want gemini-z", got)
 	}
 	if !strings.HasPrefix(BuiltinDefaultModel, "gemini-") {
@@ -401,7 +401,7 @@ func TestResolveNativeFQModelReflectsEmbeddedLocation(t *testing.T) {
 	eng := NewEngine(&fakeClient{}, "cfg-proj", "us-central1")
 	tmpl := pointwiseTemplate()
 	tmpl.AutoraterModel = "projects/fq-proj/locations/europe-west4/publishers/google/models/gemini-z"
-	got := eng.Resolve(tmpl, "")
+	got := eng.Resolve(tmpl, "", false)
 	if got.Project != "fq-proj" || got.Location != "europe-west4" {
 		t.Errorf("native FQ target = %+v, want project=fq-proj location=europe-west4", got)
 	}

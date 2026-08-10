@@ -157,6 +157,15 @@ type RunOption func(*runConfig)
 
 type runConfig struct {
 	modelOverride string
+
+	// rubricDetail, when true, routes a KindRubric template through the genai
+	// structured-output path (rubric per-criterion transparency) instead of the
+	// native pointwise path. scaleMin/scaleMax are the (already-parsed and
+	// validated) Likert bounds the judge scores on. They are meaningful only when
+	// rubricDetail is set.
+	rubricDetail bool
+	scaleMin     int
+	scaleMax     int
 }
 
 // WithModel supplies a per-run autorater model override (the eval-time --model
@@ -164,6 +173,21 @@ type runConfig struct {
 // Engine.resolveModel.
 func WithModel(model string) RunOption {
 	return func(rc *runConfig) { rc.modelOverride = model }
+}
+
+// WithRubricDetail opts a single run into the rubric per-criterion transparency
+// path (the eval-time --rubric-detail flag). When set AND the template is
+// KindRubric, the run is routed through the genai structured-output path
+// (location=global) instead of the native pointwise path, and the judge scores
+// each authored criterion on the [min,max] Likert scale. min/max are the
+// caller-parsed, validated scale bounds (see ParseRubricScale). It is a no-op on
+// non-rubric templates beyond the explicit guard in Engine.Run.
+func WithRubricDetail(min, max int) RunOption {
+	return func(rc *runConfig) {
+		rc.rubricDetail = true
+		rc.scaleMin = min
+		rc.scaleMax = max
+	}
 }
 
 // Run dispatches on the template's MetricKind. Pointwise (text + multimodal) and
@@ -187,9 +211,14 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	if err := ValidateModel(model); err != nil {
 		return Result{}, err
 	}
+	// The rubric-detail lever only applies to rubric templates — reject it on any
+	// other kind with a crisp local error before dispatch.
+	if rc.rubricDetail && tmpl.Kind != registry.KindRubric {
+		return Result{}, fmt.Errorf("eval: --rubric-detail only applies to rubric templates (template %q is kind %q)", tmpl.ID, tmpl.Kind)
+	}
 
 	start := time.Now()
-	res, err := e.dispatch(ctx, tmpl, inst, model)
+	res, err := e.dispatch(ctx, tmpl, inst, model, rc)
 	res.Stats.Duration = time.Since(start)
 	return res, err
 }
@@ -197,11 +226,14 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 // dispatch routes to the per-kind path with the already-resolved model. Keeping
 // resolution and timing in Run means every path shares one model chain and one
 // wall-clock measurement.
-func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
+func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	switch tmpl.Kind {
 	case registry.KindPointwise:
 		return e.runPointwise(ctx, tmpl, inst, model)
 	case registry.KindRubric:
+		if rc.rubricDetail {
+			return e.runRubricStructured(ctx, tmpl, inst, model, rc.scaleMin, rc.scaleMax)
+		}
 		return e.runRubric(ctx, tmpl, inst, model)
 	case registry.KindCustomSchema:
 		return e.runCustomSchema(ctx, tmpl, inst, model)

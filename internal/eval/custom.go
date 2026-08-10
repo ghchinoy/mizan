@@ -70,9 +70,6 @@ func NewGenaiClient(ctx context.Context, projectID, location string) (GenaiClien
 // GenerateContent with strict JSON output and exponential backoff, and parses
 // the JSON response into Result.CustomOutput (with the raw text in RawOutput).
 func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
-	if e.genai == nil {
-		return Result{}, fmt.Errorf("eval: no genai client configured for custom_schema (wire WithGenaiClient)")
-	}
 	if tmpl.MetricPromptTemplate == "" {
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}
@@ -85,12 +82,31 @@ func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTempla
 		return Result{}, err
 	}
 
-	prompt, mediaParts, err := renderGenaiPrompt(tmpl.MetricPromptTemplate, inst)
+	return e.runGenaiStructured(ctx, tmpl, inst, tmpl.MetricPromptTemplate, schema, model)
+}
+
+// runGenaiStructured is the shared genai structured-output core: it renders the
+// given prompt (text placeholders substituted inline, non-text assets as inline
+// Parts), calls GenerateContent with strict JSON output (the supplied schema) and
+// exponential backoff, and parses the JSON response into Result.CustomOutput
+// (raw text in RawOutput, token usage in Stats). Both the custom_schema path
+// (runCustomSchema) and the rubric-detail path (runRubricStructured) delegate
+// here so the single genai call site is not duplicated — the two callers differ
+// only in how they build the prompt and schema. prompt is the FULLY rendered
+// judge prompt (custom_schema passes the template verbatim; rubric-detail appends
+// its per-criterion instruction block); its {{placeholders}} are validated and
+// substituted from inst here.
+func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, prompt string, schema *genai.Schema, model string) (Result, error) {
+	if e.genai == nil {
+		return Result{}, fmt.Errorf("eval: no genai client configured for structured output (wire WithGenaiClient)")
+	}
+
+	rendered, mediaParts, err := renderGenaiPrompt(prompt, inst)
 	if err != nil {
 		return Result{}, err
 	}
 
-	parts := append([]*genai.Part{genai.NewPartFromText(prompt)}, mediaParts...)
+	parts := append([]*genai.Part{genai.NewPartFromText(rendered)}, mediaParts...)
 	contents := []*genai.Content{genai.NewContentFromParts(parts, genai.RoleUser)}
 
 	cfg := &genai.GenerateContentConfig{
