@@ -323,6 +323,59 @@ func TestApplyUpdateSafetySchema(t *testing.T) {
 	}
 }
 
+// TestFlipEnabledCreateDefaultAndOverride proves the --flip-enabled create flag
+// is honored end-to-end through the flag-parse -> build -> apply path (the
+// counterpart to the eval-time honoring in internal/eval): a pairwise template
+// created WITHOUT the flag keeps flip=true (default unchanged, eval-triage #4),
+// and an explicit --flip-enabled=false is persisted as false so a user can turn
+// flip off. Guards the create default against regression now that the eval path
+// actually reads tmpl.FlipEnabled.
+func TestFlipEnabledCreateDefaultAndOverride(t *testing.T) {
+	// Default create path (no --flip-enabled): flip stays true.
+	got, err := applyFromArgs(t, false, nil, "--kind", "pairwise")
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !got.FlipEnabled {
+		t.Errorf("FlipEnabled = false on default create, want true (default must remain unchanged)")
+	}
+
+	// Explicit opt-out: --flip-enabled=false is persisted.
+	got, err = applyFromArgs(t, false, nil, "--kind", "pairwise", "--flip-enabled=false")
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if got.FlipEnabled {
+		t.Errorf("FlipEnabled = true after --flip-enabled=false, want false (opt-out must persist)")
+	}
+}
+
+// TestApplyUpdateSafetyFlipEnabled proves flip is update-safe: an update that
+// does NOT set --flip-enabled preserves the stored value (rather than clobbering
+// it back to the flag default true), while an explicit --flip-enabled=true flips
+// a previously-disabled template back on.
+func TestApplyUpdateSafetyFlipEnabled(t *testing.T) {
+	base := &registry.MetricTemplate{ID: "test/p", Kind: registry.KindPairwise, FlipEnabled: false}
+
+	// No flip flag on update -> preserved (stays false, not reset to default true).
+	got, err := applyFromArgs(t, true, base, "--name", "New Name")
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if got.FlipEnabled {
+		t.Errorf("FlipEnabled = true after update without the flag, want false preserved")
+	}
+
+	// Explicit flag on update -> replaced.
+	got, err = applyFromArgs(t, true, base, "--flip-enabled=true")
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if !got.FlipEnabled {
+		t.Errorf("FlipEnabled = false after --flip-enabled=true on update, want true")
+	}
+}
+
 func TestValidateTemplate(t *testing.T) {
 	cases := []struct {
 		name    string
