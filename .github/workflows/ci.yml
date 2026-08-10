@@ -100,9 +100,11 @@ jobs:
             echo "Override: 'docs: N/A' label present — doc-drift guard skipped."
             exit 0
           fi
-          # 2) A "docs: N/A" marker anywhere in the PR body.
-          if printf '%s' "$PR_BODY" | grep -qiE 'docs:[[:space:]]*n/a'; then
-            echo "Override: 'docs: N/A' marker found in PR body — doc-drift guard skipped."
+          # 2) A "docs: N/A" marker on a line of its OWN in the PR body.
+          #    Anchored to a standalone line so incidental prose (including the
+          #    PR template's own explanatory comment) never trips the override.
+          if printf '%s' "$PR_BODY" | grep -qiE '^[[:space:]]*docs:[[:space:]]*n/a[[:space:]]*$'; then
+            echo "Override: standalone 'docs: N/A' line found in PR body — doc-drift guard skipped."
             exit 0
           fi
 
