@@ -63,14 +63,44 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 		return nil, nil, err
 	}
 
+	// R-GLOBAL: a DISTINCT native client targeting the GLOBAL eval host
+	// (aiplatform.googleapis.com / locations/global). The engine auto-routes the
+	// whole EvaluateInstances call to it when the resolved autorater is a
+	// global-only judge (e.g. the gemini-3.5 family): the spike proved the eval
+	// HOST — not the autorater's location path — is decisive, so the only way to
+	// use such a judge is to move the whole call to the global host. Built here in
+	// the composition root (cmd/* must not build clients — dependency-direction
+	// rule). It is built ALWAYS (not lazily): NewEvaluationClient does not dial
+	// until the first RPC, so an unused global client for a purely-regional run
+	// costs only a cheap handle, keeping this wiring simple and the seam uniform.
+	// When cfg.Location is already "global" the regional client above IS the
+	// global host and the engine skips this one; we still build it for uniformity.
+	globalClient, err := eval.NewClient(ctx, eval.GenaiLocation, cfg.APIEndpoint)
+	if err != nil {
+		_ = client.Close()
+		return nil, nil, err
+	}
+
 	// The config default-model (WI-F3) is the lowest-precedence input to the
 	// engine's model resolution chain (below the flag and the template's own
 	// model, above the built-in). An empty value falls through to the built-in.
 	opts := []eval.Option{
 		eval.WithGenaiClient(genaiClient),
+		eval.WithGlobalClient(globalClient),
 		eval.WithDefaultModel(cfg.DefaultModel),
 	}
-	closeFn := client.Close
+	// closeClients closes both native clients (regional + global); the regional
+	// client's error takes precedence for the caller. A stager, when built below,
+	// is layered on top of this.
+	closeClients := func() error {
+		gErr := globalClient.Close()
+		cErr := client.Close()
+		if cErr != nil {
+			return cErr
+		}
+		return gErr
+	}
+	closeFn := closeClients
 
 	// Build the GCS asset stager ONLY when a staging bucket is configured. When
 	// none is set, construction still succeeds (text-only and custom_schema-inline
@@ -79,14 +109,14 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 	if cfg.StagingBucket != "" {
 		stager, err := asset.NewGCSStager(ctx, cfg.StagingBucket)
 		if err != nil && !errors.Is(err, asset.ErrNoBucket) {
-			_ = client.Close()
+			_ = closeClients()
 			return nil, nil, err
 		}
 		if stager != nil {
 			opts = append(opts, eval.WithStager(stager))
 			closeFn = func() error {
 				sErr := stager.Close()
-				cErr := client.Close()
+				cErr := closeClients()
 				if cErr != nil {
 					return cErr
 				}

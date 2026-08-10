@@ -40,11 +40,6 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 		return Result{}, err
 	}
 
-	fullModel, err := expandAutoraterModel(model, e.projectID, e.location)
-	if err != nil {
-		return Result{}, err
-	}
-
 	metricInstance, err := e.buildPairwiseInstance(ctx, tmpl, inst)
 	if err != nil {
 		return Result{}, err
@@ -72,26 +67,31 @@ func (e *Engine) runPairwise(ctx context.Context, tmpl registry.MetricTemplate, 
 	// explicit-false and always enables flip. A real explicit-false override is a
 	// P2 registry change (add a nullable/tri-state field) — see the WI-P1-4 log.
 	flip := true
-	autorater := &aiplatformpb.AutoraterConfig{
-		AutoraterModel: fullModel,
-		SamplingCount:  proto.Int32(sampling),
-		FlipEnabled:    proto.Bool(flip),
-	}
 
-	req := &aiplatformpb.EvaluateInstancesRequest{
-		Location: fmt.Sprintf("projects/%s/locations/%s", e.projectID, e.location),
-		MetricInputs: &aiplatformpb.EvaluateInstancesRequest_PairwiseMetricInput{
-			PairwiseMetricInput: &aiplatformpb.PairwiseMetricInput{
-				MetricSpec: spec,
-				Instance:   metricInstance,
+	// build re-materializes the request per attempt so req.Location and the
+	// autorater location match the host actually used, enabling the R-GLOBAL
+	// auto-route/retry for a global-only judge on the pairwise path too.
+	build := func(loc, fullModel string) *aiplatformpb.EvaluateInstancesRequest {
+		autorater := &aiplatformpb.AutoraterConfig{
+			AutoraterModel: fullModel,
+			SamplingCount:  proto.Int32(sampling),
+			FlipEnabled:    proto.Bool(flip),
+		}
+		return &aiplatformpb.EvaluateInstancesRequest{
+			Location: fmt.Sprintf("projects/%s/locations/%s", e.projectID, loc),
+			MetricInputs: &aiplatformpb.EvaluateInstancesRequest_PairwiseMetricInput{
+				PairwiseMetricInput: &aiplatformpb.PairwiseMetricInput{
+					MetricSpec: spec,
+					Instance:   metricInstance,
+				},
 			},
-		},
-		AutoraterConfig: autorater,
+			AutoraterConfig: autorater,
+		}
 	}
 
-	resp, err := e.client.EvaluateInstances(ctx, req)
+	resp, err := e.evaluateRouted(ctx, model, "pairwise", build)
 	if err != nil {
-		return Result{}, fmt.Errorf("eval: EvaluateInstances (pairwise): %w", err)
+		return Result{}, err
 	}
 
 	pr := resp.GetPairwiseMetricResult()

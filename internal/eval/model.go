@@ -193,5 +193,16 @@ func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string, rubricDe
 		target.Project = p
 		target.Location = l
 	}
+	// R-GLOBAL: a KNOWN global-only judge is auto-routed to the global host at run
+	// time (route.go). When we can detect that up front (the prefix fast-path),
+	// the echo must show location=global so the user isn't told a regional target
+	// the run will not actually honor. This overrides any embedded regional
+	// location above because the HOST — not the autorater path — is decisive
+	// (spike-eval-region-autorater). A global-only judge NOT in the prefix table
+	// is discovered only via the retry, so its echo stays regional and the
+	// run-time "forced global" notice covers it instead.
+	if isGlobalOnlyModel(model) {
+		target.Location = globalLocation
+	}
 	return target
 }

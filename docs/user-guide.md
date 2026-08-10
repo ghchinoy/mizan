@@ -226,6 +226,35 @@ key=gs://...` (a pre-staged asset) instead — see
 [`docs/testing-guide.md`](testing-guide.md#multimodal) for a full multimodal
 walkthrough.
 
+### Choosing the judge model — and global-only judges
+
+The autorater model is resolved per run: `--model` flag > template model >
+`default-model` config (`MIZAN_DEFAULT_MODEL`) > built-in `gemini-2.5-flash`.
+
+Some newer judges — the `gemini-3.5` family (`gemini-3.5-flash` /
+`-flash-lite`) — are **global-only**: they exist only on Vertex's global eval
+host and return `NOT_FOUND` on a regional endpoint. You do **not** need to change
+`--location` to use one. When the resolved judge is global-only, Mizan
+automatically runs the whole eval call against the global host
+(`aiplatform.googleapis.com` / `locations/global`) — either up front for a known
+global-only model, or by transparently retrying on the global host after the
+regional call reports the autorater is not found.
+
+Because a global-only judge cannot run in your region, this routing is **forced**:
+your configured `--location` / `MIZAN_LOCATION` is kept for output labeling but
+is not honored as a residency region for that run. Mizan says so on stderr, e.g.:
+
+```
+mizan: autorater gemini-3.5-flash is global-only (…); routing this eval to the GLOBAL host (location=global). Your configured --location is kept for labeling only.
+```
+
+The pre-flight echo Mizan prints to stderr before each call also shows
+`location=global` for a known global-only judge. The built-in default
+(`gemini-2.5-flash`) is served on both
+regional and global endpoints, so a default run is never re-routed. For the full
+detection details see
+[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md) Scenario 7.
+
 ### Interpreting the result
 
 - **`Score`** is a float. Its range and meaning are whatever your prompt's

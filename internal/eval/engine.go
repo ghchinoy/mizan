@@ -13,6 +13,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
@@ -107,11 +108,13 @@ type TokenUsage struct {
 // the native path, GenaiClient for the custom_schema path).
 type Engine struct {
 	client       EvaluationClient
+	globalClient EvaluationClient // GLOBAL-host native client for global-only autoraters (R-GLOBAL); nil disables auto-routing
 	genai        GenaiClient
 	stager       asset.Stager
 	projectID    string
 	location     string
-	defaultModel string // config default-model (WI-F3); "" falls back to BuiltinDefaultModel
+	defaultModel string    // config default-model (WI-F3); "" falls back to BuiltinDefaultModel
+	noticeW      io.Writer // where the "forced global" routing notice is written (R-GLOBAL); nil -> os.Stderr
 	retry        retryPolicy
 }
 
@@ -125,6 +128,24 @@ type Option func(*Engine)
 // eval may run, so the native-only paths never build a genai client.
 func WithGenaiClient(g GenaiClient) Option {
 	return func(e *Engine) { e.genai = g }
+}
+
+// WithGlobalClient sets the GLOBAL-host native EvaluationClient used to auto-route
+// a global-only autorater (R-GLOBAL). The composition root (internal/wire) builds
+// it via eval.NewClient(ctx, "global", cfg.APIEndpoint) — a DISTINCT client from
+// the regional one so the eval call can move its whole HOST to the global endpoint
+// (spike-eval-region-autorater: the host, not the autorater path, is decisive).
+// When unset, auto-routing is disabled and a global-only judge fails as before
+// (relevant only in tests / degraded wiring; wire always supplies it).
+func WithGlobalClient(c EvaluationClient) Option {
+	return func(e *Engine) { e.globalClient = c }
+}
+
+// WithNoticeWriter overrides where the "forced global" routing notice is written
+// (default os.Stderr). Tests use it to capture the notice; production leaves it
+// unset so the notice reaches the operator's stderr alongside the WI-F7 echo.
+func WithNoticeWriter(w io.Writer) Option {
+	return func(e *Engine) { e.noticeW = w }
 }
 
 // WithDefaultModel sets the config-level default autorater model (WI-F3, from
