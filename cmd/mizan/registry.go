@@ -56,7 +56,7 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	// default lives in eval.BuiltinDefaultModel.
 	fl.StringVar(&f.model, "model", "", "autorater model (publisher-relative id; empty = resolve default at eval time)")
 	fl.Int32Var(&f.samplingCount, "sampling-count", 4, "autorater sampling count (1-32)")
-	fl.BoolVar(&f.flipEnabled, "flip-enabled", true, "pairwise: flip candidate/baseline to reduce bias")
+	fl.BoolVar(&f.flipEnabled, "flip-enabled", true, "pairwise: flip candidate/baseline positions to reduce position bias (default true; the Choice is the authoritative de-biased verdict, but flip can scramble the explanation's baseline/candidate wording — set false to keep the explanation aligned with the presented order)")
 	fl.StringSliceVar(&f.modalities, "modality", []string{"text"}, "accepted modalities (repeatable)")
 	fl.StringSliceVar(&f.tags, "tag", nil, "tags (repeatable)")
 	fl.StringVar(&f.candidate, "candidate-field", "", "pairwise: candidate response field name")

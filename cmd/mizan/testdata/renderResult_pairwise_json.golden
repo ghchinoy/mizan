@@ -1,0 +1,13 @@
+{
+  "Score": null,
+  "PairwiseChoice": "CANDIDATE",
+  "Explanation": "Candidate is more helpful.",
+  "RawOutput": null,
+  "CustomOutput": null,
+  "warnings": [
+    "pairwise flip is enabled: the Choice is the de-biased, authoritative verdict."
+  ],
+  "Stats": {
+    "duration_ns": 0
+  }
+}

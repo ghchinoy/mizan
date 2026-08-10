@@ -110,14 +110,10 @@ func newEvalRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// Surface non-fatal run warnings (e.g. R-R2 rubric reconciliation
-			// extras) on stderr in text mode, mirroring the pre-flight echo (WI-F7)
-			// so they never break the human table on stdout. In --output json mode
-			// they ALSO serialize into the result body under "warnings" (Result has
-			// the `warnings,omitempty` json tag), so machine consumers see them too.
-			for _, warning := range res.Warnings {
-				fmt.Fprintln(cmd.ErrOrStderr(), warning)
-			}
+			// Surface non-fatal run warnings on stderr (never stdout) in text mode;
+			// in --output json mode they also serialize under "warnings". See
+			// emitWarnings for the shared emission behavior.
+			emitWarnings(cmd.ErrOrStderr(), res.Warnings)
 			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
@@ -201,6 +197,10 @@ func newEvalPairwiseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Surface non-fatal run warnings (e.g. the pairwise flip caveat) on
+			// stderr (never stdout) in text mode; in --output json mode they also
+			// serialize under "warnings". See emitWarnings for the shared behavior.
+			emitWarnings(cmd.ErrOrStderr(), res.Warnings)
 			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
@@ -282,6 +282,20 @@ func printPreflight(w io.Writer, t eval.ResolvedTarget) {
 		sanitizeEchoValue(t.Model), sanitizeEchoValue(t.Path))
 }
 
+// emitWarnings surfaces non-fatal run warnings (e.g. the pairwise flip caveat or
+// R-R2 rubric reconciliation extras) on stderr in text mode, mirroring the
+// pre-flight echo (WI-F7) so they never break the human table on stdout. In
+// --output json mode the warnings ALSO serialize into the result body under
+// "warnings" (Result's `warnings,omitempty` tag), so machine consumers still see
+// them; this helper only handles the text-mode stderr echo. Each warning is
+// written verbatim on its own line, preserving the returned order. This is the
+// single emission site shared by the eval-run and pairwise RunE paths.
+func emitWarnings(w io.Writer, warnings []string) {
+	for _, warning := range warnings {
+		fmt.Fprintln(w, warning)
+	}
+}
+
 // sanitizeEchoValue drops control characters (newlines, carriage returns, and
 // other C0/C1 control runes) from a value before it is written to the one-line
 // pre-flight echo, guaranteeing the echo stays a single line.
@@ -331,9 +345,13 @@ func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 		return renderRubricDetailResult(w, res, showStats)
 	}
 	tw := newTabWriter(w)
-	if res.Score != nil {
+	switch {
+	case res.Score != nil:
 		fmt.Fprintf(tw, "Score:\t%g\n", *res.Score)
-	} else {
+	case res.PairwiseChoice != "":
+		// Pairwise yields a Choice, not a Score; suppress the misleading
+		// "Score: (none)" line and print only the Choice below (eval-triage #4).
+	default:
 		fmt.Fprintf(tw, "Score:\t(none)\n")
 	}
 	if res.PairwiseChoice != "" {

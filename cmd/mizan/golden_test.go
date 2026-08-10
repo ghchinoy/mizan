@@ -129,6 +129,20 @@ func TestGolden(t *testing.T) {
 		})
 	})
 
+	// renderResult — JSON, pairwise with a flip warning (machine-output contract:
+	// no score, a choice, and the "warnings" array serialized for consumers).
+	t.Run("renderResult_pairwise_json", func(t *testing.T) {
+		outputFormat = outputJSON
+		res := eval.Result{
+			PairwiseChoice: "CANDIDATE",
+			Explanation:    "Candidate is more helpful.",
+			Warnings:       []string{"pairwise flip is enabled: the Choice is the de-biased, authoritative verdict."},
+		}
+		checkGolden(t, "renderResult_pairwise_json", func(w io.Writer) error {
+			return renderResult(w, res, false)
+		})
+	})
+
 	// renderResult — table, native pointwise WITH --stats (the "not available" note).
 	t.Run("renderResult_native_stats_table", func(t *testing.T) {
 		outputFormat = outputTable

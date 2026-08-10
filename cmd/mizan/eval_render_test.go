@@ -125,6 +125,61 @@ func TestRenderResultJSONOmitsTokenUsageWhenNil(t *testing.T) {
 	}
 }
 
+// TestRenderResultPairwiseJSONOmitsWarningsWhenNil is the flip-OFF counterpart to
+// the renderResult_pairwise_json golden (flip ON, "warnings" present): a pairwise
+// Result with no Warnings must NOT serialize a "warnings" key (omitempty), so a
+// JSON consumer sees the caveat if and only if flip is in effect (eval-triage #4).
+func TestRenderResultPairwiseJSONOmitsWarningsWhenNil(t *testing.T) {
+	prev := outputFormat
+	outputFormat = outputJSON
+	defer func() { outputFormat = prev }()
+
+	res := eval.Result{PairwiseChoice: "CANDIDATE", Explanation: "Candidate is more helpful."}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if strings.Contains(out, "warnings") {
+		t.Errorf("pairwise JSON without Warnings should omit the \"warnings\" key, got: %q", out)
+	}
+	if !strings.Contains(out, `"PairwiseChoice": "CANDIDATE"`) {
+		t.Errorf("pairwise JSON missing the Choice: %q", out)
+	}
+}
+
+// TestRenderResultPairwiseTableKeepsWarningsOffStdout proves the text-mode
+// contract: renderResult (stdout) prints the Choice and Explanation but never the
+// Warnings text and never a "Score:" line for a pairwise result. The flip caveat
+// is emitted to stderr by the command (eval.go), so leaking it into the stdout
+// table would corrupt machine-parsed output; this guards that separation and the
+// Score-line suppression together (eval-triage #4).
+func TestRenderResultPairwiseTableKeepsWarningsOffStdout(t *testing.T) {
+	prev := outputFormat
+	outputFormat = outputTable
+	defer func() { outputFormat = prev }()
+
+	res := eval.Result{
+		PairwiseChoice: "CANDIDATE",
+		Explanation:    "Candidate is more helpful.",
+		Warnings:       []string{"pairwise flip is enabled: the Choice is the de-biased, authoritative verdict."},
+	}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Choice:") || !strings.Contains(out, "CANDIDATE") {
+		t.Errorf("pairwise table missing Choice: %q", out)
+	}
+	if strings.Contains(out, "Score:") {
+		t.Errorf("pairwise table should suppress the Score line, got: %q", out)
+	}
+	if strings.Contains(out, "flip is enabled") || strings.Contains(out, "authoritative") {
+		t.Errorf("warnings must not leak into the stdout table (they go to stderr), got: %q", out)
+	}
+}
+
 // rubricDetailResult builds a rubric per-criterion result as the engine would
 // produce it (overall_score mapped to Score; the full structure in CustomOutput).
 func rubricDetailResult() eval.Result {
