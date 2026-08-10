@@ -68,3 +68,77 @@ jobs:
           echo "::endgroup::"
           echo "Total coverage:"
           go tool cover -func=coverage.out | tail -1
+
+  doc-drift:
+    name: docs / doc-drift guard
+    # Living-docs DoD nudge (R-DOCS-DOD): if a PR touches cmd/mizan/ or
+    # internal/eval/ but ships no docs, fail — unless explicitly overridden.
+    # This is a nudge, not a hard wall: the override below always works.
+    # Runs on pull_request only (needs the PR payload for base ref/labels/body).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so the merge-base diff against the PR base resolves.
+          fetch-depth: 0
+
+      - name: Doc-drift check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+
+          # ---- Escape hatches (override always wins) ----------------------
+          # 1) A "docs: N/A" label on the PR.
+          if printf '%s' "$PR_LABELS" | tr ',' '\n' \
+               | grep -qiE '^[[:space:]]*docs:[[:space:]]*n/a[[:space:]]*$'; then
+            echo "Override: 'docs: N/A' label present — doc-drift guard skipped."
+            exit 0
+          fi
+          # 2) A "docs: N/A" marker anywhere in the PR body.
+          if printf '%s' "$PR_BODY" | grep -qiE 'docs:[[:space:]]*n/a'; then
+            echo "Override: 'docs: N/A' marker found in PR body — doc-drift guard skipped."
+            exit 0
+          fi
+
+          # ---- Determine files changed in this PR -------------------------
+          git fetch --no-tags --prune origin \
+            "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"
+          CHANGED="$(git diff --name-only "origin/${BASE_REF}...HEAD")"
+          echo "::group::Changed files"
+          echo "$CHANGED"
+          echo "::endgroup::"
+
+          CODE_CHANGED=false
+          DOC_CHANGED=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              cmd/mizan/*|internal/eval/*) CODE_CHANGED=true ;;
+            esac
+            case "$f" in
+              docs/llm-as-judge-scenarios.md) DOC_CHANGED=true ;;
+              docs/*guide.md)                 DOC_CHANGED=true ;;
+            esac
+          done <<< "$CHANGED"
+
+          # ---- Decision --------------------------------------------------
+          if [ "$CODE_CHANGED" = true ] && [ "$DOC_CHANGED" = false ]; then
+            echo "::error::Doc-drift: this PR changes cmd/mizan/ or internal/eval/ but updates no docs."
+            echo ""
+            echo "Update at least one of:"
+            echo "  - docs/llm-as-judge-scenarios.md"
+            echo "  - docs/user-guide.md or docs/testing-guide.md (docs/*guide.md)"
+            echo ""
+            echo "If docs genuinely do not apply, override the guard by EITHER:"
+            echo "  - adding the 'docs: N/A' label to this PR, OR"
+            echo "  - adding a line 'docs: N/A' to the PR body."
+            exit 1
+          fi
+
+          echo "doc-drift guard passed (code changed: ${CODE_CHANGED}, docs changed: ${DOC_CHANGED})."
