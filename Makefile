@@ -4,8 +4,9 @@
 # build target pins CGO_ENABLED=0 to keep binaries statically linkable and
 # reproducible across environments.
 #
-# Quality gates are intentionally limited to `go vet`, `gofmt`, and
-# `govulncheck` — golangci-lint is deliberately NOT used.
+# Quality gates are `go vet`, `gofmt`, `govulncheck`, and golangci-lint. The
+# earlier exclusion of golangci-lint was reversed by owner decision (R-LINT);
+# see .golangci.yml for the curated linter set and its rationale.
 #
 # Per-target help text is the inline `## ` comment on each target line; the
 # default `help` target auto-generates its listing from those comments, so the
@@ -30,7 +31,7 @@ LDFLAGS        := -X $(VERSION_PKG).version=$(VERSION) \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build install desktop test integration-test vet fmt fmt-check vuln clean
+.PHONY: help build install desktop test integration-test vet fmt fmt-check lint vuln clean
 
 help: ## list available targets (default)
 	@echo "Mizan — available make targets:"
@@ -67,6 +68,12 @@ fmt: ## Format all Go source in place (gofmt -w .)
 # usable CI gate — `gofmt -l` alone always exits 0.
 fmt-check: ## List files needing formatting; fail if any (gofmt -l .)
 	@out=$$($(GOFMT) -l .); [ -z "$$out" ] || { echo "$$out"; exit 1; }
+
+# lint: requires golangci-lint (v2.x) —
+#   go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+# Config and curated linter set live in .golangci.yml.
+lint: ## Run golangci-lint over the module
+	golangci-lint run ./...
 
 # vuln: requires govulncheck — go install golang.org/x/vuln/cmd/govulncheck@latest
 vuln: ## Run govulncheck ./...

@@ -95,7 +95,9 @@ func LoadConfig() (*Config, error) {
 // redirect of configuration is visible to the operator.
 func loadEnvFile() {
 	if p := os.Getenv("MIZAN_ENV_FILE"); p != "" {
-		if _, err := os.Stat(p); err == nil {
+		// The path is an explicit, operator-supplied opt-in (see doc comment
+		// above); statting it is intended, not attacker-controlled traversal.
+		if _, err := os.Stat(p); err == nil { //nolint:gosec // G304: MIZAN_ENV_FILE is a trusted, explicit operator path
 			if err := godotenv.Load(p); err == nil {
 				fmt.Fprintf(os.Stderr, "mizan: loaded env file %s (MIZAN_ENV_FILE)\n", p)
 			}

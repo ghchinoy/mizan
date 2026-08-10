@@ -174,8 +174,9 @@ func (e *Engine) generateWithBackoff(ctx context.Context, model string, contents
 		if attempt == pol.maxAttempts {
 			break
 		}
-		// Full jitter over [0.5*delay, delay].
-		sleep := time.Duration(float64(delay) * (0.5 + 0.5*rand.Float64()))
+		// Full jitter over [0.5*delay, delay]. Retry-backoff jitter is not a
+		// security context, so a non-cryptographic RNG is the correct choice.
+		sleep := time.Duration(float64(delay) * (0.5 + 0.5*rand.Float64())) //nolint:gosec // G404: jitter for retry backoff, not security-sensitive
 		select {
 		case <-time.After(sleep):
 		case <-ctx.Done():

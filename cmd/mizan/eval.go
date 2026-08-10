@@ -64,7 +64,7 @@ func newEvalRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeSvc()
+			defer func() { _ = closeSvc() }()
 
 			tmpl, err := svc.Get(cmd.Context(), metric)
 			if err != nil {
@@ -99,7 +99,7 @@ func newEvalRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeEng()
+			defer func() { _ = closeEng() }()
 
 			// Pre-flight echo (WI-F7): the resolved project/location/model line is
 			// on by default (cheap, high-value) and reflects the actual per-path
@@ -167,7 +167,7 @@ func newEvalPairwiseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeSvc()
+			defer func() { _ = closeSvc() }()
 
 			tmpl, err := svc.Get(cmd.Context(), metric)
 			if err != nil {
@@ -191,7 +191,7 @@ func newEvalPairwiseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeEng()
+			defer func() { _ = closeEng() }()
 
 			// Pre-flight echo (WI-F7): default-on resolved project/location/model.
 			// Pairwise never uses the rubric-detail lever.

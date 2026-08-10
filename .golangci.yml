@@ -1,0 +1,92 @@
+# golangci-lint configuration for Mizan (schema v2 — golangci-lint 2.x).
+#
+# History: the Makefile previously stated golangci-lint was deliberately NOT
+# used. That exclusion is REVERSED by owner decision (work item R-LINT); this
+# file defines a curated, defensible linter set rather than the kitchen sink.
+#
+# Curation rationale:
+#   - Core correctness/safety linters are enabled (govet, staticcheck, errcheck,
+#     ineffassign, unused) plus a light layer of hygiene linters (misspell,
+#     unconvert, revive) and gosec for security smells.
+#   - gofmt and goimports run as v2 "formatters" (the v2 schema moved them out of
+#     the linters block).
+#   - Broad, high-noise linters (e.g. gocritic, gochecknoglobals, wsl, funlen,
+#     lll, exhaustruct, varnamelen, gomnd/mnd) are intentionally DISABLED: they
+#     produce large, low-value finding volumes on this codebase and would either
+#     force churn or blanket nolint. The bar is a defensible set that keeps CI
+#     green, not maximal coverage.
+#
+# Pin: developed and verified against golangci-lint v2.12.2. CI pins the same
+# major via golangci/golangci-lint-action@v7 with an explicit version.
+
+version: "2"
+
+run:
+  timeout: 5m
+
+# Report every finding: the defaults (max-issues-per-linter: 50,
+# max-same-issues: 3) silently hide repeated findings, which would let real
+# issues slip past a "clean" run. Show them all so CI is honest.
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: none
+  enable:
+    - govet        # suspicious constructs (vet)
+    - staticcheck  # correctness + simplifications + style (subsumes gosimple/stylecheck in v2)
+    - errcheck     # unchecked errors
+    - ineffassign  # ineffectual assignments
+    - unused       # unused code
+    - misspell     # common English misspellings in comments/strings
+    - unconvert    # redundant type conversions
+    - revive       # light, curated style rules (see settings below)
+    - gosec        # security smells
+
+  settings:
+    revive:
+      # Keep revive light: only the widely-agreed, low-noise rules.
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: var-declaration
+    gosec:
+      excludes:
+        # G104 overlaps with errcheck (unhandled errors); avoid double-reporting.
+        - G104
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      # Test files: relax gosec (test fixtures/paths) and errcheck noise.
+      - path: _test\.go
+        linters:
+          - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ghchinoy/mizan

@@ -69,6 +69,34 @@ jobs:
           echo "Total coverage:"
           go tool cover -func=coverage.out | tail -1
 
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Keep the CGO-free contract consistent with the build-test job.
+      CGO_ENABLED: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # Single source of truth for the Go toolchain — track go.mod.
+          go-version-file: go.mod
+
+      - name: golangci-lint
+        # golangci-lint v2 requires golangci-lint-action @v7 — the @v6 line
+        # targets linter v1, so pairing @v6 with a v2 `version` made the CI lint
+        # step non-deterministic while `make lint` stayed green locally (local
+        # skips the Action wrapper). @v7 + explicit v2.12.2 keeps CI reproducible
+        # and consistent with the curated .golangci.yml (schema v2). Bump the
+        # version deliberately.
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+
   doc-drift:
     name: docs / doc-drift guard
     # Living-docs DoD nudge (R-DOCS-DOD): if a PR touches cmd/mizan/ or

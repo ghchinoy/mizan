@@ -287,7 +287,7 @@ func newRegistryCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeSvc()
+			defer func() { _ = closeSvc() }()
 
 			if err := svc.Create(cmd.Context(), t); err != nil {
 				return err
@@ -320,7 +320,7 @@ func newRegistryListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeSvc()
+			defer func() { _ = closeSvc() }()
 
 			filter := registry.ListFilter{Namespace: namespace}
 			if kind != "" {
@@ -352,7 +352,7 @@ func newRegistryGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeSvc()
+			defer func() { _ = closeSvc() }()
 
 			t, err := svc.Get(cmd.Context(), args[0])
 			if err != nil {
@@ -379,7 +379,7 @@ func newRegistryUpdateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeSvc()
+			defer func() { _ = closeSvc() }()
 
 			t, err := svc.Get(cmd.Context(), args[0])
 			if err != nil {
@@ -419,7 +419,7 @@ func newRegistryDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			defer closeSvc()
+			defer func() { _ = closeSvc() }()
 
 			if err := svc.Delete(cmd.Context(), args[0]); err != nil {
 				return err
