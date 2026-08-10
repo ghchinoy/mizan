@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: CI only needs to read the repository contents.
+permissions:
+  contents: read
+
+# De-duplicate runs: cancel any in-progress run for the same ref when a new
+# push arrives, so re-pushes don't pile up.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build / vet / fmt / test / vuln / coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Mizan is CGO-free (pure-Go modernc.org/sqlite). Keep the C toolchain out
+      # of the build so binaries stay statically linkable and reproducible.
+      CGO_ENABLED: "0"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.x"
+
+      - name: Build (CGO_ENABLED=0)
+        run: CGO_ENABLED=0 go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: gofmt check
+        run: make fmt-check
+
+      - name: Test
+        run: make test
+
+      - name: Install govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: govulncheck
+        run: govulncheck ./...
+
+      - name: Coverage (measure + print, no floor)
+        run: |
+          go test -coverprofile=coverage.out ./...
+          echo "::group::Per-function coverage"
+          go tool cover -func=coverage.out
+          echo "::endgroup::"
+          echo "Total coverage:"
+          go tool cover -func=coverage.out | tail -1
