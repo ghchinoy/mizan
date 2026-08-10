@@ -123,6 +123,79 @@ func TestConfigShowKeysExactlyMatchConfigSetKeys(t *testing.T) {
 	}
 }
 
+// TestConfigShowKeysRoundTripThroughConfigSet is the BEHAVIORAL drift guard. The
+// sibling TestConfigShowKeysExactlyMatchConfigSetKeys compares two in-memory
+// derivations of config.Fields, so it cannot catch a divergence introduced in the
+// actual command wiring (e.g. `config show` re-hardcoding its rows, or `config
+// set` re-hardcoding its accepted keys). This test instead exercises the real
+// commands end-to-end: it parses the KEY column printed by `config show`, then
+// proves every printed key is ACCEPTED by `config set`, and that the two sets are
+// exactly equal. It would FAIL if a key were shown without being settable, or
+// settable without being shown — the exact regression FIX-CONFIG guards against.
+func TestConfigShowKeysRoundTripThroughConfigSet(t *testing.T) {
+	cleanConfigEnv(t)
+	t.Setenv("MIZAN_PROJECT_ID", "proj-123")
+
+	out, err := executeRoot(t, "config", "show")
+	if err != nil {
+		t.Fatalf("config show: %v (out=%q)", err, out)
+	}
+
+	// Parse the KEY column: the first whitespace-delimited token of each row after
+	// the "KEY VALUE SOURCE" header.
+	shown := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] == "KEY" {
+			continue
+		}
+		shown[fields[0]] = true
+	}
+	if len(shown) == 0 {
+		t.Fatalf("parsed no keys from config show output:\n%s", out)
+	}
+
+	// Every KEY printed by `config show` must round-trip: `config set <key>` is
+	// accepted (writes into the isolated temp .env via XDG_CONFIG_HOME).
+	for key := range shown {
+		if _, err := executeRoot(t, "config", "set", key, "round-trip-value"); err != nil {
+			t.Errorf("config show printed key %q that `config set` rejects: %v", key, err)
+		}
+	}
+
+	// The set of shown keys must be EXACTLY the set `config set` accepts — neither
+	// side may carry a key the other lacks.
+	accepted := map[string]bool{}
+	for _, k := range sortedKeys() {
+		accepted[k] = true
+	}
+	for k := range shown {
+		if !accepted[k] {
+			t.Errorf("`config show` prints key %q that `config set` does not accept (drift!)", k)
+		}
+	}
+	for k := range accepted {
+		if !shown[k] {
+			t.Errorf("`config set` accepts key %q that `config show` does not print (drift!)", k)
+		}
+	}
+}
+
+// TestConfigSetRejectsNonShownKeys proves `config set` rejects tokens `config show`
+// never prints — a bogus key and an OLD display label (the pre-FIX-CONFIG defect
+// where `config show` printed `ProjectID` but `config set` wanted `project-id`).
+// This is the negative half of the drift guard: the accept set must not silently
+// grow past what `config show` advertises.
+func TestConfigSetRejectsNonShownKeys(t *testing.T) {
+	cleanConfigEnv(t)
+
+	for _, badKey := range []string{"ProjectID", "not-a-real-key", "RegistryDBPath", "DefaultModel"} {
+		if _, err := executeRoot(t, "config", "set", badKey, "x"); err == nil {
+			t.Errorf("config set accepted non-key %q, want an error", badKey)
+		}
+	}
+}
+
 // TestConfigListAliasInvokesShow proves `config list` is an alias that runs the
 // exact same command as `config show` (parity with `registry list`): identical
 // output for identical input.

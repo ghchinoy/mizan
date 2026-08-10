@@ -127,6 +127,23 @@ func TestUnknownEnvVarWarningsNoSuggestionForUnrelated(t *testing.T) {
 	}
 }
 
+// TestUnknownEnvVarWarningsSilentOnNonMizanVar proves the warning is scoped to the
+// MIZAN_ namespace: an unrecognized variable that does NOT start with MIZAN_ (even
+// one that resembles a config key) never produces a warning, so the loader does
+// not nag about the operator's unrelated shell environment. This closes the
+// explicit "does NOT fire for non-MIZAN_ vars" requirement.
+func TestUnknownEnvVarWarningsSilentOnNonMizanVar(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("MIZAN_PROJECT_ID", "proj-123") // a recognized MIZAN_ var, must stay silent
+	t.Setenv("PROJECT", "not-mizan-prefixed")
+	t.Setenv("NOT_MIZAN_PROJECT_ID", "also-unrelated")
+	t.Setenv("GOOGLE_CLOUD_PROJECT", "unrelated-google-var")
+
+	if warns := UnknownEnvVarWarnings(); len(warns) != 0 {
+		t.Errorf("non-MIZAN_ vars produced warnings, want none: %v", warns)
+	}
+}
+
 // TestRecognizedEnvVarsCoverFields is a drift guard: every Field env var must be
 // in the recognized set, so the unknown-var warning can never flag a variable the
 // loader actually reads.
