@@ -38,6 +38,13 @@ mizan config set location us-central1   # default; the "us" multi-region 404s
 gcloud auth application-default login   # ADC — no API-key auth path exists
 ```
 
+Confirm your project and location resolved from where you expect with
+`mizan config show` (alias: `mizan config list`) — it prints a `KEY`/`VALUE`/`SOURCE`
+table whose `SOURCE` matches the `src=` hints in the `eval` pre-flight line. A
+mistyped `MIZAN_*` variable is ignored with a `did you mean …?` warning on stderr
+rather than silently applied. See
+[`docs/user-guide.md`](user-guide.md#configure) for the full table.
+
 Use a scratch registry DB per test session so you don't collide with a real
 registry:
 
@@ -638,8 +645,14 @@ stdout):
    `path=native`:
 
    ```
-   mizan: autorater → project=<proj> location=global model=gemini-3.5-flash (path=native)
+   mizan: autorater → project=<proj> (src=env-file) location=global (src=model) model=gemini-3.5-flash (path=native)
    ```
+
+   The `(src=…)` hints report where each value resolved (e.g. `env` / `env-file`
+   / `default`), mirroring the `SOURCE` column in `mizan config show` — see
+   [`docs/user-guide.md`](user-guide.md#configure). The forced-global `location`
+   reads `src=model` because the global-only routing overrode your configured
+   region.
 
 2. A forced-global notice (the known-prefix fast-path), exact from source:
 
@@ -673,7 +686,7 @@ The pre-flight echo shows **your region**, there is **no** routing notice, and
 the call stays regional:
 
 ```
-mizan: autorater → project=<proj> location=us-central1 model=gemini-2.5-flash (path=native)
+mizan: autorater → project=<proj> (src=env-file) location=us-central1 (src=env-file) model=gemini-2.5-flash (path=native)
 ```
 
 For a global-only judge, `--location` / `MIZAN_LOCATION` is kept for output
