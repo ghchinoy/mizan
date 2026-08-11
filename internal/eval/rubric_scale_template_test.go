@@ -54,9 +54,14 @@ func TestResolveRubricScalePrecedence(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			min, max := e.resolveRubricScale(tc.tmpl, tc.rc)
+			min, max, warning := e.resolveRubricScale(tc.tmpl, tc.rc)
 			if min != tc.wantMin || max != tc.wantMax {
 				t.Errorf("resolveRubricScale = %d-%d, want %d-%d", min, max, tc.wantMin, tc.wantMax)
+			}
+			// All precedence cases here use valid (or absent) scales, so no
+			// fallback warning must be emitted.
+			if warning != "" {
+				t.Errorf("resolveRubricScale returned an unexpected warning for a valid scale: %q", warning)
 			}
 		})
 	}

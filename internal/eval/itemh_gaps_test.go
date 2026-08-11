@@ -5,11 +5,12 @@ package eval
 // changes no product code. Three gaps are addressed:
 //
 //   - H2 target 3 (scale validation): the --rubric-scale FLAG is validated by
-//     ParseRubricScale (see TestParseRubricScale), but a template-declared
-//     rubricDetail.scale is threaded through resolveRubricScale WITHOUT any
-//     validation. These tests PIN that silent-accept behavior (min>=max,
-//     negative, min==max) so a future fix pass changes them deliberately. This is
-//     FLAGGED to the manager as a possible product-code gap.
+//     ParseRubricScale (see TestParseRubricScale). A template-declared
+//     rubricDetail.scale is now held to the SAME contract by resolveRubricScale
+//     (rubricScaleBoundsValid: non-negative, min<max): an invalid scale (min>=max,
+//     negative, min==max) FALLS BACK to the default 1-5 and emits a NON-FATAL
+//     Result.Warnings note rather than reaching the judge verbatim. These tests
+//     assert that fix (they previously pinned the pre-fix silent-accept behavior).
 //   - H3 target 4 (warning matrix completeness): the native PAIRWISE path honors
 //     FlipEnabled and must not emit the genai-path warning. The author's suite
 //     pins the native path for SamplingCount but not for FlipEnabled.
@@ -27,15 +28,15 @@ import (
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
-// TestResolveRubricScaleAcceptsInvalidTemplateScale PINS the current behavior:
-// resolveRubricScale performs NO validation on a template-declared scale. Unlike
-// the --rubric-scale flag (validated by ParseRubricScale, which rejects min>=max
-// and negative bounds), an invalid template scale is returned verbatim.
+// TestResolveRubricScaleFallsBackOnInvalidTemplateScale asserts the FIX: an
+// invalid template-declared scale is NOT returned verbatim. It is held to the same
+// contract as the --rubric-scale flag (rubricScaleBoundsValid: non-negative,
+// min<max); when it fails, resolveRubricScale falls back to the default 1-5 AND
+// returns a non-fatal warning naming the field and the default now in effect.
 //
-// This is a CHARACTERIZATION test, not an endorsement: if a future fix pass adds
-// template-scale validation, these expectations must change deliberately.
-// FLAGGED to the manager (see scratchpad report).
-func TestResolveRubricScaleAcceptsInvalidTemplateScale(t *testing.T) {
+// (This test previously pinned the pre-fix silent-accept behavior; it now asserts
+// the corrected behavior.)
+func TestResolveRubricScaleFallsBackOnInvalidTemplateScale(t *testing.T) {
 	withScale := func(min, max int) registry.MetricTemplate {
 		tmpl := rubricTemplate()
 		tmpl.RubricDetail = &registry.RubricDetail{Scale: &registry.RubricScale{Min: min, Max: max}}
@@ -45,38 +46,67 @@ func TestResolveRubricScaleAcceptsInvalidTemplateScale(t *testing.T) {
 	rc := runConfig{rubricDetail: true, scaleSet: false} // no explicit flag scale
 
 	cases := []struct {
-		name             string
-		min, max         int
-		wantMin, wantMax int
+		name     string
+		min, max int
 	}{
-		{"min greater than max accepted as-is", 8, 2, 8, 2},
-		{"min equals max accepted as-is", 3, 3, 3, 3},
-		{"negative min accepted as-is", -4, 5, -4, 5},
-		{"both negative accepted as-is", -5, -1, -5, -1},
+		{"min greater than max falls back to default", 8, 2},
+		{"min equals max falls back to default", 3, 3},
+		{"negative min falls back to default", -4, 5},
+		{"both negative falls back to default", -5, -1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			min, max := e.resolveRubricScale(withScale(tc.min, tc.max), rc)
-			if min != tc.wantMin || max != tc.wantMax {
-				t.Errorf("resolveRubricScale = %d-%d, want %d-%d (template scale is currently unvalidated)",
-					min, max, tc.wantMin, tc.wantMax)
+			min, max, warning := e.resolveRubricScale(withScale(tc.min, tc.max), rc)
+			if min != defaultRubricScaleMin || max != defaultRubricScaleMax {
+				t.Errorf("resolveRubricScale = %d-%d, want default %d-%d for invalid template scale %d-%d",
+					min, max, defaultRubricScaleMin, defaultRubricScaleMax, tc.min, tc.max)
+			}
+			if warning == "" {
+				t.Fatalf("expected a non-fatal warning for invalid template scale %d-%d, got none", tc.min, tc.max)
+			}
+			if !strings.Contains(warning, "rubricDetail.scale") {
+				t.Errorf("warning should name the offending field rubricDetail.scale: %q", warning)
+			}
+			if !strings.Contains(warning, "default") {
+				t.Errorf("warning should state the default scale is used instead: %q", warning)
 			}
 		})
 	}
 }
 
-// TestInvalidTemplateScaleReachesJudgePromptUnvalidated PINS the end-to-end
-// consequence of the above: an inverted template scale (min>max) is threaded into
-// the judge instruction verbatim ("from 8 to 2") and the run SUCCEEDS — no
-// validation error is raised anywhere on the path. FLAGGED as a possible gap: a
-// nonsensical scale silently reaches the judge and drives clamping.
-func TestInvalidTemplateScaleReachesJudgePromptUnvalidated(t *testing.T) {
+// TestInvalidTemplateScaleFallsBackAndWarnsEndToEnd asserts the end-to-end FIX: an
+// inverted template scale (min>max) does NOT reach the judge instruction. The run
+// still SUCCEEDS (non-fatal, consistent with H3), the prompt carries the fallback
+// default 1-5 instead of the nonsensical "8 to 2", and the fallback warning is
+// surfaced on Result.Warnings.
+//
+// (This test previously pinned that the inverted scale reached the prompt
+// verbatim; it now asserts the corrected fallback + warning behavior.)
+func TestInvalidTemplateScaleFallsBackAndWarnsEndToEnd(t *testing.T) {
 	tmpl := rubricTemplate()
 	tmpl.RubricDetail = &registry.RubricDetail{Scale: &registry.RubricScale{Min: 8, Max: 2}}
 
-	prompt := runScaleProbe(t, tmpl, WithRubricDetailDefaultScale())
-	if !strings.Contains(prompt, "8 to 2") {
-		t.Errorf("inverted template scale 8-2 was not threaded verbatim into the prompt:\n%s", prompt)
+	fg := &fakeGenai{respText: scaleProbeJSON}
+	eng := NewEngine(&fakeClient{}, "p", "us-central1", WithGenaiClient(fg))
+	res, err := eng.Run(context.Background(), tmpl, rubricInstance(), WithRubricDetailDefaultScale())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(fg.gotContents) == 0 || len(fg.gotContents[0].Parts) == 0 {
+		t.Fatal("no prompt captured")
+	}
+	prompt := fg.gotContents[0].Parts[0].Text
+	if strings.Contains(prompt, "8 to 2") {
+		t.Errorf("inverted template scale 8-2 must NOT reach the judge prompt:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "1 to 5") {
+		t.Errorf("expected the fallback default scale 1 to 5 in the prompt:\n%s", prompt)
+	}
+	if !warningsContain(res.Warnings, "rubricDetail.scale") {
+		t.Errorf("expected a warning naming rubricDetail.scale, got: %v", res.Warnings)
+	}
+	if !warningsContain(res.Warnings, "default") {
+		t.Errorf("expected the warning to state the default is used, got: %v", res.Warnings)
 	}
 }
 

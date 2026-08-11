@@ -370,8 +370,18 @@ func ParseRubricScale(s string) (min, max int, err error) {
 	if err != nil {
 		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: max is not a non-negative integer: %v", s, err)
 	}
-	if min >= max {
+	if !rubricScaleBoundsValid(min, max) {
 		return 0, 0, fmt.Errorf("eval: invalid --rubric-scale %q: min (%d) must be less than max (%d)", s, min, max)
 	}
 	return min, max, nil
+}
+
+// rubricScaleBoundsValid reports whether [min,max] is a usable Likert range under
+// the SAME contract ParseRubricScale enforces on the --rubric-scale flag:
+// non-negative bounds with min strictly less than max. It is factored out so the
+// flag path (ParseRubricScale) and the template-declared-scale path
+// (Engine.resolveRubricScale) validate IDENTICALLY rather than diverging — a
+// template scale must be no less trustworthy than a flag scale.
+func rubricScaleBoundsValid(min, max int) bool {
+	return min >= 0 && min < max
 }
