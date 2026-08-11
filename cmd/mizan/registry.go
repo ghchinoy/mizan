@@ -46,7 +46,7 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	fl.StringVar(&f.id, "id", "", "stable template id, <namespace>/<slug> (required)")
 	fl.StringVar(&f.name, "name", "", "human-readable name")
 	fl.StringVar(&f.description, "description", "", "description")
-	fl.StringVar(&f.kind, "kind", string(registry.KindPointwise), "metric kind: pointwise|pairwise|rubric|custom_schema")
+	fl.StringVar(&f.kind, "kind", string(registry.KindPointwise), "metric kind: single (a.k.a. pointwise) — score one response | compare (a.k.a. pairwise) — compare two | rubric | custom_schema")
 	fl.StringVar(&f.prompt, "prompt", "", "metric prompt template ({{var}} placeholders)")
 	fl.StringVar(&f.system, "system", "", "system instruction")
 	// Default is empty (WI-F3): an unset --model leaves the template's
@@ -201,7 +201,18 @@ func (f *templateFlags) apply(cmd *cobra.Command, t *registry.MetricTemplate, up
 	}
 	set("name", func() { t.Name = f.name })
 	set("description", func() { t.Description = f.description })
-	set("kind", func() { t.Kind = registry.MetricKind(f.kind) })
+	// Normalize the kind spelling at the parse boundary (ITEM C): the vernacular
+	// aliases single/compare fold to pointwise/pairwise and an unknown value is
+	// rejected here, so t.Kind is always a canonical MetricKind and downstream
+	// logic never sees an alias. Kept out of the plain set() helper because it can
+	// error; the same !update||changed("kind") gating is applied by hand.
+	if !update || changed("kind") {
+		k, err := registry.NormalizeKind(f.kind)
+		if err != nil {
+			return err
+		}
+		t.Kind = k
+	}
 	set("prompt", func() { t.MetricPromptTemplate = f.prompt })
 	set("system", func() { t.SystemInstruction = f.system })
 	set("model", func() { t.AutoraterModel = f.model })
@@ -324,7 +335,13 @@ func newRegistryListCmd() *cobra.Command {
 
 			filter := registry.ListFilter{Namespace: namespace}
 			if kind != "" {
-				filter.Kinds = []registry.MetricKind{registry.MetricKind(kind)}
+				// Accept the vernacular aliases (single/compare) here too, folding
+				// them to the canonical kind before filtering (ITEM C).
+				k, err := registry.NormalizeKind(kind)
+				if err != nil {
+					return err
+				}
+				filter.Kinds = []registry.MetricKind{k}
 			}
 			ts, err := svc.List(cmd.Context(), filter)
 			if err != nil {
@@ -334,7 +351,7 @@ func newRegistryListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&namespace, "namespace", "", "filter by id namespace prefix")
-	cmd.Flags().StringVar(&kind, "kind", "", "filter by metric kind")
+	cmd.Flags().StringVar(&kind, "kind", "", "filter by metric kind (accepts single|pointwise, compare|pairwise, rubric, custom_schema)")
 	return cmd
 }
 
