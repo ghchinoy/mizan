@@ -1,10 +1,10 @@
 # Mizan — Documentation Index
 
-**Project status: Phase 1 is complete.** Registry CRUD, config, and all four
-metric kinds (pointwise, rubric, custom_schema, pairwise) — including
-multimodal (image/audio/video/music) — are built, installable, and verified
-end-to-end against real Vertex AI. Template packs/sharing, batch eval, and the
-desktop app remain planned — see [`roadmap.md`](roadmap.md) (or the
+**Mizan is installable today as a working CLI.** Registry CRUD, config, and
+all four metric kinds (pointwise, rubric, custom_schema, pairwise) —
+including multimodal (image/audio/video/music) — are built and verified
+end-to-end against real Vertex AI. Template packs/sharing, batch eval, and
+the desktop app remain planned — see [`roadmap.md`](roadmap.md) (or the
 [user guide](user-guide.md#coming-soon--roadmap)) for the current boundary.
 The design documents below remain the architectural record;
 `architecture-final.md` in particular is kept current as the single source of
