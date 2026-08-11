@@ -77,9 +77,15 @@ func newEvalRunCmd() *cobra.Command {
 		gcs          []string
 	)
 	cmd := &cobra.Command{
-		Use:   "run --metric <id> [--field key=value] [--file key=/path] [--gcs key=gs://…]",
-		Short: "Run a pointwise (or rubric/custom_schema) metric against a live eval call",
+		Use: "run --metric <id> [--field key=value] [--file key=/path] [--gcs key=gs://…]",
+		// `single` is the plain-vernacular alias: `mizan eval single` == `mizan eval
+		// run` — score ONE response (a.k.a. pointwise). run is also the entry for
+		// rubric/custom_schema templates, dispatched by the template's kind.
+		Aliases: []string{"single"},
+		Short:   "single (a.k.a. pointwise) — score one response (also rubric/custom_schema) against a live eval call",
 		Long: "Run a metric template against an instance.\n\n" +
+			"Also available as `mizan eval single` — score ONE response (a.k.a.\n" +
+			"pointwise). The compare/pairwise counterpart is `mizan eval compare`.\n\n" +
 			"Supply instance fields with:\n" +
 			"  --field key=text     a text value\n" +
 			"  --file  key=/path    a local asset; the engine stages it to GCS\n" +
@@ -189,9 +195,16 @@ func newEvalPairwiseCmd() *cobra.Command {
 		gcs       []string
 	)
 	cmd := &cobra.Command{
-		Use:   "pairwise --metric <id> --baseline key=… --candidate key=… [--field/--file/--gcs …]",
-		Short: "Compare a baseline and candidate response with a pairwise metric",
-		Long: "Run a pairwise metric template. Provide the baseline and candidate\n" +
+		Use: "pairwise --metric <id> --baseline key=… --candidate key=… [--field/--file/--gcs …]",
+		// `compare` is the plain-vernacular alias: `mizan eval compare` == `mizan
+		// eval pairwise` — compare TWO responses and pick the better (a.k.a.
+		// pairwise). The single/pointwise counterpart is `mizan eval single`.
+		Aliases: []string{"compare"},
+		Short:   "compare (a.k.a. pairwise) — compare two responses (baseline vs candidate) and pick the better",
+		Long: "Run a pairwise metric template. Also available as `mizan eval compare`\n" +
+			"— compare TWO responses (a.k.a. pairwise). The single/pointwise\n" +
+			"counterpart is `mizan eval single`.\n\n" +
+			"Provide the baseline and candidate\n" +
 			"responses with --baseline key=value and --candidate key=value, where\n" +
 			"the keys match the template's baseline/candidate field names. Additional\n" +
 			"placeholders use --field/--file/--gcs (media compares via gs:// FileData).\n" +

@@ -4,7 +4,10 @@
 // into the appropriate Vertex AI proto (see internal/eval).
 package registry
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Modality is the asset type a metric template accepts.
 type Modality string
@@ -28,6 +31,39 @@ const (
 	// KindCustomSchema forces the direct genai fallback path (strict schema).
 	KindCustomSchema MetricKind = "custom_schema"
 )
+
+// Vernacular kind aliases (ITEM C). These are plain-English spellings accepted
+// only at the CLI/parse boundary and immediately normalized to a canonical
+// MetricKind by NormalizeKind; they are NEVER stored or threaded downstream, so
+// the eval engine and the Vertex request specs (PointwiseMetricSpec /
+// PairwiseMetricSpec) only ever see the canonical kinds above.
+//
+//	single  -> pointwise  (score ONE response)
+//	compare -> pairwise   (compare TWO responses, pick the better)
+const (
+	KindAliasSingle  = "single"  // a.k.a. pointwise
+	KindAliasCompare = "compare" // a.k.a. pairwise
+)
+
+// NormalizeKind maps a user-supplied kind spelling to its canonical MetricKind.
+// The canonical kinds (pointwise/pairwise/rubric/custom_schema) pass through
+// unchanged and the vernacular aliases are folded to their canonical kind
+// (single -> pointwise, compare -> pairwise). Any other value is rejected so a
+// typo fails clearly at the parse boundary instead of deep in the eval path.
+// Normalizing here — and only here — keeps all downstream logic and the Vertex
+// request specs unchanged regardless of which spelling the caller used.
+func NormalizeKind(s string) (MetricKind, error) {
+	switch s {
+	case KindAliasSingle:
+		return KindPointwise, nil
+	case KindAliasCompare:
+		return KindPairwise, nil
+	case string(KindPointwise), string(KindPairwise), string(KindRubric), string(KindCustomSchema):
+		return MetricKind(s), nil
+	default:
+		return "", fmt.Errorf("unknown metric kind %q (want one of: single|pointwise, compare|pairwise, rubric, custom_schema)", s)
+	}
+}
 
 // Author is an asserted contributor of a template (corroborated by git blame
 // in the pack repo).
