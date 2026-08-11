@@ -8,11 +8,11 @@ the better of two answers") and maps it to the template kind, command, and outpu
 that achieve it.
 
 Every scenario here is grounded in code that ships today. Where a scenario is
-**not yet built**, it is called out explicitly under
-[Roadmap scenarios](#roadmap-scenarios-not-built-yet). For copy-pasteable,
-live-verified recipes see [`docs/testing-guide.md`](testing-guide.md); for the
-narrative CLI walkthrough (install, config, CRUD) see
-[`docs/user-guide.md`](user-guide.md); for the authoritative architecture see
+**not yet built**, it is called out explicitly under [Scenarios that are not
+built yet](#scenarios-that-are-not-built-yet). For copy-pasteable, live-verified
+recipes see [`docs/testing-guide.md`](testing-guide.md); for the narrative CLI
+walkthrough (install, config, CRUD) see [`docs/user-guide.md`](user-guide.md);
+for the authoritative architecture see
 [`docs/architecture-final.md`](architecture-final.md).
 
 > **How Mizan judges.** A Mizan *metric template* is a stored, named
@@ -21,7 +21,8 @@ narrative CLI walkthrough (install, config, CRUD) see
 > `EvaluateInstances` call or, for structured output, a direct `genai`
 > `GenerateContent` call — the engine picks the path from the template's
 > `Kind` (`internal/eval/engine.go`, `Engine.dispatch`). You author templates
-> with `mizan registry create` and run them with `mizan eval run` /
+> with `mizan registry create` and run them with `mizan eval single` /
+> `mizan eval compare` — equivalently `mizan eval run` /
 > `mizan eval pairwise`.
 
 ---
@@ -30,14 +31,23 @@ narrative CLI walkthrough (install, config, CRUD) see
 
 | I want to… | Scenario | Kind | Command | Section |
 |---|---|---|---|---|
-| Score one response on a quality dimension I define | Pointwise quality scoring | `pointwise` | `mizan eval run` | [↓](#scenario-1-score-a-single-response-pointwise) |
-| Decide which of two responses is better | Pairwise preference | `pairwise` | `mizan eval pairwise` | [↓](#scenario-2-compare-two-responses-pairwise) |
+| Score one response on a quality dimension I define | Single-response quality scoring | `single` (`pointwise`) | `mizan eval single` (= `eval run`) | [↓](#scenario-1-score-a-single-response-pointwise) |
+| Decide which of two responses is better | Compare two responses | `compare` (`pairwise`) | `mizan eval compare` (= `eval pairwise`) | [↓](#scenario-2-compare-two-responses-pairwise) |
 | Grade against several named criteria and get one score | Rubric — overall score | `rubric` | `mizan eval run` | [↓](#scenario-3-grade-against-an-authored-rubric) |
-| See a score **and rationale for each criterion** | Rubric — per-criterion transparency | `rubric` + `--rubric-detail` | `mizan eval run --rubric-detail` | [↓](#scenario-4-explainable-per-criterion-rubric-scoring-rubric-detail) |
+| See a score **and rationale for each criterion** | Rubric — per-criterion transparency | `rubric` + `--rubric-detail` | `mizan eval run --rubric-detail` | [↓](#scenario-4-explainable-per-criterion-rubric-scoring---rubric-detail) |
 | Get a typed JSON verdict (compliance flags, booleans, arrays) | Structured / compliance check | `custom_schema` | `mizan eval run` | [↓](#scenario-5-structured--compliance-verdicts-custom_schema) |
 | Judge an image, audio, video, or music asset | Multimodal evaluation | any kind + `--modality` | `--file` / `--gcs` | [↓](#scenario-6-judge-media-not-just-text-multimodal) |
 | Choose *which* model does the judging | Judge-model selection | any | `--model` / `default-model` | [↓](#scenario-7-choose-the-judge-model) |
 | See timing, token cost, and the resolved target of a run | Per-run observability | any | `--stats` + pre-flight echo | [↓](#scenario-8-see-what-a-run-cost-and-where-it-went) |
+
+> **single = pointwise, compare = pairwise.** *Pointwise* and *pairwise* are
+> the Vertex AI Gen AI Evaluation Service's own terms — non-standard jargon —
+> and this guide keeps them visible so you can match them to Vertex's docs.
+> Mizan accepts the plainer spellings everywhere the Vertex ones work: as
+> `--kind` values (`single|pointwise`, `compare|pairwise`) and as the
+> subcommands `mizan eval single` (= `eval run`) and `mizan eval compare`
+> (= `eval pairwise`). `rubric` and `custom_schema` are the other two kinds,
+> and both run through `mizan eval run`.
 
 All scenarios assume you have configured a project and authenticated — see
 [Prerequisites](#prerequisites).
@@ -68,12 +78,14 @@ numeric score plus a rationale. This is the simplest and most common judgment.
 **When to use it.** You are grading responses one at a time on a scale you define
 in the prompt, and a single number is enough.
 
-**How it works.** `KindPointwise` materializes a `PointwiseMetricSpec` and calls
-the native `EvaluateInstances` RPC; the response maps to `{Score, Explanation}`
-(`internal/eval/native.go`, `runPointwise` → `runNativePointwise`). The scale is
-**whatever your prompt asks for** — Mizan imposes none.
+**How it works.** The `single` kind — Vertex's *pointwise* — materializes a
+`PointwiseMetricSpec` and calls the native `EvaluateInstances` RPC; the response
+maps to `{Score, Explanation}` (`internal/eval/native.go`, `runPointwise` →
+`runNativePointwise`). The scale is **whatever your prompt asks for** — Mizan
+imposes none.
 
-**Author and run:**
+**Author and run** — `--kind single` and `--kind pointwise` are the same kind,
+and `mizan eval single` is the same command as the `mizan eval run` shown here:
 
 ```sh
 mizan registry create --id demo/conciseness --name "Conciseness" \
@@ -111,16 +123,18 @@ better one rather than score them independently.
 least as good?"), and preference data collection, where relative quality matters
 more than an absolute number.
 
-**How it works.** `KindPairwise` materializes a `PairwiseMetricSpec` with your
-baseline/candidate field names and calls native `EvaluateInstances`; the result
-is a `PairwiseChoice` mapped to `BASELINE` / `CANDIDATE` / `TIE`
-(`internal/eval/pairwise.go`, `runPairwise` → `pairwiseChoiceString`). To counter
-position bias, pairwise runs with **flip enabled** (the template's
-`--flip-enabled` flag, **default `true`**) and multiple samples (default
-`SamplingCount` = 4, `pairwiseDefaultSamplingCount`; lower it to trade
-self-consistency for latency).
+**How it works.** The `compare` kind — Vertex's *pairwise* — materializes a
+`PairwiseMetricSpec` with your baseline/candidate field names and calls native
+`EvaluateInstances`; the result is a `PairwiseChoice` mapped to `BASELINE` /
+`CANDIDATE` / `TIE` (`internal/eval/pairwise.go`, `runPairwise` →
+`pairwiseChoiceString`). To counter position bias, a compare run has **flip
+enabled** (the template's `--flip-enabled` flag, **default `true`**) and takes
+multiple samples (default `SamplingCount` = 4, `pairwiseDefaultSamplingCount`;
+lower it to trade self-consistency for latency).
 
-**Author and run:**
+**Author and run** — `--kind compare` and `--kind pairwise` are the same kind,
+and `mizan eval compare` is the same command as the `mizan eval pairwise`
+shown here:
 
 ```sh
 mizan registry create --id demo/pairwise-quality --name "Pairwise Quality" --kind pairwise \
@@ -160,7 +174,7 @@ but see the flip caveat below.
   serializes it under `warnings` in `--output json`).
 - **`--flip-enabled` is honored.** Create the template with `--flip-enabled=false`
   to keep the explanation's wording aligned with the presented order, at the cost
-  of position-bias mitigation. Because the P1 registry stores `FlipEnabled` as a
+  of position-bias mitigation. Because the registry stores `FlipEnabled` as a
   plain `bool` (no tri-state), set it explicitly at `create` time.
 
 ---
@@ -241,7 +255,7 @@ criterion, plus `overall_score` and `explanation`
 (`internal/eval/rubric_structured.go`, `runRubricStructured` →
 `generateRubricSchema` / `renderRubricInstruction`). The overall score is
 surfaced as `Result.Score`; per-criterion scores are validated and clamped into
-the configured scale. This landed in PR #16.
+the configured scale.
 
 **The scale is configurable.** `--rubric-scale "<min>-<max>"` (default `1-5`)
 sets the Likert range every criterion and the overall score are held to; values
@@ -286,7 +300,7 @@ authored criterion with its score and rationale.
 - Scale bounds must be **non-negative** integers with `min < max` (`"1-5"`,
   `"0-10"`); negative bounds are intentionally unsupported.
 - The judge's returned criteria are **strictly reconciled** against your authored
-  set, matched by the exact **(group, criterion)** pair (R-R2):
+  set, matched by the exact **(group, criterion)** pair:
   - a **missing** authored criterion (authored but not returned) is a **hard
     error** naming the missing pair(s) — a partial scorecard is never surfaced;
   - a **duplicated** authored criterion (the same pair returned more than once) is
@@ -438,7 +452,7 @@ mizan config set default-model gemini-2.5-flash          # account-wide default
 mizan eval run --metric demo/conciseness --model gemini-2.5-flash --field response="…"   # per-run override
 ```
 
-**Global-only judges are auto-routed to the global host (R-GLOBAL).** Newer models
+**Global-only judges are auto-routed to the global host.** Newer models
 such as `gemini-3.5-flash` / `-flash-lite` are **global-only**: they resolve on the
 global eval endpoint but **404 on the regional native path** (verified live —
 `design/spike-eval-region-autorater.md`). The deciding factor is the eval endpoint
@@ -545,8 +559,8 @@ hit — *before* it happens.
 
 | Scenario | Kind | Path | Location | Output | Multimodal? | Sampling? | Token stats? |
 |---|---|---|---|---|---|---|---|
-| Pointwise scoring | `pointwise` | native | regional | `Score` + `Explanation` | ✅ (gs:// FileData) | ✅ | ❌ |
-| Pairwise preference | `pairwise` | native | regional | `Choice` + `Explanation` | ✅ (gs:// FileData) | ✅ (flip, default 4) | ❌ |
+| Single-response scoring | `single` (`pointwise`) | native | regional | `Score` + `Explanation` | ✅ (gs:// FileData) | ✅ | ❌ |
+| Compare two responses | `compare` (`pairwise`) | native | regional | `Choice` + `Explanation` | ✅ (gs:// FileData) | ✅ (flip, default 4) | ❌ |
 | Rubric — overall | `rubric` | native | regional | `Score` + `Explanation` | ✅ (gs:// FileData) | ✅ | ❌ |
 | Rubric — per-criterion | `rubric` + `--rubric-detail` | genai | global | overall `Score` + per-criterion table | ✅ (inline) | ❌ (dropped) | ✅ |
 | Structured / compliance | `custom_schema` | genai | global | `CustomOutput` (typed JSON) | ✅ (inline) | ❌ | ✅ |
@@ -559,25 +573,25 @@ regardless of your `location` (Scenario 7).*
 
 ---
 
-## Roadmap scenarios (not built yet)
+## Scenarios that are not built yet
 
-These are **not implemented** — do not expect them to work today. See
-[`docs/implementation-plan.md`](implementation-plan.md) for phasing and the root
-[`README.md`](../README.md) for the current boundary.
+These are **not implemented** — do not expect them to work today.
+[`docs/roadmap.md`](roadmap.md) is the canonical list of planned capabilities;
+the root [`README.md`](../README.md) states the current boundary.
 
 - **Batch evaluation over a dataset** — judging many instances at once via
   `EvaluateDataset` over GCS-hosted data (which is also the official home for
-  API-native per-criterion rubric output with sampling retained). No `eval batch`
-  command exists. *Roadmap phase P3.*
+  API-native per-criterion rubric output with sampling retained). No
+  `eval batch` command exists.
 - **Template packs / registry import & export** — sharing and versioning
   templates via `mizan pack` and `mizan registry import`/`export`. Not wired.
-  *Roadmap phase P2.*
-- **Pairwise tri-state flip default** — the engine now honors the template's
-  `--flip-enabled` (including `false`), but the P1 registry stores it as a plain
-  `bool`, so "unset ⇒ default true" can't be distinguished from an explicit
-  `false`. A nullable/tri-state field is a *P2 registry change.*
-- **Desktop app** — the Wails GUI is design-stage scaffolding only. *Roadmap
-  phase P4.*
+- **A tri-state flip default for compare templates** — the engine honors the
+  template's `--flip-enabled` (including `false`), but the registry stores it
+  as a plain `bool`, so "unset ⇒ default true" cannot be distinguished from an
+  explicit `false`. Making that field nullable is a registry change that has
+  not been made.
+- **Desktop app** — the Wails GUI is design-stage scaffolding only; there is
+  no built or runnable desktop app.
 
 ---
 
@@ -589,7 +603,5 @@ These are **not implemented** — do not expect them to work today. See
   [`docs/user-guide.md`](user-guide.md).
 - **Authoritative architecture** (domain model, engine, CLI surface) —
   [`docs/architecture-final.md`](architecture-final.md).
-- **Roadmap and acceptance criteria** —
-  [`docs/implementation-plan.md`](implementation-plan.md).
-</content>
-</invoke>
+- **Planned capabilities that are not built yet** —
+  [`docs/roadmap.md`](roadmap.md).
