@@ -51,8 +51,30 @@ func TestPreflightSources(t *testing.T) {
 			wantLocSrc:  "global-path",
 		},
 		{
-			name:        "fully-qualified model overrides location on native path: src=model",
-			target:      eval.ResolvedTarget{Project: "cfg-project", Location: "europe-west4", Path: "native"},
+			name:        "fully-qualified regional model overrides location on native path: src=model",
+			target:      eval.ResolvedTarget{Project: "cfg-project", Location: "europe-west4", Path: "native", LocationFromModelResource: true},
+			wantProjSrc: "env",
+			wantLocSrc:  "model",
+		},
+		{
+			// FIX-SRC: a known global-only judge auto-routes the NATIVE path to the
+			// global host (location=global, path stays native). That override comes
+			// from ROUTING, not a fully-qualified model resource, so it must read
+			// src=global-route — NOT src=model.
+			name:        "global-only model forces global on native path: src=global-route",
+			target:      eval.ResolvedTarget{Project: "cfg-project", Location: "global", Path: "native"},
+			wantProjSrc: "env",
+			wantLocSrc:  "global-route",
+		},
+		{
+			// Review OPTIONAL (provenance): a fully-qualified model RESOURCE
+			// explicitly pinned to locations/global surfaces Location="global" on the
+			// NATIVE path — the SAME string a routing-forced global would — but its
+			// provenance is the resource, not routing. ResolvedTarget.LocationFromModelResource
+			// carries that provenance so it reads src=model, NOT src=global-route.
+			// The two global cases are deliberately kept distinct.
+			name:        "global-pinned model resource on native path: src=model (not global-route)",
+			target:      eval.ResolvedTarget{Project: "cfg-project", Location: "global", Path: "native", LocationFromModelResource: true},
 			wantProjSrc: "env",
 			wantLocSrc:  "model",
 		},

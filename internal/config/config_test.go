@@ -232,6 +232,41 @@ func TestValidateEndpoint(t *testing.T) {
 	}
 }
 
+func TestValidateProjectID(t *testing.T) {
+	cases := []struct {
+		name    string
+		project string
+		wantErr bool
+	}{
+		{"empty is allowed (no override)", "", false},
+		{"typical project id", "my-project-123", false},
+		{"minimum length six", "abcde1", false},
+		{"thirty-one chars rejected", "a234567890123456789012345678901", true}, // 31 chars
+		{"exactly thirty allowed", "a12345678901234567890123456789", false},    // 30 chars
+		{"digits and hyphens", "proj-2026-eval", false},
+		{"too short five chars", "abcde", true},
+		{"leading digit rejected", "1project", true},
+		{"leading hyphen rejected", "-project", true},
+		{"trailing hyphen rejected", "project-", true},
+		{"uppercase rejected", "MyProject", true},
+		{"underscore rejected", "my_project", true},
+		{"space rejected", "my project", true},
+		{"newline rejected", "my-project\n", true},
+		{"slash rejected", "my/project", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateProjectID(tc.project)
+			if tc.wantErr && err == nil {
+				t.Errorf("ValidateProjectID(%q) = nil, want error", tc.project)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("ValidateProjectID(%q) = %v, want nil", tc.project, err)
+			}
+		})
+	}
+}
+
 func TestValidateGenaiBaseURL(t *testing.T) {
 	cases := []struct {
 		name    string

@@ -506,14 +506,22 @@ hit — *before* it happens.
   mizan: autorater → project=my-proj (src=env-file) location=us-central1 (src=default) model=gemini-2.5-flash (path=native)
   ```
 
-  The `src=` hints (`env` / `env-file` / `default`) name where the project and
-  location came from — the same source attribution `config show` prints — so a
-  value from an unexpected place is obvious at a glance.
+  The `src=` hints name where each value came from — the same source attribution
+  `config show` prints — so a value from an unexpected place is obvious at a
+  glance. The project/location can read: `env` (an exported variable), `env-file`
+  (the loaded `.env`), `default` (built-in), `flag` (a per-invocation `--project`
+  override), `model` (a fully-qualified model resource carried its own
+  project/location), `global-path` (the genai/`--rubric-detail` path is global by
+  design), or `global-route` (the native path was auto-routed to the global host
+  for a known global-only judge).
 
-  For a **known global-only judge** the echo already shows `location=global` (the
-  routing is detected up front — Scenario 7). For a global-only judge discovered
-  only via the retry, Mizan additionally prints a "routing this eval to the GLOBAL
-  host" notice to stderr at run time so the forced-global routing is never silent.
+  For a **known global-only judge** the echo already shows
+  `location=global (src=global-route)` (the routing is detected up front —
+  Scenario 7); `global-route` distinguishes this forced routing from a
+  fully-qualified model resource that carried `global` itself (`src=model`). For a
+  global-only judge discovered only via the retry, Mizan additionally prints a
+  "routing this eval to the GLOBAL host" notice to stderr at run time so the
+  forced-global routing is never silent.
 
 - **`--stats` (opt-in).** Adds a footer with wall-clock **duration** (always
   measured) and, on the genai path only, **token usage**

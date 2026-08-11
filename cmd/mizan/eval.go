@@ -17,6 +17,14 @@ import (
 	"github.com/ghchinoy/mizan/internal/wire"
 )
 
+// projectOverride is the value of the per-invocation --project flag (FEAT-PROJECT).
+// It is a PERSISTENT flag on the eval command, so it applies to both `eval run`
+// and `eval pairwise` (mirroring how --model sits atop the model chain) WITHOUT
+// polluting the unrelated registry/config command trees the way a root-level
+// persistent flag would. Empty means "no override" — the env/.env/default
+// precedence LoadConfig resolved is left intact.
+var projectOverride string
+
 // newEvalCmd wires the `mizan eval` command family.
 func newEvalCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -24,10 +32,37 @@ func newEvalCmd() *cobra.Command {
 		Short:   "Run metric templates against assets",
 		GroupID: groupEval,
 	}
+	// --project overrides the resolved GCP project for a single run at the TOP of
+	// the precedence chain: flag > exported env (MIZAN_PROJECT_ID/PROJECT_ID) >
+	// .env > default. Persistent so `eval run` and `eval pairwise` both inherit it.
+	cmd.PersistentFlags().StringVar(&projectOverride, "project", "",
+		"override the GCP project for this run (highest precedence: flag > env > .env > default)")
 	cmd.AddCommand(newEvalRunCmd())
 	cmd.AddCommand(newEvalPairwiseCmd())
 	// eval batch (P3) is intentionally not wired in this slice.
 	return cmd
+}
+
+// applyProjectOverride applies the per-invocation --project flag (FEAT-PROJECT)
+// at the TOP of the project precedence chain:
+//
+//	flag > exported env (MIZAN_PROJECT_ID/PROJECT_ID) > .env > default
+//
+// LoadConfig has already resolved env/.env/default into cfg.ProjectID; when the
+// flag is non-empty we replace that value AND re-attribute its source to `flag`
+// so the pre-flight echo shows src=flag — reusing the FIX-CONFIG source-hint
+// mechanism (config.Source / cfg.Sources) rather than inventing a parallel path.
+// An empty flag leaves cfg untouched, so the env/.env/default precedence is
+// preserved exactly (absent-flag = unchanged behavior).
+func applyProjectOverride(cfg *config.Config, project string) {
+	if project == "" {
+		return
+	}
+	cfg.ProjectID = project
+	if cfg.Sources == nil {
+		cfg.Sources = map[string]config.Source{}
+	}
+	cfg.Sources["project-id"] = config.SourceFlag
 }
 
 func newEvalRunCmd() *cobra.Command {
@@ -60,6 +95,17 @@ func newEvalRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Validate the per-invocation --project flag BEFORE it overrides the
+			// resolved project, is echoed to stderr, or reaches Vertex — so a
+			// malformed value fails locally with a crisp error instead of an opaque
+			// server-side InvalidArgument (mirrors the local --model guard below).
+			if err := config.ValidateProjectID(projectOverride); err != nil {
+				return err
+			}
+			// A per-invocation --project flag overrides the resolved project for
+			// this run (flag > env > .env > default). Apply BEFORE the engine is
+			// opened so the override reaches both the pre-flight echo and the call.
+			applyProjectOverride(cfg, projectOverride)
 
 			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
@@ -161,6 +207,15 @@ func newEvalPairwiseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Validate the per-invocation --project flag BEFORE it overrides the
+			// resolved project, is echoed to stderr, or reaches Vertex (see eval run).
+			if err := config.ValidateProjectID(projectOverride); err != nil {
+				return err
+			}
+			// A per-invocation --project flag overrides the resolved project for
+			// this run (flag > env > .env > default). Apply BEFORE the engine is
+			// opened so the override reaches both the pre-flight echo and the call.
+			applyProjectOverride(cfg, projectOverride)
 
 			svc, closeSvc, err := wire.OpenService(cfg)
 			if err != nil {
@@ -295,9 +350,20 @@ func printPreflight(w io.Writer, t eval.ResolvedTarget, projSrc, locSrc string) 
 // preflightSources attributes the pre-flight project/location values to their
 // origin, reusing the config source-resolution helper (POLA #1). When the
 // resolved target matches the configured project/location, the value carries its
-// config source (env/env-file/default); when a fully-qualified --model resource
-// or the genai/global path overrides them, that override is named instead so the
-// echo never claims a config source it did not actually use.
+// config source (env/env-file/default, or flag when a --project override is in
+// effect); when a fully-qualified --model resource or a global path overrides
+// them, that override is named instead so the echo never claims a config source
+// it did not actually use. The location override tokens are distinct on purpose:
+//   - global-path: the genai/custom_schema (or --rubric-detail) path is global
+//     by design.
+//   - global-route: the NATIVE path was auto-routed to the global host because
+//     the resolved model is a known global-only judge (isGlobalOnlyModel).
+//   - model: a fully-qualified "projects/.../locations/<loc>/..." model resource
+//     carried its own location — REGIONAL or global. The resource-vs-routing
+//     provenance for a "global" native location cannot be read from the location
+//     string alone (both surface "global"), so it is threaded from the resolver
+//     via ResolvedTarget.LocationFromModelResource (review OPTIONAL: a resource
+//     explicitly pinned to global is src=model, not src=global-route).
 func preflightSources(cfg *config.Config, t eval.ResolvedTarget) (projSrc, locSrc string) {
 	projSrc = "model" // a fully-qualified model resource carried its own project
 	if t.Project == cfg.ProjectID {
@@ -308,6 +374,21 @@ func preflightSources(cfg *config.Config, t eval.ResolvedTarget) (projSrc, locSr
 		locSrc = cfg.SourceOf("location").String()
 	case t.Path == "genai":
 		locSrc = "global-path" // the genai path is always global (spike-custom)
+	case t.LocationFromModelResource:
+		// A fully-qualified model resource carried its own location. This is checked
+		// BEFORE the global-route fallback so a resource explicitly pinned to
+		// "global" reads src=model rather than being mislabeled as routing-forced
+		// (the resource-derived-global vs routing-forced-global distinction).
+		locSrc = "model"
+	case t.Location == eval.GenaiLocation:
+		// FIX-SRC: on the NATIVE path a "global" location NOT carried by a
+		// fully-qualified model resource is forced by global-only ROUTING
+		// (isGlobalOnlyModel auto-routes a known global-only judge to the global
+		// host; route.go). Label it accurately so the echo never claims the
+		// location came from the model. eval.GenaiLocation is the single global-
+		// location const (it aliases the R-GLOBAL host location in route.go), so
+		// this matches the exact string Engine.Resolve writes for that case.
+		locSrc = "global-route"
 	default:
 		locSrc = "model" // a fully-qualified model resource carried its own location
 	}

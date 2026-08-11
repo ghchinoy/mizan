@@ -26,11 +26,19 @@ const (
 	// SourceEnv means the value came from a real (exported) process environment
 	// variable, which always wins over the env file.
 	SourceEnv
+	// SourceFlag means the value was supplied by a per-invocation command-line
+	// flag (e.g. eval's --project), the HIGHEST-precedence source: it overrides an
+	// exported env var, the env file, and the built-in default. LoadConfig never
+	// sets this — it is applied by the CLI when a run-scoped flag overrides a
+	// resolved value, so the pre-flight echo can attribute that value to the flag.
+	SourceFlag
 )
 
 // String renders the source as the stable token used in CLI output and JSON.
 func (s Source) String() string {
 	switch s {
+	case SourceFlag:
+		return "flag"
 	case SourceEnv:
 		return "env"
 	case SourceEnvFile:
@@ -41,7 +49,7 @@ func (s Source) String() string {
 }
 
 // MarshalText makes `config show --output json` serialize a source as its stable
-// string token ("env"/"env-file"/"default") rather than an opaque integer.
+// string token ("flag"/"env"/"env-file"/"default") rather than an opaque integer.
 func (s Source) MarshalText() ([]byte, error) {
 	return []byte(s.String()), nil
 }

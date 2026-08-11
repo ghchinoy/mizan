@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/joho/godotenv"
@@ -241,6 +242,29 @@ func ValidateEndpoint(ep string) error {
 		return nil
 	}
 	return fmt.Errorf("config: refusing custom API endpoint %q: host is not *.googleapis.com (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", ep)
+}
+
+// projectIDPattern is the canonical GCP project-ID format: 6–30 characters, a
+// lowercase letter first, then lowercase letters / digits / hyphens, and no
+// trailing hyphen. It is deliberately the documented GCP rule so a malformed
+// --project value is caught LOCALLY with a crisp error instead of only failing
+// server-side with an opaque InvalidArgument (defense-in-depth + better UX,
+// mirroring the local ValidateModel guard on --model).
+var projectIDPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`)
+
+// ValidateProjectID rejects a non-empty project id that does not match the
+// canonical GCP format (projectIDPattern). An empty id is accepted: it means "no
+// --project override, keep the env/.env/default the loader resolved". This is the
+// local counterpart to ValidateModel — it turns a typo or hostile value into a
+// crisp local error before it is echoed in the pre-flight line or sent to Vertex.
+func ValidateProjectID(project string) error {
+	if project == "" {
+		return nil
+	}
+	if !projectIDPattern.MatchString(project) {
+		return fmt.Errorf("config: invalid project id %q: expected 6-30 chars, a lowercase letter first, then lowercase letters, digits or '-', no trailing '-' (e.g. \"my-project-123\")", project)
+	}
+	return nil
 }
 
 // ValidateGenaiBaseURL applies the same *.googleapis.com allow-list to a genai

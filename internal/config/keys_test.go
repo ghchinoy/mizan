@@ -185,3 +185,30 @@ func TestRecognizedEnvVarsCoverFields(t *testing.T) {
 		}
 	}
 }
+
+// TestSourceString pins the stable string tokens each Source renders to; these
+// tokens appear verbatim in `config show` and the eval pre-flight `src=` hints, so
+// a drift would break both the human output and any consumer parsing them. flag is
+// the highest-precedence source, added for the per-invocation --project override
+// (FEAT-PROJECT).
+func TestSourceString(t *testing.T) {
+	cases := map[Source]string{
+		SourceDefault: "default",
+		SourceEnvFile: "env-file",
+		SourceEnv:     "env",
+		SourceFlag:    "flag",
+	}
+	for s, want := range cases {
+		if got := s.String(); got != want {
+			t.Errorf("Source(%d).String() = %q, want %q", int(s), got, want)
+		}
+		// MarshalText must agree with String so JSON output uses the same token.
+		b, err := s.MarshalText()
+		if err != nil {
+			t.Fatalf("MarshalText(%v): %v", s, err)
+		}
+		if string(b) != want {
+			t.Errorf("Source(%d).MarshalText() = %q, want %q", int(s), b, want)
+		}
+	}
+}
