@@ -56,6 +56,16 @@ func TestPreflightSources(t *testing.T) {
 			wantProjSrc: "env",
 			wantLocSrc:  "model",
 		},
+		{
+			// FIX-SRC: a known global-only judge auto-routes the NATIVE path to the
+			// global host (location=global, path stays native). That override comes
+			// from ROUTING, not a fully-qualified model resource, so it must read
+			// src=global-route — NOT src=model.
+			name:        "global-only model forces global on native path: src=global-route",
+			target:      eval.ResolvedTarget{Project: "cfg-project", Location: "global", Path: "native"},
+			wantProjSrc: "env",
+			wantLocSrc:  "global-route",
+		},
 	}
 
 	for _, tc := range cases {

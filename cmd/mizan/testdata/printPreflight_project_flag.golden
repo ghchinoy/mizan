@@ -1,0 +1,1 @@
+mizan: autorater → project=flag-project (src=flag) location=us-central1 (src=default) model=gemini-2.5-flash (path=native)

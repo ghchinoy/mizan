@@ -127,13 +127,31 @@ Combined with the `SOURCE` column in `config show` (and the `src=` hints in the
 did not expect. Note that a mistyped variable is *ignored*, not applied — use the
 exact name from the table above.
 
-**No per-invocation `--project` flag (yet):** Mizan does not currently provide a
-per-command `--project` flag to override the project for a single invocation. The
-project ID comes only from the environment (`MIZAN_PROJECT_ID` / `PROJECT_ID`) or
-the persisted `.env` file (via `mizan config set project-id`). To target a
-different project for one command, export the variable for that command, e.g.
-`MIZAN_PROJECT_ID=other-project mizan eval run ...`. A per-invocation `--project`
-flag is a documented follow-up.
+**Per-invocation `--project` flag:** `mizan eval` accepts a `--project` flag that
+overrides the GCP project for a single run, without touching your persisted `.env`
+or exported environment. It is available on both `eval run` and `eval pairwise`:
+
+```sh
+mizan eval run --project other-project --metric demo/conciseness --field response="…"
+mizan eval pairwise --project other-project --metric demo/pref --baseline a=… --candidate b=…
+```
+
+The flag sits at the **top** of the project precedence chain:
+
+```
+--project flag  >  exported MIZAN_PROJECT_ID / PROJECT_ID  >  .env file  >  (default: unset → error)
+```
+
+When you pass `--project`, the pre-flight echo attributes the project to the flag
+so it is obvious the override took effect:
+
+```
+mizan: autorater → project=other-project (src=flag) location=us-central1 (src=default) model=gemini-2.5-flash (path=native)
+```
+
+Omitting `--project` leaves the environment/`.env` precedence above completely
+unchanged. (Exporting `MIZAN_PROJECT_ID=other-project mizan eval run …` for one
+command still works too — the flag is simply a clearer, per-command equivalent.)
 
 **Security note:** Mizan refuses a custom `--api-endpoint` / `MIZAN_API_ENDPOINT`
 whose host isn't `*.googleapis.com`, because the Vertex client attaches your
@@ -299,8 +317,10 @@ mizan: autorater gemini-3.5-flash is global-only (…); routing this eval to the
 ```
 
 The pre-flight echo Mizan prints to stderr before each call also shows
-`location=global` for a known global-only judge. The built-in default
-(`gemini-2.5-flash`) is served on both
+`location=global (src=global-route)` for a known global-only judge — the
+`global-route` source makes clear the global location came from this forced
+routing, not from a fully-qualified model resource (which would read `src=model`).
+The built-in default (`gemini-2.5-flash`) is served on both
 regional and global endpoints, so a default run is never re-routed. For the full
 detection details see
 [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md) Scenario 7.
