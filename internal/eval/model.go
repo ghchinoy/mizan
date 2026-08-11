@@ -158,6 +158,17 @@ type ResolvedTarget struct {
 	Location string
 	Model    string // bare publisher-relative id
 	Path     string // "native" or "genai"
+	// LocationFromModelResource records the PROVENANCE of Location on the native
+	// path: true means Location was taken from a fully-qualified
+	// "projects/.../locations/<loc>/..." model resource (the user pinned it
+	// explicitly), false means it came from the engine's configured location or was
+	// forced by global-only ROUTING. The pre-flight source attribution needs this
+	// because a resource explicitly pinned to "global" and a regional model
+	// auto-routed to the global host both surface Location=="global" on the native
+	// path — the string alone cannot tell "src=model" (resource-derived) from
+	// "src=global-route" (routing-forced). It stays false on the genai path, whose
+	// global location is attributed to the path itself (src=global-path).
+	LocationFromModelResource bool
 }
 
 // Resolve reports the target an eval of tmpl (with an optional --model override)
@@ -197,6 +208,7 @@ func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string, rubricDe
 	if p, l, ok := parseFullModelResource(model); ok {
 		target.Project = p
 		target.Location = l
+		target.LocationFromModelResource = true
 	}
 	// R-GLOBAL: a KNOWN global-only judge is auto-routed to the global host at run
 	// time (route.go). When we can detect that up front (the prefix fast-path),
@@ -207,6 +219,14 @@ func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string, rubricDe
 	// is discovered only via the retry, so its echo stays regional and the
 	// run-time retry notice (noticeRetryGlobal) covers it instead.
 	if isGlobalOnlyModel(model) {
+		// Attribute the location to ROUTING only when routing actually CHANGES it
+		// from a non-global value. A fully-qualified resource explicitly pinned to
+		// "global" keeps its resource provenance (src=model, per review OPTIONAL:
+		// do not collapse resource-derived-global into routing-forced-global); a
+		// regional resource that routing overrides to global becomes routing-forced.
+		if target.Location != globalLocation {
+			target.LocationFromModelResource = false
+		}
 		target.Location = globalLocation
 	}
 	return target

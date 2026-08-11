@@ -95,6 +95,13 @@ func newEvalRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Validate the per-invocation --project flag BEFORE it overrides the
+			// resolved project, is echoed to stderr, or reaches Vertex — so a
+			// malformed value fails locally with a crisp error instead of an opaque
+			// server-side InvalidArgument (mirrors the local --model guard below).
+			if err := config.ValidateProjectID(projectOverride); err != nil {
+				return err
+			}
 			// A per-invocation --project flag overrides the resolved project for
 			// this run (flag > env > .env > default). Apply BEFORE the engine is
 			// opened so the override reaches both the pre-flight echo and the call.
@@ -198,6 +205,11 @@ func newEvalPairwiseCmd() *cobra.Command {
 			}
 			cfg, err := mustConfig()
 			if err != nil {
+				return err
+			}
+			// Validate the per-invocation --project flag BEFORE it overrides the
+			// resolved project, is echoed to stderr, or reaches Vertex (see eval run).
+			if err := config.ValidateProjectID(projectOverride); err != nil {
 				return err
 			}
 			// A per-invocation --project flag overrides the resolved project for
@@ -347,7 +359,11 @@ func printPreflight(w io.Writer, t eval.ResolvedTarget, projSrc, locSrc string) 
 //   - global-route: the NATIVE path was auto-routed to the global host because
 //     the resolved model is a known global-only judge (isGlobalOnlyModel).
 //   - model: a fully-qualified "projects/.../locations/<loc>/..." model resource
-//     carried its own (regional) location.
+//     carried its own location — REGIONAL or global. The resource-vs-routing
+//     provenance for a "global" native location cannot be read from the location
+//     string alone (both surface "global"), so it is threaded from the resolver
+//     via ResolvedTarget.LocationFromModelResource (review OPTIONAL: a resource
+//     explicitly pinned to global is src=model, not src=global-route).
 func preflightSources(cfg *config.Config, t eval.ResolvedTarget) (projSrc, locSrc string) {
 	projSrc = "model" // a fully-qualified model resource carried its own project
 	if t.Project == cfg.ProjectID {
@@ -358,9 +374,15 @@ func preflightSources(cfg *config.Config, t eval.ResolvedTarget) (projSrc, locSr
 		locSrc = cfg.SourceOf("location").String()
 	case t.Path == "genai":
 		locSrc = "global-path" // the genai path is always global (spike-custom)
+	case t.LocationFromModelResource:
+		// A fully-qualified model resource carried its own location. This is checked
+		// BEFORE the global-route fallback so a resource explicitly pinned to
+		// "global" reads src=model rather than being mislabeled as routing-forced
+		// (the resource-derived-global vs routing-forced-global distinction).
+		locSrc = "model"
 	case t.Location == eval.GenaiLocation:
-		// FIX-SRC: on the NATIVE path a "global" location is not carried by a
-		// fully-qualified model resource — it is forced by global-only ROUTING
+		// FIX-SRC: on the NATIVE path a "global" location NOT carried by a
+		// fully-qualified model resource is forced by global-only ROUTING
 		// (isGlobalOnlyModel auto-routes a known global-only judge to the global
 		// host; route.go). Label it accurately so the echo never claims the
 		// location came from the model. eval.GenaiLocation is the single global-

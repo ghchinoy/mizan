@@ -204,6 +204,17 @@ func TestGolden(t *testing.T) {
 		})
 	})
 
+	// printPreflight — native path whose location=global came from a fully-qualified
+	// model RESOURCE explicitly pinned to locations/global (review OPTIONAL): the
+	// location string matches the global-route case above, but its provenance is the
+	// resource, so the source is src=model — NOT src=global-route.
+	t.Run("printPreflight_global_model", func(t *testing.T) {
+		checkGolden(t, "printPreflight_global_model", func(w io.Writer) error {
+			printPreflight(w, eval.ResolvedTarget{Project: "my-project", Location: "global", Model: "gemini-2.5-flash", Path: "native", LocationFromModelResource: true}, "env-file", "model")
+			return nil
+		})
+	})
+
 	// printPreflight — project supplied by the per-invocation --project flag
 	// (FEAT-PROJECT): src=flag, the highest-precedence project source.
 	t.Run("printPreflight_project_flag", func(t *testing.T) {

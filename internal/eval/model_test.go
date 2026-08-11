@@ -408,4 +408,72 @@ func TestResolveNativeFQModelReflectsEmbeddedLocation(t *testing.T) {
 	if got.Model != "gemini-z" || got.Path != "native" {
 		t.Errorf("native FQ target = %+v, want model=gemini-z path=native", got)
 	}
+	if !got.LocationFromModelResource {
+		t.Errorf("native FQ target LocationFromModelResource = false, want true (location came from the resource)")
+	}
+}
+
+// TestResolveLocationProvenance proves ResolvedTarget.LocationFromModelResource
+// records WHY a native-path Location has its value, so the pre-flight echo can
+// tell a resource-derived location (src=model) from a routing-forced one
+// (src=global-route) — the two are indistinguishable from the location STRING
+// alone when both are "global" (review OPTIONAL: do not collapse the cases).
+func TestResolveLocationProvenance(t *testing.T) {
+	// gemini-3.5-* is a known global-only family (globalOnlyModelPrefixes); a plain
+	// resource id below uses a non-global-only model so routing does not intervene.
+	cases := []struct {
+		name          string
+		tmplModel     string
+		wantLocation  string
+		wantFromModel bool // LocationFromModelResource
+	}{
+		{
+			// A fully-qualified resource pinned to a REGION carries its own location.
+			name:          "regional resource: location from model",
+			tmplModel:     "projects/p/locations/europe-west4/publishers/google/models/gemini-2.5-flash",
+			wantLocation:  "europe-west4",
+			wantFromModel: true,
+		},
+		{
+			// A fully-qualified resource EXPLICITLY pinned to global still carries its
+			// own location — src=model even though the string is "global".
+			name:          "global-pinned resource: location from model (not routing)",
+			tmplModel:     "projects/p/locations/global/publishers/google/models/gemini-2.5-flash",
+			wantLocation:  globalLocation,
+			wantFromModel: true,
+		},
+		{
+			// A known global-only judge with NO fully-qualified resource is forced to
+			// global by ROUTING, so provenance is NOT the model resource.
+			name:          "global-only bare model: global forced by routing",
+			tmplModel:     "gemini-3.5-flash",
+			wantLocation:  globalLocation,
+			wantFromModel: false,
+		},
+		{
+			// A regional resource whose model is ALSO global-only: routing overrides
+			// the resource's region, so provenance flips to routing (not the resource).
+			name:          "regional resource overridden by global-only routing: not from model",
+			tmplModel:     "projects/p/locations/europe-west4/publishers/google/models/gemini-3.5-flash",
+			wantLocation:  globalLocation,
+			wantFromModel: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			eng := NewEngine(&fakeClient{}, "cfg-proj", "us-central1")
+			tmpl := pointwiseTemplate()
+			tmpl.AutoraterModel = tc.tmplModel
+			got := eng.Resolve(tmpl, "", false)
+			if got.Path != "native" {
+				t.Fatalf("path = %q, want native", got.Path)
+			}
+			if got.Location != tc.wantLocation {
+				t.Errorf("Location = %q, want %q", got.Location, tc.wantLocation)
+			}
+			if got.LocationFromModelResource != tc.wantFromModel {
+				t.Errorf("LocationFromModelResource = %v, want %v", got.LocationFromModelResource, tc.wantFromModel)
+			}
+		})
+	}
 }
