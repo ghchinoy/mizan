@@ -153,6 +153,11 @@ Omitting `--project` leaves the environment/`.env` precedence above completely
 unchanged. (Exporting `MIZAN_PROJECT_ID=other-project mizan eval run …` for one
 command still works too — the flag is simply a clearer, per-command equivalent.)
 
+The `--project` value is validated locally against the GCP project-id format
+(6–30 characters, a lowercase letter first, then lowercase letters, digits or
+`-`, no trailing `-`), so a typo fails fast with a crisp error instead of an
+opaque server-side `InvalidArgument`.
+
 **Security note:** Mizan refuses a custom `--api-endpoint` / `MIZAN_API_ENDPOINT`
 whose host isn't `*.googleapis.com`, because the Vertex client attaches your
 ADC bearer token to every request — an arbitrary endpoint could exfiltrate it.
