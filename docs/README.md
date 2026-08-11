@@ -1,15 +1,14 @@
 # Mizan — Documentation Index
 
-**Project status: Phase 1 is complete.** Registry CRUD, config, and all four
-metric kinds (pointwise, rubric, custom_schema, pairwise) — including
-multimodal (image/audio/video/music) — are built, installable, and verified
-end-to-end against real Vertex AI. Template packs/sharing, batch eval, and the
-desktop app remain roadmap — see the
-[user guide](user-guide.md#coming-soon--roadmap) or the root
-[`README.md`](../README.md#roadmap-not-built-yet--do-not-expect-these-to-work)
-for the current boundary. The design documents below remain the architectural
-record; `architecture-final.md` in particular is kept current as the single
-source of truth even as code lands.
+**Mizan is installable today as a working CLI.** Registry CRUD, config, and
+all four metric kinds (pointwise, rubric, custom_schema, pairwise) —
+including multimodal (image/audio/video/music) — are built and verified
+end-to-end against real Vertex AI. Template packs/sharing, batch eval, and
+the desktop app remain planned — see [`roadmap.md`](roadmap.md) (or the
+[user guide](user-guide.md#coming-soon--roadmap)) for the current boundary.
+The design documents below remain the architectural record;
+`architecture-final.md` in particular is kept current as the single source of
+truth even as code lands.
 
 ## Start here
 
@@ -34,6 +33,7 @@ source of truth even as code lands.
 | `user-guide.md` | End-user guide: install, configure, registry walkthrough, running evaluations, troubleshooting, roadmap. | Current — verified against the built CLI. |
 | `llm-as-judge-scenarios.md` | Capability-first use-case guide: the LLM-as-a-Judge scenarios you can achieve (pointwise, pairwise, rubric overall + per-criterion `--rubric-detail`, custom_schema, multimodal, model selection, observability), each mapped to a template/command and grounded in code. | Current — code-grounded against `main`. |
 | `testing-guide.md` | Hands-on, copy-pasteable recipes for exercising every metric kind (pointwise, rubric, custom_schema, pairwise) and multimodal, plus the pairwise placeholder contract and the `--flip-enabled` P1 limitation. | Current — verified against the built CLI. |
+| `roadmap.md` | Planned capabilities that are not built yet: template packs/sharing, batch evaluation, desktop app. | Current — planned scope only. |
 | `research.md` | Ground-truth research: eval service, API, modalities, precedents. | Reference (do not re-derive). |
 | `architecture-final.md` | Current, authoritative architecture (rev 3). Module layout, domain model & engine, config, deps, CLI surface (§12), desktop bindings (§13). Now includes embedded architecture/sequence diagrams. | Current, updated as code lands. |
 | `collaboration-design.md` | The contribution layer: template-pack format, versioning, validation, the Store/codec/sync seam, and the authoritative `MetricTemplate` struct (§6). | Design for review (rev 3) — not yet implemented. |

@@ -8,10 +8,11 @@ Wails v2 desktop app.
 
 ## Status
 
-**Phase 1 is complete: all four metric kinds and multimodal are shipped and
-installable today.** The table below is honest about the boundary between
-what runs now and what is still roadmap — Mizan never claims a capability it
-hasn't actually shipped.
+**Mizan is installable today as a working CLI**: the metric registry, config,
+and all four metric kinds (pointwise, rubric, custom_schema, pairwise) —
+including multimodal assets — are shipped and verified against real Vertex AI.
+The sections below are honest about the boundary between what runs now and
+what isn't built — Mizan never claims a capability it hasn't actually shipped.
 
 ### Works today
 
@@ -40,27 +41,11 @@ See the [user guide](docs/user-guide.md) and
 [testing guide](docs/testing-guide.md) for full walkthroughs with real,
 live-verified command output.
 
-### Roadmap (not built yet — do not expect these to work)
+### Not built yet
 
-- **Template packs and sharing** (`mizan pack init|validate|add`,
-  `registry import|export`) — no `pack` command and no `registry
-  import|export` exist in the built `mizan` binary yet. The intended model:
-  packs are contributed via pull requests to the dedicated
-  [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates)
-  repo (data + CI only, no Mizan application code); its `validate-packs` CI
-  workflow is already wired up and runs on every PR there, but it currently
-  fails for the same reason — the validation step invokes `mizan pack
-  validate`, which doesn't exist yet — so that gate goes green once the
-  command ships. Packs are then pulled in with `mizan registry import`
-  (that repo is the configured default source) once the command exists.
-  `mizan-templates` is not just a stub — it already holds a real worked
-  example pack (`packs/google-brand/`), its own pack-format docs, and an
-  active CI gate — but this repo's binary has no code path that talks to it
-  yet. Roadmap phase P2.
-- **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets). Roadmap
-  phase P3.
-- **The Wails desktop app** (`cmd/mizan-desktop`) — design-stage scaffolding
-  only; there is no built or runnable desktop app. Roadmap phase P4.
+Template packs and sharing, batch evaluation, and the desktop app are **not
+built** — do not expect them to work. For what is planned but not yet built,
+see [`docs/roadmap.md`](docs/roadmap.md).
 
 ## Quickstart
 
@@ -117,8 +102,8 @@ troubleshooting), see the [user guide](docs/user-guide.md).
 single `internal/wire` composition root; it never imports the SQLite driver,
 sync/codec layers, or the Vertex AI proto types directly. See
 [`docs/architecture-final.md`](docs/architecture-final.md) for the full design,
-including this component diagram distinguishing implemented paths from
-roadmap ones:
+including this component diagram distinguishing implemented paths from planned
+ones (see [`docs/roadmap.md`](docs/roadmap.md)):
 
 ![Mizan component architecture: cmd/mizan through wire to registry.Service and eval.Engine, with implemented paths solid and roadmap paths dashed](docs/diagrams/component-architecture.webp)
 
@@ -128,3 +113,5 @@ roadmap ones:
 - New to the CLI? Read the [user guide](docs/user-guide.md).
 - Current architecture (single source of truth):
   [`docs/architecture-final.md`](docs/architecture-final.md).
+- Planned capabilities that are **not built yet**:
+  [`docs/roadmap.md`](docs/roadmap.md).
