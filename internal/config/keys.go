@@ -49,7 +49,7 @@ func (s Source) String() string {
 }
 
 // MarshalText makes `config show --output json` serialize a source as its stable
-// string token ("env"/"env-file"/"default") rather than an opaque integer.
+// string token ("flag"/"env"/"env-file"/"default") rather than an opaque integer.
 func (s Source) MarshalText() ([]byte, error) {
 	return []byte(s.String()), nil
 }
