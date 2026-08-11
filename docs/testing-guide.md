@@ -19,15 +19,18 @@ multimodal) were run live against a binary built from `main`, with output
 captured verbatim — all four metric kinds and multimodal are CLI-runnable
 end-to-end.
 
-**How these checks were verified.** Not every recipe below was run against live
-Vertex, and each says which it is: the `mizan version` section and the `make`
-targets under "Dev & CI setup" **were** run against the built `./bin/mizan`
-(output captured verbatim); the two Vertex-hitting recipes — per-criterion
-rubric reconciliation and global-only auto-routing — require ADC and a project
-and were **not** executed against live Vertex. Their expected output is
-transcribed from the shipped source and the design docs, and each is marked
-**ADC-required** inline. Nothing here implies a live Vertex run that did not
-happen.
+**How these checks were verified.** Every Vertex-hitting recipe below was run
+against live Vertex (project `ghchinoy-genai-sa`, autorater output captured
+verbatim) — including the two that previously were not: per-criterion rubric
+`--rubric-detail` and global-only judge auto-routing. The only outputs still
+transcribed from the shipped source are the ones that depend on
+non-deterministic judge behavior that cannot be forced on demand: the rubric
+**reconciliation error cases** (a missing / duplicated / extra criterion) and
+the **self-correcting retry** for a global-only judge that is not on the
+known-prefix list. Each of those is marked inline where it appears. The
+`mizan version` section and the `make` targets under "Dev & CI setup" are
+pure-local checks, also run against the built binary. Nothing here implies a
+live Vertex run that did not happen.
 
 ## Minimal setup
 
@@ -511,13 +514,16 @@ reproducible test.
 
 ## Per-criterion rubric detail and reconciliation (`--rubric-detail`)
 
-> **ADC-required.** Every command in this section makes a live Vertex AI call
-> (via the genai structured-output path at `location=global`) and needs ADC + a
-> configured project. It was **not** run against live Vertex in this pass; the
-> per-criterion scores are live and non-deterministic, and the expected outputs
-> below are transcribed from the shipped source
-> (`internal/eval/rubric_structured.go`) and the design docs. For the narrative
-> and output shape see
+> **ADC-required — captured live.** Every command in this section makes a live
+> Vertex AI call (via the genai structured-output path at `location=global`) and
+> needs ADC + a configured project. The happy-path scorecard below was **run
+> against live Vertex** (project `ghchinoy-genai-sa`) and captured verbatim; the
+> per-criterion scores are live and non-deterministic, so your exact numbers and
+> rationales will differ. The **reconciliation error cases** (missing / duplicated
+> / extra criterion) require the judge to return a non-conforming criterion set,
+> which cannot be forced on demand — those specific outputs are transcribed from
+> the shipped source (`internal/eval/rubric_structured.go`) and flagged inline.
+> For the narrative and output shape see
 > [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-4-explainable-per-criterion-rubric-scoring---rubric-detail)
 > (Scenario 4) and the reconciliation contract in
 > [`docs/user-guide.md`](user-guide.md#per-criterion-rubric-detail---rubric-detail).
@@ -533,14 +539,26 @@ set, matched by the exact **(group, criterion)** pair. There are three cases.
 
 **(a) Happy path — all authored criteria returned.** You get the full
 per-criterion scorecard: an overall `Score` + `Explanation`, then the
-`Per-criterion` table (one row per authored `(group, criterion)`). The table
-shape is exactly as shown in Scenario 4 of
-[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-4-explainable-per-criterion-rubric-scoring---rubric-detail)
-— not re-derived here:
+`Per-criterion` table (one row per authored `(group, criterion)`). Captured live
+below (scores are live autorater output and vary run to run):
 
 ```sh
 $ mizan eval run --metric demo/rubric-quality --rubric-detail --rubric-scale 1-5 \
     --field response="The Eiffel Tower is in Paris, France, completed in 1889."
+Score:        5
+Explanation:  The response is perfectly clear, concise, and factually accurate. It provides correct information in a straightforward manner, free of any ambiguity or complex language.
+Per-criterion:
+GROUP        CRITERION                        SCORE  RATIONALE
+clarity      Is the response clear            5      The response is exceptionally clear and easy to understand.
+clarity      Is it free of jargon             5      The response uses simple, common language with no jargon.
+correctness  Is the factual content accurate  5      All factual statements about the Eiffel Tower's location and completion year are accurate.
+```
+
+Because `--rubric-detail` uses the genai structured-output path, the pre-flight
+echo goes to the global host — captured on stderr from the same run:
+
+```
+mizan: autorater → project=ghchinoy-genai-sa (src=env-file) location=global (src=global-path) model=gemini-2.5-flash (path=genai)
 ```
 
 Set the Likert range with `--rubric-scale "<min>-<max>"` (default `1-5`;
@@ -569,8 +587,9 @@ Error: eval: rubric reconciliation failed: missing authored criterion(s): [group
 
 Missing/duplicate are **judge-behavior-dependent** and hard to force
 deterministically — treat these as "what you'll see *if* the judge returns a
-missing or duplicated pair," not a reproducible command. The contract they
-enforce is documented in
+missing or duplicated pair," not a reproducible command. Unlike the happy path
+above (captured live), these two error strings are still transcribed from
+source. The contract they enforce is documented in
 [`docs/user-guide.md`](user-guide.md#per-criterion-rubric-detail---rubric-detail)
 and Scenario 4.
 
@@ -609,12 +628,15 @@ they do **not** fail the run. The warning shows up on two surfaces:
 
 ## Global-only judge auto-routing
 
-> **ADC-required.** Every command in this section makes a live Vertex AI call
-> and needs ADC + a configured project. It was **not** run against live Vertex
-> in this pass; the routing notices, pre-flight echoes, and final result shape
-> below are transcribed from the shipped source
-> (`internal/eval/route.go`, `internal/eval/model.go`, `cmd/mizan/eval.go`) and
-> the design spike. For the full narrative see Scenario 7 in
+> **ADC-required — captured live.** Every command in this section makes a live
+> Vertex AI call and needs ADC + a configured project. The known-global-only
+> fast-path (running `gemini-3.5-flash` from a regional config) and the regional
+> contrast case below were **run against live Vertex** (project
+> `ghchinoy-genai-sa`); their pre-flight echoes, routing notice, and results are
+> captured verbatim. The only output still transcribed from source is the
+> **self-correcting retry** notice — it fires only for a global-only judge that
+> is *not* on the known-prefix list, so it cannot be triggered with a documented
+> model — and it is flagged inline. For the full narrative see Scenario 7 in
 > [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-7-choose-the-judge-model),
 > which cites the `design/spike-eval-region-autorater.md` spike; the deciding
 > factor is the eval endpoint **host**, not the autorater's location path.
@@ -645,28 +667,40 @@ stdout):
    `path=native`:
 
    ```
-   mizan: autorater → project=<proj> (src=env-file) location=global (src=model) model=gemini-3.5-flash (path=native)
+   mizan: autorater → project=ghchinoy-genai-sa (src=env-file) location=global (src=global-route) model=gemini-3.5-flash (path=native)
    ```
 
-   The `(src=…)` hints report where each value resolved (e.g. `env` / `env-file`
-   / `default`), mirroring the `SOURCE` column in `mizan config show` — see
-   [`docs/user-guide.md`](user-guide.md#configure). The forced-global `location`
-   reads `src=model` because the global-only routing overrode your configured
-   region.
+   The `(src=…)` hints report where each value resolved — `env` / `env-file` /
+   `default` for a configured value, `flag` for a `--project` override, `model`
+   for a fully-qualified model resource, `global-path` for the always-global
+   genai path, and `global-route` for this native auto-routing — mirroring the
+   `SOURCE` column in `mizan config show` (see
+   [`docs/user-guide.md`](user-guide.md#configure)). The forced-global `location`
+   reads `src=global-route` because the global-only **routing** (not a
+   fully-qualified model resource) moved this native call to the global host; a
+   resource explicitly pinned to global would instead read `src=model`.
 
-2. A forced-global notice (the known-prefix fast-path), exact from source:
+2. A forced-global notice (the known-prefix fast-path), captured verbatim:
 
    ```
    mizan: autorater gemini-3.5-flash is global-only (gemini-3.5-flash is a known global-only judge); routing this eval to the GLOBAL host (location=global). Your configured --location is kept for labeling only.
    ```
 
 3. Then the ordinary successful result of the underlying kind — here a pointwise
-   `Score` + `Explanation`.
+   `Score` + `Explanation`, captured live:
+
+   ```
+   Score:        1
+   Explanation:  The response is extremely brief, conveying the complete thought with absolutely no redundant words or fluff.
+   ```
 
 **The self-correcting retry (safety net).** For a global-only model *not* in the
 known-prefix list, the first regional attempt fails with a narrow gRPC
 `NotFound` + "autorater model not found", and Mizan transparently retries the
-same eval on the global host, printing a sibling notice at run time:
+same eval on the global host, printing a sibling notice at run time. This path
+cannot be triggered with a documented model (every known global-only judge takes
+the fast-path above), so this notice is **still transcribed from source**, not
+captured live:
 
 ```
 mizan: autorater <model> not found in location <loc>; retrying this eval on the global host (<host>, location=global). Your configured --location is kept for labeling only.
@@ -683,16 +717,16 @@ $ mizan eval run --metric demo/conciseness --model gemini-2.5-flash \
 ```
 
 The pre-flight echo shows **your region**, there is **no** routing notice, and
-the call stays regional:
+the call stays regional (captured live; here `location` resolved from the
+built-in default, hence `src=default`):
 
 ```
-mizan: autorater → project=<proj> (src=env-file) location=us-central1 (src=env-file) model=gemini-2.5-flash (path=native)
+mizan: autorater → project=ghchinoy-genai-sa (src=env-file) location=us-central1 (src=default) model=gemini-2.5-flash (path=native)
 ```
 
 For a global-only judge, `--location` / `MIZAN_LOCATION` is kept for output
 **labeling only** — it is not honored as a residency region for that run,
-because the judge cannot run in your region. Use placeholders like `<proj>` in
-anything you share; don't paste real project IDs.
+because the judge cannot run in your region.
 
 ## What each result means
 
