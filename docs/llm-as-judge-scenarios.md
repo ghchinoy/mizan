@@ -8,12 +8,11 @@ the better of two answers") and maps it to the template kind, command, and outpu
 that achieve it.
 
 Every scenario here is grounded in code that ships today. Where a scenario is
-**not yet built**, it is called out explicitly under
-[Scenarios that are not built yet](#scenarios-that-are-not-built-yet). For
-copy-pasteable, live-verified recipes see
-[`docs/testing-guide.md`](testing-guide.md); for the narrative CLI
-walkthrough (install, config, CRUD) see
-[`docs/user-guide.md`](user-guide.md); for the authoritative architecture see
+**not yet built**, it is called out explicitly under [Scenarios that are not
+built yet](#scenarios-that-are-not-built-yet). For copy-pasteable, live-verified
+recipes see [`docs/testing-guide.md`](testing-guide.md); for the narrative CLI
+walkthrough (install, config, CRUD) see [`docs/user-guide.md`](user-guide.md);
+for the authoritative architecture see
 [`docs/architecture-final.md`](architecture-final.md).
 
 > **How Mizan judges.** A Mizan *metric template* is a stored, named
@@ -35,7 +34,7 @@ walkthrough (install, config, CRUD) see
 | Score one response on a quality dimension I define | Single-response quality scoring | `single` (`pointwise`) | `mizan eval single` (= `eval run`) | [↓](#scenario-1-score-a-single-response-pointwise) |
 | Decide which of two responses is better | Compare two responses | `compare` (`pairwise`) | `mizan eval compare` (= `eval pairwise`) | [↓](#scenario-2-compare-two-responses-pairwise) |
 | Grade against several named criteria and get one score | Rubric — overall score | `rubric` | `mizan eval run` | [↓](#scenario-3-grade-against-an-authored-rubric) |
-| See a score **and rationale for each criterion** | Rubric — per-criterion transparency | `rubric` + `--rubric-detail` | `mizan eval run --rubric-detail` | [↓](#scenario-4-explainable-per-criterion-rubric-scoring-rubric-detail) |
+| See a score **and rationale for each criterion** | Rubric — per-criterion transparency | `rubric` + `--rubric-detail` | `mizan eval run --rubric-detail` | [↓](#scenario-4-explainable-per-criterion-rubric-scoring---rubric-detail) |
 | Get a typed JSON verdict (compliance flags, booleans, arrays) | Structured / compliance check | `custom_schema` | `mizan eval run` | [↓](#scenario-5-structured--compliance-verdicts-custom_schema) |
 | Judge an image, audio, video, or music asset | Multimodal evaluation | any kind + `--modality` | `--file` / `--gcs` | [↓](#scenario-6-judge-media-not-just-text-multimodal) |
 | Choose *which* model does the judging | Judge-model selection | any | `--model` / `default-model` | [↓](#scenario-7-choose-the-judge-model) |
@@ -582,8 +581,8 @@ the root [`README.md`](../README.md) states the current boundary.
 
 - **Batch evaluation over a dataset** — judging many instances at once via
   `EvaluateDataset` over GCS-hosted data (which is also the official home for
-  API-native per-criterion rubric output with sampling retained). No `eval
-  batch` command exists.
+  API-native per-criterion rubric output with sampling retained). No
+  `eval batch` command exists.
 - **Template packs / registry import & export** — sharing and versioning
   templates via `mizan pack` and `mizan registry import`/`export`. Not wired.
 - **A tri-state flip default for compare templates** — the engine honors the
@@ -606,5 +605,3 @@ the root [`README.md`](../README.md) states the current boundary.
   [`docs/architecture-final.md`](architecture-final.md).
 - **Planned capabilities that are not built yet** —
   [`docs/roadmap.md`](roadmap.md).
-</content>
-</invoke>

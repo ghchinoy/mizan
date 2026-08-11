@@ -2,8 +2,8 @@
 
 This guide covers what Mizan can actually do today: manage a local metric
 registry, configure credentials/project settings, and run evaluations —
-single, compare, rubric, and custom_schema, including multimodal
-(image/audio/video/music) assets — against the live Vertex AI Gen AI
+single (pointwise), compare (pairwise), rubric, and custom_schema, including
+multimodal (image/audio/video/music) assets — against the live Vertex AI Gen AI
 Evaluation Service. All four metric kinds and multimodal are implemented and
 CLI-runnable end-to-end. Every command and output shown below was run against
 the built CLI; where a capability isn't implemented yet, this guide says so
@@ -246,7 +246,7 @@ Other useful create flags: `--system` (system instruction), `--sampling-count`
 (autorater sampling count, default 4 — lowering it trades self-consistency for
 latency), `--modality` (repeatable; default `text`), `--tag` (repeatable),
 `--flip-enabled` (pairwise position-bias mitigation, default `true`; see the
-pairwise flip note below).
+compare/pairwise flip note below).
 
 ### List
 
