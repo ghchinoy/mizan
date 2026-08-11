@@ -138,6 +138,15 @@ func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTem
 		CustomOutput: out,
 		RawOutput:    []string{raw},
 	}
+	// H3 (RFC-0001 §5.4): this is the genai/global structured path (location=global,
+	// no AutoraterConfig). SamplingCount/FlipEnabled are Vertex Eval Service
+	// (EvaluateInstances) features with no genai GenerateContent equivalent, so a
+	// template that sets them here has them silently dropped. Surface a NON-FATAL
+	// warning to make that asymmetry visible rather than silent. Both callers
+	// (runCustomSchema and runRubricStructured) route through here, so both paths
+	// get the warning; the native path (runPointwise/runRubric/runPairwise) does
+	// NOT come through here and continues to HONOR these fields.
+	res.Warnings = append(res.Warnings, genaiPathAutoraterWarnings(tmpl)...)
 	// Token usage is available ONLY on this genai path, from the response's
 	// UsageMetadata (WI-F4). The native EvaluateInstances response carries none,
 	// so Result.Stats.TokenUsage stays nil there.
@@ -149,6 +158,35 @@ func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTem
 		}
 	}
 	return res, nil
+}
+
+// genaiPathAutoraterWarnings returns the non-fatal warnings for AutoraterConfig
+// fields a template declares that the genai/global structured path cannot honor
+// (RFC-0001 §5.4 decision item 3). It is called from runGenaiStructured, the
+// single chokepoint shared by the custom_schema and rubric-detail paths, so both
+// surface the warning identically.
+//
+//   - SamplingCount > 1: the genai GenerateContent API has no sampling-count
+//     concept (it is an EvaluateInstances feature); a value of 0 or 1 means a
+//     single sample and is a no-op, so only > 1 is worth warning about.
+//   - FlipEnabled: likewise has no genai equivalent (it is a native pairwise
+//     feature).
+//
+// The native path honors both and never reaches this function, so its behavior is
+// unchanged. Warnings are informational only — scoring and run success are not
+// affected.
+func genaiPathAutoraterWarnings(tmpl registry.MetricTemplate) []string {
+	var warnings []string
+	if tmpl.SamplingCount > 1 {
+		warnings = append(warnings, fmt.Sprintf(
+			"mizan: samplingCount=%d is ignored on the genai/global structured path (it has no sampling-count concept); samplingCount applies only to the native evaluation path",
+			tmpl.SamplingCount))
+	}
+	if tmpl.FlipEnabled {
+		warnings = append(warnings,
+			"mizan: flipEnabled is ignored on the genai/global structured path (it has no flip concept); flipEnabled applies only to the native pairwise evaluation path")
+	}
+	return warnings
 }
 
 // generateWithBackoff calls GenerateContent, retrying only on

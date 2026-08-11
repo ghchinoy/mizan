@@ -88,6 +88,25 @@ type Schema struct {
 	JSON string
 }
 
+// RubricDetail is the OPTIONAL per-template rubric-detail configuration
+// (RFC-0001 §4.4). Today it carries only Scale; it is a struct (not an inlined
+// field) so future rubric-detail knobs are additive without a second template
+// field. A nil *RubricDetail means "not declared" — behavior is exactly today's.
+type RubricDetail struct {
+	// Scale is the OPTIONAL Likert range the genai/global structured rubric path
+	// scores on. Nil means "not declared" -> the engine's default (1-5) or the
+	// eval-time --rubric-scale flag, per Engine.resolveRubricScale.
+	Scale *RubricScale `yaml:"scale,omitempty" json:"scale,omitempty"`
+}
+
+// RubricScale is an inclusive integer Likert range [Min,Max] (RFC-0001 §4.4).
+// Min must be < Max; only non-negative bounds are meaningful (mirroring the
+// --rubric-scale flag's ParseRubricScale contract).
+type RubricScale struct {
+	Min int `yaml:"min" json:"min"`
+	Max int `yaml:"max" json:"max"`
+}
+
 // MetricTemplate is a stored, named autorater definition. This is the single
 // in-memory model that the YAML codec (P2) and a future Firestore document
 // mapping both target. See design/collaboration-design.md §6 (authoritative).
@@ -116,6 +135,28 @@ type MetricTemplate struct {
 	//                                          engine expands to full resource name at eval time
 	SamplingCount int32 // AutoraterConfig.SamplingCount, 1-32
 	FlipEnabled   bool  // AutoraterConfig.FlipEnabled (pairwise)
+
+	// RatingRubric is an OPTIONAL, Vertex-aligned rating-band -> description map
+	// per rubric group (RFC-0001 §4.4): group -> {"1":"…","3":"…","5":"…"}. It
+	// makes a rubric template self-describing and is the payload a future async
+	// LLMBasedMetricSpec/EvaluateDataset round-trip and promptfoo/Vertex adapters
+	// map to a score scale.
+	//
+	// CARRY-AND-RESERVE (RFC-0001 §4.4 runtime-binding note + §11 item 3): in v1
+	// this field is persisted and (once the P2 codec/schema land) schema-validated,
+	// but it is DELIBERATELY NOT threaded into the eval runtime — native.go /
+	// custom.go / rubric_structured.go scoring never read it. It is a visible
+	// reserved field, not a stub. Do not wire it into scoring.
+	RatingRubric map[string]map[string]string `yaml:"ratingRubric,omitempty" json:"ratingRubric,omitempty"`
+
+	// RubricDetail is the OPTIONAL, persisted per-template rubric-detail
+	// configuration (RFC-0001 §4.4 YAML: `rubricDetail: { scale: {min,max} }`).
+	// When a Scale is declared, the genai/global structured path
+	// (rubric_structured.go) honors it as the Likert range; when absent, behavior
+	// is exactly today's default (1-5). It coexists with the eval-time
+	// --rubric-detail run flag (see internal/eval Engine.resolveRubricScale for the
+	// precedence: explicit run-flag scale > template scale > default 1-5).
+	RubricDetail *RubricDetail `yaml:"rubricDetail,omitempty" json:"rubricDetail,omitempty"`
 
 	// Provenance / sync (see collaboration-design.md §3.9)
 	Source      string

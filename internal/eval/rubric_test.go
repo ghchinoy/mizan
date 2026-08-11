@@ -20,7 +20,14 @@ func rubricTemplate() registry.MetricTemplate {
 		MetricPromptTemplate: "Evaluate this ad copy: {{copy}}",
 		SystemInstruction:    "Be strict.",
 		AutoraterModel:       "gemini-2.5-flash",
-		SamplingCount:        2,
+		// NOTE: SamplingCount is deliberately left unset (0 == single sample) on the
+		// shared fixture. The native path (runRubric) honors SamplingCount, but the
+		// genai/global structured path (runRubricStructured, used by the many
+		// --rubric-detail reconcile tests) now emits a non-fatal H3 warning when a
+		// template declares SamplingCount>1 (RFC-0001 §5.4). Keeping the shared
+		// fixture at a single sample keeps those tests focused on reconciliation;
+		// tests that need sampling set it locally (see TestRunRubricSuccess and the
+		// autorater-warning tests), mirroring pairwise_test.go's pattern.
 		RubricGroups: map[string][]string{
 			"clarity": {"The message is unambiguous", "No jargon"},
 			"tone":    {"Matches a professional brand voice"},
@@ -41,7 +48,11 @@ func TestRunRubricSuccess(t *testing.T) {
 	}
 	eng := NewEngine(fc, "my-project", "us-central1")
 
-	res, err := eng.Run(context.Background(), rubricTemplate(), Instance{
+	// The native rubric path honors SamplingCount; set it locally (the shared
+	// fixture leaves it unset — see rubricTemplate()).
+	tmpl := rubricTemplate()
+	tmpl.SamplingCount = 2
+	res, err := eng.Run(context.Background(), tmpl, Instance{
 		Fields: map[string]AssetRef{
 			"copy": {Modality: registry.ModalityText, Text: "Buy now, save big."},
 		},

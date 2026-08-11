@@ -68,7 +68,10 @@ func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTe
 	if err != nil {
 		return Result{}, err
 	}
-	res.Warnings = warnings
+	// APPEND (not overwrite): runGenaiStructured may already have populated
+	// res.Warnings with the H3 genai-path autorater-field warnings (RFC-0001 §5.4).
+	// Preserve those, then add the per-criterion reconciliation warnings.
+	res.Warnings = append(res.Warnings, warnings...)
 
 	if s, ok := overallScore(res.CustomOutput); ok {
 		f := float32(s)
