@@ -26,3 +26,5 @@ node_modules/
 
 # Internal orchestration artifact — not part of the product repo
 docs/project-log/
+
+/docs/friction

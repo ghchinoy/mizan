@@ -5,12 +5,11 @@ package eval
 // (aiplatform.googleapis.com / locations/global) when the resolved autorater is
 // a global-only judge (e.g. the gemini-3.5 family).
 //
-// WHY THE HOST, NOT THE AUTORATER PATH: the region spike
-// (design/spike-eval-region-autorater.md) proved the deciding factor is the eval
-// endpoint HOST, not the locations/... segment in the autorater resource. A
-// regional eval host 404s a global-only judge under ANY autorater location
-// string (rows 2/3/4c); the global host resolves it even when the autorater path
-// says a region where the model does not exist (rows M1/M2/4a). So an
+// WHY THE HOST, NOT THE AUTORATER PATH: empirical testing proved the deciding
+// factor is the eval endpoint HOST, not the locations/... segment in the
+// autorater resource. A regional eval host 404s a global-only judge under ANY
+// autorater location string; the global host resolves it even when the
+// autorater path says a region where the model does not exist. So an
 // autorater-location override that leaves the host regional is a misleading
 // half-fix — the ENTIRE call must move to the global host. That is why routing is
 // expressed as "which client (regional vs global) runs the call", and the raw
@@ -42,9 +41,8 @@ import (
 // globalLocation is the SINGLE source of truth for the global-location string.
 // NewClient maps it to the bare host aiplatform.googleapis.com:443; the request
 // carries projects/{p}/locations/global. It is the ONLY host that resolves a
-// global-only autorater (spike-eval-region-autorater row 4a). The exported
-// GenaiLocation (model.go) aliases this const so the two cannot drift
-// (review OPTIONAL-1).
+// global-only autorater. The exported GenaiLocation (model.go) aliases this const
+// so the two cannot drift (review OPTIONAL-1).
 const globalLocation = "global"
 
 // globalHost is the bare global eval endpoint host, named in the retry notice so
@@ -53,9 +51,17 @@ const globalHost = "aiplatform.googleapis.com"
 
 // globalOnlyModelPrefixes is the single documented place listing autorater model
 // families that are GLOBAL-ONLY: they do not exist on the regional native
-// EvaluateInstances autorater path and 404 there (spike row 2). A resolved model
+// EvaluateInstances autorater path and 404 there. A resolved model
 // whose bare id begins with one of these prefixes is routed straight to the
 // global host.
+//
+// TERMINOLOGY: "global-only" here means "not served on a REGIONAL EVAL HOST"
+// ({region}-aiplatform.googleapis.com), which is the only distinction this router
+// acts on. It does NOT mean the model is reachable solely from location=global:
+// testing showed these models ARE served for the us/eu multi-region and even
+// regional location SEGMENTS — but only via the GLOBAL HOST. The deciding factor
+// is the host dialed, not the locations/... segment; routing to the global host is
+// correct regardless.
 //
 // MAINTENANCE: this is a fast-path optimisation, NOT the source of correctness —
 // the self-correcting retry (isAutoraterNotFound below) still catches any
@@ -63,7 +69,7 @@ const globalHost = "aiplatform.googleapis.com"
 // ships so users skip the wasted regional attempt and the pre-flight echo shows
 // global up front; a stale entry only costs a fast-path, never correctness.
 var globalOnlyModelPrefixes = []string{
-	"gemini-3.5", // gemini-3.5-flash / -lite: global-only as of the 2026-08-09 spike
+	"gemini-3.5", // gemini-3.5-flash / -lite: global-only
 }
 
 // isGlobalOnlyModel reports whether model's bare publisher id names a known
