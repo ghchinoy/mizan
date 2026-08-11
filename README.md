@@ -105,7 +105,7 @@ sync/codec layers, or the Vertex AI proto types directly. See
 including this component diagram distinguishing implemented paths from planned
 ones (see [`docs/roadmap.md`](docs/roadmap.md)):
 
-![Mizan component architecture: cmd/mizan through wire to registry.Service and eval.Engine, with implemented paths solid and roadmap paths dashed](docs/diagrams/component-architecture.webp)
+![Mizan component architecture: cmd/mizan through wire to registry.Service and eval.Engine, with implemented paths solid and planned / not-built paths dashed](docs/diagrams/component-architecture.webp)
 
 ## Documentation
 

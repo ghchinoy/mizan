@@ -136,15 +136,14 @@ complex fields (`Modalities`, `RubricGroup`, `ResponseSchema`, `Inputs`) are
 JSON-serialized into TEXT columns. The `Store` interface (§3 `store.go`) keeps a
 future Firestore-backed impl a drop-in (§9).
 
-**Component diagram (current build vs roadmap).** Phase 1 is now complete: all
-four metric kinds (pointwise, rubric, custom_schema, pairwise) and GCS
-multimodal staging are implemented and CLI-runnable end-to-end, so those
-nodes/edges are solid. Only two elements remain genuinely dashed/roadmap: the
-Firestore/GCS `SyncBackend` (still a planned drop-in, not built) and the
-external `mizan-templates` repo integration (`registry import|export`/`pack`
-still don't exist in this binary — P2):
+**Component diagram (current build vs roadmap).** All four metric kinds
+(pointwise, rubric, custom_schema, pairwise) and GCS multimodal staging are
+implemented and CLI-runnable end-to-end, so those nodes/edges are solid. Only
+two elements remain genuinely dashed/roadmap: the Firestore/GCS `SyncBackend`
+(still a planned drop-in, not built) and the external `mizan-templates` repo
+integration (`registry import|export`/`pack` still don't exist in this binary):
 
-![Mizan component architecture diagram showing cmd/mizan composed via internal/wire over registry.Service and eval.Engine, with the sqlite.Store implementation and all four metric-kind dispatch paths (pointwise, rubric, custom_schema, pairwise) plus GCS staging shown solid, and only the Firestore SyncBackend and the mizan-templates repo shown dashed as roadmap](diagrams/component-architecture.webp)
+![Mizan component architecture diagram showing cmd/mizan composed via internal/wire over registry.Service and eval.Engine, with the sqlite.Store implementation and all four metric-kind dispatch paths (pointwise, rubric, custom_schema, pairwise) plus GCS staging shown solid, and only the Firestore SyncBackend and the mizan-templates repo shown dashed as not-yet-built](diagrams/component-architecture.webp)
 
 ---
 
