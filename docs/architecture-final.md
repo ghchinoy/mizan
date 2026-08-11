@@ -144,7 +144,7 @@ Firestore/GCS `SyncBackend` (still a planned drop-in, not built) and the
 external `mizan-templates` repo integration (`registry import|export`/`pack`
 still don't exist in this binary — P2):
 
-![Mizan component architecture diagram showing cmd/mizan composed via internal/wire over registry.Service and eval.Engine, with the sqlite.Store implementation and all four metric-kind dispatch paths (pointwise, rubric, custom_schema, pairwise) plus GCS staging shown solid, and only the Firestore SyncBackend and the mizan-templates repo shown dashed as roadmap](diagrams/component-architecture.webp)
+![Mizan component architecture diagram showing cmd/mizan composed via internal/wire over registry.Service and eval.Engine, with the sqlite.Store implementation and all four metric-kind dispatch paths (pointwise, rubric, custom_schema, pairwise) plus GCS staging shown solid, and only the Firestore SyncBackend and the mizan-templates repo shown dashed as not-yet-built](diagrams/component-architecture.webp)
 
 ---
 

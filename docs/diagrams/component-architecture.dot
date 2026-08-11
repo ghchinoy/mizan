@@ -64,7 +64,7 @@ digraph MizanComponents {
   gcsstaging [label="GCS staging\n(internal/asset: MIME detect +\nauto-stage to gs://)"];
   gcsstaging -> native [label="multimodal"];
 
-  templates_repo [label="github.com/ghchinoy/\nmizan-templates\n(separate repo,\nnot yet integrated — P2)", shape=box3d, style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
+  templates_repo [label="github.com/ghchinoy/\nmizan-templates\n(separate repo,\nnot yet integrated)", shape=box3d, style="rounded,dashed,filled", fillcolor="#f2f2f2", color="gray50", fontcolor="gray40"];
   cli -> templates_repo [style=dashed, color="gray50", label="registry import/\nexport (roadmap)"];
 
   { rank=same; native; pairwise; rubric; customschema; }
