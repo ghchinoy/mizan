@@ -10,6 +10,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -128,6 +129,30 @@ func TestRegistryListKindUnknownErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unknown metric kind") {
 		t.Errorf("error = %v, want it to mention unknown metric kind", err)
+	}
+}
+
+// TestRegistryListKindInvalidFailsFastBeforeDBOpen proves the --kind filter is
+// normalized/validated BEFORE the SQLite DB is opened: an invalid filter value
+// surfaces the enumerated "unknown metric kind" error even when the registry DB
+// path can never be opened, so no DB work is attempted (ITEM C fast-fail).
+func TestRegistryListKindInvalidFailsFastBeforeDBOpen(t *testing.T) {
+	cleanConfigEnv(t)
+	// Point the registry at an unopenable path: a regular file stands where the
+	// DB's parent directory would be, so OpenService's MkdirAll fails. If the
+	// --kind were validated after the open, we'd see this DB error instead.
+	blocker := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatalf("seed blocker file: %v", err)
+	}
+	t.Setenv("MIZAN_REGISTRY_DB", filepath.Join(blocker, "registry.db"))
+
+	out, err := executeRoot(t, "registry", "list", "--kind", "bogus")
+	if err == nil {
+		t.Fatalf("registry list --kind bogus: nil error, want an error (out=%q)", out)
+	}
+	if !strings.Contains(err.Error(), "unknown metric kind") {
+		t.Errorf("error = %v, want the enumerated kind error (proving fast-fail before DB open)", err)
 	}
 }
 

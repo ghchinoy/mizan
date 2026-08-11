@@ -327,22 +327,26 @@ func newRegistryListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			svc, closeSvc, err := wire.OpenService(cfg)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = closeSvc() }()
 
+			// Normalize/validate the --kind filter BEFORE opening the DB so an
+			// invalid filter fails fast with the clear enumerated error and does
+			// no DB work. Accept the vernacular aliases (single/compare) here too,
+			// folding them to the canonical kind before filtering (ITEM C).
 			filter := registry.ListFilter{Namespace: namespace}
 			if kind != "" {
-				// Accept the vernacular aliases (single/compare) here too, folding
-				// them to the canonical kind before filtering (ITEM C).
 				k, err := registry.NormalizeKind(kind)
 				if err != nil {
 					return err
 				}
 				filter.Kinds = []registry.MetricKind{k}
 			}
+
+			svc, closeSvc, err := wire.OpenService(cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeSvc() }()
+
 			ts, err := svc.List(cmd.Context(), filter)
 			if err != nil {
 				return err
