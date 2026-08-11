@@ -137,15 +137,23 @@ func newEvalRunCmd() *cobra.Command {
 			}
 
 			// --rubric-detail routes a rubric template through the genai
-			// structured-output path for per-criterion transparency. Parse the
-			// scale locally so a malformed --rubric-scale fails before any call.
+			// structured-output path for per-criterion transparency. When the user
+			// explicitly sets --rubric-scale, parse it locally (so a malformed value
+			// fails before any call) and pass it as the highest-precedence scale.
+			// Otherwise defer the scale to the template's declared rubricDetail.scale
+			// (if any) or the engine default (1-5) — see Engine.resolveRubricScale
+			// (H2, RFC-0001 §4.4).
 			runOpts := []eval.RunOption{eval.WithModel(model)}
 			if rubricDetail {
-				min, max, err := eval.ParseRubricScale(rubricScale)
-				if err != nil {
-					return err
+				if cmd.Flags().Changed("rubric-scale") {
+					min, max, err := eval.ParseRubricScale(rubricScale)
+					if err != nil {
+						return err
+					}
+					runOpts = append(runOpts, eval.WithRubricDetail(min, max))
+				} else {
+					runOpts = append(runOpts, eval.WithRubricDetailDefaultScale())
 				}
-				runOpts = append(runOpts, eval.WithRubricDetail(min, max))
 			}
 
 			eng, closeEng, err := openEngine(cmd.Context(), cfg)

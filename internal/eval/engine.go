@@ -200,11 +200,26 @@ type runConfig struct {
 	// structured-output path (rubric per-criterion transparency) instead of the
 	// native pointwise path. scaleMin/scaleMax are the (already-parsed and
 	// validated) Likert bounds the judge scores on. They are meaningful only when
-	// rubricDetail is set.
+	// rubricDetail is set AND scaleSet is true.
 	rubricDetail bool
-	scaleMin     int
-	scaleMax     int
+	// scaleSet reports whether an EXPLICIT run-flag scale (--rubric-scale) was
+	// supplied. When false, the structured path falls back to the template's
+	// rubricDetail.scale (if declared) and then the built-in default (1-5) — see
+	// Engine.resolveRubricScale. This lets a template-declared scale take effect
+	// when the user relies on the default, while an explicit --rubric-scale still
+	// wins (H2, RFC-0001 §4.4).
+	scaleSet bool
+	scaleMin int
+	scaleMax int
 }
+
+// Default Likert bounds for the genai/global structured rubric path when neither
+// an explicit --rubric-scale flag nor a template-declared rubricDetail.scale is
+// present (RFC-0001 §4.4: "when absent, behavior is exactly today's default").
+const (
+	defaultRubricScaleMin = 1
+	defaultRubricScaleMax = 5
+)
 
 // WithModel supplies a per-run autorater model override (the eval-time --model
 // flag). It is the HIGHEST-precedence input to the resolution chain — see
@@ -223,8 +238,23 @@ func WithModel(model string) RunOption {
 func WithRubricDetail(min, max int) RunOption {
 	return func(rc *runConfig) {
 		rc.rubricDetail = true
+		rc.scaleSet = true
 		rc.scaleMin = min
 		rc.scaleMax = max
+	}
+}
+
+// WithRubricDetailDefaultScale opts a single run into the rubric per-criterion
+// transparency path WITHOUT an explicit Likert scale (the --rubric-detail flag
+// given without --rubric-scale). The scale is then resolved from the template's
+// rubricDetail.scale if it declares one, otherwise the built-in default (1-5) —
+// see Engine.resolveRubricScale. Use this instead of WithRubricDetail when the
+// caller did not explicitly choose a scale, so a template-declared scale can take
+// effect (H2, RFC-0001 §4.4).
+func WithRubricDetailDefaultScale() RunOption {
+	return func(rc *runConfig) {
+		rc.rubricDetail = true
+		rc.scaleSet = false
 	}
 }
 
@@ -298,7 +328,15 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 		return e.runPointwise(ctx, tmpl, inst, model)
 	case registry.KindRubric:
 		if rc.rubricDetail {
-			return e.runRubricStructured(ctx, tmpl, inst, model, rc.scaleMin, rc.scaleMax)
+			min, max, scaleWarning := e.resolveRubricScale(tmpl, rc)
+			res, err := e.runRubricStructured(ctx, tmpl, inst, model, min, max)
+			// Surface the non-fatal template-scale fallback warning on the SAME
+			// Result.Warnings channel H3 uses. Only on success — a failed run
+			// returns a zero Result and the warning would be noise.
+			if err == nil && scaleWarning != "" {
+				res.Warnings = append(res.Warnings, scaleWarning)
+			}
+			return res, err
 		}
 		return e.runRubric(ctx, tmpl, inst, model)
 	case registry.KindCustomSchema:
@@ -308,6 +346,46 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 	default:
 		return Result{}, fmt.Errorf("eval: unknown metric kind %q", tmpl.Kind)
 	}
+}
+
+// resolveRubricScale determines the Likert [min,max] the genai/global structured
+// rubric path scores on, applying the H2 precedence (RFC-0001 §4.4):
+//
+//  1. an EXPLICIT run-flag scale (--rubric-scale, rc.scaleSet) — highest;
+//  2. the template's declared rubricDetail.scale, if any AND valid;
+//  3. the built-in default (1-5).
+//
+// This keeps the existing --rubric-detail run flag working exactly as before
+// (WithRubricDetail sets scaleSet), while letting a template-declared scale take
+// effect when the caller relies on the default (WithRubricDetailDefaultScale). A
+// template that declares NO scale yields the same 1-5 default as today, so this
+// is additive and back-compatible.
+//
+// A template-declared scale is VALIDATED against the same contract the
+// --rubric-scale flag is held to (rubricScaleBoundsValid: non-negative, min<max).
+// Unlike the flag path — which fails fast via ParseRubricScale — a template scale
+// arrives already-parsed with no CLI chokepoint to reject it, so an inverted or
+// degenerate scale (min>=max, negative) would otherwise reach the judge prompt
+// verbatim and let the clamp collapse every score while the run "succeeds"
+// silently. When the template scale is invalid we do NOT hard-fail (consistent
+// with H3's non-fatal philosophy for the genai/global path): we FALL BACK to the
+// default 1-5 and return a NON-FATAL warning (surfaced on Result.Warnings) naming
+// the offending field and the default now in effect. The returned warning is
+// empty ("") whenever no fallback occurred.
+func (e *Engine) resolveRubricScale(tmpl registry.MetricTemplate, rc runConfig) (min, max int, warning string) {
+	if rc.scaleSet {
+		return rc.scaleMin, rc.scaleMax, ""
+	}
+	if tmpl.RubricDetail != nil && tmpl.RubricDetail.Scale != nil {
+		tmin, tmax := tmpl.RubricDetail.Scale.Min, tmpl.RubricDetail.Scale.Max
+		if !rubricScaleBoundsValid(tmin, tmax) {
+			return defaultRubricScaleMin, defaultRubricScaleMax, fmt.Sprintf(
+				"mizan: template rubricDetail.scale (%d-%d) is invalid (min must be non-negative and less than max); using the default %d-%d scale instead",
+				tmin, tmax, defaultRubricScaleMin, defaultRubricScaleMax)
+		}
+		return tmin, tmax, ""
+	}
+	return defaultRubricScaleMin, defaultRubricScaleMax, ""
 }
 
 // expectedInstanceFields returns the placeholder key set the given template's
