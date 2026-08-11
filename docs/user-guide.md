@@ -2,19 +2,19 @@
 
 This guide covers what Mizan can actually do today: manage a local metric
 registry, configure credentials/project settings, and run evaluations —
-pointwise, rubric, custom_schema, and pairwise, including multimodal
+single, compare, rubric, and custom_schema, including multimodal
 (image/audio/video/music) assets — against the live Vertex AI Gen AI
-Evaluation Service. Phase 1 is complete: all four metric kinds and multimodal
-are implemented and CLI-runnable end-to-end. Every command and output shown
-below was run against the built CLI; where a capability isn't implemented
-yet, this guide says so explicitly rather than implying it works. For
-deeper, copy-pasteable recipes for every metric kind (including live error
-output for the pairwise placeholder contract and the create-time rubric/
-schema validation), see [`docs/testing-guide.md`](testing-guide.md).
+Evaluation Service. All four metric kinds and multimodal are implemented and
+CLI-runnable end-to-end. Every command and output shown below was run against
+the built CLI; where a capability isn't implemented yet, this guide says so
+explicitly rather than implying it works. For deeper, copy-pasteable recipes
+for every metric kind (including live error output for the compare/pairwise
+placeholder contract and the create-time rubric/schema validation), see
+[`docs/testing-guide.md`](testing-guide.md).
 
 For the underlying design, see [`architecture-final.md`](architecture-final.md).
-For phase-by-phase roadmap detail, see
-[`implementation-plan.md`](implementation-plan.md).
+For capabilities that are planned but not built, see
+[`roadmap.md`](roadmap.md).
 
 ## Prerequisites
 
@@ -203,12 +203,25 @@ score:
   the judge, so Mizan tells you to add a `{{...}}` placeholder (single-brace
   `{var}` is **not** recognized — use `{{var}}`).
 
-`--kind` accepts `pointwise`, `pairwise`, `rubric`, or `custom_schema`, and
-all four are runnable end-to-end today. Two kinds need extra authoring flags,
-and one has an extra structural requirement on its prompt:
+`--kind` accepts `single` (or `pointwise`), `compare` (or `pairwise`),
+`rubric`, or `custom_schema`, and all four are runnable end-to-end today.
 
-- **`pointwise`** — no extra flags needed beyond `--prompt`; see
-  [Running an evaluation](#running-a-text-pointwise-evaluation-end-to-end)
+> **single = pointwise, compare = pairwise.** *Pointwise* and *pairwise* are
+> the Vertex AI Gen AI Evaluation Service's own terms — non-standard jargon —
+> so Mizan also accepts the plainer spellings wherever the Vertex ones work:
+> as `--kind` values (`single|pointwise`, `compare|pairwise`), and as the
+> subcommands `mizan eval single` (= `mizan eval run`, score **one**
+> response) and `mizan eval compare` (= `mizan eval pairwise`, compare
+> **two** responses). `rubric` and `custom_schema` are the other two kinds;
+> both are run through `mizan eval run`. Whichever spelling you pass, the CLI
+> folds it to the canonical kind, so a stored template always reports
+> `pointwise` / `pairwise`.
+
+Two kinds need extra authoring flags, and one has an extra structural
+requirement on its prompt:
+
+- **`single` (`pointwise`)** — no extra flags needed beyond `--prompt`; see
+  [Scoring a single text response](#scoring-a-single-text-response-end-to-end)
   below.
 - **`rubric`** — also requires `--rubric-group "name=criterion
   one;criterion two"` (repeatable) or `--rubric-groups-file <path>`; `create`
@@ -216,14 +229,15 @@ and one has an extra structural requirement on its prompt:
 - **`custom_schema`** — also requires `--response-schema '<json>'` or
   `--response-schema-file <path>`; `create` rejects the template immediately
   if neither is given.
-- **`pairwise`** — also requires `--baseline-field`/`--candidate-field`, and
-  the `--prompt` text must reference those field names as `{{name}}`
-  placeholders (the run fails otherwise, since the API rejects instance keys
-  the template doesn't reference). Use the dedicated `mizan eval pairwise
+- **`compare` (`pairwise`)** — also requires
+  `--baseline-field`/`--candidate-field`, and the `--prompt` text must
+  reference those field names as `{{name}}` placeholders (the run fails
+  otherwise, since the API rejects instance keys the template doesn't
+  reference). Use the dedicated `mizan eval compare` / `mizan eval pairwise
   --baseline key=value --candidate key=value` command, which makes the
   baseline/candidate roles explicit (generic `eval run --field` also
-  technically works, since pairwise fields are ordinary placeholders, but
-  `eval pairwise` is the documented, less error-prone path).
+  technically works, since the compare fields are ordinary placeholders, but
+  the dedicated command is the documented, less error-prone path).
 
 See [`docs/testing-guide.md`](testing-guide.md) for full recipes and live
 output for every kind.
@@ -281,9 +295,11 @@ deleted demo/conciseness
 Every registry (and config) command supports `-o/--output json|table`
 (default `table`) for scripting.
 
-## Running a text-pointwise evaluation end-to-end
+## Scoring a single text response end-to-end
 
-Create the metric (as above), then run it:
+Create the metric (as above), then score one response with
+`mizan eval single` — `mizan eval run` is the same command, and is the
+spelling the transcript below was captured with:
 
 ```sh
 $ mizan eval run --metric demo/conciseness --field response="The cat sat on the mat."
@@ -434,7 +450,7 @@ Note that single-brace `{var}` is not recognized — use double braces `{{var}}`
 **`Error: kind "rubric" requires rubric groups; pass --rubric-group
 "name=crit1;crit2" (repeatable) or --rubric-groups-file <path>`**
 You ran `registry create --kind rubric` without either rubric-authoring flag.
-This is caught immediately at create time (as of PR #11) — add
+This is caught immediately at create time — add
 `--rubric-group "name=criterion one;criterion two"` (repeatable) or
 `--rubric-groups-file <path-to-json-object>`. See
 [`docs/testing-guide.md`](testing-guide.md#rubric) for a full recipe.
@@ -454,18 +470,19 @@ at `create` time via `--baseline-field`/`--candidate-field`. Update the prompt
 to reference both. See
 [`docs/testing-guide.md`](testing-guide.md#placeholder-contract-real-verified).
 
-**Pairwise flip and the `Choice` is authoritative**
-Pairwise runs with position-bias mitigation ("flip") controlled by the template's
-`--flip-enabled` flag at `create` time (**default `true`**). With flip on, the
-judge evaluates both position orderings and returns a de-biased, aggregated
-`Choice` — **the `Choice` is the authoritative verdict**. The `Explanation`,
-however, is a single sampled artifact whose "baseline"/"candidate" wording may
-reflect a flipped ordering, so it can read as though it praises the *other*
-response. `mizan eval pairwise` prints a one-line warning to stderr when flip is
-in effect (and serializes it under `warnings` in `--output json`). If you need
+**Compare (pairwise) flip and the `Choice` is authoritative**
+A compare run applies position-bias mitigation ("flip") controlled by the
+template's `--flip-enabled` flag at `create` time (**default `true`**). With
+flip on, the judge evaluates both position orderings and returns a de-biased,
+aggregated `Choice` — **the `Choice` is the authoritative verdict**. The
+`Explanation`, however, is a single sampled artifact whose
+"baseline"/"candidate" wording may reflect a flipped ordering, so it can read
+as though it praises the *other* response. `mizan eval compare` /
+`mizan eval pairwise` prints a one-line warning to stderr when flip is in
+effect (and serializes it under `warnings` in `--output json`). If you need
 the explanation's wording to match the order you presented, create the template
 with `--flip-enabled=false`; the trade-off is losing position-bias mitigation.
-Because the P1 registry stores `FlipEnabled` as a plain `bool` (no tri-state),
+Because the registry stores `FlipEnabled` as a plain `bool` (no tri-state),
 `false` is only distinguishable from the default at `create` time — set it
 explicitly on the template.
 
@@ -505,39 +522,19 @@ the eval:
 
 ## Coming soon / roadmap
 
-Phase 1 (all four metric kinds + multimodal) is complete. What's **not usable
-end-to-end via the CLI** in the current build is the P2/P3/P4 work below —
-don't expect these to work:
+Template packs and sharing, batch evaluation, and the desktop app are **not
+usable end-to-end via the CLI** in the current build — there is no `pack`
+command, no `registry import|export`, no `eval batch`, and no runnable
+desktop app. Don't expect them to work.
 
-- **Template packs and sharing** (`mizan pack init|validate|add`, `registry
-  import|export`) — no `pack` command and no `registry import|export` exist
-  in the built binary yet (roadmap phase P2, the collaboration layer). The
-  intended model: packs are contributed via pull requests to the dedicated
-  [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates)
-  repo (data + CI only, no Mizan application code); its `validate-packs` CI
-  workflow is already wired up and runs on every PR there, but it currently
-  fails for the same reason — the validation step invokes `mizan pack
-  validate`, which doesn't exist yet — so that gate goes green once the
-  command ships. Packs are then pulled in with `mizan registry import`
-  (that repo is the configured default source) once the command exists.
-  `mizan-templates` is not just a stub — it already holds a real worked
-  example pack (`packs/google-brand/`), its own pack-format docs, and an
-  active CI gate — but this repo's binary has no code path that talks to it
-  yet.
-- **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets) —
-  roadmap phase P3.
-- **The Wails desktop app** (`cmd/mizan-desktop`) — design-stage scaffolding
-  only (`internal/app/app.go`, `cmd/mizan-desktop/main.go`); no built or
-  runnable desktop app exists. Roadmap phase P4.
-
-See [`implementation-plan.md`](implementation-plan.md) for phase-by-phase
-detail and acceptance criteria.
+[`docs/roadmap.md`](roadmap.md) is the canonical list of what is planned and
+what each item would look like.
 
 ## How it fits together
 
-For a text-pointwise `eval run`, the request flows entirely through
+For a single-response text `eval run`, the request flows entirely through
 implemented code paths — see the sequence below. This is one example of a
-fully implemented path; rubric, custom_schema, pairwise, and multimodal are
+fully implemented path; rubric, custom_schema, compare, and multimodal are
 also implemented end-to-end (see
 [`architecture-final.md`](architecture-final.md) §6 for the domain model and
 the component diagram):
