@@ -260,7 +260,13 @@ func renderGenaiPrompt(template string, inst Instance) (string, []*genai.Part, e
 	rendered := varPattern.ReplaceAllStringFunc(template, func(match string) string {
 		name := varPattern.FindStringSubmatch(match)[1]
 		ref := inst.Fields[name]
-		if ref.Modality == "" || ref.Modality == registry.ModalityText {
+		// Route on the asset SHAPE, not on Modality, mirroring the native path
+		// (isTextRef). A CLI --gcs/--file ref carries empty Modality by design
+		// (buildInstance leaves resolution to the engine); keying on Modality
+		// here collapsed such media refs to empty text — the Defect A silent
+		// drop. isTextRef returns false whenever a FilePath/GCSUri is set,
+		// regardless of Modality, so media now reaches toGenaiInlinePart.
+		if isTextRef(ref) {
 			return ref.Text
 		}
 		part, err := toGenaiInlinePart(ref)

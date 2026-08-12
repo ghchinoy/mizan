@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -259,9 +258,16 @@ func toGenaiInlinePart(ref AssetRef) (*genai.Part, error) {
 	case ref.Modality == registry.ModalityText || (ref.FilePath == "" && ref.GCSUri == "" && ref.Text != ""):
 		return genai.NewPartFromText(ref.Text), nil
 	case ref.GCSUri != "":
+		// Resolve MIME the same way native does (asset.DetectMIME on the object
+		// URI/extension) so a bare --gcs ref with no explicit MIME still attaches.
+		// Guard an unresolved/octet-stream type: a wrong or empty top-level type
+		// would be silently dropped downstream, so refuse loudly instead.
 		mime := ref.MimeType
 		if mime == "" {
-			return nil, fmt.Errorf("eval: gs:// asset %q needs a MIME type", ref.GCSUri)
+			mime = asset.DetectMIME(ref.GCSUri, nil)
+		}
+		if mime == "" || mime == "application/octet-stream" {
+			return nil, fmt.Errorf("eval: gs:// asset %q: cannot resolve a media MIME type; refusing to send (would be dropped)", ref.GCSUri)
 		}
 		return genai.NewPartFromURI(ref.GCSUri, mime), nil
 	case ref.FilePath != "":
@@ -317,9 +323,16 @@ func readInlineAsset(path, mimeOverride string) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("eval: asset %q exceeds the %d-byte inline cap", path, maxInlineBytes)
 	}
 
+	// Type the bytes with the project's richer detector (sniff + extension), for
+	// parity with the native path. http.DetectContentType mis-detects several
+	// media containers (WAV/OGG/FLAC/MOV) to a wrong top-level type — exactly the
+	// silent-drop hazard this fix closes. Guard an unresolved/octet-stream type.
 	mime := mimeOverride
 	if mime == "" {
-		mime = http.DetectContentType(data)
+		mime = asset.DetectMIME(path, data)
+	}
+	if mime == "" || mime == "application/octet-stream" {
+		return nil, "", fmt.Errorf("eval: asset %q: cannot resolve a media MIME type; refusing to read", path)
 	}
 	return data, mime, nil
 }
