@@ -44,13 +44,24 @@ var (
 )
 
 // OpenService returns a registry.Service backed by the default SQLite store at
-// cfg.RegistryDBPath, plus a close function the caller must invoke.
+// cfg.RegistryDBPath, plus a close function the caller must invoke. The
+// composition root injects the pack Codec (YAML) and the config-derived
+// SyncConfig here — the ONLY place that knows the concrete codec/sync wiring —
+// so cmd/* depends on registry.Service alone and never imports the codec/sync
+// packages (design §3.1, the seam).
 func OpenService(cfg *config.Config) (*registry.Service, func() error, error) {
 	store, err := sqlite.Open(cfg.RegistryDBPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	return registry.NewService(store), store.Close, nil
+	svc := registry.NewService(store,
+		registry.WithCodec(registry.NewYAMLCodec()),
+		registry.WithSyncConfig(registry.SyncConfig{
+			PackCacheDir:         cfg.PackCacheDir,
+			DefaultTemplatesRepo: cfg.DefaultTemplatesRepo,
+		}),
+	)
+	return svc, store.Close, nil
 }
 
 // NewEngine returns an eval.Engine wired to a live EvaluationClient targeting

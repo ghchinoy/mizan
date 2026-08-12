@@ -1,0 +1,54 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+
+metadata:
+  id: google-brand/video-brand-alignment   # STABLE global id: "<namespace>/<slug>"
+  name: Video Brand Alignment
+  description: >
+    Scores whether a short video ad aligns with a supplied brand guideline,
+    covering tone, visual identity, and messaging.
+  version: 1.0.0                    # semver; bump on any spec change
+  authors:
+    - name: Jane Doe
+      email: jane@example.com
+  maintainers:
+    - google-brand-team
+  license: Apache-2.0
+  tags: [advertising, brand-safety, video]
+  # contentHash is COMPUTED by Mizan (not authored); appears in exports.
+
+spec:
+  kind: pointwise                  # pointwise | pairwise | rubric | custom_schema
+  modalities: [video, text]        # asset types this template accepts
+
+  # Declared inputs — placeholders the template references, with modality.
+  # Validation cross-checks these against the template body.
+  inputs:
+    - name: response               # the asset under evaluation
+      modality: video
+      required: true
+    - name: brand_guideline        # reference text
+      modality: text
+      required: true
+
+  metricPromptTemplate: |          # {{placeholder}} substitution (double-brace)
+    You are a brand compliance rater. Given a brand guideline and a video ad,
+    rate how well the ad aligns with the guideline on a 1-5 scale.
+
+    Brand guideline:
+    {{brand_guideline}}
+
+    Evaluate the video: {{response}}
+
+    Consider tone, visual identity (logo, colors), and messaging consistency.
+
+  systemInstruction: |
+    Be strict. Penalize off-brand tone even when production quality is high.
+
+  autorater:
+    # Publisher-relative model id ONLY — Mizan expands this to the full resource
+    # name (projects/<proj>/locations/<loc>/publishers/google/models/<model>) at
+    # run time using the consumer's project/location. Do NOT embed a project here.
+    model: gemini-2.5-pro
+    samplingCount: 4               # 1-32
+    flipEnabled: false             # pairwise-only; ignored for pointwise

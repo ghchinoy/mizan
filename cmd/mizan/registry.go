@@ -13,11 +13,6 @@ import (
 	"github.com/ghchinoy/mizan/internal/wire"
 )
 
-// maxTemplateFileBytes caps the size of a --*-file input the CLI will read.
-// Rubric/schema definitions are small config documents; this is a defense-in-depth
-// bound so a large or special file cannot be read without limit.
-const maxTemplateFileBytes int64 = 1 << 20 // 1 MiB
-
 // templateFlags collects the fields a user can set on create/update.
 type templateFlags struct {
 	id            string
@@ -85,8 +80,8 @@ func readTemplateFile(path string) ([]byte, error) {
 	if !fi.Mode().IsRegular() {
 		return nil, fmt.Errorf("%q is not a regular file (mode %s); refusing to read", path, fi.Mode().Type())
 	}
-	if fi.Size() > maxTemplateFileBytes {
-		return nil, fmt.Errorf("%q is %d bytes, exceeds the %d-byte cap", path, fi.Size(), maxTemplateFileBytes)
+	if fi.Size() > registry.MaxTemplateFileBytes {
+		return nil, fmt.Errorf("%q is %d bytes, exceeds the %d-byte cap", path, fi.Size(), registry.MaxTemplateFileBytes)
 	}
 	data, err := os.ReadFile(resolved)
 	if err != nil {
@@ -268,7 +263,46 @@ func newRegistryCmd() *cobra.Command {
 		newRegistryGetCmd(),
 		newRegistryUpdateCmd(),
 		newRegistryDeleteCmd(),
+		newRegistryImportCmd(),
 	)
+	return cmd
+}
+
+// newRegistryImportCmd wires `registry import <path>`. It imports metric
+// templates from a LOCAL pack tree (a mizan-templates checkout with a packs/
+// dir, or a single pack dir) into the local registry. P2.1 is insert-only:
+// templates that already exist are skipped and reported. Reconciliation
+// strategies (--strategy) and git-URL/default-source import land in later
+// phases (P2.3/P2.5). It depends ONLY on registry.Service via wire — it imports
+// no sync/codec/yaml symbols, preserving the seam.
+func newRegistryImportCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "import <path>",
+		Short: "Import metric templates from a local pack tree (insert-only)",
+		Long: "Import metric templates from a LOCAL pack tree into the local registry.\n\n" +
+			"<path> is a checkout that contains a packs/ directory, or a single pack\n" +
+			"directory. Only templates whose id is not already present are inserted;\n" +
+			"existing ones are skipped and reported (P2.1 is insert-only). Git-URL and\n" +
+			"default-source import, and reconciliation strategies, arrive in later phases.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			svc, closeSvc, err := wire.OpenService(cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeSvc() }()
+
+			report, err := svc.Import(cmd.Context(), args[0], registry.ImportOptions{})
+			if err != nil {
+				return err
+			}
+			return renderImportReport(cmd.OutOrStdout(), report)
+		},
+	}
 	return cmd
 }
 

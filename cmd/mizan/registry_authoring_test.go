@@ -142,12 +142,12 @@ func TestRubricGroupsFileMissing(t *testing.T) {
 	}
 }
 
-// TestRubricGroupsFileOversize: a file larger than maxTemplateFileBytes is
+// TestRubricGroupsFileOversize: a file larger than registry.MaxTemplateFileBytes is
 // rejected by the size cap before any JSON parse.
 func TestRubricGroupsFileOversize(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "groups.json")
-	if err := os.WriteFile(path, make([]byte, maxTemplateFileBytes+1), 0o600); err != nil {
+	if err := os.WriteFile(path, make([]byte, registry.MaxTemplateFileBytes+1), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := applyFromArgs(t, false, nil, "--rubric-groups-file", path)
@@ -237,12 +237,12 @@ func TestResponseSchemaFileNonRegular(t *testing.T) {
 	}
 }
 
-// TestResponseSchemaFileOversize: a file larger than maxTemplateFileBytes is
+// TestResponseSchemaFileOversize: a file larger than registry.MaxTemplateFileBytes is
 // rejected by the size cap before any JSON validation.
 func TestResponseSchemaFileOversize(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "schema.json")
-	if err := os.WriteFile(path, make([]byte, maxTemplateFileBytes+1), 0o600); err != nil {
+	if err := os.WriteFile(path, make([]byte, registry.MaxTemplateFileBytes+1), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := applyFromArgs(t, false, nil, "--response-schema-file", path)

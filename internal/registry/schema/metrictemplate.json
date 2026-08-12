@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mizan.dev/schema/metrictemplate.json",
+  "title": "Mizan MetricTemplate pack manifest",
+  "description": "MINIMAL structural schema for a pack MetricTemplate file (design §3.5). P2.1 uses this only for obvious-malformation checks; the full enum + kind-specific + placeholder checks land in P2.2.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "enum": ["mizan.dev/v1alpha1"]
+    },
+    "kind": {
+      "type": "string",
+      "const": "MetricTemplate"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$"
+        },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "version": { "type": "string" },
+        "authors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "email": { "type": "string" }
+            }
+          }
+        },
+        "maintainers": { "type": "array", "items": { "type": "string" } },
+        "license": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Accepts vernacular single/compare and canonical pointwise/pairwise/rubric/custom_schema (design §3.2); the codec canonicalizes via NormalizeKind.",
+          "enum": ["single", "pointwise", "compare", "pairwise", "rubric", "custom_schema"]
+        },
+        "modalities": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["text", "image", "audio", "video", "music"] }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "modality": { "type": "string" },
+              "required": { "type": "boolean" }
+            }
+          }
+        },
+        "metricPromptTemplate": { "type": "string" },
+        "systemInstruction": { "type": "string" },
+        "candidateFieldName": { "type": "string" },
+        "baselineFieldName": { "type": "string" },
+        "rubricGroups": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+        },
+        "responseSchema": { "type": "object" },
+        "ratingRubric": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        },
+        "rubricDetail": {
+          "type": "object",
+          "properties": {
+            "scale": {
+              "type": "object",
+              "properties": {
+                "min": { "type": "integer" },
+                "max": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "autorater": {
+          "type": "object",
+          "properties": {
+            "model": { "type": "string" },
+            "samplingCount": { "type": "integer" },
+            "flipEnabled": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

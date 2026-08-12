@@ -84,6 +84,9 @@ func renderTemplate(w io.Writer, t *registry.MetricTemplate) error {
 	fmt.Fprintf(tw, "Modalities:\t%s\n", joinModalities(t.Modalities))
 	fmt.Fprintf(tw, "Model:\t%s\n", t.AutoraterModel)
 	fmt.Fprintf(tw, "SamplingCount:\t%d\n", t.SamplingCount)
+	if t.Source != "" {
+		fmt.Fprintf(tw, "Source:\t%s\n", t.Source)
+	}
 	if t.Description != "" {
 		fmt.Fprintf(tw, "Description:\t%s\n", t.Description)
 	}
@@ -117,6 +120,24 @@ func renderTemplateList(w io.Writer, ts []registry.MetricTemplate) error {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", t.ID, t.Name, t.Kind, t.AutoraterModel)
 	}
 	return tw.Flush()
+}
+
+// renderImportReport prints the outcome of `registry import`. Text mode prints a
+// one-line summary followed by the per-template actions; JSON mode prints the
+// whole report.
+func renderImportReport(w io.Writer, r registry.ImportReport) error {
+	if outputFormat == outputJSON {
+		return printJSON(w, r)
+	}
+	fmt.Fprintf(w, "%d inserted, %d skipped (source: %s)\n", r.Inserted, r.Skipped, r.Source.Origin)
+	for _, e := range r.Entries {
+		if e.Reason != "" {
+			fmt.Fprintf(w, "  %s: %s (%s)\n", e.Action, e.ID, e.Reason)
+		} else {
+			fmt.Fprintf(w, "  %s: %s\n", e.Action, e.ID)
+		}
+	}
+	return nil
 }
 
 func joinModalities(ms []registry.Modality) string {
