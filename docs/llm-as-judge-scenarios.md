@@ -555,6 +555,50 @@ hit — *before* it happens.
 
 ---
 
+## Scenario 9: Consume a shared template from a pack (local import)
+
+**Goal.** Run an evaluation someone else authored — without re-typing it — by
+importing their metric template from a git-backed **pack**.
+
+Metric templates can be shared as YAML packs (one file per template) in a git
+repository such as `github.com/ghchinoy/mizan-templates`. Today Mizan can import
+those templates from a **local checkout** of such a repo into your registry,
+after which they run exactly like a locally authored template.
+
+```sh
+# You have a local checkout of a packs repo (a dir containing packs/).
+$ mizan registry import ./mizan-templates
+1 inserted, 0 skipped (source: ./mizan-templates)
+  inserted: google-brand/video-brand-alignment
+
+# It is now a normal registry entry, with provenance recorded in Source:
+$ mizan registry get google-brand/video-brand-alignment
+ID:      google-brand/video-brand-alignment
+Kind:    pointwise
+Model:   gemini-2.5-pro
+Source:  pack:google-brand@./mizan-templates
+...
+
+# Run it like any template (needs a configured project + creds):
+$ mizan eval run --metric google-brand/video-brand-alignment \
+    --field brand_guideline="Warm, minimal; logo bottom-right." \
+    --gcs response=gs://your-bucket/ad.mp4
+```
+
+Import is **insert-only**: an id already in your registry is left untouched and
+reported as `skipped`, so re-importing never clobbers local edits. The pack's
+authored `spec.kind` is canonicalized on import (an authored `single` lands as
+`pointwise`), and the autorater `model` is a publisher-relative id that the
+engine expands to the full resource name at run time.
+
+> **Scope note.** This is the *local-path* import leg only. Importing straight
+> from a git URL, the bare-`import` default source, reconciliation strategies
+> (`--strategy`), and the authoring/export/validation side (`registry export`,
+> `pack init`, `pack validate`) are **not built yet** — see
+> [below](#scenarios-that-are-not-built-yet).
+
+---
+
 ## Capability matrix
 
 | Scenario | Kind | Path | Location | Output | Multimodal? | Sampling? | Token stats? |
@@ -583,8 +627,13 @@ the root [`README.md`](../README.md) states the current boundary.
   `EvaluateDataset` over GCS-hosted data (which is also the official home for
   API-native per-criterion rubric output with sampling retained). No
   `eval batch` command exists.
-- **Template packs / registry import & export** — sharing and versioning
-  templates via `mizan pack` and `mizan registry import`/`export`. Not wired.
+- **Template packs — the rest of the round trip.** Importing templates from a
+  **local** pack tree works today ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import)),
+  but the rest is **not built yet**: importing from a git URL or the default
+  templates repo (bare `mizan registry import`), reconciliation strategies
+  (`--strategy newer|skip|overwrite|fork`), exporting/authoring packs
+  (`mizan registry export`, `mizan pack init`/`add`), and pack validation
+  (`mizan pack validate`). Import is currently insert-only.
 - **A tri-state flip default for compare templates** — the engine honors the
   template's `--flip-enabled` (including `false`), but the registry stores it
   as a plain `bool`, so "unset ⇒ default true" cannot be distinguished from an

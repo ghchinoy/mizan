@@ -290,6 +290,53 @@ $ mizan registry delete demo/conciseness
 deleted demo/conciseness
 ```
 
+### Import (from a local pack tree)
+
+Metric templates can be shared as git-backed YAML **packs**. To pull templates
+from a **local checkout** of a packs repository (e.g.
+`github.com/ghchinoy/mizan-templates`) into your local registry, point
+`registry import` at the checkout — a directory containing a `packs/` tree — or
+at a single pack directory:
+
+```sh
+$ mizan registry import ./mizan-templates
+1 inserted, 0 skipped (source: ./mizan-templates)
+  inserted: google-brand/video-brand-alignment
+```
+
+The imported template is now a normal registry entry — list it, get it, and run
+it like any local template. `registry get` shows its provenance in the `Source`
+field:
+
+```sh
+$ mizan registry get google-brand/video-brand-alignment
+ID:             google-brand/video-brand-alignment
+Name:           Video Brand Alignment
+Kind:           pointwise
+Modalities:     video,text
+Model:          gemini-2.5-pro
+SamplingCount:  4
+Source:         pack:google-brand@./mizan-templates
+Description:    Scores whether a short video ad aligns with a supplied brand guideline, ...
+```
+
+Import is **insert-only** today: a template whose id is already in your registry
+is left untouched and reported as `skipped`, so re-running an import never
+clobbers local work:
+
+```sh
+$ mizan registry import ./mizan-templates
+0 inserted, 1 skipped (source: ./mizan-templates)
+  skipped: google-brand/video-brand-alignment (already exists ...)
+```
+
+> **Scope note.** Today `registry import` reads a **local path only**. Importing
+> directly from a git URL, importing from the default templates repo with a bare
+> `mizan registry import`, and reconciliation strategies for existing templates
+> (`--strategy newer|skip|overwrite|fork`) are not available yet — they arrive in
+> later releases. Pack authoring/export (`registry export`, `pack init`) and pack
+> validation (`pack validate`) are likewise not yet available.
+
 ### Output format
 
 Every registry (and config) command supports `-o/--output json|table`

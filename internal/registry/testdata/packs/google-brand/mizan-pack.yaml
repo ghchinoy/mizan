@@ -1,0 +1,11 @@
+apiVersion: mizan.dev/v1alpha1
+kind: Pack
+metadata:
+  name: google-brand              # namespace — must match this directory name
+  version: 1.0.0                  # pack-level semver (human release tag)
+  description: Brand-compliance LLM-as-a-Judge templates for marketing assets.
+  maintainers: [google-brand-team]
+  license: Apache-2.0
+spec:
+  # minimum Mizan format version required to consume this pack:
+  requiresApiVersion: mizan.dev/v1alpha1
