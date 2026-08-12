@@ -52,13 +52,15 @@ func TestImportInsertsNewTemplate(t *testing.T) {
 	}
 }
 
-// TestImportInsertOnlySkipsExisting proves P2.1 reconciliation is insert-only:
-// an already-present id is skipped and recorded, not overwritten.
-func TestImportInsertOnlySkipsExisting(t *testing.T) {
+// TestImportDefaultConflictsOnEqualVersionDivergence proves the D2 default: a
+// pre-existing template with the SAME version but different content is reported
+// as a conflict and NOT overwritten (fixture version is 1.0.0).
+func TestImportDefaultConflictsOnEqualVersionDivergence(t *testing.T) {
 	store := newFakeStore()
 	store.items["google-brand/video-brand-alignment"] = &MetricTemplate{
-		ID:   "google-brand/video-brand-alignment",
-		Name: "pre-existing local edit",
+		ID:      "google-brand/video-brand-alignment",
+		Name:    "pre-existing local edit",
+		Version: "1.0.0",
 	}
 	svc := NewService(store)
 
@@ -66,30 +68,34 @@ func TestImportInsertOnlySkipsExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Import: %v", err)
 	}
-	if report.Inserted != 0 || report.Skipped != 1 {
-		t.Fatalf("report = %d inserted, %d skipped; want 0 inserted, 1 skipped", report.Inserted, report.Skipped)
+	if report.Inserted != 0 || report.Updated != 0 || report.Conflicted != 1 {
+		t.Fatalf("report = %d inserted, %d updated, %d conflicted; want 0/0/1", report.Inserted, report.Updated, report.Conflicted)
 	}
 	if got := store.items["google-brand/video-brand-alignment"]; got.Name != "pre-existing local edit" {
-		t.Errorf("existing template was overwritten: Name = %q", got.Name)
+		t.Errorf("conflicting template was overwritten: Name = %q", got.Name)
 	}
 	if store.putCalls != 0 {
-		t.Errorf("Put called %d times; insert-only skip must not write", store.putCalls)
+		t.Errorf("Put called %d times; a conflict must not write", store.putCalls)
 	}
 }
 
-func TestImportReimportIsIdempotent(t *testing.T) {
+func TestImportReimportIsNoop(t *testing.T) {
 	store := newFakeStore()
 	svc := NewService(store)
 
 	if _, err := svc.Import(ctx(), fixtureTree, ImportOptions{}); err != nil {
 		t.Fatalf("first Import: %v", err)
 	}
+	putsAfterFirst := store.putCalls
 	report, err := svc.Import(ctx(), fixtureTree, ImportOptions{})
 	if err != nil {
 		t.Fatalf("second Import: %v", err)
 	}
-	if report.Inserted != 0 || report.Skipped != 1 {
-		t.Errorf("re-import report = %d inserted, %d skipped; want 0/1", report.Inserted, report.Skipped)
+	if report.Inserted != 0 || report.Updated != 0 || report.Unchanged != 1 {
+		t.Errorf("re-import report = %d inserted, %d updated, %d unchanged; want 0/0/1", report.Inserted, report.Updated, report.Unchanged)
+	}
+	if store.putCalls != putsAfterFirst {
+		t.Errorf("re-import wrote to the store (%d extra Put calls); an unchanged re-import is a no-op", store.putCalls-putsAfterFirst)
 	}
 }
 

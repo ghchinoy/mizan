@@ -123,13 +123,19 @@ func renderTemplateList(w io.Writer, ts []registry.MetricTemplate) error {
 }
 
 // renderImportReport prints the outcome of `registry import`. Text mode prints a
-// one-line summary followed by the per-template actions; JSON mode prints the
-// whole report.
+// one-line summary of the per-action counts followed by the per-template actions
+// (with reasons, so conflicts and skips are visible); JSON mode prints the whole
+// report. A dry run is flagged so the counts are clearly a preview.
 func renderImportReport(w io.Writer, r registry.ImportReport) error {
 	if outputFormat == outputJSON {
 		return printJSON(w, r)
 	}
-	fmt.Fprintf(w, "%d inserted, %d skipped (source: %s)\n", r.Inserted, r.Skipped, r.Source.Origin)
+	if r.DryRun {
+		fmt.Fprint(w, "dry run (no changes written): ")
+	}
+	fmt.Fprintf(w,
+		"%d inserted, %d updated, %d skipped, %d conflicted, %d unchanged, %d forked (source: %s)\n",
+		r.Inserted, r.Updated, r.Skipped, r.Conflicted, r.Unchanged, r.Forked, r.Source.Origin)
 	for _, e := range r.Entries {
 		if e.Reason != "" {
 			fmt.Fprintf(w, "  %s: %s (%s)\n", e.Action, e.ID, e.Reason)

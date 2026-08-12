@@ -570,7 +570,7 @@ after which they run exactly like a locally authored template.
 ```sh
 # You have a local checkout of a packs repo (a dir containing packs/).
 $ mizan registry import ./mizan-templates
-1 inserted, 0 skipped (source: ./mizan-templates)
+1 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: ./mizan-templates)
   inserted: google-brand/video-brand-alignment
 
 # It is now a normal registry entry, with provenance recorded in Source:
@@ -587,17 +587,45 @@ $ mizan eval run --metric google-brand/video-brand-alignment \
     --gcs response=gs://your-bucket/ad.mp4
 ```
 
-Import is **insert-only**: an id already in your registry is left untouched and
-reported as `skipped`, so re-importing never clobbers local edits. The pack's
-authored `spec.kind` is canonicalized on import (an authored `single` lands as
-`pointwise`), and the autorater `model` is a publisher-relative id that the
-engine expands to the full resource name at run time.
+The pack's authored `spec.kind` is canonicalized on import (an authored `single`
+lands as `pointwise`), and the autorater `model` is a publisher-relative id that
+the engine expands to the full resource name at run time.
+
+### Re-importing: update, skip, conflict, and keeping your edits
+
+`registry import` reconciles an id that already exists by comparing versions and
+content; `--strategy` (default `newer`) chooses the policy. Re-importing an
+unchanged pack is a **no-op**:
+
+```sh
+$ mizan registry import ./mizan-templates
+0 inserted, 0 updated, 0 skipped, 0 conflicted, 1 unchanged, 0 forked (source: ./mizan-templates)
+  unchanged: google-brand/video-brand-alignment (unchanged (same content))
+```
+
+If you tweak an imported template with `registry update`, it becomes *dirty* (a
+local edit). The default `newer` strategy **protects dirty templates** — a
+re-import skips them with a warning rather than clobbering your work:
+
+```sh
+$ mizan registry update google-brand/video-brand-alignment --prompt "my tweak {{response}}"
+$ mizan registry import ./mizan-templates
+0 inserted, 0 updated, 1 skipped, 0 conflicted, 0 unchanged, 0 forked (source: ./mizan-templates)
+  skipped: google-brand/video-brand-alignment (skipped: local edit (dirty) — re-run with --strategy overwrite or fork to pull upstream)
+```
+
+Pull upstream anyway with `--strategy overwrite` (discard your edit) or
+`--strategy fork` (keep your edit; import upstream under `<ns>-fork/<slug>`). Use
+`--dry-run` to preview any import without writing to your registry. An upstream
+author who changes a template *without* bumping its version produces a
+**conflict** under `newer` (reported, not silently applied).
 
 > **Scope note.** This is the *local-path* import leg only. Importing straight
-> from a git URL, the bare-`import` default source, reconciliation strategies
-> (`--strategy`), and the authoring/export side (`registry export`, `pack init`)
-> are **not built yet** — see [below](#scenarios-that-are-not-built-yet). Pack
-> **validation** *is* built — see Scenario 10.
+> from a git URL, the bare-`import` default source, and the authoring/export side
+> (`registry export`, `pack init`) are **not built yet** — see
+> [below](#scenarios-that-are-not-built-yet). Pack **validation** *is* built — see
+> Scenario 10; reconciliation strategies (`--strategy`, `--dry-run`) *are* built —
+> see above.
 
 ---
 
@@ -703,15 +731,15 @@ the root [`README.md`](../README.md) states the current boundary.
   API-native per-criterion rubric output with sampling retained). No
   `eval batch` command exists.
 - **Template packs — the rest of the round trip.** Importing templates from a
-  **local** pack tree ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import))
+  **local** pack tree — with full reconciliation (`--strategy
+  newer|skip|overwrite|fork`, dirty protection, `--dry-run`)
+  ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import)) —
   and validating packs ([Scenario 10](#scenario-10-validate-a-pack-before-you-share-it-pack-validate))
   work today, but the rest is **not built yet**: importing from a git URL or the
-  default templates repo (bare `mizan registry import`), reconciliation
-  strategies (`--strategy newer|skip|overwrite|fork`), and exporting/authoring
-  packs (`mizan registry export`, `mizan pack init`/`add`). Import is currently
-  insert-only. Also **not built:** importing or *running* a `kind: EvalSet`
-  manifest — P2 carries and validates the eval-set format only; there is no
-  eval-set runner or store.
+  default templates repo (bare `mizan registry import`), and exporting/authoring
+  packs (`mizan registry export`, `mizan pack init`/`add`). Also **not built:**
+  importing or *running* a `kind: EvalSet` manifest — P2 carries and validates the
+  eval-set format only; there is no eval-set runner or store.
 - **A tri-state flip default for compare templates** — the engine honors the
   template's `--flip-enabled` (including `false`), but the registry stores it
   as a plain `bool`, so "unset ⇒ default true" cannot be distinguished from an
