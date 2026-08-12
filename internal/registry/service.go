@@ -265,24 +265,24 @@ func (s *Service) reconcileOne(ctx context.Context, incoming MetricTemplate, str
 	}
 
 	if local.Dirty {
-		return s.resolveDirty(ctx, incoming, strategy, origin, now, dryRun, report)
+		return s.resolveDirty(ctx, incoming, local.CreatedAt, strategy, origin, now, dryRun, report)
 	}
 
 	cmp, comparable := compareVersions(incoming.Version, local.Version)
 	switch {
 	case comparable && cmp > 0: // incoming is an upgrade
-		return s.resolveUpgrade(ctx, incoming, strategy, origin, now, dryRun, report)
+		return s.resolveUpgrade(ctx, incoming, local.CreatedAt, strategy, origin, now, dryRun, report)
 	case comparable && cmp < 0: // incoming is older
-		return s.resolveOlder(ctx, incoming, strategy, origin, now, dryRun, report)
+		return s.resolveOlder(ctx, incoming, local.CreatedAt, strategy, origin, now, dryRun, report)
 	default: // equal version, or incomparable, with differing content -> conflict
-		return s.resolveConflict(ctx, incoming, strategy, origin, now, dryRun, report)
+		return s.resolveConflict(ctx, incoming, local.CreatedAt, strategy, origin, now, dryRun, report)
 	}
 }
 
-func (s *Service) resolveDirty(ctx context.Context, incoming MetricTemplate, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
+func (s *Service) resolveDirty(ctx context.Context, incoming MetricTemplate, createdAt time.Time, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
 	switch strategy {
 	case StrategyOverwrite:
-		return s.applyUpdate(ctx, incoming, origin, now, dryRun, report, "overwrote dirty local edit")
+		return s.applyUpdate(ctx, incoming, createdAt, origin, now, dryRun, report, "overwrote dirty local edit")
 	case StrategyFork:
 		return s.applyFork(ctx, incoming, origin, now, dryRun, report, "local is dirty")
 	default: // newer, skip -> protect the local edit
@@ -292,21 +292,21 @@ func (s *Service) resolveDirty(ctx context.Context, incoming MetricTemplate, str
 	}
 }
 
-func (s *Service) resolveUpgrade(ctx context.Context, incoming MetricTemplate, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
+func (s *Service) resolveUpgrade(ctx context.Context, incoming MetricTemplate, createdAt time.Time, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
 	switch strategy {
 	case StrategySkip:
 		report.Skipped++
 		report.addEntry(incoming.ID, ActionSkipped, "skipped: newer upstream available (strategy=skip)")
 		return nil
 	default: // newer, overwrite, fork all take the upgrade
-		return s.applyUpdate(ctx, incoming, origin, now, dryRun, report, "updated to newer upstream version")
+		return s.applyUpdate(ctx, incoming, createdAt, origin, now, dryRun, report, "updated to newer upstream version")
 	}
 }
 
-func (s *Service) resolveOlder(ctx context.Context, incoming MetricTemplate, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
+func (s *Service) resolveOlder(ctx context.Context, incoming MetricTemplate, createdAt time.Time, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
 	switch strategy {
 	case StrategyOverwrite:
-		return s.applyUpdate(ctx, incoming, origin, now, dryRun, report, "overwrote local with older upstream (strategy=overwrite)")
+		return s.applyUpdate(ctx, incoming, createdAt, origin, now, dryRun, report, "overwrote local with older upstream (strategy=overwrite)")
 	default: // newer, skip, fork keep the newer local
 		report.Skipped++
 		report.addEntry(incoming.ID, ActionSkipped, "skipped: local version is newer than upstream")
@@ -314,14 +314,14 @@ func (s *Service) resolveOlder(ctx context.Context, incoming MetricTemplate, str
 	}
 }
 
-func (s *Service) resolveConflict(ctx context.Context, incoming MetricTemplate, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
+func (s *Service) resolveConflict(ctx context.Context, incoming MetricTemplate, createdAt time.Time, strategy ImportStrategy, origin string, now time.Time, dryRun bool, report *ImportReport) error {
 	switch strategy {
 	case StrategySkip:
 		report.Skipped++
 		report.addEntry(incoming.ID, ActionSkipped, "skipped: same version, different content (strategy=skip)")
 		return nil
 	case StrategyOverwrite:
-		return s.applyUpdate(ctx, incoming, origin, now, dryRun, report, "overwrote local on same-version/content conflict")
+		return s.applyUpdate(ctx, incoming, createdAt, origin, now, dryRun, report, "overwrote local on same-version/content conflict")
 	case StrategyFork:
 		return s.applyFork(ctx, incoming, origin, now, dryRun, report, "same version, different content")
 	default: // newer -> report the conflict, do not clobber (D2)
@@ -345,15 +345,12 @@ func (s *Service) applyInsert(ctx context.Context, t MetricTemplate, origin stri
 }
 
 // applyUpdate stamps provenance and replaces an existing template, preserving its
-// original CreatedAt.
-func (s *Service) applyUpdate(ctx context.Context, t MetricTemplate, origin string, now time.Time, dryRun bool, report *ImportReport, reason string) error {
+// original CreatedAt. The createdAt is the value reconcileOne already loaded from
+// the store, so no redundant Get is needed here.
+func (s *Service) applyUpdate(ctx context.Context, t MetricTemplate, createdAt time.Time, origin string, now time.Time, dryRun bool, report *ImportReport, reason string) error {
 	stampImported(&t, origin, now, false)
+	t.CreatedAt = createdAt
 	if !dryRun {
-		existing, err := s.store.Get(ctx, t.ID)
-		if err != nil {
-			return err
-		}
-		t.CreatedAt = existing.CreatedAt
 		if err := s.store.Put(ctx, &t); err != nil {
 			return err
 		}
@@ -364,10 +361,29 @@ func (s *Service) applyUpdate(ctx context.Context, t MetricTemplate, origin stri
 }
 
 // applyFork imports the incoming template under a derived "<ns>-fork/<slug>" id,
-// leaving the local copy untouched.
+// leaving the local copy untouched. The fork TARGET is itself protected from a
+// silent clobber (D2 LOCKED "never silently clobber a dirty local edit"): if a
+// template already exists at the fork id, an identical one is a no-op and a
+// differing one (including a dirty or higher-version edited fork) is reported as
+// a conflict and NOT overwritten. The fork id is derived from the ORIGINAL
+// incoming id, so t.ID is set to forkID before the content comparison so both
+// sides hash under the same id (contentHash includes the id).
 func (s *Service) applyFork(ctx context.Context, t MetricTemplate, origin string, now time.Time, dryRun bool, report *ImportReport, why string) error {
 	forkID := forkedID(t.ID)
 	t.ID = forkID
+	if existing, err := s.store.Get(ctx, forkID); err == nil {
+		// Fork target already exists: never silently clobber it.
+		if contentHash(&t) == contentHash(existing) {
+			report.Unchanged++
+			report.addEntry(forkID, ActionUnchanged, fmt.Sprintf("fork target %s already up to date", forkID))
+			return nil
+		}
+		report.Conflicted++
+		report.addEntry(forkID, ActionConflicted, fmt.Sprintf("fork target %s already exists and differs — resolve manually", forkID))
+		return nil
+	} else if err != ErrNotFound {
+		return err
+	}
 	stampImported(&t, origin, now, true)
 	if !dryRun {
 		if err := s.store.Put(ctx, &t); err != nil {

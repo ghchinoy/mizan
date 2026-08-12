@@ -6,6 +6,7 @@ package registry
 // no-op hash short-circuit, and --dry-run.
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,6 +44,29 @@ func writePack(t *testing.T, tm MetricTemplate) string {
 	}
 	if err := os.WriteFile(filepath.Join(dir, slug+".yaml"), data, 0o644); err != nil {
 		t.Fatalf("write: %v", err)
+	}
+	return root
+}
+
+// writeMultiPack writes several templates into ONE pack tree (each under
+// packs/<ns>/templates/<slug>.yaml) so a single Import processes a mixed batch.
+func writeMultiPack(t *testing.T, tmpls ...MetricTemplate) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, tm := range tmpls {
+		ns := namespaceOf(tm.ID)
+		slug := tm.ID[len(ns)+1:]
+		dir := filepath.Join(root, "packs", ns, "templates")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		data, err := NewYAMLCodec().Marshal(&tm)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, slug+".yaml"), data, 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
 	}
 	return root
 }
@@ -273,5 +297,361 @@ func TestImportDirtyProtectionEndToEnd(t *testing.T) {
 	}
 	if store.items[id].MetricPromptTemplate != "my local tweak {{response}}" {
 		t.Error("dirty local edit was clobbered by re-import")
+	}
+}
+
+// TestForkedIDAndNamespaceOf covers the pure id helpers, including the
+// namespace-less (no "/") branch that a real (id-validated) import never reaches
+// but which the helpers must still handle safely.
+func TestForkedIDAndNamespaceOf(t *testing.T) {
+	if got := forkedID("ns/a"); got != "ns-fork/a" {
+		t.Errorf(`forkedID("ns/a") = %q, want "ns-fork/a"`, got)
+	}
+	if got := forkedID("bare"); got != "bare-fork" {
+		t.Errorf(`forkedID("bare") = %q, want "bare-fork"`, got)
+	}
+	if got := namespaceOf("ns/a"); got != "ns" {
+		t.Errorf(`namespaceOf("ns/a") = %q, want "ns"`, got)
+	}
+	if got := namespaceOf("bare"); got != "bare" {
+		t.Errorf(`namespaceOf("bare") = %q, want "bare"`, got)
+	}
+}
+
+// TestImportForkOverExistingForkTarget locks the R1 fix: the fork TARGET is never
+// silently clobbered. An existing fork target that is dirty or a different
+// version is left intact and reported as a conflict; an identical one is a no-op.
+func TestImportForkOverExistingForkTarget(t *testing.T) {
+	const id = "ns/a"
+	forkID := forkedID(id)
+	// Incoming upstream: equal version but differing content from the local ->
+	// a genuine conflict that the fork strategy resolves by forking.
+	incoming := func() MetricTemplate { return tmpl(id, "1.0.0", "upstream content") }
+
+	seedLocalConflict := func(store *fakeStore) {
+		local := loadedForm(t, tmpl(id, "1.0.0", "my local content"))
+		store.items[id] = &local
+	}
+
+	t.Run("existing dirty fork target is not clobbered", func(t *testing.T) {
+		store := newFakeStore()
+		seedLocalConflict(store)
+		fork := loadedForm(t, tmpl(forkID, "1.0.0", "edited fork content"))
+		fork.Dirty = true
+		store.items[forkID] = &fork
+		putsBefore := store.putCalls
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), writePack(t, incoming()), ImportOptions{Strategy: StrategyFork})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		if report.Conflicted != 1 || report.Forked != 0 {
+			t.Fatalf("report = %+v; want 1 conflicted, 0 forked", report)
+		}
+		if store.putCalls != putsBefore {
+			t.Errorf("conflicting fork target wrote to the store (%d puts)", store.putCalls-putsBefore)
+		}
+		if got := store.items[forkID]; got.MetricPromptTemplate != "edited fork content" || !got.Dirty {
+			t.Errorf("dirty fork target was clobbered: %+v", got)
+		}
+	})
+
+	t.Run("existing higher-version fork target is not clobbered", func(t *testing.T) {
+		store := newFakeStore()
+		seedLocalConflict(store)
+		fork := loadedForm(t, tmpl(forkID, "2.0.0", "newer fork content"))
+		store.items[forkID] = &fork
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), writePack(t, incoming()), ImportOptions{Strategy: StrategyFork})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		if report.Conflicted != 1 || report.Forked != 0 {
+			t.Fatalf("report = %+v; want 1 conflicted, 0 forked", report)
+		}
+		if got := store.items[forkID]; got.Version != "2.0.0" || got.MetricPromptTemplate != "newer fork content" {
+			t.Errorf("higher-version fork target was clobbered: %+v", got)
+		}
+	})
+
+	t.Run("identical fork target is a no-op", func(t *testing.T) {
+		store := newFakeStore()
+		seedLocalConflict(store)
+		// The fork target already holds exactly what the fork would write.
+		fork := loadedForm(t, tmpl(forkID, "1.0.0", "upstream content"))
+		store.items[forkID] = &fork
+		putsBefore := store.putCalls
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), writePack(t, incoming()), ImportOptions{Strategy: StrategyFork})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		if report.Unchanged != 1 || report.Forked != 0 || report.Conflicted != 0 {
+			t.Fatalf("report = %+v; want 1 unchanged", report)
+		}
+		if store.putCalls != putsBefore {
+			t.Errorf("no-op fork target wrote to the store (%d puts)", store.putCalls-putsBefore)
+		}
+	})
+
+	t.Run("single run: earlier fork target in same pack is not clobbered", func(t *testing.T) {
+		const base = "acme/x"
+		fid := forkedID(base) // acme-fork/x, which sorts BEFORE acme/x
+		store := newFakeStore()
+		local := loadedForm(t, tmpl(base, "1.0.0", "local x"))
+		store.items[base] = &local
+		src := writeMultiPack(t,
+			tmpl(fid, "1.0.0", "unrelated fork template"),
+			tmpl(base, "1.0.0", "upstream x differs"),
+		)
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), src, ImportOptions{Strategy: StrategyFork})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		// acme-fork/x is inserted first; acme/x then tries to fork onto it but it
+		// exists and differs -> conflicted, not overwritten.
+		if report.Inserted != 1 || report.Conflicted != 1 || report.Forked != 0 {
+			t.Fatalf("report = %+v; want 1 inserted, 1 conflicted, 0 forked", report)
+		}
+		if got := store.items[fid]; got.MetricPromptTemplate != "unrelated fork template" {
+			t.Errorf("fork target clobbered within one import: %+v", got)
+		}
+	})
+}
+
+// TestImportMixedBatch imports one pack whose templates hit every outcome and
+// asserts the ImportReport counts partition the batch exactly. Run under the fork
+// strategy so a conflict with a free fork id forks while a conflict whose fork
+// target is occupied is reported as a conflict (exercising the R1 guard in bulk).
+func TestImportMixedBatch(t *testing.T) {
+	store := newFakeStore()
+	seed := func(id, ver, prompt string) {
+		l := loadedForm(t, tmpl(id, ver, prompt))
+		store.items[id] = &l
+	}
+	seed("ns/upg", "1.0.0", "p")     // -> updated (incoming v2)
+	seed("ns/old", "2.0.0", "p")     // -> skipped (incoming v1, older)
+	seed("ns/same", "1.0.0", "p")    // -> unchanged (identical incoming)
+	seed("ns/frk", "1.0.0", "local") // -> forked (conflict, free fork id)
+	seed("ns/cfl", "1.0.0", "local") // -> conflicted (conflict, occupied fork id)
+	// Occupy ns/cfl's fork target with differing content so the fork is refused.
+	occupied := loadedForm(t, tmpl(forkedID("ns/cfl"), "1.0.0", "occupied"))
+	store.items[forkedID("ns/cfl")] = &occupied
+
+	src := writeMultiPack(t,
+		tmpl("ns/ins", "1.0.0", "p"),            // absent -> inserted
+		tmpl("ns/upg", "2.0.0", "p"),            // upgrade -> updated
+		tmpl("ns/old", "1.0.0", "p"),            // older -> skipped
+		tmpl("ns/same", "1.0.0", "p"),           // identical -> unchanged
+		tmpl("ns/frk", "1.0.0", "upstream frk"), // conflict, free fork id -> forked
+		tmpl("ns/cfl", "1.0.0", "upstream cfl"), // conflict, occupied fork id -> conflicted
+	)
+	svc := NewService(store)
+
+	report, err := svc.Import(ctx(), src, ImportOptions{Strategy: StrategyFork})
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if report.Inserted != 1 || report.Updated != 1 || report.Skipped != 1 ||
+		report.Unchanged != 1 || report.Forked != 1 || report.Conflicted != 1 {
+		t.Fatalf("count partition wrong: %+v", report)
+	}
+	if n := len(report.Entries); n != 6 {
+		t.Errorf("entries = %d, want 6 (one per template)", n)
+	}
+}
+
+// TestImportStoreErrors covers the store-error propagation paths inside the
+// reconcile helpers and the backend load, using fakeStore error injection.
+func TestImportStoreErrors(t *testing.T) {
+	sentinel := errors.New("store boom")
+
+	t.Run("insert put error", func(t *testing.T) {
+		store := newFakeStore()
+		store.putErr = sentinel
+		svc := NewService(store)
+		_, err := svc.Import(ctx(), writePack(t, tmpl("ns/a", "1.0.0", "p")), ImportOptions{})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("got %v, want %v", err, sentinel)
+		}
+	})
+
+	t.Run("update put error", func(t *testing.T) {
+		store := newFakeStore()
+		local := loadedForm(t, tmpl("ns/a", "1.0.0", "p"))
+		store.items["ns/a"] = &local
+		store.putErr = sentinel
+		svc := NewService(store)
+		_, err := svc.Import(ctx(), writePack(t, tmpl("ns/a", "2.0.0", "p")), ImportOptions{})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("got %v, want %v", err, sentinel)
+		}
+	})
+
+	t.Run("fork put error", func(t *testing.T) {
+		store := newFakeStore()
+		local := loadedForm(t, tmpl("ns/a", "1.0.0", "local"))
+		store.items["ns/a"] = &local
+		store.putErr = sentinel
+		svc := NewService(store)
+		_, err := svc.Import(ctx(), writePack(t, tmpl("ns/a", "1.0.0", "upstream")), ImportOptions{Strategy: StrategyFork})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("got %v, want %v", err, sentinel)
+		}
+	})
+
+	t.Run("reconcile get error is propagated", func(t *testing.T) {
+		store := newFakeStore()
+		store.getErr = sentinel // non-ErrNotFound Get failure
+		svc := NewService(store)
+		_, err := svc.Import(ctx(), writePack(t, tmpl("ns/a", "1.0.0", "p")), ImportOptions{})
+		if !errors.Is(err, sentinel) {
+			t.Fatalf("got %v, want %v", err, sentinel)
+		}
+	})
+
+	t.Run("backend load error", func(t *testing.T) {
+		store := newFakeStore()
+		svc := NewService(store)
+		_, err := svc.Import(ctx(), filepath.Join(t.TempDir(), "does-not-exist"), ImportOptions{})
+		if err == nil {
+			t.Fatal("expected a load error for a missing source path")
+		}
+	})
+}
+
+// TestImportDryRunForkAndOverwrite asserts --dry-run writes nothing for the fork
+// and overwrite outcomes (the insert/update dry runs are covered separately).
+func TestImportDryRunForkAndOverwrite(t *testing.T) {
+	const id = "ns/a"
+
+	t.Run("fork", func(t *testing.T) {
+		store := newFakeStore()
+		local := loadedForm(t, tmpl(id, "1.0.0", "local"))
+		store.items[id] = &local
+		putsBefore := store.putCalls
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), writePack(t, tmpl(id, "1.0.0", "upstream")), ImportOptions{Strategy: StrategyFork, DryRun: true})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		if report.Forked != 1 {
+			t.Fatalf("report = %+v; want 1 forked", report)
+		}
+		if store.putCalls != putsBefore {
+			t.Errorf("dry-run fork wrote to the store (%d puts)", store.putCalls-putsBefore)
+		}
+		if _, ok := store.items[forkedID(id)]; ok {
+			t.Error("dry-run fork created the fork target")
+		}
+	})
+
+	t.Run("overwrite conflict", func(t *testing.T) {
+		store := newFakeStore()
+		local := loadedForm(t, tmpl(id, "1.0.0", "local"))
+		store.items[id] = &local
+		putsBefore := store.putCalls
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), writePack(t, tmpl(id, "1.0.0", "upstream")), ImportOptions{Strategy: StrategyOverwrite, DryRun: true})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		if report.Updated != 1 {
+			t.Fatalf("report = %+v; want 1 updated", report)
+		}
+		if store.putCalls != putsBefore {
+			t.Errorf("dry-run overwrite wrote to the store (%d puts)", store.putCalls-putsBefore)
+		}
+		if got := store.items[id]; got.MetricPromptTemplate != "local" {
+			t.Errorf("dry-run overwrite mutated the store: %+v", got)
+		}
+	})
+}
+
+// TestImportDirtyBeatsOlderAndEqual checks the dirty row wins for non-upgrade
+// incomings too (the matrix's "dirty -> any" cell), not only for an upgrade.
+func TestImportDirtyBeatsOlderAndEqual(t *testing.T) {
+	const id = "ns/a"
+
+	t.Run("dirty local, older incoming", func(t *testing.T) {
+		store := newFakeStore()
+		local := loadedForm(t, tmpl(id, "2.0.0", "local edit"))
+		local.Dirty = true
+		store.items[id] = &local
+		putsBefore := store.putCalls
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), writePack(t, tmpl(id, "1.0.0", "upstream older")), ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		if report.Skipped != 1 {
+			t.Fatalf("report = %+v; want 1 skipped", report)
+		}
+		if store.putCalls != putsBefore {
+			t.Error("dirty+older wrote to the store")
+		}
+		if got := store.items[id]; got.MetricPromptTemplate != "local edit" {
+			t.Errorf("dirty local clobbered: %+v", got)
+		}
+	})
+
+	t.Run("dirty local, equal version differing incoming", func(t *testing.T) {
+		store := newFakeStore()
+		local := loadedForm(t, tmpl(id, "1.0.0", "local edit"))
+		local.Dirty = true
+		store.items[id] = &local
+		putsBefore := store.putCalls
+		svc := NewService(store)
+
+		report, err := svc.Import(ctx(), writePack(t, tmpl(id, "1.0.0", "upstream differs")), ImportOptions{})
+		if err != nil {
+			t.Fatalf("Import: %v", err)
+		}
+		if report.Skipped != 1 {
+			t.Fatalf("report = %+v; want 1 skipped", report)
+		}
+		if store.putCalls != putsBefore {
+			t.Error("dirty+equal-differs wrote to the store")
+		}
+		if got := store.items[id]; got.MetricPromptTemplate != "local edit" {
+			t.Errorf("dirty local clobbered: %+v", got)
+		}
+	})
+}
+
+// TestImportRejectsMalformedID confirms the ingest id-shape guard still runs in
+// the reconciliation Import path: a pack whose metadata.id is not a valid
+// "<namespace>/<slug>" is rejected before anything is written.
+func TestImportRejectsMalformedID(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "packs", "bad", "templates")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// Uppercase letters violate the ^[a-z0-9-]+/[a-z0-9-]+$ id shape.
+	doc := "apiVersion: mizan.dev/v1alpha1\n" +
+		"kind: MetricTemplate\n" +
+		"metadata:\n" +
+		"  id: Bad/ID\n" +
+		"spec:\n" +
+		"  kind: pointwise\n"
+	if err := os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte(doc), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	store := newFakeStore()
+	svc := NewService(store)
+	if _, err := svc.Import(ctx(), root, ImportOptions{}); err == nil {
+		t.Fatal("expected import to reject a malformed metadata.id")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("malformed id reached the store (%d puts)", store.putCalls)
 	}
 }
