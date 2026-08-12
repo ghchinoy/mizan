@@ -155,6 +155,38 @@ func TestGuardTextSlot_NoFalsePositiveOnProse(t *testing.T) {
 	}
 }
 
+func TestGuardTextSlot_NewlyAddedExtensionsErrorWhenFileExists(t *testing.T) {
+	// The extension set was expanded (Consider-1): each newly-added extension must
+	// hard-error when it names an EXISTING local file in a text slot, and must NOT
+	// false-positive when the path does not exist.
+	dir := t.TempDir()
+	// key is chosen to exercise all three text slots (--baseline/--candidate/--field).
+	slots := []struct{ flag, key string }{
+		{"baseline", "baseline_ad"},
+		{"candidate", "candidate_ad"},
+		{"field", "clip"},
+	}
+	newExts := []string{".tif", ".tiff", ".heic", ".heif", ".opus", ".mpeg", ".mpg", ".3gp", ".wmv", ".flv"}
+	for i, ext := range newExts {
+		slot := slots[i%len(slots)]
+		p := filepath.Join(dir, "asset"+ext)
+		if err := os.WriteFile(p, []byte("x"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", p, err)
+		}
+		// existing file with a media extension -> hard error
+		if err := guardTextSlot(slot.flag, slot.key, p); err == nil {
+			t.Errorf("guardTextSlot(%s, %s) should error for existing %s file", slot.flag, slot.key, ext)
+		} else if !strings.Contains(err.Error(), "looks like a local media file") {
+			t.Errorf("ext %s: unexpected error: %v", ext, err)
+		}
+		// non-existent path with the same extension -> no false positive
+		missing := filepath.Join(dir, "does-not-exist"+ext)
+		if err := guardTextSlot(slot.flag, slot.key, missing); err != nil {
+			t.Errorf("guardTextSlot false-positive on non-existent %s path %q: %v", ext, missing, err)
+		}
+	}
+}
+
 func TestGuardTextSlot_DirectoryWithMediaExtNotBlocked(t *testing.T) {
 	dir := t.TempDir()
 	sub := filepath.Join(dir, "album.mp3") // a DIRECTORY whose name ends .mp3

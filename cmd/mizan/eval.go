@@ -389,10 +389,12 @@ func buildInstance(fields, files, gcs []string) (eval.Instance, error) {
 var mediaExtensions = map[string]bool{
 	// video
 	".mp4": true, ".mov": true, ".webm": true, ".mkv": true, ".avi": true, ".m4v": true,
+	".mpeg": true, ".mpg": true, ".3gp": true, ".wmv": true, ".flv": true,
 	// image
-	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".bmp": true, ".tiff": true,
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".bmp": true,
+	".tif": true, ".tiff": true, ".heic": true, ".heif": true,
 	// audio
-	".mp3": true, ".wav": true, ".m4a": true, ".aac": true, ".flac": true, ".ogg": true,
+	".mp3": true, ".wav": true, ".m4a": true, ".aac": true, ".flac": true, ".ogg": true, ".opus": true,
 }
 
 // guardTextSlot rejects a value passed to a TEXT field slot (--field, --baseline,
