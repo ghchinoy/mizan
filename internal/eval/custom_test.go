@@ -298,7 +298,19 @@ func TestToGenaiInlinePart(t *testing.T) {
 	if p.FileData == nil || p.FileData.FileURI != "gs://b/x.png" {
 		t.Errorf("FileData not set: %+v", p.FileData)
 	}
-	if _, err := toGenaiInlinePart(AssetRef{Modality: registry.ModalityImage, GCSUri: "gs://b/x.png"}); err == nil {
-		t.Error("gs:// without MIME should error")
+	// gs:// without an explicit MIME now resolves it from the object extension
+	// (Fix B / Defect A) — mirroring the native path — instead of erroring. This
+	// is what lets a bare CLI --gcs asset reach the judge.
+	p, err = toGenaiInlinePart(AssetRef{Modality: registry.ModalityImage, GCSUri: "gs://b/x.png"})
+	if err != nil {
+		t.Fatalf("gs:// with resolvable extension should not error: %v", err)
+	}
+	if p.FileData == nil || p.FileData.MIMEType != "image/png" {
+		t.Errorf("FileData MIME = %+v, want image/png resolved from extension", p.FileData)
+	}
+	// A gs:// object whose MIME cannot be resolved (unknown extension) is a hard
+	// error — never a droppable octet-stream.
+	if _, err := toGenaiInlinePart(AssetRef{Modality: registry.ModalityImage, GCSUri: "gs://b/object-without-extension"}); err == nil {
+		t.Error("gs:// with unresolvable MIME should error")
 	}
 }
