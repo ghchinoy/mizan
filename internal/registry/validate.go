@@ -245,6 +245,17 @@ func ValidatePack(root string) (*Report, error) {
 		return nil, fmt.Errorf("registry: validate %q: not a directory", root)
 	}
 
+	// Resolve the validated root once, following any symlinks in the path the
+	// USER supplied (that is legitimate — they chose it). Every manifest we
+	// later read must, with ITS symlinks resolved, stay under this resolved
+	// root; see containedPath. This is the durable containment that defends
+	// against ANY intermediate symlink component (a symlinked packs/, a
+	// symlinked pack dir, etc.), not just the final-component guards below.
+	resolvedRoot, err := resolveReal(root)
+	if err != nil {
+		return nil, fmt.Errorf("registry: validate %q: %w", root, err)
+	}
+
 	packDirs, err := discoverValidatePackDirs(root)
 	if err != nil {
 		return nil, err
@@ -265,6 +276,14 @@ func ValidatePack(root string) (*Report, error) {
 			return nil, err
 		}
 		for _, f := range files {
+			// Containment gate: refuse to read a manifest whose resolved path
+			// escapes the validated root (symlink traversal). We report the
+			// IN-TREE path only (never the out-of-tree file's contents), so a
+			// hostile symlink cannot leak an out-of-tree value into CI logs.
+			if ok, err := containedPath(resolvedRoot, f); err != nil || !ok {
+				rep.add(rel(root, f), "", SeverityError, "refusing to read manifest outside the pack root (symlink escape)")
+				continue
+			}
 			data, kind, err := readManifest(f)
 			if err != nil {
 				rep.add(rel(root, f), "", SeverityError, "%v", err)
@@ -294,6 +313,10 @@ func ValidatePack(root string) (*Report, error) {
 	// Pass B: validate evalsets against the full template-id universe.
 	sort.Strings(evalSetFiles)
 	for _, f := range evalSetFiles {
+		if ok, err := containedPath(resolvedRoot, f); err != nil || !ok {
+			rep.add(rel(root, f), "", SeverityError, "refusing to read manifest outside the pack root (symlink escape)")
+			continue
+		}
 		data, err := readCappedFile(f)
 		if err != nil {
 			rep.add(rel(root, f), "", SeverityError, "%v", err)
@@ -305,12 +328,52 @@ func ValidatePack(root string) (*Report, error) {
 	return rep, nil
 }
 
+// resolveReal returns the absolute, symlink-resolved form of p. It is the
+// canonical path used by containedPath so that containment comparisons are made
+// between two fully-resolved absolute paths (mixing relative/absolute or
+// unresolved/resolved forms would make filepath.Rel unreliable).
+func resolveReal(p string) (string, error) {
+	ap, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	return filepath.EvalSymlinks(ap)
+}
+
+// containedPath reports whether path, with ALL of its symlink components
+// resolved, stays under resolvedRoot (itself already resolved). It is the
+// durable defense against out-of-tree traversal by any symlink component in the
+// path — not just the final one — closing the creds-free CI threat of reading
+// an attacker-committed symlink's target and leaking its value into findings.
+// A path that cannot be resolved (dangling/broken symlink, missing file) is
+// treated as NOT contained (fail-closed).
+func containedPath(resolvedRoot, path string) (bool, error) {
+	rp, err := resolveReal(path)
+	if err != nil {
+		return false, err
+	}
+	rel, err := filepath.Rel(resolvedRoot, rp)
+	if err != nil {
+		return false, err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return false, nil
+	}
+	return true, nil
+}
+
 // discoverValidatePackDirs mirrors GitPackBackend.discoverPackDirs: every
 // immediate subdir of <root>/packs, or <root> itself as a single pack dir. The
 // result is sorted for deterministic reporting.
+//
+// packsRoot is stat'd with os.Lstat (not os.Stat): a symlinked packs/ dir is
+// UNTRUSTED committed content in the creds-free-CI threat model, and following
+// it would let an attacker point discovery at an out-of-tree tree. A symlinked
+// packs/ is therefore ignored here (defense-in-depth alongside the containedPath
+// gate in ValidatePack, which is the durable catch-all for any symlink).
 func discoverValidatePackDirs(root string) ([]string, error) {
 	packsRoot := filepath.Join(root, "packs")
-	if fi, err := os.Stat(packsRoot); err == nil && fi.IsDir() {
+	if fi, err := os.Lstat(packsRoot); err == nil && fi.IsDir() {
 		entries, err := os.ReadDir(packsRoot)
 		if err != nil {
 			return nil, fmt.Errorf("registry: read packs dir %q: %w", packsRoot, err)

@@ -499,6 +499,100 @@ spec:
 	}
 }
 
+// --- B1 fix-pass-2 (audit HIGH-1, still-open bypass): a symlinked packs/ dir
+// pointing out-of-tree must NOT be traversed. This is the intermediate-symlink
+// bypass the first fix missed (os.Lstat only guarded the final component). No
+// out-of-tree file may be read and the sentinel value must never leak.
+func TestValidatePackSymlinkedPacksDirNotTraversed(t *testing.T) {
+	if _, err := os.Lstat("/dev/null"); err != nil {
+		t.Skip("symlinks not usable on this platform")
+	}
+	// An out-of-tree pack tree with a sentinel id.
+	outside := t.TempDir()
+	writeFiles(t, outside, map[string]string{
+		"p1/templates/leak.yaml": `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: LEAKED-ghp_STILLLEAKING999, version: 1.0.0}
+spec:
+  kind: pointwise
+  metricPromptTemplate: "hi"
+`,
+	})
+
+	root := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "packs")); err != nil {
+		t.Fatalf("symlink packs: %v", err)
+	}
+
+	rep, err := ValidatePack(root)
+	// A symlinked packs/ is ignored -> discovery falls back to root-as-pack,
+	// which has no templates/evalsets -> a clean empty report (no error, no
+	// findings). Crucially the sentinel must never surface.
+	if err != nil && strings.Contains(err.Error(), "LEAKED") {
+		t.Fatalf("out-of-tree value leaked into error: %v", err)
+	}
+	if rep != nil {
+		for _, f := range rep.Findings {
+			if strings.Contains(f.Message, "LEAKED") || strings.Contains(f.ID, "LEAKED") {
+				t.Fatalf("out-of-tree value leaked into finding: %+v", f)
+			}
+		}
+		if len(rep.Templates) != 0 {
+			t.Fatalf("symlinked packs/ should carry no templates, got %d", len(rep.Templates))
+		}
+	}
+}
+
+// --- containedPath is the durable containment guard: a path whose resolved
+// form escapes the resolved root is refused; an in-tree path is allowed. This
+// locks the catch-all that defends ANY intermediate symlink component.
+func TestContainedPath(t *testing.T) {
+	if _, err := os.Lstat("/dev/null"); err != nil {
+		t.Skip("symlinks not usable on this platform")
+	}
+	root := t.TempDir()
+	resolvedRoot, err := resolveReal(root)
+	if err != nil {
+		t.Fatalf("resolveReal(root): %v", err)
+	}
+
+	// An in-tree regular file is contained.
+	inTree := filepath.Join(root, "templates", "t.yaml")
+	writeFiles(t, root, map[string]string{"templates/t.yaml": "x: 1\n"})
+	if ok, err := containedPath(resolvedRoot, inTree); err != nil || !ok {
+		t.Fatalf("in-tree path should be contained (ok=%v, err=%v)", ok, err)
+	}
+
+	// A symlink inside root pointing at an out-of-tree file is NOT contained.
+	outside := t.TempDir()
+	writeFiles(t, outside, map[string]string{"secret.yaml": "s: 1\n"})
+	escape := filepath.Join(root, "escape.yaml")
+	if err := os.Symlink(filepath.Join(outside, "secret.yaml"), escape); err != nil {
+		t.Fatalf("symlink escape: %v", err)
+	}
+	if ok, _ := containedPath(resolvedRoot, escape); ok {
+		t.Fatalf("out-of-tree symlink target must NOT be contained")
+	}
+
+	// An intermediate symlinked DIRECTORY component also escapes.
+	dirEscape := filepath.Join(root, "linkdir")
+	if err := os.Symlink(outside, dirEscape); err != nil {
+		t.Fatalf("symlink dir: %v", err)
+	}
+	if ok, _ := containedPath(resolvedRoot, filepath.Join(dirEscape, "secret.yaml")); ok {
+		t.Fatalf("path through an intermediate symlinked dir must NOT be contained")
+	}
+
+	// A broken/dangling symlink fails closed (not contained).
+	dangling := filepath.Join(root, "dangling.yaml")
+	if err := os.Symlink(filepath.Join(outside, "does-not-exist.yaml"), dangling); err != nil {
+		t.Fatalf("symlink dangling: %v", err)
+	}
+	if ok, err := containedPath(resolvedRoot, dangling); ok || err == nil {
+		t.Fatalf("dangling symlink should fail closed (ok=%v, err=%v)", ok, err)
+	}
+}
+
 // --- LOW-1 (audit): a project-scoped or ".."-bearing autorater.model is an
 // ERROR at validate, mirroring the ingest guard (so the creds-free gate agrees
 // with what import will reject, no false-clean).
