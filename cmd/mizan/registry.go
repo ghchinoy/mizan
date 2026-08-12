@@ -13,11 +13,6 @@ import (
 	"github.com/ghchinoy/mizan/internal/wire"
 )
 
-// maxTemplateFileBytes caps the size of a --*-file input the CLI will read.
-// Rubric/schema definitions are small config documents; this is a defense-in-depth
-// bound so a large or special file cannot be read without limit.
-const maxTemplateFileBytes int64 = 1 << 20 // 1 MiB
-
 // templateFlags collects the fields a user can set on create/update.
 type templateFlags struct {
 	id            string
@@ -85,8 +80,8 @@ func readTemplateFile(path string) ([]byte, error) {
 	if !fi.Mode().IsRegular() {
 		return nil, fmt.Errorf("%q is not a regular file (mode %s); refusing to read", path, fi.Mode().Type())
 	}
-	if fi.Size() > maxTemplateFileBytes {
-		return nil, fmt.Errorf("%q is %d bytes, exceeds the %d-byte cap", path, fi.Size(), maxTemplateFileBytes)
+	if fi.Size() > registry.MaxTemplateFileBytes {
+		return nil, fmt.Errorf("%q is %d bytes, exceeds the %d-byte cap", path, fi.Size(), registry.MaxTemplateFileBytes)
 	}
 	data, err := os.ReadFile(resolved)
 	if err != nil {

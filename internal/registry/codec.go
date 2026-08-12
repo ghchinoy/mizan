@@ -1,8 +1,10 @@
 package registry
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -109,17 +111,28 @@ type packFile struct {
 // owned by Import and the store (design §3.4).
 func (c YAMLCodec) Unmarshal(data []byte) (*MetricTemplate, error) {
 	var pf packFile
-	// KnownFields(false): tolerate authored comments/extra keys rather than
+	// Decode via a LimitReader bounded by MaxTemplateFileBytes so the in-memory
+	// decode is capped even when Unmarshal is handed a large []byte directly
+	// (defense-in-depth for the size cap the pack reader already applies). This
+	// bounds the INPUT bytes read, not the anchor/alias-expanded graph — yaml.v3
+	// caps neither natively, so a billion-laughs document can still amplify in
+	// memory; the size cap is the primary mitigation and full alias-bound
+	// enforcement is a residual noted for a later phase (audit LOW-2). io.EOF (an
+	// empty document) is not an error here — it falls through to the id-required
+	// check below, preserving the prior yaml.Unmarshal("") behavior.
+	//
+	// KnownFields stays off: tolerate authored comments/extra keys rather than
 	// failing the import; strict schema enforcement is P2.2's job.
-	if err := yaml.Unmarshal(data, &pf); err != nil {
+	dec := yaml.NewDecoder(io.LimitReader(bytes.NewReader(data), MaxTemplateFileBytes+1))
+	if err := dec.Decode(&pf); err != nil && err != io.EOF {
 		return nil, fmt.Errorf("registry: parse pack yaml: %w", err)
 	}
 
 	if pf.Kind != "" && pf.Kind != packKindMetricTemplate {
 		return nil, fmt.Errorf("registry: unsupported manifest kind %q (want %q)", pf.Kind, packKindMetricTemplate)
 	}
-	if pf.Metadata.ID == "" {
-		return nil, fmt.Errorf("registry: template metadata.id is required")
+	if err := validateTemplateID(pf.Metadata.ID); err != nil {
+		return nil, err
 	}
 	if pf.Spec.Kind == "" {
 		return nil, fmt.Errorf("registry: template %q: spec.kind is required", pf.Metadata.ID)
@@ -127,6 +140,13 @@ func (c YAMLCodec) Unmarshal(data []byte) (*MetricTemplate, error) {
 	kind, err := NormalizeKind(pf.Spec.Kind)
 	if err != nil {
 		return nil, fmt.Errorf("registry: template %q: %w", pf.Metadata.ID, err)
+	}
+	// Ingest-boundary autorater guard (design §3.4): reject a project-scoped or
+	// ".."-bearing model and store only the cleaned bare/publisher-relative id, so
+	// an untrusted pack can never smuggle a trusted call target into the store.
+	autoraterModel, err := validateAutoraterModel(pf.Metadata.ID, pf.Spec.Autorater.Model)
+	if err != nil {
+		return nil, err
 	}
 
 	t := &MetricTemplate{
@@ -145,7 +165,7 @@ func (c YAMLCodec) Unmarshal(data []byte) (*MetricTemplate, error) {
 		RubricGroups:         pf.Spec.RubricGroups,
 		RatingRubric:         pf.Spec.RatingRubric,
 		RubricDetail:         pf.Spec.RubricDetail,
-		AutoraterModel:       pf.Spec.Autorater.Model,
+		AutoraterModel:       autoraterModel,
 		SamplingCount:        pf.Spec.Autorater.SamplingCount,
 		FlipEnabled:          pf.Spec.Autorater.FlipEnabled,
 	}

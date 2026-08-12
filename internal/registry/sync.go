@@ -4,10 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
 )
+
+// MaxTemplateFileBytes bounds the size of a single template file read on import.
+// Template/rubric/schema documents are small config files; this 1 MiB cap is
+// defense-in-depth so a hostile pack cannot ship a multi-GB file (or a symlink to
+// an unbounded source like /dev/zero) and exhaust memory on `registry import`
+// (CWE-400). It is the ONE source of truth for that bound — cmd/mizan's --*-file
+// flags reference it too, so the CLI and the import reader stay in lockstep.
+const MaxTemplateFileBytes int64 = 1 << 20 // 1 MiB
 
 // SyncConfig carries the ambient sync settings the composition root injects into
 // the Service (design §3.1). It is deliberately tiny: source selection is a
@@ -142,9 +151,22 @@ func (b *GitPackBackend) loadPack(packDir string) ([]MetricTemplate, error) {
 			continue
 		}
 		path := filepath.Join(templatesDir, e.Name())
-		data, err := os.ReadFile(path)
+		// Skip non-regular entries (symlinks, devices, FIFOs). os.DirEntry.Info
+		// does NOT follow the link, so a symlinked templates/x.yaml is skipped here
+		// rather than followed out of the pack tree at read time — closing the
+		// symlink-escape / arbitrary-local-file-read / /dev/zero-hang vector
+		// (CWE-59/CWE-22). Filenames are single base components from ReadDir, so no
+		// '../' traversal reaches this join.
+		info, err := e.Info()
 		if err != nil {
-			return nil, fmt.Errorf("registry: read template %q: %w", path, err)
+			return nil, fmt.Errorf("registry: stat template %q: %w", path, err)
+		}
+		if !info.Mode().IsRegular() {
+			continue
+		}
+		data, err := readCappedFile(path)
+		if err != nil {
+			return nil, err
 		}
 		t, err := b.codec.Unmarshal(data)
 		if err != nil {
@@ -153,6 +175,28 @@ func (b *GitPackBackend) loadPack(packDir string) ([]MetricTemplate, error) {
 		out = append(out, *t)
 	}
 	return out, nil
+}
+
+// readCappedFile reads a template file with a hard size bound via io.LimitReader
+// (MaxTemplateFileBytes), so a genuinely huge committed file — or an unbounded
+// source reached through a link that slipped the IsRegular guard — cannot exhaust
+// memory (CWE-400). It reads one byte past the cap to distinguish an
+// exactly-at-cap file from an oversized one and rejects the latter with a clear
+// error rather than silently truncating.
+func readCappedFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("registry: read template %q: %w", path, err)
+	}
+	defer func() { _ = f.Close() }()
+	data, err := io.ReadAll(io.LimitReader(f, MaxTemplateFileBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("registry: read template %q: %w", path, err)
+	}
+	if int64(len(data)) > MaxTemplateFileBytes {
+		return nil, fmt.Errorf("registry: template %q exceeds the %d-byte size cap", path, MaxTemplateFileBytes)
+	}
+	return data, nil
 }
 
 // isYAMLFile reports whether name has a .yaml/.yml extension.

@@ -23,13 +23,29 @@ import (
 
 // forbiddenCmdImports are import-path substrings a cmd/* file must never import
 // directly. Substring match keeps it robust to version suffixes and subpackages.
+//
+// Only EFFECTIVE entries live here: the codec and sync backend are types INSIDE
+// package internal/registry (not separate importable packages), so an
+// "internal/registry/codec"/"internal/registry/sync" substring would match no
+// real import path and can never fire — those misleading entries were removed.
+// The spirit they were meant to guard (cmd/* must not reach past the Service into
+// the pack codec/sync constructors) is enforced directly by
+// forbiddenCmdReferences below.
 var forbiddenCmdImports = []string{
 	"internal/registry/sqlite", // concrete Store backend — wire's job
-	"internal/registry/codec",  // pack codec (should it ever be split out)
-	"internal/registry/sync",   // sync backend (should it ever be split out)
 	"gopkg.in/yaml",            // YAML lib — pack encoding is behind the Service
 	"github.com/go-git",        // git libs — Mizan shells out, never embeds git
 	"gopkg.in/src-d/go-git",
+}
+
+// forbiddenCmdReferences are registry constructors that live in package
+// registry but are backend/codec internals: cmd/* must go through
+// registry.Service (Import constructs the backend internally) and wire, never
+// build a GitPackBackend or a YAMLCodec itself. A source-level substring scan is
+// enough for the interim guard; the full transitive/go-list seam-proof is P2.6.
+var forbiddenCmdReferences = []string{
+	"registry.NewGitPackBackend", // sync backend — Service.Import owns it
+	"registry.NewYAMLCodec",      // pack codec — wire injects it
 }
 
 func TestCmdImportSeam(t *testing.T) {
@@ -64,6 +80,18 @@ func TestCmdImportSeam(t *testing.T) {
 					if strings.Contains(p, bad) {
 						t.Errorf("%s imports forbidden package %q (seam violation): cmd/* must use registry.Service/eval.Engine/config/wire only", path, p)
 					}
+				}
+			}
+			// Source-level reference scan: even though the codec/sync backend live in
+			// package registry (so no forbidden IMPORT catches them), cmd/* must not
+			// construct them directly — that is the actual spirit of the seam.
+			src, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read %q: %v", path, err)
+			}
+			for _, ref := range forbiddenCmdReferences {
+				if strings.Contains(string(src), ref) {
+					t.Errorf("%s references %q (seam violation): cmd/* must go through registry.Service (Import builds the backend) + wire, not build codec/sync internals", path, ref)
 				}
 			}
 		}
