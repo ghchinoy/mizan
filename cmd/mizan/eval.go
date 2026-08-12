@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -203,7 +205,7 @@ func newEvalPairwiseCmd() *cobra.Command {
 		gcs       []string
 	)
 	cmd := &cobra.Command{
-		Use: "pairwise --metric <id> --baseline key=… --candidate key=… [--field/--file/--gcs …]",
+		Use: "pairwise --metric <id> (--baseline key=… --candidate key=… | --gcs key=gs://… …) [--field/--file/--gcs …]",
 		// `compare` is the plain-vernacular alias: `mizan eval compare` == `mizan
 		// eval pairwise` — compare TWO responses and pick the better (a.k.a.
 		// pairwise). The single/pointwise counterpart is `mizan eval single`.
@@ -212,17 +214,21 @@ func newEvalPairwiseCmd() *cobra.Command {
 		Long: "Run a pairwise metric template. Also available as `mizan eval compare`\n" +
 			"— compare TWO responses (a.k.a. pairwise). The single/pointwise\n" +
 			"counterpart is `mizan eval single`.\n\n" +
-			"Provide the baseline and candidate\n" +
-			"responses with --baseline key=value and --candidate key=value, where\n" +
-			"the keys match the template's baseline/candidate field names. Additional\n" +
-			"placeholders use --field/--file/--gcs (media compares via gs:// FileData).\n" +
+			"Fill the baseline and candidate slots (keyed by the template's\n" +
+			"baseline/candidate field names) from ANY source:\n" +
+			"  --baseline key=value / --candidate key=value   TEXT responses\n" +
+			"  --gcs  key=gs://…                               a pre-staged media asset\n" +
+			"  --file key=/path                                a local media asset\n\n" +
+			"A media pairwise (compare two videos/images/audio) is expressed by\n" +
+			"supplying the baseline/candidate fields via --gcs/--file, e.g.\n" +
+			"  mizan eval pairwise --metric M --gcs base=gs://a.mp4 --gcs cand=gs://b.mp4\n\n" +
+			"A gs:// URI or local media path passed to a TEXT slot (--baseline/\n" +
+			"--candidate/--field) is a hard error — use --gcs/--file so the judge\n" +
+			"actually sees the media. Additional placeholders use --field/--file/--gcs.\n" +
 			"Prints the PairwiseChoice (BASELINE/CANDIDATE/TIE) and explanation.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if metric == "" {
 				return fmt.Errorf("--metric is required")
-			}
-			if baseline == "" || candidate == "" {
-				return fmt.Errorf("--baseline and --candidate are required (key=value)")
 			}
 			cfg, err := mustConfig()
 			if err != nil {
@@ -249,10 +255,43 @@ func newEvalPairwiseCmd() *cobra.Command {
 				return err
 			}
 
-			// The baseline/candidate responses are ordinary fields keyed by the
-			// template's field names; append them to any extra placeholders.
-			inst, err := buildInstance(append([]string{baseline, candidate}, fields...), files, gcs)
+			// The baseline/candidate responses are TEXT fields keyed by the
+			// template's field names. Both flags are OPTIONAL: the baseline/
+			// candidate slot may instead be filled by --gcs/--file so a MEDIA
+			// pairwise (compare two videos/images/audio) is expressible. Guard the
+			// text values against a mis-routed media reference (gs:// URI or local
+			// media path) BEFORE they are sent verbatim to the judge (GAP B footgun),
+			// then fold them into the field list handed to buildInstance.
+			textFields := make([]string, 0, len(fields)+2)
+			if baseline != "" {
+				if k, v, ok := strings.Cut(baseline, "="); ok {
+					if err := guardTextSlot("baseline", k, v); err != nil {
+						return err
+					}
+				}
+				textFields = append(textFields, baseline)
+			}
+			if candidate != "" {
+				if k, v, ok := strings.Cut(candidate, "="); ok {
+					if err := guardTextSlot("candidate", k, v); err != nil {
+						return err
+					}
+				}
+				textFields = append(textFields, candidate)
+			}
+			textFields = append(textFields, fields...)
+			inst, err := buildInstance(textFields, files, gcs)
 			if err != nil {
+				return err
+			}
+
+			// The baseline/candidate requirement is satisfied when the template's
+			// baseline and candidate field names are present in the instance from ANY
+			// source (text --baseline/--candidate OR media --gcs/--file). This is
+			// checked AFTER the template is fetched so the required keys are known,
+			// replacing the old "--baseline and --candidate are required" text-only
+			// gate that made media pairwise inexpressible.
+			if err := requirePairwiseFields(*tmpl, inst); err != nil {
 				return err
 			}
 
@@ -303,39 +342,126 @@ func newEvalPairwiseCmd() *cobra.Command {
 // must be unique across all three flags.
 func buildInstance(fields, files, gcs []string) (eval.Instance, error) {
 	inst := eval.Instance{Fields: map[string]eval.AssetRef{}}
-	add := func(raw, flag string, mk func(v string) eval.AssetRef) error {
+	cut := func(raw, flag string) (string, string, error) {
 		k, v, ok := strings.Cut(raw, "=")
 		if !ok || k == "" {
-			return fmt.Errorf("invalid --%s %q (want key=value)", flag, raw)
+			return "", "", fmt.Errorf("invalid --%s %q (want key=value)", flag, raw)
 		}
 		if _, dup := inst.Fields[k]; dup {
-			return fmt.Errorf("duplicate field key %q", k)
+			return "", "", fmt.Errorf("duplicate field key %q", k)
 		}
-		inst.Fields[k] = mk(v)
-		return nil
+		return k, v, nil
 	}
 	for _, f := range fields {
-		if err := add(f, "field", func(v string) eval.AssetRef {
-			return eval.AssetRef{Modality: registry.ModalityText, Text: v}
-		}); err != nil {
+		k, v, err := cut(f, "field")
+		if err != nil {
 			return eval.Instance{}, err
 		}
+		// --field is a TEXT slot: reject a value that is really a media reference
+		// (gs:// URI or local media path) instead of sending it verbatim to the
+		// judge, which would confabulate from the string (GAP B footgun).
+		if err := guardTextSlot("field", k, v); err != nil {
+			return eval.Instance{}, err
+		}
+		inst.Fields[k] = eval.AssetRef{Modality: registry.ModalityText, Text: v}
 	}
 	for _, f := range files {
-		if err := add(f, "file", func(v string) eval.AssetRef {
-			return eval.AssetRef{FilePath: v}
-		}); err != nil {
+		k, v, err := cut(f, "file")
+		if err != nil {
 			return eval.Instance{}, err
 		}
+		inst.Fields[k] = eval.AssetRef{FilePath: v}
 	}
 	for _, f := range gcs {
-		if err := add(f, "gcs", func(v string) eval.AssetRef {
-			return eval.AssetRef{GCSUri: v}
-		}); err != nil {
+		k, v, err := cut(f, "gcs")
+		if err != nil {
 			return eval.Instance{}, err
 		}
+		inst.Fields[k] = eval.AssetRef{GCSUri: v}
 	}
 	return inst, nil
+}
+
+// mediaExtensions is the conservative set of file extensions treated as media
+// when guarding a TEXT field slot against a mis-routed LOCAL media path. Kept in
+// sync in spirit with the engine's asset MIME detection, but intentionally small
+// and explicit so the false-positive risk on ordinary prose is auditable.
+var mediaExtensions = map[string]bool{
+	// video
+	".mp4": true, ".mov": true, ".webm": true, ".mkv": true, ".avi": true, ".m4v": true,
+	".mpeg": true, ".mpg": true, ".3gp": true, ".wmv": true, ".flv": true,
+	// image
+	".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".bmp": true,
+	".tif": true, ".tiff": true, ".heic": true, ".heif": true,
+	// audio
+	".mp3": true, ".wav": true, ".m4a": true, ".aac": true, ".flac": true, ".ogg": true, ".opus": true,
+}
+
+// guardTextSlot rejects a value passed to a TEXT field slot (--field, --baseline,
+// --candidate) that is almost certainly a media asset mis-routed as text, turning
+// the silent GAP B footgun (a gs:// URI sent verbatim, the judge confabulating a
+// comparison from the filename, exit 0) into a hard error. Two arms:
+//
+//  1. gs:// prefix — ALWAYS an error. A gs:// URI in a text slot is never
+//     legitimate text for these fields; sent as text the judge sees only the
+//     string. The caller must use --gcs KEY=gs://… to evaluate it as media.
+//  2. local media path — a value that is an EXISTING local regular file whose
+//     extension is a known media type (mediaExtensions). Requiring the value to
+//     actually stat as a file on disk is the conservative guard against prose
+//     false positives: ordinary text that merely ends in ".png" (or mentions a
+//     filename) is not a stat-able regular file, so it passes untouched. The
+//     caller must use --file KEY=/path to evaluate it as media.
+//
+// gs:// is the load-bearing case; the local-path arm is defense-in-depth and
+// deliberately errs toward NOT blocking legitimate text.
+func guardTextSlot(flag, key, value string) error {
+	v := strings.TrimSpace(value)
+	if strings.HasPrefix(v, "gs://") {
+		return fmt.Errorf("--%s %s=<value> looks like a gs:// media URI passed as TEXT; a gs:// URI in a text slot is sent verbatim to the judge (which never sees the media). Use --gcs %s=%s to evaluate it as a media asset", flag, key, key, v)
+	}
+	if isLocalMediaPath(v) {
+		return fmt.Errorf("--%s %s=<value> looks like a local media file (%q exists and has a media extension) passed as TEXT; it would be sent as the literal path string, not read as media. Use --file %s=%s to evaluate it as a media asset", flag, key, v, key, v)
+	}
+	return nil
+}
+
+// isLocalMediaPath reports whether v is an existing local regular file with a
+// known media extension. Both conditions are required so ordinary prose does not
+// trip the guard (see guardTextSlot).
+func isLocalMediaPath(v string) bool {
+	if v == "" {
+		return false
+	}
+	if !mediaExtensions[strings.ToLower(filepath.Ext(v))] {
+		return false
+	}
+	info, err := os.Stat(v)
+	return err == nil && !info.IsDir()
+}
+
+// requirePairwiseFields enforces that the template's baseline and candidate field
+// names are present in the instance, satisfied by ANY source (text --baseline/
+// --candidate OR media --gcs/--file). It runs AFTER the template is fetched, so
+// the required keys are the template's actual field names — this both enables a
+// media pairwise (baseline/candidate supplied via --gcs/--file) and gives a clear
+// error naming the missing slot. Empty field names are left to the engine's own
+// "must set BaselineFieldName and CandidateFieldName" guard (malformed template).
+func requirePairwiseFields(tmpl registry.MetricTemplate, inst eval.Instance) error {
+	var missing []string
+	if tmpl.BaselineFieldName != "" {
+		if _, ok := inst.Fields[tmpl.BaselineFieldName]; !ok {
+			missing = append(missing, fmt.Sprintf("baseline field %q", tmpl.BaselineFieldName))
+		}
+	}
+	if tmpl.CandidateFieldName != "" {
+		if _, ok := inst.Fields[tmpl.CandidateFieldName]; !ok {
+			missing = append(missing, fmt.Sprintf("candidate field %q", tmpl.CandidateFieldName))
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("pairwise requires the %s; supply text with --baseline/--candidate KEY=value, or media with --gcs KEY=gs://… / --file KEY=/path (KEY must match the template's field name)", strings.Join(missing, " and "))
+	}
+	return nil
 }
 
 // parseFields turns --field key=value pairs into a text Instance. It is retained
