@@ -332,11 +332,20 @@ func discoverValidatePackDirs(root string) ([]string, error) {
 // dispatched on their declared kind, so a manifest placed in the "wrong" subdir
 // still gets the right checks. Non-regular entries (symlinks/devices) are
 // skipped for the same symlink-escape reason as the import reader (CWE-59/22).
+//
+// The templates/ and evalsets/ SUBDIRS are stat'd with os.Lstat (not os.Stat)
+// so a symlinked directory is NOT followed: a pack running through this
+// creds-free gate is UNTRUSTED PR content, and a symlink named "templates" (or
+// "evalsets") pointing at an out-of-tree directory would otherwise let
+// os.ReadDir enumerate + read arbitrary *.yaml on the CI runner and echo their
+// values into findings (CWE-59/CWE-22). A symlink has ModeSymlink set, so
+// fi.IsDir() is false and it is skipped — mirroring the per-file IsRegular
+// guard below at the directory level.
 func listYAMLFiles(packDir string) ([]string, error) {
 	var out []string
 	for _, sub := range []string{"templates", "evalsets"} {
 		dir := filepath.Join(packDir, sub)
-		fi, err := os.Stat(dir)
+		fi, err := os.Lstat(dir)
 		if err != nil || !fi.IsDir() {
 			continue
 		}
@@ -425,6 +434,15 @@ func validateTemplateManifest(rep *Report, file string, data []byte) string {
 	} else {
 		// (3) semantic / kind-specific.
 		validateKindSpecific(rep, file, id, kind, pf)
+	}
+
+	// (3b) autorater model security invariant — mirror the ingest guard so the
+	// creds-free gate agrees with what import will reject (audit LOW-1): a
+	// project-scoped or ".."-bearing autorater.model passes the strict schema
+	// (any string) but is rejected at import, so without this the gate is a
+	// false-clean. validateAutoraterModel is the single source of truth.
+	if _, err := validateAutoraterModel(id, pf.Spec.Autorater.Model); err != nil {
+		rep.add(file, id, SeverityError, "%v", err)
 	}
 
 	// (4) placeholder consistency.

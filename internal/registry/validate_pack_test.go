@@ -444,6 +444,198 @@ spec: {}
 	}
 }
 
+// --- B1 (audit HIGH-1): a symlinked templates/ or evalsets/ dir is NOT
+// followed. Pack discovery runs on untrusted PR content; a symlinked subdir
+// pointing out-of-tree must be skipped, not read (CWE-59/22), so no out-of-tree
+// file is read and no out-of-tree value leaks into findings.
+func TestValidatePackDirSymlinkNotTraversed(t *testing.T) {
+	if _, err := os.Lstat("/dev/null"); err != nil { // sanity: symlinks usable
+		t.Skip("symlinks not usable on this platform")
+	}
+	// An out-of-tree directory holding a manifest with a sentinel value that
+	// would otherwise be echoed verbatim into a finding.
+	outside := t.TempDir()
+	writeFiles(t, outside, map[string]string{
+		"leak.yaml": `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: SENSITIVE-VALUE-ghp_LEAKME12345, version: 1.0.0}
+spec:
+  kind: pointwise
+  metricPromptTemplate: "hi"
+`,
+	})
+
+	pack := t.TempDir()
+	// Symlink templates/ (and evalsets/) at the out-of-tree dir.
+	if err := os.Symlink(outside, filepath.Join(pack, "templates")); err != nil {
+		t.Fatalf("symlink templates: %v", err)
+	}
+	if err := os.Symlink(outside, filepath.Join(pack, "evalsets")); err != nil {
+		t.Fatalf("symlink evalsets: %v", err)
+	}
+
+	rep, err := ValidatePack(pack)
+	// No manifests are discovered (both subdirs skipped) -> discovery error is
+	// acceptable ("no packs found"); crucially the out-of-tree file must NOT be
+	// read and its value must NOT appear anywhere.
+	if err == nil {
+		if len(rep.Findings) != 0 {
+			t.Fatalf("symlinked subdir should yield no findings, got:\n%s", errorMessages(rep))
+		}
+		if len(rep.Templates) != 0 {
+			t.Fatalf("symlinked subdir should carry no templates, got %d", len(rep.Templates))
+		}
+	}
+	// The sentinel value must never surface, whether via error or Report.
+	if err != nil && strings.Contains(err.Error(), "SENSITIVE-VALUE") {
+		t.Fatalf("out-of-tree value leaked into error: %v", err)
+	}
+	if rep != nil {
+		for _, f := range rep.Findings {
+			if strings.Contains(f.Message, "SENSITIVE-VALUE") || strings.Contains(f.ID, "SENSITIVE-VALUE") {
+				t.Fatalf("out-of-tree value leaked into finding: %+v", f)
+			}
+		}
+	}
+}
+
+// --- LOW-1 (audit): a project-scoped or ".."-bearing autorater.model is an
+// ERROR at validate, mirroring the ingest guard (so the creds-free gate agrees
+// with what import will reject, no false-clean).
+func TestValidatePackRejectsProjectScopedAutoraterModel(t *testing.T) {
+	spec := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0, description: d, license: Apache-2.0}
+spec:
+  kind: pointwise
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text, required: true}
+  metricPromptTemplate: "Rate {{response}}"
+  autorater:
+    model: projects/victim/locations/us/publishers/google/models/gemini
+`
+	rep := validatePackDir(t, map[string]string{"templates/t.yaml": spec})
+	if !strings.Contains(errorMessages(rep), "autorater.model must be a publisher-relative id") {
+		t.Fatalf("want project-scoped autorater.model error, got:\n%s", errorMessages(rep))
+	}
+}
+
+// --- MEDIUM (test): strict additionalProperties rejection at every closed
+// level (metadata, top-level, nested) plus a schema id-pattern violation.
+func TestValidatePackStrictSchemaRejectsUnknownKeys(t *testing.T) {
+	cases := []struct {
+		name      string
+		spec      string
+		wantError string
+	}{
+		{
+			name: "unknown-key-at-metadata",
+			spec: `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0, bogusMeta: nope}
+spec:
+  kind: pointwise
+  metricPromptTemplate: "hi"
+`,
+			wantError: "schema",
+		},
+		{
+			name: "unknown-key-at-top-level",
+			spec: `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+bogusTop: nope
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: pointwise
+  metricPromptTemplate: "hi"
+`,
+			wantError: "schema",
+		},
+		{
+			name: "unknown-key-nested-in-input",
+			spec: `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: pointwise
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text, required: true, bogusInput: nope}
+  metricPromptTemplate: "Rate {{response}}"
+`,
+			wantError: "schema",
+		},
+		{
+			name: "schema-id-pattern-violation",
+			spec: `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: "Bad Id", version: 1.0.0}
+spec:
+  kind: pointwise
+  metricPromptTemplate: "hi"
+`,
+			wantError: "schema",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rep := validatePackDir(t, map[string]string{"templates/t.yaml": tc.spec})
+			if !strings.Contains(errorMessages(rep), tc.wantError) {
+				t.Fatalf("want a %q error, got:\n%s", tc.wantError, errorMessages(rep))
+			}
+		})
+	}
+}
+
+// --- LOW (test): step-4 "required input never referenced" branch.
+func TestValidatePackRequiredInputNeverReferenced(t *testing.T) {
+	spec := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: pointwise
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text, required: true}
+  metricPromptTemplate: "no placeholder here"
+`
+	rep := validatePackDir(t, map[string]string{"templates/t.yaml": spec})
+	if !strings.Contains(errorMessages(rep), "is never referenced") {
+		t.Fatalf("want required-input-never-referenced error, got:\n%s", errorMessages(rep))
+	}
+}
+
+// --- LOW (test): an invalid TEMPLATE metadata.id pattern at the Go level (the
+// id-shape guard, distinct from the schema-level pattern above).
+func TestValidatePackInvalidTemplateID(t *testing.T) {
+	spec := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: no-slash-here, version: 1.0.0}
+spec:
+  kind: pointwise
+  metricPromptTemplate: "hi"
+`
+	rep := validatePackDir(t, map[string]string{"templates/t.yaml": spec})
+	if !strings.Contains(errorMessages(rep), "invalid template id") {
+		t.Fatalf("want invalid-template-id error, got:\n%s", errorMessages(rep))
+	}
+}
+
+// --- LOW (test): a manifest with no kind: at all.
+func TestValidatePackMissingManifestKind(t *testing.T) {
+	spec := `apiVersion: mizan.dev/v1alpha1
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: pointwise
+  metricPromptTemplate: "hi"
+`
+	rep := validatePackDir(t, map[string]string{"templates/t.yaml": spec})
+	if !strings.Contains(errorMessages(rep), "missing manifest kind") {
+		t.Fatalf("want missing-manifest-kind error, got:\n%s", errorMessages(rep))
+	}
+}
+
 // a repo tree with packs/ is discovered the same as a single pack dir.
 func TestValidatePackDiscoversPacksTree(t *testing.T) {
 	root := t.TempDir()
