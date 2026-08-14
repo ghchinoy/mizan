@@ -9,6 +9,7 @@ require (
 	cloud.google.com/go/storage v1.64.0
 	github.com/googleapis/gax-go/v2 v2.23.0
 	github.com/joho/godotenv v1.5.1
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/spf13/cobra v1.10.2
 	google.golang.org/api v0.287.1
 	google.golang.org/genai v1.67.0

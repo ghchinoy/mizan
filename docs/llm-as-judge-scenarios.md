@@ -39,6 +39,8 @@ for the authoritative architecture see
 | Judge an image, audio, video, or music asset | Multimodal evaluation | any kind + `--modality` | `--file` / `--gcs` | [↓](#scenario-6-judge-media-not-just-text-multimodal) |
 | Choose *which* model does the judging | Judge-model selection | any | `--model` / `default-model` | [↓](#scenario-7-choose-the-judge-model) |
 | See timing, token cost, and the resolved target of a run | Per-run observability | any | `--stats` + pre-flight echo | [↓](#scenario-8-see-what-a-run-cost-and-where-it-went) |
+| Reuse a template someone else authored | Consume a shared pack (local import) | any | `mizan registry import <path>` | [↓](#scenario-9-consume-a-shared-template-from-a-pack-local-import) |
+| Check a pack is well-formed before sharing it | Validate a pack (PR gate) | any / EvalSet | `mizan pack validate <path>` | [↓](#scenario-10-validate-a-pack-before-you-share-it-pack-validate) |
 
 > **single = pointwise, compare = pairwise.** *Pointwise* and *pairwise* are
 > the Vertex AI Gen AI Evaluation Service's own terms — non-standard jargon —
@@ -593,9 +595,82 @@ engine expands to the full resource name at run time.
 
 > **Scope note.** This is the *local-path* import leg only. Importing straight
 > from a git URL, the bare-`import` default source, reconciliation strategies
-> (`--strategy`), and the authoring/export/validation side (`registry export`,
-> `pack init`, `pack validate`) are **not built yet** — see
-> [below](#scenarios-that-are-not-built-yet).
+> (`--strategy`), and the authoring/export side (`registry export`, `pack init`)
+> are **not built yet** — see [below](#scenarios-that-are-not-built-yet). Pack
+> **validation** *is* built — see Scenario 10.
+
+---
+
+## Scenario 10: Validate a pack before you share it (`pack validate`)
+
+**Goal.** Catch a broken metric template — or a malformed eval-set — *before* you
+open a PR against a packs repo, using the same **credential-free** check the
+`mizan-templates` CI runs as its merge gate.
+
+`mizan pack validate <path>` inspects every manifest under a pack directory (or a
+repo tree containing `packs/`) and reports **all** defects at once. It exits
+non-zero on any **error**; lint **warnings** are advisory and never fail it.
+
+```sh
+# A well-formed pack passes clean.
+$ mizan pack validate ./mizan-templates
+OK: no defects found.
+
+0 error(s), 0 warning(s)
+
+# A broken template reports every problem, then a non-zero exit.
+$ mizan pack validate ./my-pack
+templates/logo-check.yaml:
+  [ERROR] spec.kind: unknown metric kind "compair" (want one of: single|pointwise, compare|pairwise, rubric, custom_schema)
+  [ERROR] metadata.version "1.0" is not valid semver (MAJOR.MINOR.PATCH)
+  [ERROR] prompt references undeclared placeholder {{guideln}} (add it to spec.inputs)
+  [warn ] lint: missing metadata.license
+
+3 error(s), 1 warning(s)
+```
+
+**Templates** are checked for structure (a misspelled key is an error), identity
+(`<namespace>/<slug>` id, semver `version`, unique-in-pack), kind-specific rules
+(pairwise needs candidate+baseline in `inputs`; rubric needs `rubricGroups`;
+custom_schema needs a valid `responseSchema`; pointwise forbids all three),
+placeholder consistency, and lint warnings. Both `single`/`compare` and
+`pointwise`/`pairwise` spellings are accepted.
+
+**Eval-sets** are the second pack manifest kind — a named, class-scoped group of
+metric ids. P2 **carries and validates** the format; it does **not** import or
+run it (there is no eval-set runner yet). A suite looks like this:
+
+```yaml
+# packs/google-brand/evalsets/product-video-suite.yaml
+apiVersion: mizan.dev/v1alpha1
+kind: EvalSet
+metadata:
+  id: google-brand/product-video-suite
+  name: Product Video Compliance Suite
+  version: 1.0.0
+  assetClass: product-video
+spec:
+  members:
+    - metric: google-brand/video-brand-alignment
+    - metric: google-brand/logo-safety
+  aggregation:
+    method: mean          # reserved enum: mean|weighted-mean|min|max|median|sum
+```
+
+`pack validate` fails an eval-set with empty `members`, a malformed member
+`metric` id, a bad `version`, or an unknown `aggregation.method`. A member that
+references a template **not present in the validated tree** is a *warning* (it may
+live in another pack you haven't checked out), so a well-formed cross-pack suite
+still passes.
+
+Add `--dry-run` for an opt-in, **credentialed** final step: one live
+materialize+call per template to confirm the API accepts it (text-only inputs;
+templates with a non-text input are skipped). Steps 1–5 always run without
+credentials.
+
+> **EvalSet is format-only in P2.** It is schema-governed, CI-gated, and
+> git-shareable, but nothing imports or runs it yet — that is the separate
+> eval-set capability. See `docs/collaboration-design.md` §3.4a.
 
 ---
 
@@ -628,12 +703,15 @@ the root [`README.md`](../README.md) states the current boundary.
   API-native per-criterion rubric output with sampling retained). No
   `eval batch` command exists.
 - **Template packs — the rest of the round trip.** Importing templates from a
-  **local** pack tree works today ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import)),
-  but the rest is **not built yet**: importing from a git URL or the default
-  templates repo (bare `mizan registry import`), reconciliation strategies
-  (`--strategy newer|skip|overwrite|fork`), exporting/authoring packs
-  (`mizan registry export`, `mizan pack init`/`add`), and pack validation
-  (`mizan pack validate`). Import is currently insert-only.
+  **local** pack tree ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import))
+  and validating packs ([Scenario 10](#scenario-10-validate-a-pack-before-you-share-it-pack-validate))
+  work today, but the rest is **not built yet**: importing from a git URL or the
+  default templates repo (bare `mizan registry import`), reconciliation
+  strategies (`--strategy newer|skip|overwrite|fork`), and exporting/authoring
+  packs (`mizan registry export`, `mizan pack init`/`add`). Import is currently
+  insert-only. Also **not built:** importing or *running* a `kind: EvalSet`
+  manifest — P2 carries and validates the eval-set format only; there is no
+  eval-set runner or store.
 - **A tri-state flip default for compare templates** — the engine honors the
   template's `--flip-enabled` (including `false`), but the registry stores it
   as a plain `bool`, so "unset ⇒ default true" cannot be distinguished from an

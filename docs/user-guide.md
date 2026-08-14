@@ -334,8 +334,69 @@ $ mizan registry import ./mizan-templates
 > directly from a git URL, importing from the default templates repo with a bare
 > `mizan registry import`, and reconciliation strategies for existing templates
 > (`--strategy newer|skip|overwrite|fork`) are not available yet — they arrive in
-> later releases. Pack authoring/export (`registry export`, `pack init`) and pack
-> validation (`pack validate`) are likewise not yet available.
+> later releases. Pack authoring/export (`registry export`, `pack init`) is
+> likewise not yet available. Pack **validation** (`pack validate`) **is**
+> available — see below.
+
+### Validating a pack (`pack validate`)
+
+Before you open a PR against a packs repo (or before you import an untrusted
+pack), validate it. `mizan pack validate` runs a **credential-free** check over
+every manifest under a path — a single pack directory, or a repo tree that
+contains a `packs/` directory:
+
+```sh
+$ mizan pack validate ./mizan-templates
+OK: no defects found.
+
+0 error(s), 0 warning(s)
+```
+
+It validates two manifest kinds:
+
+- **`kind: MetricTemplate`** — structural schema (strict: a misspelled key is an
+  error), identity (`<namespace>/<slug>` id, semver `version`, unique-in-pack),
+  kind-specific rules (pairwise needs `candidateFieldName`/`baselineFieldName`
+  declared in `inputs`; `rubric` needs `rubricGroups`; `custom_schema` needs a
+  valid `responseSchema`; `pointwise` forbids all three), placeholder
+  consistency (every `{{x}}` is declared in `inputs`, every required input is
+  referenced, each input's modality is listed in `spec.modalities`), and lint
+  **warnings** (missing description/license/model, out-of-range
+  `samplingCount`). Both the vernacular (`single`/`compare`) and canonical
+  (`pointwise`/`pairwise`) `spec.kind` spellings are accepted.
+- **`kind: EvalSet`** — a **format-only** manifest (see below) that names a group
+  of metric ids for an asset class. It is validated for structure, a semver
+  `version`, a non-empty `spec.members` list whose `metric` ids are
+  syntactically valid, and a reserved `aggregation.method`. A member that
+  references a template **not present in the validated tree** is a *warning*
+  (it may live in another pack that isn't checked out).
+
+The command **exits non-zero** if any **error** is found; lint **warnings never
+fail** it. That makes it usable as a PR merge gate — the exact check the
+`mizan-templates` repo's CI runs. A defective template reports every problem at
+once:
+
+```sh
+$ mizan pack validate ./my-pack
+templates/broken.yaml:
+  [ERROR] spec.kind: unknown metric kind "poinwise" (want one of: single|pointwise, compare|pairwise, rubric, custom_schema)
+  [ERROR] prompt references undeclared placeholder {{respones}} (add it to spec.inputs)
+  [warn ] lint: missing metadata.license
+
+1 error(s), 1 warning(s)
+```
+
+Pass `--dry-run` to add an opt-in, **credentialed** step after the checks pass:
+one live materialize+call per template to confirm the autorater API accepts it.
+Templates whose inputs include a non-text modality are skipped (a live probe
+can't fabricate a real asset). Steps 1–5 always run without credentials;
+`--dry-run` is the only part that needs a configured project.
+
+> **EvalSet is format-only in P2.** A `kind: EvalSet` manifest is **carried and
+> validated** but is **not** imported into your local registry or run — there is
+> no eval-set runner yet. It exists so tools and future features have a stable,
+> schema-governed, git-shareable way to name a group of metrics for an asset
+> class. See `docs/collaboration-design.md` §3.4a.
 
 ### Output format
 
@@ -569,10 +630,13 @@ the eval:
 
 ## Coming soon / roadmap
 
-Template packs and sharing, batch evaluation, and the desktop app are **not
-usable end-to-end via the CLI** in the current build — there is no `pack`
-command, no `registry import|export`, no `eval batch`, and no runnable
-desktop app. Don't expect them to work.
+Template pack **sharing** (`registry export`, `pack init`/`pack add`, git-URL
+import), batch evaluation, and the desktop app are **not usable end-to-end via
+the CLI** in the current build — there is no `registry export`, no `eval batch`,
+and no runnable desktop app. Don't expect them to work. What **is** available
+today: `registry import` from a **local** pack tree (insert-only) and
+`pack validate` (the credential-free PR gate for MetricTemplate + EvalSet
+manifests).
 
 [`docs/roadmap.md`](roadmap.md) is the canonical list of what is planned and
 what each item would look like.

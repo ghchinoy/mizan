@@ -121,8 +121,14 @@ func (c YAMLCodec) Unmarshal(data []byte) (*MetricTemplate, error) {
 	// empty document) is not an error here — it falls through to the id-required
 	// check below, preserving the prior yaml.Unmarshal("") behavior.
 	//
-	// KnownFields stays off: tolerate authored comments/extra keys rather than
-	// failing the import; strict schema enforcement is P2.2's job.
+	// KnownFields stays off BY DESIGN: the import codec is tolerant of unknown
+	// keys (forward-compat — a newer pack may carry fields an older mizan does
+	// not yet know, and import must not hard-fail on them or silently corrupt a
+	// round-trip). Strict rejection of unknown keys is enforced instead at
+	// `pack validate` (schema additionalProperties:false) BEFORE publish, where
+	// an author gets an actionable error. This tolerant-import vs strict-validate
+	// split is intentional (EM decision, P2.2 INFO-1): do not flip this to
+	// KnownFields(true).
 	dec := yaml.NewDecoder(io.LimitReader(bytes.NewReader(data), MaxTemplateFileBytes+1))
 	if err := dec.Decode(&pf); err != nil && err != io.EOF {
 		return nil, fmt.Errorf("registry: parse pack yaml: %w", err)

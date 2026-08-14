@@ -1,0 +1,21 @@
+apiVersion: mizan.dev/v1alpha1
+kind: EvalSet                          # the second manifest kind (design §3.4a)
+metadata:
+  id: google-brand/product-video-suite # namespaced <pack>/<slug>, template id discipline
+  name: Product Video Compliance Suite
+  description: Run these against a product-video asset before publish.
+  version: 1.0.0                        # semver
+  assetClass: product-video            # intended asset class (free-form tag in P2)
+  tags: [advertising, video]
+spec:
+  # RESERVED set-level input alias map — carried, not interpreted in P2.
+  inputs:
+    asset: response
+  members:
+    - metric: google-brand/video-brand-alignment
+  # RESERVED aggregation/display — carried, method validated against reserved enum.
+  aggregation:
+    method: mean
+    threshold: 0.8                      # RESERVED pass/fail cutoff (folded here, not top-level)
+  display:
+    order: as-listed
