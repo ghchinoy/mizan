@@ -2,15 +2,17 @@ package registry
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	yaml "gopkg.in/yaml.v3"
 )
@@ -54,12 +56,222 @@ type SyncBackend interface {
 	Describe() SourceInfo
 }
 
-// gitClone is the injectable git shell-out seam (design §3.11). It is a
-// package-level var ONLY so a later phase (P2.5) can wire real cloning and unit
-// tests can substitute a fake without touching the network. It is NOT called in
-// P2.1 — local paths never reach it.
-var gitClone = func(ctx context.Context, url, dest string) error {
-	return errors.New("registry: git-url import is not implemented yet (P2.5); pass a local checkout path")
+// gitTimeout bounds how long a single git clone/pull may run. A hostile or
+// unreachable remote must not hang `registry import` forever (CWE-400): the
+// context passed to the git process is capped at this so the shell-out is
+// always time-bounded even if the caller passed a context.Background().
+const gitTimeout = 5 * time.Minute
+
+// allowedGitSchemes is the scheme allow-list for a git remote URL. Anything
+// outside it (file://, javascript:, data:, etc.) is rejected before we shell out
+// — a URL scheme is attacker-influenced input and must not select an arbitrary
+// git transport or a local-file read.
+var allowedGitSchemes = map[string]bool{
+	"https": true,
+	"http":  true,
+	"ssh":   true,
+	"git":   true,
+}
+
+// gitHostPattern is the permitted shape of a URL host[:port]. It is deliberately
+// strict — letters, digits, dot, hyphen, and an optional numeric port — so a
+// host component can never smuggle a shell metacharacter, whitespace, or a
+// leading '-' that git would read as an option (argument injection).
+var gitHostPattern = regexp.MustCompile(`^[A-Za-z0-9.\-]+(:[0-9]+)?$`)
+
+// gitPathSegmentPattern is the permitted shape of a single path segment of a git
+// URL (owner, repo, …). It forbids '.', '..', and any separator, so a segment
+// can neither traverse (`..`) nor inject an option, and it is safe to use as a
+// cache-dir path component.
+var gitPathSegmentPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
+
+// gitEnv returns the environment for a git subprocess with all interactive
+// credential/prompt paths disabled. This prevents a clone of a private or
+// tampered remote from blocking on a terminal prompt (which would look like a
+// hang) and keeps git from invoking an askpass helper that could echo a secret.
+// It inherits the parent environment (so git and its helpers are found on PATH)
+// and only overrides the prompt-related knobs.
+func gitEnv() []string {
+	return append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0", // never prompt on the controlling terminal
+		"GIT_ASKPASS=",          // no GUI/CLI askpass helper
+		"SSH_ASKPASS=",          // no ssh askpass helper
+		"GCM_INTERACTIVE=never", // git-credential-manager: never prompt
+	)
+}
+
+// gitClone is the injectable git shell-out seam for cloning a remote into a
+// local cache dir (design §3.11). It is a package-level var so unit tests
+// substitute a fake and never touch the network. SECURITY: git is invoked via
+// exec.Command with an explicit argument slice — never `sh -c` or a
+// string-built command line — so no shell interpolation is possible, and the
+// end-of-options `--` separator guarantees the (already validated) URL and dest
+// are treated as operands, not options (argument-injection defense). Output is
+// redacted for any embedded credentials before it reaches an error message.
+var gitClone = func(ctx context.Context, remote, dest string) error {
+	cmd := exec.CommandContext(ctx, "git",
+		"clone", "--depth", "1", "--single-branch", "--no-tags",
+		"--", remote, dest)
+	cmd.Env = gitEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("registry: git clone %s failed: %w: %s", redactURL(remote), err, redactBytes(out, remote))
+	}
+	return nil
+}
+
+// gitPull is the injectable git shell-out seam for refreshing an existing cache
+// checkout. Same security discipline as gitClone: explicit arg slice, no shell,
+// prompts disabled, output redacted. --ff-only refuses a divergent history
+// rather than creating a merge commit in the cache.
+var gitPull = func(ctx context.Context, dest string) error {
+	cmd := exec.CommandContext(ctx, "git", "-C", dest, "pull", "--ff-only", "--no-tags")
+	cmd.Env = gitEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("registry: git pull in cache failed: %w: %s", err, redactBytes(out, ""))
+	}
+	return nil
+}
+
+// redactURL strips any userinfo (user:token@) from a URL so a credential a user
+// embedded in the remote never lands in an error message, a log line, or the
+// stored provenance Source. A value that does not parse is returned unchanged
+// (it carries no parseable userinfo to leak).
+func redactURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	u.User = url.User("redacted")
+	return u.String()
+}
+
+// redactBytes removes a raw remote string (and its redacted form) from git's
+// combined output before it is surfaced in an error, closing the chance that a
+// credential-bearing URL echoed by git leaks into logs.
+func redactBytes(out []byte, remote string) string {
+	s := string(out)
+	if remote != "" {
+		s = strings.ReplaceAll(s, remote, redactURL(remote))
+	}
+	return strings.TrimSpace(s)
+}
+
+// isGitSource reports whether src should be treated as a git remote rather than
+// a local filesystem path. A src with an explicit "scheme://" is always a
+// remote; otherwise an EXISTING local path wins (so a real directory is never
+// misread as a URL), and a non-existent "host.tld/owner/repo"-shaped value is
+// treated as a scheme-less remote (the shape of the shipped DefaultTemplatesRepo,
+// github.com/ghchinoy/mizan-templates).
+func isGitSource(src string) bool {
+	if strings.Contains(src, "://") {
+		return true
+	}
+	if _, err := os.Stat(src); err == nil {
+		return false // an existing local path is never a URL
+	}
+	first, rest, ok := strings.Cut(src, "/")
+	if !ok || rest == "" {
+		return false
+	}
+	// A scheme-less remote's first segment is a hostname: it contains a dot and
+	// does not begin with one (so "./x" and "../x" stay local).
+	return strings.Contains(first, ".") && !strings.HasPrefix(first, ".")
+}
+
+// normalizeGitURL validates a git remote URL and returns its canonical form.
+// SECURITY (the risk center of P2.5): it rejects an argument-injection URL (a
+// leading '-' git would read as an option), enforces the scheme allow-list,
+// enforces a strict host charset, and rejects any path segment that could
+// traverse ('..') or inject an option. A scheme-less "host/owner/repo" is
+// normalized to https.
+func normalizeGitURL(src string) (string, error) {
+	if strings.HasPrefix(src, "-") {
+		return "", fmt.Errorf("registry: refusing git remote %q: leading '-' could be read as a git option (argument injection)", src)
+	}
+	raw := src
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("registry: invalid git remote %q: %w", src, err)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if !allowedGitSchemes[scheme] {
+		return "", fmt.Errorf("registry: refusing git remote %q: scheme %q is not in the allow-list (https, http, ssh, git)", src, u.Scheme)
+	}
+	if u.Host == "" || !gitHostPattern.MatchString(u.Host) {
+		return "", fmt.Errorf("registry: refusing git remote %q: invalid host %q", src, u.Host)
+	}
+	segs := pathSegments(u.Path)
+	if len(segs) < 1 {
+		return "", fmt.Errorf("registry: refusing git remote %q: missing repository path", src)
+	}
+	for _, seg := range segs {
+		if seg == "." || seg == ".." || !gitPathSegmentPattern.MatchString(seg) {
+			return "", fmt.Errorf("registry: refusing git remote %q: invalid path segment %q", src, seg)
+		}
+	}
+	u.Scheme = scheme
+	return u.String(), nil
+}
+
+// pathSegments splits a URL path into its non-empty segments.
+func pathSegments(p string) []string {
+	var out []string
+	for _, seg := range strings.Split(strings.Trim(p, "/"), "/") {
+		if seg != "" {
+			out = append(out, seg)
+		}
+	}
+	return out
+}
+
+// cacheDirFor derives the on-disk cache location for a validated remote URL:
+// $PackCacheDir/<host>/<owner>/<repo> (design §6/P2.5). SECURITY: every
+// component is re-validated against the safe segment charset (no '..', no
+// separators) and the final path is asserted to stay WITHIN PackCacheDir
+// (fail-closed), so a crafted host/repo can never escape the cache root
+// (CWE-22).
+func cacheDirFor(cacheRoot, normalizedURL string) (string, error) {
+	if strings.TrimSpace(cacheRoot) == "" {
+		return "", fmt.Errorf("registry: pack cache dir is not configured (set pack-cache); cannot import from a git URL")
+	}
+	u, err := url.Parse(normalizedURL)
+	if err != nil {
+		return "", fmt.Errorf("registry: invalid git remote %q: %w", normalizedURL, err)
+	}
+	host := u.Hostname() // host without port; a port would not be a safe dir component
+	if host == "" || !gitPathSegmentPattern.MatchString(host) {
+		return "", fmt.Errorf("registry: refusing cache dir for host %q", u.Host)
+	}
+	segs := pathSegments(u.Path)
+	if len(segs) < 1 {
+		return "", fmt.Errorf("registry: refusing cache dir: missing repository path in %q", normalizedURL)
+	}
+	// Strip a trailing ".git" from the final repo segment for a tidy cache path.
+	segs[len(segs)-1] = strings.TrimSuffix(segs[len(segs)-1], ".git")
+	components := append([]string{host}, segs...)
+	for _, c := range components {
+		if c == "" || c == "." || c == ".." || !gitPathSegmentPattern.MatchString(c) {
+			return "", fmt.Errorf("registry: refusing unsafe cache path component %q", c)
+		}
+	}
+	rootAbs, err := filepath.Abs(cacheRoot)
+	if err != nil {
+		return "", err
+	}
+	dest := filepath.Join(append([]string{rootAbs}, components...)...)
+	// Belt-and-suspenders containment: the joined+cleaned dest must remain under
+	// the cache root. The component guards already forbid '..', so this can only
+	// fail on a pathological input, but we assert it rather than trust it.
+	rel, err := filepath.Rel(rootAbs, dest)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("registry: refusing cache dir %q: escapes pack cache root %q", dest, rootAbs)
+	}
+	return dest, nil
 }
 
 // GitPackBackend loads templates from a pack tree on the local filesystem. The
@@ -81,9 +293,60 @@ func NewGitPackBackend(src string, codec Codec, cfg SyncConfig) *GitPackBackend 
 	return &GitPackBackend{src: src, codec: codec, cfg: cfg}
 }
 
-// Describe reports the resolved source. In P2.1 every source is a local path.
+// Describe reports the source kind and a stable, credential-redacted origin used
+// for provenance stamping (Source = "pack:<ns>@<origin>"). A git remote reports
+// Type "git" and the redacted URL; a local path reports Type "local" and the
+// path. It performs no I/O and never blocks, so it is safe to call before Load.
 func (b *GitPackBackend) Describe() SourceInfo {
+	if isGitSource(b.src) {
+		return SourceInfo{Type: "git", Origin: redactURL(b.src)}
+	}
 	return SourceInfo{Type: "local", Origin: b.src}
+}
+
+// resolveSource returns the local directory to read pack files from. For a local
+// path it is the path itself. For a git remote it validates the URL, derives the
+// $PackCacheDir/<host>/<owner>/<repo> cache dir (containment-checked), and clones
+// (fresh) or pulls (existing) into it via the injectable gitClone/gitPull seam.
+// The git process runs under a bounded context (gitTimeout) so an unreachable or
+// hostile remote cannot hang the import.
+func (b *GitPackBackend) resolveSource(ctx context.Context) (string, error) {
+	if !isGitSource(b.src) {
+		return b.src, nil
+	}
+	normalized, err := normalizeGitURL(b.src)
+	if err != nil {
+		return "", err
+	}
+	dest, err := cacheDirFor(b.cfg.PackCacheDir, normalized)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(ctx, gitTimeout)
+	defer cancel()
+	if isGitCheckout(dest) {
+		if err := gitPull(ctx, dest); err != nil {
+			return "", err
+		}
+		return dest, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+		return "", fmt.Errorf("registry: create cache dir: %w", err)
+	}
+	if err := gitClone(ctx, normalized, dest); err != nil {
+		return "", err
+	}
+	return dest, nil
+}
+
+// isGitCheckout reports whether dest is an existing directory that already holds
+// a git checkout (a .git entry), so resolveSource pulls rather than re-clones.
+func isGitCheckout(dest string) bool {
+	if fi, err := os.Stat(dest); err != nil || !fi.IsDir() {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(dest, ".git"))
+	return err == nil
 }
 
 // Save writes each template to the backend's LOCAL pack dir as one file per
@@ -251,27 +514,46 @@ func validatePackNamespace(ns string) error {
 }
 
 // Load reads every metric-template file under the source's pack tree. It accepts
-// either a repo/tree that contains a top-level packs/ directory (each subdir a
-// pack) or a single pack directory (one that contains templates/). Templates are
-// returned sorted by ID for deterministic import ordering. LOCAL PATHS ONLY in
-// P2.1 — a git URL is rejected via the gitClone seam until P2.5.
+// a local path OR a git remote URL (P2.5); a git remote is cloned/pulled into the
+// pack cache first (resolveSource), then read exactly like a local checkout. The
+// source may be a repo/tree that contains a top-level packs/ directory (each
+// subdir a pack) or a single pack directory (one that contains templates/).
+// Templates are returned sorted by ID for deterministic import ordering.
+//
+// SECURITY (P2.2 containment discipline, carried forward for the untrusted
+// cloned tree): the read root is resolved ONCE (symlinks followed) and every
+// template file's fully-resolved path must stay WITHIN that root; a symlinked
+// packs/ or templates/ dir is not followed (Lstat), and a per-file symlink,
+// device, or FIFO is skipped. A cloned repo is untrusted content — it must not
+// read out-of-tree files (CWE-59/CWE-22) or an unbounded source (CWE-400,
+// readCappedFile).
 func (b *GitPackBackend) Load(ctx context.Context) ([]MetricTemplate, error) {
-	fi, err := os.Stat(b.src)
+	root, err := b.resolveSource(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("registry: source %q: %w", b.src, err)
+		return nil, err
+	}
+	fi, err := os.Stat(root)
+	if err != nil {
+		return nil, fmt.Errorf("registry: source %q: %w", root, err)
 	}
 	if !fi.IsDir() {
-		return nil, fmt.Errorf("registry: source %q is not a directory (git-url import is P2.5)", b.src)
+		return nil, fmt.Errorf("registry: source %q is not a directory", root)
 	}
 
-	packDirs, err := b.discoverPackDirs()
+	// Resolve the read root once; every file read below must stay under it.
+	resolvedRoot, err := resolveReal(root)
+	if err != nil {
+		return nil, fmt.Errorf("registry: resolve source root %q: %w", root, err)
+	}
+
+	packDirs, err := discoverPackDirs(root)
 	if err != nil {
 		return nil, err
 	}
 
 	var out []MetricTemplate
 	for _, pd := range packDirs {
-		ts, err := b.loadPack(pd)
+		ts, err := b.loadPack(resolvedRoot, pd)
 		if err != nil {
 			return nil, err
 		}
@@ -282,10 +564,14 @@ func (b *GitPackBackend) Load(ctx context.Context) ([]MetricTemplate, error) {
 }
 
 // discoverPackDirs returns the pack directories to read: either every immediate
-// subdirectory of <src>/packs, or <src> itself when it is a single pack dir.
-func (b *GitPackBackend) discoverPackDirs() ([]string, error) {
-	packsRoot := filepath.Join(b.src, "packs")
-	if fi, err := os.Stat(packsRoot); err == nil && fi.IsDir() {
+// subdirectory of <root>/packs, or <root> itself when it is a single pack dir.
+//
+// packsRoot is stat'd with os.Lstat (NOT os.Stat) so a symlinked packs/ dir in
+// an untrusted clone is not followed out of the tree (mirrors the validate.go
+// discovery hardening, CWE-59/CWE-22).
+func discoverPackDirs(root string) ([]string, error) {
+	packsRoot := filepath.Join(root, "packs")
+	if fi, err := os.Lstat(packsRoot); err == nil && fi.IsDir() {
 		entries, err := os.ReadDir(packsRoot)
 		if err != nil {
 			return nil, fmt.Errorf("registry: read packs dir %q: %w", packsRoot, err)
@@ -298,16 +584,24 @@ func (b *GitPackBackend) discoverPackDirs() ([]string, error) {
 		}
 		return dirs, nil
 	}
-	// No packs/ subtree → treat src as a single pack dir.
-	return []string{b.src}, nil
+	// No packs/ subtree → treat root as a single pack dir.
+	return []string{root}, nil
 }
 
 // loadPack reads all template files under <packDir>/templates. A pack with no
 // templates/ dir yields no templates (it may be evalsets-only — P2.2), which is
-// not an error.
-func (b *GitPackBackend) loadPack(packDir string) ([]MetricTemplate, error) {
+// not an error. resolvedRoot is the once-resolved read root every file must stay
+// within (containment gate).
+//
+// The templates/ dir is stat'd with os.Lstat so a symlinked templates/ dir is
+// not followed; each entry is skipped unless it is a regular file whose resolved
+// path is contained under resolvedRoot. This applies the P2.2 symlink-containment
+// discipline to the untrusted cloned tree: escapes and non-regular entries are
+// skipped (defensive), and a path that cannot be resolved (dangling symlink) is
+// fail-closed skipped.
+func (b *GitPackBackend) loadPack(resolvedRoot, packDir string) ([]MetricTemplate, error) {
 	templatesDir := filepath.Join(packDir, "templates")
-	if fi, err := os.Stat(templatesDir); err != nil || !fi.IsDir() {
+	if fi, err := os.Lstat(templatesDir); err != nil || !fi.IsDir() {
 		return nil, nil
 	}
 	entries, err := os.ReadDir(templatesDir)
@@ -331,6 +625,12 @@ func (b *GitPackBackend) loadPack(packDir string) ([]MetricTemplate, error) {
 			return nil, fmt.Errorf("registry: stat template %q: %w", path, err)
 		}
 		if !info.Mode().IsRegular() {
+			continue
+		}
+		// Containment gate (P2.2 discipline): the file's fully-resolved path must
+		// stay under the resolved read root. Fail-closed: an escape or an
+		// unresolvable path is skipped, never read.
+		if ok, err := containedPath(resolvedRoot, path); err != nil || !ok {
 			continue
 		}
 		data, err := readCappedFile(path)

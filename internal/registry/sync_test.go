@@ -75,11 +75,24 @@ func TestGitPackBackendSaveWritesTemplates(t *testing.T) {
 	}
 }
 
-// TestGitCloneSeamNotWired proves the git shell-out seam exists but is inert in
-// P2.1 (local-only): calling it returns a clear not-implemented error, and no
-// production path invokes it.
-func TestGitCloneSeamNotWired(t *testing.T) {
-	if err := gitClone(context.Background(), "https://example.com/x.git", t.TempDir()); err == nil {
-		t.Fatal("gitClone should be a not-implemented stub in P2.1")
+// TestGitCloneSeamIsInjectable proves the git shell-out seam is a swappable
+// package-level var so P2.5 unit tests substitute a fake and never touch the
+// network. It restores the real functions after the test.
+func TestGitCloneSeamIsInjectable(t *testing.T) {
+	origClone, origPull := gitClone, gitPull
+	t.Cleanup(func() { gitClone, gitPull = origClone, origPull })
+
+	var cloned, pulled bool
+	gitClone = func(_ context.Context, _, _ string) error { cloned = true; return nil }
+	gitPull = func(_ context.Context, _ string) error { pulled = true; return nil }
+
+	if err := gitClone(context.Background(), "https://example.com/x.git", t.TempDir()); err != nil {
+		t.Fatalf("fake gitClone: %v", err)
+	}
+	if err := gitPull(context.Background(), t.TempDir()); err != nil {
+		t.Fatalf("fake gitPull: %v", err)
+	}
+	if !cloned || !pulled {
+		t.Fatalf("seam not exercised: cloned=%v pulled=%v", cloned, pulled)
 	}
 }

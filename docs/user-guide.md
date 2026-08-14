@@ -363,13 +363,53 @@ dry run (no changes written): 0 inserted, 1 updated, 0 skipped, 0 conflicted, 0 
   updated: google-brand/video-brand-alignment (updated to newer upstream version)
 ```
 
-> **Scope note.** Today `registry import` reads a **local path only**. Importing
-> directly from a git URL and importing from the default templates repo with a
-> bare `mizan registry import` are not available yet — they arrive in a later
-> release. Everything else is available: reconciliation strategies
-> (`--strategy newer|skip|overwrite|fork`, `--dry-run`) are documented above, and
-> pack **validation** (`pack validate`) and pack **authoring/export**
-> (`registry export`, `pack init`, `pack add`) are covered below.
+#### Import directly from a git URL
+
+`registry import` also takes a **git URL** — Mizan shells out to *your* `git` to
+clone (or, on a repeat, fast-forward pull) the repository into a local **pack
+cache** (`pack-cache`, default `<cache-dir>/mizan/packs`), then reads its
+`packs/` tree and reconciles exactly as a local import does:
+
+```sh
+# Full URL, or the scheme-less github.com/<owner>/<repo> shorthand — both work.
+$ mizan registry import https://github.com/ghchinoy/mizan-templates
+$ mizan registry import github.com/ghchinoy/mizan-templates
+```
+
+The cache is laid out per remote at `<pack-cache>/<host>/<owner>/<repo>`, so
+several source repos coexist and a re-import only pulls the delta.
+
+#### Import from the default repo (bare `import`)
+
+With **no argument**, `registry import` pulls from your configured default
+templates repo (`templates-repo`, default
+`github.com/ghchinoy/mizan-templates`):
+
+```sh
+$ mizan registry import                    # == import github.com/ghchinoy/mizan-templates
+$ mizan registry import --namespace google-brand   # only packs under google-brand
+```
+
+Point it at a different canonical repo (a team repo, your fork) by setting the
+default once — no other change is needed:
+
+```sh
+$ mizan config set templates-repo github.com/yourorg/your-templates
+$ mizan registry import                    # now pulls from your repo
+```
+
+`--namespace <ns>` imports only the packs under one namespace and works with any
+source (git URL, bare/default, or a local tree). All the reconciliation flags
+above (`--strategy`, `--dry-run`) apply unchanged.
+
+> **How Mizan runs git — and why it is safe.** Mizan invokes `git` with an
+> explicit argument list (never a shell string), so a URL cannot inject a command.
+> The URL is validated first (scheme allow-list `https`/`http`/`ssh`/`git`, a
+> strict host, and no `..`/option-looking path segments), any credentials embedded
+> in the URL are redacted from output and stored provenance, and the git process
+> runs under a timeout. A cloned repo is treated as **untrusted content**: reads
+> are confined to the checkout (symlinks that would escape the tree are skipped)
+> and bounded in size.
 
 ### Validating a pack (`pack validate`)
 
@@ -741,13 +781,14 @@ the eval:
 
 ## Coming soon / roadmap
 
-Template pack **sharing** (`registry export`, `pack init`/`pack add`, git-URL
-import), batch evaluation, and the desktop app are **not usable end-to-end via
-the CLI** in the current build — there is no `registry export`, no `eval batch`,
-and no runnable desktop app. Don't expect them to work. What **is** available
-today: `registry import` from a **local** pack tree (insert-only) and
-`pack validate` (the credential-free PR gate for MetricTemplate + EvalSet
-manifests).
+Batch evaluation and the desktop app are **not usable end-to-end via the CLI**
+in the current build — there is no `eval batch` and no runnable desktop app.
+Don't expect them to work. Template pack **sharing** is, however, available today:
+`registry import` from a **local** pack tree, a **git URL**, or the **default
+templates repo** (bare `import`), with the full reconciliation strategy set and
+`--namespace` filtering; `registry export` / `pack init` / `pack add` for
+authoring; and `pack validate` (the credential-free PR gate for MetricTemplate +
+EvalSet manifests).
 
 [`docs/roadmap.md`](roadmap.md) is the canonical list of what is planned and
 what each item would look like.

@@ -148,6 +148,10 @@ type ImportOptions struct {
 	// DryRun computes and returns the full ImportReport WITHOUT writing anything to
 	// the store — a preview of exactly what a real import would do.
 	DryRun bool
+	// Namespace, when set, imports only templates whose id namespace (the
+	// "<namespace>/" prefix) equals it; every other loaded template is ignored.
+	// Empty means import all discovered templates (P2.5 --namespace filter).
+	Namespace string
 }
 
 // ImportAction is the outcome recorded per template in an ImportReport.
@@ -221,8 +225,13 @@ type ImportReport struct {
 // sync/codec packages.
 func (s *Service) Import(ctx context.Context, src string, opt ImportOptions) (ImportReport, error) {
 	if strings.TrimSpace(src) == "" {
-		// Bare import (default source) is P2.5; P2.3 requires an explicit path.
-		return ImportReport{}, fmt.Errorf("registry: import source is required (a local checkout path); default-source import is P2.5")
+		// Bare import: default to the configured templates repo (P2.5). This is the
+		// ONLY default-source wiring — the source is still a per-operation string,
+		// so switching source needs no cmd/wire change (the seam-pivot property).
+		src = s.syncCfg.DefaultTemplatesRepo
+		if strings.TrimSpace(src) == "" {
+			return ImportReport{}, fmt.Errorf("registry: no import source given and no default templates repo configured (set templates-repo)")
+		}
 	}
 	strategy, ok := opt.Strategy.normalize()
 	if !ok {
@@ -240,6 +249,12 @@ func (s *Service) Import(ctx context.Context, src string, opt ImportOptions) (Im
 	report := ImportReport{Source: info, Strategy: strategy, DryRun: opt.DryRun}
 	now := time.Now().UTC()
 	for i := range templates {
+		// --namespace filter: import only templates in the requested namespace,
+		// applied before reconciliation so the existing P2.3 reconcile path is
+		// reused unchanged for exactly the selected templates.
+		if opt.Namespace != "" && namespaceOf(templates[i].ID) != opt.Namespace {
+			continue
+		}
 		if err := s.reconcileOne(ctx, templates[i], strategy, info.Origin, now, opt.DryRun, &report); err != nil {
 			return report, err
 		}
