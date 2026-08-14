@@ -1,0 +1,15 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+    id: acme/pairwise-better
+    name: Pairwise Better
+    version: 2.1.0
+spec:
+    kind: pairwise
+    modalities:
+        - text
+    candidateFieldName: candidate
+    baselineFieldName: baseline
+    autorater:
+        samplingCount: 2
+        flipEnabled: true

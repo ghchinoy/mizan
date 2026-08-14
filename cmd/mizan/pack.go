@@ -1,8 +1,9 @@
 package main
 
-// pack.go wires the `mizan pack` command family. P2.2 ships `pack validate`; the
-// authoring subcommands (`pack init`, `pack add`) are P2.4 and will be appended
-// here — kept in their own funcs/sections so the two phases rebase cleanly.
+// pack.go wires the `mizan pack` command family. P2.2 ships `pack validate` (the
+// creds-free PR gate); P2.4 adds the authoring subcommands `pack init` (scaffold
+// a pack dir) and `pack add` (write one local template into a pack dir). Each
+// phase keeps its own funcs/sections so the two rebase cleanly.
 //
 // The command depends ONLY on registry.Service / registry.ValidatePack, eval, and
 // wire — never on the pack codec/sync constructors — preserving the architecture
@@ -22,14 +23,20 @@ import (
 	"github.com/ghchinoy/mizan/internal/wire"
 )
 
-// newPackCmd wires the `mizan pack` command family.
+// newPackCmd wires the `mizan pack` command family — validate (P2.2) plus the
+// authoring surface (P2.4: init, add). It sits beside `registry` in the registry
+// command group (design §3.7).
 func newPackCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "pack",
-		Short:   "Validate and author metric-template packs",
+		Short:   "Author and validate metric-template packs",
 		GroupID: groupRegistry,
 	}
-	cmd.AddCommand(newPackValidateCmd())
+	cmd.AddCommand(
+		newPackValidateCmd(),
+		newPackInitCmd(),
+		newPackAddCmd(),
+	)
 	return cmd
 }
 
@@ -177,4 +184,84 @@ func syntheticInstance(t registry.MetricTemplate) (eval.Instance, bool) {
 		}
 	}
 	return inst, true
+}
+
+// newPackInitCmd wires `pack init <dir> --name <namespace>`. It scaffolds an
+// empty, valid pack directory: a mizan-pack.yaml manifest (metadata.name =
+// namespace), an empty templates/ dir, and an empty evalsets/ dir (the §3.4a
+// EvalSet carriage hook). It emits NO CI workflow — the validate-packs workflow
+// lives once in the mizan-templates repo, not in every scaffolded pack (design
+// §6/P2.4). It goes through registry.Service (never the codec/YAML packages), so
+// the cmd seam holds.
+func newPackInitCmd() *cobra.Command {
+	var namespace string
+	cmd := &cobra.Command{
+		Use:   "init <dir>",
+		Short: "Scaffold a new pack directory (manifest + empty templates/ and evalsets/)",
+		Long: "Scaffold a new template pack at <dir>: a mizan-pack.yaml manifest whose\n" +
+			"metadata.name is the namespace, an empty templates/ directory, and an empty\n" +
+			"evalsets/ directory (the EvalSet carriage hook). No CI workflow is emitted —\n" +
+			"the validate-packs workflow lives in the mizan-templates repo.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if namespace == "" {
+				return fmt.Errorf("--name is required (the pack namespace, e.g. google-brand)")
+			}
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			svc, closeSvc, err := wire.OpenService(cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeSvc() }()
+
+			if err := svc.InitPack(cmd.Context(), args[0], namespace); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "initialized pack %q (namespace %q)\n", args[0], namespace)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&namespace, "name", "", "pack namespace (metadata.name; lowercase letters, digits, hyphens) (required)")
+	return cmd
+}
+
+// newPackAddCmd wires `pack add <dir> --from <template-id>`. It is a thin
+// convenience over export: it writes the one local template with the given id
+// into the pack dir as a schema-valid file (design §3.7). It reuses
+// Service.Export with a single-id selector, so the namespaced-id enforcement and
+// responseSchema canonicalization on write apply identically.
+func newPackAddCmd() *cobra.Command {
+	var from string
+	cmd := &cobra.Command{
+		Use:   "add <dir>",
+		Short: "Write one local template into a pack dir (from the registry)",
+		Long: "Write the local template <id> into the pack at <dir> as a schema-valid\n" +
+			"template file (a thin convenience over `registry export --id`).",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if from == "" {
+				return fmt.Errorf("--from is required (the template id to add, e.g. google-brand/video-brand-alignment)")
+			}
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			svc, closeSvc, err := wire.OpenService(cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeSvc() }()
+
+			report, err := svc.Export(cmd.Context(), args[0], registry.Selector{ID: from})
+			if err != nil {
+				return err
+			}
+			return renderExportReport(cmd.OutOrStdout(), report)
+		},
+	}
+	cmd.Flags().StringVar(&from, "from", "", "template id to add to the pack (required)")
+	return cmd
 }

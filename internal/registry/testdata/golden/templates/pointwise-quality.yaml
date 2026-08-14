@@ -1,0 +1,29 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+    id: acme/pointwise-quality
+    name: Pointwise Quality
+    description: Scores response quality.
+    version: 1.0.0
+    authors:
+        - name: Jane Doe
+          email: jane@example.com
+    maintainers:
+        - acme-team
+    license: Apache-2.0
+    tags:
+        - quality
+        - text
+spec:
+    kind: pointwise
+    modalities:
+        - text
+    inputs:
+        - name: response
+          modality: text
+          required: true
+    metricPromptTemplate: 'Rate the response: {{response}}'
+    systemInstruction: Be strict.
+    autorater:
+        model: gemini-2.5-pro
+        samplingCount: 4

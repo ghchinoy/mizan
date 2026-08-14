@@ -6,6 +6,26 @@ import (
 	"encoding/json"
 )
 
+// canonicalizeJSON parses a JSON document and re-marshals it so object keys are
+// emitted in sorted order at every level (json.Marshal sorts map keys). It is
+// the single canonicalization used both when hashing a template's
+// ResponseSchema.JSON and when exporting one, so a CLI-authored custom_schema
+// template (JSON stored verbatim, arbitrary key order) and the same template
+// after an export→import round-trip produce byte-identical schema bytes and an
+// identical contentHash. A value that is not valid JSON is returned unchanged so
+// callers degrade to the raw string rather than losing data.
+func canonicalizeJSON(s string) string {
+	var v any
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		return s
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return s
+	}
+	return string(b)
+}
+
 // contentHash returns a deterministic SHA-256 fingerprint over a template's
 // canonicalized identity + spec (design §3.6). It is used for drift detection,
 // import no-op short-circuiting, and the future remote change signal.
@@ -90,7 +110,15 @@ func contentHash(t *MetricTemplate) string {
 		})
 	}
 	if t.ResponseSchema != nil {
-		canon.ResponseSchema = t.ResponseSchema.JSON
+		// Canonicalize the raw JSON (parse → re-marshal with sorted keys) before
+		// hashing so a CLI-authored custom_schema template — whose ResponseSchema.JSON
+		// is stored verbatim and may carry arbitrary key order — hashes identically
+		// to the same schema after an export→import round-trip (the codec re-emits
+		// responseSchema with sorted keys). Without this the contentHash would drift
+		// purely from key reordering (P2.1 review #2). If the stored value is not
+		// valid JSON, fall back to the raw string so the hash stays stable and
+		// non-empty rather than silently dropping the field.
+		canon.ResponseSchema = canonicalizeJSON(t.ResponseSchema.JSON)
 	}
 
 	b, err := json.Marshal(canon)

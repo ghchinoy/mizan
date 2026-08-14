@@ -7,8 +7,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
+	"syscall"
+
+	yaml "gopkg.in/yaml.v3"
 )
+
+// packNamespacePattern is the required shape of a pack namespace (metadata.name)
+// and of a template id's namespace segment: one or more lowercase letters,
+// digits, and hyphens. It mirrors a single segment of templateIDPattern
+// (validate.go).
+var packNamespacePattern = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 // MaxTemplateFileBytes bounds the size of a single template file read on import.
 // Template/rubric/schema documents are small config files; this 1 MiB cap is
@@ -75,10 +86,168 @@ func (b *GitPackBackend) Describe() SourceInfo {
 	return SourceInfo{Type: "local", Origin: b.src}
 }
 
-// Save is P2.4 (export). It returns a clear not-implemented error so the seam is
-// present and callers get a useful message rather than a silent no-op.
-func (b *GitPackBackend) Save(ctx context.Context, ts []MetricTemplate) error {
-	return errors.New("registry: pack export (Save) is not implemented yet (P2.4)")
+// Save writes each template to the backend's LOCAL pack dir as one file per
+// template under <src>/templates/ (design §3.3, globbed one-per-file). It is the
+// export write side; committing and opening a PR is the human's job — Save never
+// shells out to git (the gitClone seam is untouched, that is P2.5).
+//
+// Path derivation is the security-critical part (P2.1 audit rec#3): the output
+// filename is derived from a VALIDATED slug — the trailing segment of a
+// "<namespace>/<slug>" id that passes validateTemplateID — and NEVER from the
+// raw id. That guard forbids a second '/', any "..", and any character outside
+// [a-z0-9-], so a hostile or malformed id cannot escape the templates/ dir
+// (CWE-22). An id that fails the shape guard is rejected here rather than
+// written; Service.Export screens ids first and records skips, so this is the
+// defensive last line. Two templates whose slugs collide within one Save are
+// rejected too, so an export can never silently drop a template.
+func (b *GitPackBackend) Save(_ context.Context, ts []MetricTemplate) error {
+	templatesDir := filepath.Join(b.src, "templates")
+	if err := os.MkdirAll(templatesDir, 0o700); err != nil {
+		return fmt.Errorf("registry: create templates dir %q: %w", templatesDir, err)
+	}
+	ext := b.codec.Ext()
+	written := map[string]string{} // filename -> id, for in-call collision detection
+	for i := range ts {
+		t := ts[i]
+		slug, err := slugForID(t.ID)
+		if err != nil {
+			return err
+		}
+		name := slug + "." + ext
+		if prev, ok := written[name]; ok {
+			return fmt.Errorf("registry: templates %q and %q both map to file %q; export them to separate pack dirs", prev, t.ID, name)
+		}
+		data, err := b.codec.Marshal(&t)
+		if err != nil {
+			return err
+		}
+		path := filepath.Join(templatesDir, name)
+		if err := writeFileNoFollow(path, data, 0o600); err != nil {
+			return fmt.Errorf("registry: write template %q: %w", path, err)
+		}
+		written[name] = t.ID
+	}
+	return nil
+}
+
+// slugForID returns the trailing "<slug>" of a validated "<namespace>/<slug>"
+// template id. It routes through validateTemplateID (the shared P2.1 ingest
+// guard) so the returned slug is always a single path-safe component — the only
+// value an output filename may be built from (audit rec#3). It never touches the
+// filesystem.
+func slugForID(id string) (string, error) {
+	if err := validateTemplateID(id); err != nil {
+		return "", err
+	}
+	// validateTemplateID guarantees exactly one '/', so the slug is everything
+	// after it and matches [a-z0-9-]+ (no traversal, no separators).
+	return id[strings.IndexByte(id, '/')+1:], nil
+}
+
+// packManifestFile is the on-disk shape of a pack's mizan-pack.yaml (design §3.3
+// layout; mirrors the scaffolded google-brand manifest). It is written by
+// scaffoldPack; templates are globbed from templates/ and are NOT enumerated
+// here (so adding a template is never a manifest merge conflict).
+type packManifestFile struct {
+	APIVersion string           `yaml:"apiVersion"`
+	Kind       string           `yaml:"kind"`
+	Metadata   packManifestMeta `yaml:"metadata"`
+	Spec       packManifestSpec `yaml:"spec"`
+}
+
+type packManifestMeta struct {
+	Name        string   `yaml:"name"`
+	Version     string   `yaml:"version"`
+	Description string   `yaml:"description,omitempty"`
+	Maintainers []string `yaml:"maintainers,omitempty"`
+	License     string   `yaml:"license,omitempty"`
+}
+
+type packManifestSpec struct {
+	RequiresAPIVersion string `yaml:"requiresApiVersion"`
+}
+
+// packManifestKind is the manifest kind for a pack directory's mizan-pack.yaml.
+const packManifestKind = "Pack"
+
+// scaffoldPack creates an empty, valid pack directory at dir: a mizan-pack.yaml
+// manifest whose metadata.name is the namespace, an empty templates/ dir, and an
+// empty evalsets/ dir (design §3.3 — the §3.4a EvalSet carriage hook is
+// scaffolded, though EvalSet authoring itself is manual/generator-driven in P2).
+// It deliberately emits NO CI workflow: the validate-packs workflow lives once in
+// the mizan-templates repo, not in every scaffolded pack (design §6/P2.4). It
+// refuses to overwrite an existing manifest so re-running init never clobbers an
+// authored pack.
+func scaffoldPack(dir, namespace string) error {
+	if err := validatePackNamespace(namespace); err != nil {
+		return err
+	}
+	manifestPath := filepath.Join(dir, "mizan-pack.yaml")
+	if _, err := os.Stat(manifestPath); err == nil {
+		return fmt.Errorf("registry: pack manifest %q already exists; refusing to overwrite", manifestPath)
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("registry: stat %q: %w", manifestPath, err)
+	}
+	for _, sub := range []string{"templates", "evalsets"} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o700); err != nil {
+			return fmt.Errorf("registry: create %q: %w", filepath.Join(dir, sub), err)
+		}
+	}
+	mf := packManifestFile{
+		APIVersion: packAPIVersion,
+		Kind:       packManifestKind,
+		Metadata: packManifestMeta{
+			Name:    namespace,
+			Version: "0.1.0",
+		},
+		Spec: packManifestSpec{RequiresAPIVersion: packAPIVersion},
+	}
+	data, err := yaml.Marshal(mf)
+	if err != nil {
+		return fmt.Errorf("registry: marshal pack manifest: %w", err)
+	}
+	if err := writeFileNoFollow(manifestPath, data, 0o600); err != nil {
+		return fmt.Errorf("registry: write pack manifest %q: %w", manifestPath, err)
+	}
+	return nil
+}
+
+// writeFileNoFollow writes data to path, refusing to follow a pre-existing
+// symlink at that path (O_NOFOLLOW). It brings the export WRITE side to parity
+// with the import READ side's symlink hardening (CWE-59/CWE-22, audit LOW): the
+// filename component is already a validated slug so no write can NAME a target
+// outside templates/, but a symlink seeded at the target — e.g. an attacker who
+// pre-creates <dst>/templates/x.yaml -> ~/.bashrc — would otherwise redirect the
+// write through the link to a file outside the pack dir. O_NOFOLLOW makes that
+// open fail (ELOOP) rather than clobbering the link target. It uses O_TRUNC and
+// NOT O_EXCL, so a legitimate re-export still overwrites the pack's own prior
+// files. O_NOFOLLOW is portable across the Linux/macOS targets and keeps the
+// build cgo-free.
+func writeFileNoFollow(path string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC|syscall.O_NOFOLLOW, perm) //nolint:gosec // G304: path is built from a validated slug (slugForID) or a fixed manifest name, never raw input; O_NOFOLLOW additionally refuses a pre-seeded symlink.
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+// validatePackNamespace enforces that a pack namespace is a single path-safe
+// slug segment: the same [a-z0-9-]+ shape a template id's namespace segment must
+// satisfy (validate.go). A pack's metadata.name must equal its directory name
+// and every template id begins "<namespace>/", so a malformed namespace would
+// both break that invariant and could seed a traversal in a later join.
+func validatePackNamespace(ns string) error {
+	if ns == "" {
+		return fmt.Errorf("registry: pack namespace is required")
+	}
+	if !packNamespacePattern.MatchString(ns) {
+		return fmt.Errorf("registry: invalid pack namespace %q: must be lowercase letters, digits, and hyphens", ns)
+	}
+	return nil
 }
 
 // Load reads every metric-template file under the source's pack tree. It accepts
