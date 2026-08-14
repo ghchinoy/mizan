@@ -2,7 +2,7 @@ module github.com/ghchinoy/mizan
 
 go 1.26
 
-toolchain go1.26.5
+toolchain go1.26.6
 
 require (
 	cloud.google.com/go/aiplatform v1.126.0
