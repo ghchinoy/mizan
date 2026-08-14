@@ -270,20 +270,33 @@ func newRegistryCmd() *cobra.Command {
 
 // newRegistryImportCmd wires `registry import <path>`. It imports metric
 // templates from a LOCAL pack tree (a mizan-templates checkout with a packs/
-// dir, or a single pack dir) into the local registry. P2.1 is insert-only:
-// templates that already exist are skipped and reported. Reconciliation
-// strategies (--strategy) and git-URL/default-source import land in later
-// phases (P2.3/P2.5). It depends ONLY on registry.Service via wire — it imports
-// no sync/codec/yaml symbols, preserving the seam.
+// dir, or a single pack dir) into the local registry, reconciling id collisions
+// per the chosen --strategy (design §3.8). --dry-run previews the outcome without
+// writing. Git-URL/default-source import lands in P2.5. It depends ONLY on
+// registry.Service via wire — it imports no sync/codec/yaml symbols, preserving
+// the seam.
 func newRegistryImportCmd() *cobra.Command {
+	var (
+		strategy string
+		dryRun   bool
+	)
 	cmd := &cobra.Command{
 		Use:   "import <path>",
-		Short: "Import metric templates from a local pack tree (insert-only)",
+		Short: "Import metric templates from a local pack tree",
 		Long: "Import metric templates from a LOCAL pack tree into the local registry.\n\n" +
 			"<path> is a checkout that contains a packs/ directory, or a single pack\n" +
-			"directory. Only templates whose id is not already present are inserted;\n" +
-			"existing ones are skipped and reported (P2.1 is insert-only). Git-URL and\n" +
-			"default-source import, and reconciliation strategies, arrive in later phases.",
+			"directory. Incoming templates are reconciled against the local registry by\n" +
+			"id using --strategy:\n\n" +
+			"  newer      (default) take the higher version; on an equal-version but\n" +
+			"             changed-content clash, report a conflict and skip (never clobber)\n" +
+			"  skip       only insert absent templates; never overwrite\n" +
+			"  overwrite  replace the local copy unconditionally (including dirty edits)\n" +
+			"  fork       import a conflicting/dirty upstream under <ns>-fork/<slug>,\n" +
+			"             keeping the local copy\n\n" +
+			"A template you have edited locally (dirty) is protected: under the default\n" +
+			"'newer' it is skipped with a warning rather than overwritten. Re-importing an\n" +
+			"unchanged pack is a no-op. Use --dry-run to preview without writing anything.\n\n" +
+			"Git-URL and default-source import arrive in a later phase.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := mustConfig()
@@ -296,13 +309,18 @@ func newRegistryImportCmd() *cobra.Command {
 			}
 			defer func() { _ = closeSvc() }()
 
-			report, err := svc.Import(cmd.Context(), args[0], registry.ImportOptions{})
+			report, err := svc.Import(cmd.Context(), args[0], registry.ImportOptions{
+				Strategy: registry.ImportStrategy(strategy),
+				DryRun:   dryRun,
+			})
 			if err != nil {
 				return err
 			}
 			return renderImportReport(cmd.OutOrStdout(), report)
 		},
 	}
+	cmd.Flags().StringVar(&strategy, "strategy", string(registry.StrategyNewer), "conflict resolution: newer|skip|overwrite|fork")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "compute and print the import report without writing anything")
 	return cmd
 }
 

@@ -300,7 +300,7 @@ at a single pack directory:
 
 ```sh
 $ mizan registry import ./mizan-templates
-1 inserted, 0 skipped (source: ./mizan-templates)
+1 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: ./mizan-templates)
   inserted: google-brand/video-brand-alignment
 ```
 
@@ -320,23 +320,56 @@ Source:         pack:google-brand@./mizan-templates
 Description:    Scores whether a short video ad aligns with a supplied brand guideline, ...
 ```
 
-Import is **insert-only** today: a template whose id is already in your registry
-is left untouched and reported as `skipped`, so re-running an import never
-clobbers local work:
+#### Reconciling existing templates (`--strategy`)
+
+When an incoming template's id already exists locally, `registry import`
+reconciles the two by comparing their `metadata.version` (semver) and content.
+The `--strategy` flag chooses the policy (default **`newer`**):
+
+| `--strategy`        | absent | same content | upstream newer | upstream older | same version, changed content | your local edit (dirty) |
+|---------------------|--------|--------------|----------------|----------------|-------------------------------|-------------------------|
+| `newer` *(default)* | insert | no-op        | update         | skip           | **conflict** (skip + report)  | **skip** (protected)    |
+| `skip`              | insert | no-op        | skip           | skip           | skip                          | skip                    |
+| `overwrite`         | insert | no-op        | update         | update         | update                        | update                  |
+| `fork`              | insert | no-op        | update         | skip           | fork → `<ns>-fork/<slug>`     | fork → `<ns>-fork/<slug>` |
+
+Re-importing an unchanged pack is a **no-op** — nothing is written and each
+template is reported as `unchanged`:
 
 ```sh
 $ mizan registry import ./mizan-templates
-0 inserted, 1 skipped (source: ./mizan-templates)
-  skipped: google-brand/video-brand-alignment (already exists ...)
+0 inserted, 0 updated, 0 skipped, 0 conflicted, 1 unchanged, 0 forked (source: ./mizan-templates)
+  unchanged: google-brand/video-brand-alignment (unchanged (same content))
+```
+
+**Dirty protection.** If you edit an imported template with `registry update`,
+it is marked *dirty* (a local edit). Under the default `newer` strategy a dirty
+template is **never overwritten** by a re-import — it is skipped with a warning
+so your work is safe. Pull upstream anyway with `--strategy overwrite` (replace
+your edit) or `--strategy fork` (keep your edit; import upstream under
+`<ns>-fork/<slug>`).
+
+**Equal version, changed content** is treated as a **conflict** under `newer`:
+the upstream author changed the template without bumping the version, so Mizan
+refuses to guess — it reports the conflict and leaves your copy untouched. Re-run
+with an explicit `--strategy overwrite` or `--strategy fork` to resolve it.
+
+**Preview with `--dry-run`.** Compute and print the full report **without writing
+anything** to your registry:
+
+```sh
+$ mizan registry import ./mizan-templates --strategy overwrite --dry-run
+dry run (no changes written): 0 inserted, 1 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: ./mizan-templates)
+  updated: google-brand/video-brand-alignment (updated to newer upstream version)
 ```
 
 > **Scope note.** Today `registry import` reads a **local path only**. Importing
-> directly from a git URL, importing from the default templates repo with a bare
-> `mizan registry import`, and reconciliation strategies for existing templates
-> (`--strategy newer|skip|overwrite|fork`) are not available yet — they arrive in
-> later releases. Pack authoring/export (`registry export`, `pack init`) is
-> likewise not yet available. Pack **validation** (`pack validate`) **is**
-> available — see below.
+> directly from a git URL and importing from the default templates repo with a
+> bare `mizan registry import` are not available yet — they arrive in a later
+> release. Pack authoring/export (`registry export`, `pack init`) is likewise not
+> yet available. Pack **validation** (`pack validate`) **is** available — see
+> below, and reconciliation strategies (`--strategy newer|skip|overwrite|fork`,
+> `--dry-run`) are documented above.
 
 ### Validating a pack (`pack validate`)
 
