@@ -43,6 +43,56 @@ func TestOpenService(t *testing.T) {
 	}
 }
 
+// TestOpenService_WiresCodecAndInjectsSyncConfig checks the P2 composition-root
+// wiring (design §3.1/§3.11): the ONLY place that knows the concrete codec/sync
+// wiring assembles a YAML-backed service with a SyncConfig derived from config,
+// so cmd/* never imports the codec/sync packages.
+//
+// TEETH DISCLOSURE — the two halves differ in how much they prove:
+//   - SyncConfig half: DISCRIMINATING. NewService defaults SyncConfig to the
+//     zero value, so dropping WithSyncConfig from OpenService makes this fail.
+//   - Codec half: SMOKE / END-STATE only. NewService already defaults the codec
+//     to YAMLCodec (service.go), so this cannot detect a dropped WithCodec — it
+//     merely confirms the service ends up YAML-backed. The WithCodec *mechanism*
+//     is proven to have teeth by registry.TestNewService_CodecInjectionHasTeeth
+//     (a sentinel codec that the default never returns). Do not read the codec
+//     half here as proof-of-injection.
+func TestOpenService_WiresCodecAndInjectsSyncConfig(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		RegistryDBPath:       filepath.Join(dir, "registry.db"),
+		PackCacheDir:         filepath.Join(dir, "packcache"),
+		DefaultTemplatesRepo: "github.com/ghchinoy/mizan-templates",
+	}
+	svc, closeFn, err := OpenService(cfg)
+	if err != nil {
+		t.Fatalf("OpenService: %v", err)
+	}
+	defer func() { _ = closeFn() }()
+
+	// Codec half (smoke/end-state): the service is YAML-backed. This does NOT
+	// prove WithCodec injection (default is also YAML) — see the teeth test in
+	// package registry referenced above.
+	codec := svc.Codec()
+	if _, ok := codec.(registry.YAMLCodec); !ok {
+		t.Errorf("OpenService codec = %T, want registry.YAMLCodec", codec)
+	}
+	if got := codec.Ext(); got != "yaml" {
+		t.Errorf("codec Ext() = %q, want %q", got, "yaml")
+	}
+
+	// SyncConfig half (discriminating): derived from config, field-for-field.
+	// NewService defaults this to the zero value, so removing WithSyncConfig from
+	// OpenService makes this assertion fail — real teeth.
+	want := registry.SyncConfig{
+		PackCacheDir:         cfg.PackCacheDir,
+		DefaultTemplatesRepo: cfg.DefaultTemplatesRepo,
+	}
+	if got := svc.SyncConfig(); got != want {
+		t.Errorf("OpenService injected SyncConfig = %+v, want %+v", got, want)
+	}
+}
+
 // builtNative records one newNativeClient construction so a test can assert the
 // (location, apiEndpoint) each native client was built for and inspect the fake.
 type builtNative struct {
