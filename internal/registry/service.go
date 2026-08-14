@@ -368,6 +368,13 @@ func (s *Service) applyUpdate(ctx context.Context, t MetricTemplate, createdAt t
 // a conflict and NOT overwritten. The fork id is derived from the ORIGINAL
 // incoming id, so t.ID is set to forkID before the content comparison so both
 // sides hash under the same id (contentHash includes the id).
+//
+// DRY-RUN REPORT FIDELITY: under dryRun the fork-target existence check still
+// reads the store, but earlier entries in the SAME import are not persisted, so a
+// pack that both inserts "<ns>-fork/x" and forks "<ns>/x" onto it will report the
+// fork as "forked" rather than the "conflicted" a real run yields (the un-written
+// insert is invisible to this Get). This is a preview-only reporting artifact:
+// dry-run writes nothing, and a real (non-dry-run) import reconciles it correctly.
 func (s *Service) applyFork(ctx context.Context, t MetricTemplate, origin string, now time.Time, dryRun bool, report *ImportReport, why string) error {
 	forkID := forkedID(t.ID)
 	t.ID = forkID
