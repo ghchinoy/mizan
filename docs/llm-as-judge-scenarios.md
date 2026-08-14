@@ -620,11 +620,10 @@ Pull upstream anyway with `--strategy overwrite` (discard your edit) or
 author who changes a template *without* bumping its version produces a
 **conflict** under `newer` (reported, not silently applied).
 
-> **Scope note.** This is the *local-path* import leg only. Importing straight
-> from a git URL and the bare-`import` default source are **not built yet** — see
-> [below](#scenarios-that-are-not-built-yet). Reconciliation strategies
-> (`--strategy`, `--dry-run`) *are* built — see above; pack **validation**
-> (`pack validate`) is Scenario 10; and pack **authoring/export**
+> **Scope note.** This is the *local-path* import leg. Importing straight from a
+> git URL and the bare-`import` default source are **Scenario 12**. Reconciliation
+> strategies (`--strategy`, `--dry-run`) *are* built — see above; pack
+> **validation** (`pack validate`) is Scenario 10; and pack **authoring/export**
 > (`registry export`, `pack init`, `pack add`) is Scenario 11.
 
 ---
@@ -754,6 +753,61 @@ are derived from a validated slug, so a malformed id can never escape the
 
 ---
 
+## Scenario 12: Import straight from a git URL (and the default repo)
+
+**Goal.** Pull shared templates from a packs repo **without cloning it by hand** —
+give `registry import` a git URL (or nothing, to use your default repo) and Mizan
+fetches, caches, and reconciles them for you.
+
+Mizan shells out to *your* `git` to clone (or, on a repeat, fast-forward pull) the
+repo into a local **pack cache**, then reads its `packs/` tree exactly like a
+local import (same reconciliation, same provenance, same `--strategy`/`--dry-run`):
+
+```sh
+# Full URL or the scheme-less github.com/<owner>/<repo> shorthand — both work.
+$ mizan registry import https://github.com/ghchinoy/mizan-templates
+$ mizan registry import github.com/ghchinoy/mizan-templates
+1 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: https://github.com/ghchinoy/mizan-templates)
+  inserted: google-brand/video-brand-alignment
+
+# Provenance records the remote URL (not the local cache path):
+$ mizan registry get google-brand/video-brand-alignment
+Source:  pack:google-brand@https://github.com/ghchinoy/mizan-templates
+```
+
+**Bare `import` uses your default repo** (`templates-repo`, default
+`github.com/ghchinoy/mizan-templates`); `--namespace` narrows to one namespace:
+
+```sh
+$ mizan registry import                          # == import the default repo
+$ mizan registry import --namespace google-brand # only that namespace's packs
+```
+
+Switching source is a **one-line config change** — point `templates-repo` at a
+team repo or a fork and bare `import` follows, with no other change:
+
+```sh
+$ mizan config set templates-repo github.com/yourorg/your-templates
+$ mizan registry import
+```
+
+The pack cache is laid out per remote at `<pack-cache>/<host>/<owner>/<repo>`, so
+multiple source repos coexist and a re-import only pulls the delta.
+
+> **Safety.** Mizan runs `git` with an explicit argument list (never a shell
+> string), so a URL cannot inject a command; the URL is validated first (scheme
+> allow-list, strict host, no `..`/option-looking path segments), embedded
+> credentials are redacted from output and stored provenance, and the git process
+> runs under a timeout. A cloned repo is **untrusted**: reads stay inside the
+> checkout (escaping symlinks are skipped) and are size-bounded.
+
+> **Scope note.** This completes the consume leg begun in Scenario 9 (local
+> import) — same reconciliation engine, now over a fetched checkout. Still not
+> built: importing or *running* a `kind: EvalSet` manifest (P2 carries/validates
+> the format only).
+
+---
+
 ## Capability matrix
 
 | Scenario | Kind | Path | Location | Output | Multimodal? | Sampling? | Token stats? |
@@ -782,19 +836,20 @@ the root [`README.md`](../README.md) states the current boundary.
   `EvaluateDataset` over GCS-hosted data (which is also the official home for
   API-native per-criterion rubric output with sampling retained). No
   `eval batch` command exists.
-- **Template packs — the rest of the round trip.** Consuming a shared pack from a
+- **Template packs — the round trip is built.** Consuming a shared pack from a
   **local** tree with full reconciliation (`--strategy newer|skip|overwrite|fork`,
   dirty protection, `--dry-run`)
   ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import)),
+  importing straight from a **git URL** or the **default templates repo** (bare
+  `mizan registry import`, `--namespace`)
+  ([Scenario 12](#scenario-12-import-straight-from-a-git-url-and-the-default-repo)),
   validating packs
   ([Scenario 10](#scenario-10-validate-a-pack-before-you-share-it-pack-validate)),
   and exporting/authoring packs
   ([Scenario 11](#scenario-11-share-a-metric-you-authored-export--pr--import):
   `mizan registry export`, `mizan pack init`/`add`) all work today. **Not built
-  yet:** importing from a git URL or the default templates repo (bare
-  `mizan registry import`). Also **not built:** importing or *running* a
-  `kind: EvalSet` manifest — P2 carries and validates the eval-set format only;
-  there is no eval-set runner or store.
+  yet:** importing or *running* a `kind: EvalSet` manifest — P2 carries and
+  validates the eval-set format only; there is no eval-set runner or store.
 - **A tri-state flip default for compare templates** — the engine honors the
   template's `--flip-enabled` (including `false`), but the registry stores it
   as a plain `bool`, so "unset ⇒ default true" cannot be distinguished from an

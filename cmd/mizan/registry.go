@@ -331,16 +331,23 @@ func newRegistryExportCmd() *cobra.Command {
 // the seam.
 func newRegistryImportCmd() *cobra.Command {
 	var (
-		strategy string
-		dryRun   bool
+		strategy  string
+		namespace string
+		dryRun    bool
 	)
 	cmd := &cobra.Command{
-		Use:   "import <path>",
-		Short: "Import metric templates from a local pack tree",
-		Long: "Import metric templates from a LOCAL pack tree into the local registry.\n\n" +
-			"<path> is a checkout that contains a packs/ directory, or a single pack\n" +
-			"directory. Incoming templates are reconciled against the local registry by\n" +
-			"id using --strategy:\n\n" +
+		Use:   "import [<src>]",
+		Short: "Import metric templates from a pack tree or git URL",
+		Long: "Import metric templates from a pack source into the local registry.\n\n" +
+			"<src> is one of:\n" +
+			"  - a local checkout that contains a packs/ directory, or a single pack dir\n" +
+			"  - a git URL (e.g. https://github.com/ghchinoy/mizan-templates or the\n" +
+			"    scheme-less github.com/ghchinoy/mizan-templates); Mizan shells out to\n" +
+			"    your git to clone/pull it into the pack cache, then reads its packs/ tree\n\n" +
+			"With NO <src>, Mizan imports from the configured default templates repo\n" +
+			"(templates-repo; default github.com/ghchinoy/mizan-templates).\n\n" +
+			"Use --namespace to import only the packs under one namespace. Incoming\n" +
+			"templates are reconciled against the local registry by id using --strategy:\n\n" +
 			"  newer      (default) take the higher version; on an equal-version but\n" +
 			"             changed-content clash, report a conflict and skip (never clobber)\n" +
 			"  skip       only insert absent templates; never overwrite\n" +
@@ -349,9 +356,8 @@ func newRegistryImportCmd() *cobra.Command {
 			"             keeping the local copy\n\n" +
 			"A template you have edited locally (dirty) is protected: under the default\n" +
 			"'newer' it is skipped with a warning rather than overwritten. Re-importing an\n" +
-			"unchanged pack is a no-op. Use --dry-run to preview without writing anything.\n\n" +
-			"Git-URL and default-source import arrive in a later phase.",
-		Args: cobra.ExactArgs(1),
+			"unchanged pack is a no-op. Use --dry-run to preview without writing anything.",
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := mustConfig()
 			if err != nil {
@@ -363,9 +369,14 @@ func newRegistryImportCmd() *cobra.Command {
 			}
 			defer func() { _ = closeSvc() }()
 
-			report, err := svc.Import(cmd.Context(), args[0], registry.ImportOptions{
-				Strategy: registry.ImportStrategy(strategy),
-				DryRun:   dryRun,
+			var src string
+			if len(args) == 1 {
+				src = args[0]
+			}
+			report, err := svc.Import(cmd.Context(), src, registry.ImportOptions{
+				Strategy:  registry.ImportStrategy(strategy),
+				Namespace: namespace,
+				DryRun:    dryRun,
 			})
 			if err != nil {
 				return err
@@ -374,6 +385,7 @@ func newRegistryImportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&strategy, "strategy", string(registry.StrategyNewer), "conflict resolution: newer|skip|overwrite|fork")
+	cmd.Flags().StringVar(&namespace, "namespace", "", "import only packs under this namespace")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "compute and print the import report without writing anything")
 	return cmd
 }
