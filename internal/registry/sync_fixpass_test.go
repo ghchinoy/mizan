@@ -33,6 +33,34 @@ func swapCountingGit(t *testing.T, templates ...MetricTemplate) *gitCallCounts {
 	return c
 }
 
+// TestRedactURLUnconditional is the delta re-audit LOW regression: redaction must
+// be UNCONDITIONAL of url.Parse success. These PoC inputs make url.Parse fail (a
+// leading '-', a space in host, a control char in host) yet still carry an
+// embedded credential that reaches redactURL-printing error sites; the token must
+// never survive. The well-formed / no-credential cases must still behave.
+func TestRedactURLUnconditional(t *testing.T) {
+	const secret = "ghp_SECRET"
+	// url.Parse-failing inputs that still carry a credential (must be scrubbed).
+	leaky := []string{
+		"-https://user:" + secret + "@h/o/r",        // leading '-' -> not a valid scheme
+		"https://user:" + secret + "@h st.com/o/r",  // space in host -> parse error
+		"https://user:" + secret + "@h\x01.com/o/r", // control char in host -> parse error
+		"user:" + secret + "@github.com/o/r",        // scheme-less userinfo
+	}
+	for _, in := range leaky {
+		if got := redactURL(in); strings.Contains(got, secret) {
+			t.Errorf("redactURL(%q) leaked the token: %q", in, got)
+		}
+	}
+	// Existing behavior preserved: well-formed credential redacted, clean URL kept.
+	if got := redactURL("https://user:" + secret + "@github.com/a/b"); strings.Contains(got, secret) {
+		t.Errorf("redactURL leaked a well-formed credential: %q", got)
+	}
+	if got := redactURL("https://github.com/a/b"); got != "https://github.com/a/b" {
+		t.Errorf("redactURL altered a clean URL: %q", got)
+	}
+}
+
 // --- MUST-3: clone-vs-pull decision -----------------------------------------
 
 func TestCloneOnFreshCachePullOnHit(t *testing.T) {

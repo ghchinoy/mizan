@@ -177,26 +177,27 @@ var gitPull = func(ctx context.Context, dest string) error {
 	return nil
 }
 
+// urlCredPattern matches URL-embedded userinfo (user:token@) either right after
+// the "//" of a scheme separator or at the very start of a scheme-less remote. It
+// is the UNCONDITIONAL fallback redactor for inputs url.Parse cannot decompose
+// into a userinfo field — a malformed host (space/control char), a leading '-'
+// that is not a valid scheme, or a scheme-less "user:tok@host/o/r" — so a
+// credential is scrubbed even when the structured happy path below cannot run.
+var urlCredPattern = regexp.MustCompile(`(^|//)[^/@]*@`)
+
 // redactURL strips any userinfo (user:token@) from a URL so a credential a user
 // embedded in the remote never lands in an error message, a log line, or the
-// stored provenance Source. It handles a scheme-less input too (e.g.
-// "user:tok@host/o/r"), which url.Parse would not expose userinfo for, by
-// retrying with a synthetic scheme and stripping it back off. A value that
-// carries no parseable userinfo is returned unchanged.
+// stored provenance Source. Redaction is UNCONDITIONAL of url.Parse success: the
+// structured happy path handles a well-formed URL, and the urlCredPattern
+// fallback strips userinfo from every other case — a parse failure (malformed
+// host, leading '-', control char) or a scheme-less input url.Parse would not
+// expose userinfo for. A value that carries no userinfo is returned unchanged.
 func redactURL(raw string) string {
 	if u, err := url.Parse(raw); err == nil && u.User != nil {
 		u.User = url.User("redacted")
 		return u.String()
 	}
-	// Scheme-less input does not parse userinfo; retry with a synthetic scheme so
-	// an embedded credential is still redacted, then strip the scheme we added.
-	if !strings.Contains(raw, "://") {
-		if u, err := url.Parse("https://" + raw); err == nil && u.User != nil {
-			u.User = url.User("redacted")
-			return strings.TrimPrefix(u.String(), "https://")
-		}
-	}
-	return raw
+	return urlCredPattern.ReplaceAllString(raw, "${1}redacted@")
 }
 
 // redactGitErr scrubs any of the given remote strings (and their redacted forms)
