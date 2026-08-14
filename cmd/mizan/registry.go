@@ -264,7 +264,61 @@ func newRegistryCmd() *cobra.Command {
 		newRegistryUpdateCmd(),
 		newRegistryDeleteCmd(),
 		newRegistryImportCmd(),
+		newRegistryExportCmd(),
 	)
+	return cmd
+}
+
+// newRegistryExportCmd wires `registry export --out <dir> [--id | --namespace |
+// --all]`. It writes selected local templates into a pack dir (one file per
+// template under <dir>/templates/), the write side of the export→PR→import
+// round-trip (design §3.7). Exactly one selector must be given. It depends only
+// on registry.Service via wire — no sync/codec/yaml symbols — preserving the
+// seam.
+func newRegistryExportCmd() *cobra.Command {
+	var (
+		out       string
+		id        string
+		namespace string
+		all       bool
+	)
+	cmd := &cobra.Command{
+		Use:   "export --out <dir> (--id <id> | --namespace <ns> | --all)",
+		Short: "Export local templates into a pack dir",
+		Long: "Export metric templates from the local registry into a pack directory.\n\n" +
+			"Writes one file per template under <dir>/templates/. Select what to export\n" +
+			"with exactly one of --id, --namespace, or --all. Commit the pack dir and open\n" +
+			"a PR to share it (Mizan does not push).",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if out == "" {
+				return fmt.Errorf("--out is required (the pack dir to write, e.g. packs/<name>)")
+			}
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			svc, closeSvc, err := wire.OpenService(cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeSvc() }()
+
+			report, err := svc.Export(cmd.Context(), out, registry.Selector{
+				ID:        id,
+				Namespace: namespace,
+				All:       all,
+			})
+			if err != nil {
+				return err
+			}
+			return renderExportReport(cmd.OutOrStdout(), report)
+		},
+	}
+	cmd.Flags().StringVar(&out, "out", "", "destination pack dir (e.g. packs/<name>) (required)")
+	cmd.Flags().StringVar(&id, "id", "", "export the single template with this id")
+	cmd.Flags().StringVar(&namespace, "namespace", "", "export every template in this namespace")
+	cmd.Flags().BoolVar(&all, "all", false, "export every template in the registry")
 	return cmd
 }
 

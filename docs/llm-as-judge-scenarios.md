@@ -621,11 +621,11 @@ author who changes a template *without* bumping its version produces a
 **conflict** under `newer` (reported, not silently applied).
 
 > **Scope note.** This is the *local-path* import leg only. Importing straight
-> from a git URL, the bare-`import` default source, and the authoring/export side
-> (`registry export`, `pack init`) are **not built yet** — see
-> [below](#scenarios-that-are-not-built-yet). Pack **validation** *is* built — see
-> Scenario 10; reconciliation strategies (`--strategy`, `--dry-run`) *are* built —
-> see above.
+> from a git URL and the bare-`import` default source are **not built yet** — see
+> [below](#scenarios-that-are-not-built-yet). Reconciliation strategies
+> (`--strategy`, `--dry-run`) *are* built — see above; pack **validation**
+> (`pack validate`) is Scenario 10; and pack **authoring/export**
+> (`registry export`, `pack init`, `pack add`) is Scenario 11.
 
 ---
 
@@ -702,6 +702,58 @@ credentials.
 
 ---
 
+## Scenario 11: Share a metric you authored (export → PR → import)
+
+**Goal.** Take a metric you refined locally and hand it to a collaborator —
+**losslessly**. This is the other half of Scenario 9 and the founding
+differentiator: contribute to a shared body of judges, not just consume one.
+
+Author locally, scaffold a pack, and export your templates into it (one file per
+template under `templates/`). Select with exactly one of `--id`, `--namespace`,
+or `--all`:
+
+```sh
+# 1. Author (or refine) a metric in your local registry.
+$ mizan registry create --id acme/quality --name "Quality" \
+    --kind pointwise --prompt 'Rate the response: {{response}}'
+
+# 2. Scaffold an empty pack, then export into it.
+$ mizan pack init packs/acme --name acme
+initialized pack "packs/acme" (namespace "acme")
+$ mizan registry export --out packs/acme --namespace acme
+1 written, 0 skipped (dest: packs/acme)
+  written: acme/quality -> templates/quality.yaml
+
+# (pack add is a one-template shortcut over export:)
+$ mizan pack add packs/acme --from acme/quality
+```
+
+Then commit the pack dir and open a PR against your packs repo — Mizan does the
+local write only, never the push:
+
+```sh
+$ git add packs/acme && git commit -m "add acme quality metric" && git push
+# open the PR; once merged, a collaborator imports it (Scenario 9):
+$ mizan registry import ./mizan-templates
+1 inserted, 0 skipped (source: ./mizan-templates)
+  inserted: acme/quality
+```
+
+The round-trip is **byte-stable by construction**: the codec writes canonical
+pack files (sorted keys, canonical `spec.kind`, computed/provenance fields
+omitted), so `export → import → export` is byte-identical and a `custom_schema`
+template's `contentHash` never drifts from JSON key ordering. Output filenames
+are derived from a validated slug, so a malformed id can never escape the
+`templates/` directory.
+
+> **Scope note.** `export`/`pack init`/`pack add` write **locally** — pushing and
+> PR review are your git steps; `pack validate` (the PR gate) is Scenario 10.
+> Exporting eval-set suites is not part of this — `pack init` scaffolds an empty
+> `evalsets/` dir as the carriage hook, but authoring suites is generator-driven
+> and lands with the eval-set capability.
+
+---
+
 ## Capability matrix
 
 | Scenario | Kind | Path | Location | Output | Multimodal? | Sampling? | Token stats? |
@@ -730,16 +782,19 @@ the root [`README.md`](../README.md) states the current boundary.
   `EvaluateDataset` over GCS-hosted data (which is also the official home for
   API-native per-criterion rubric output with sampling retained). No
   `eval batch` command exists.
-- **Template packs — the rest of the round trip.** Importing templates from a
-  **local** pack tree — with full reconciliation (`--strategy
-  newer|skip|overwrite|fork`, dirty protection, `--dry-run`)
-  ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import)) —
-  and validating packs ([Scenario 10](#scenario-10-validate-a-pack-before-you-share-it-pack-validate))
-  work today, but the rest is **not built yet**: importing from a git URL or the
-  default templates repo (bare `mizan registry import`), and exporting/authoring
-  packs (`mizan registry export`, `mizan pack init`/`add`). Also **not built:**
-  importing or *running* a `kind: EvalSet` manifest — P2 carries and validates the
-  eval-set format only; there is no eval-set runner or store.
+- **Template packs — the rest of the round trip.** Consuming a shared pack from a
+  **local** tree with full reconciliation (`--strategy newer|skip|overwrite|fork`,
+  dirty protection, `--dry-run`)
+  ([Scenario 9](#scenario-9-consume-a-shared-template-from-a-pack-local-import)),
+  validating packs
+  ([Scenario 10](#scenario-10-validate-a-pack-before-you-share-it-pack-validate)),
+  and exporting/authoring packs
+  ([Scenario 11](#scenario-11-share-a-metric-you-authored-export--pr--import):
+  `mizan registry export`, `mizan pack init`/`add`) all work today. **Not built
+  yet:** importing from a git URL or the default templates repo (bare
+  `mizan registry import`). Also **not built:** importing or *running* a
+  `kind: EvalSet` manifest — P2 carries and validates the eval-set format only;
+  there is no eval-set runner or store.
 - **A tri-state flip default for compare templates** — the engine honors the
   template's `--flip-enabled` (including `false`), but the registry stores it
   as a plain `bool`, so "unset ⇒ default true" cannot be distinguished from an

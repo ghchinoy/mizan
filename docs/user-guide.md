@@ -366,10 +366,10 @@ dry run (no changes written): 0 inserted, 1 updated, 0 skipped, 0 conflicted, 0 
 > **Scope note.** Today `registry import` reads a **local path only**. Importing
 > directly from a git URL and importing from the default templates repo with a
 > bare `mizan registry import` are not available yet — they arrive in a later
-> release. Pack authoring/export (`registry export`, `pack init`) is likewise not
-> yet available. Pack **validation** (`pack validate`) **is** available — see
-> below, and reconciliation strategies (`--strategy newer|skip|overwrite|fork`,
-> `--dry-run`) are documented above.
+> release. Everything else is available: reconciliation strategies
+> (`--strategy newer|skip|overwrite|fork`, `--dry-run`) are documented above, and
+> pack **validation** (`pack validate`) and pack **authoring/export**
+> (`registry export`, `pack init`, `pack add`) are covered below.
 
 ### Validating a pack (`pack validate`)
 
@@ -430,6 +430,84 @@ can't fabricate a real asset). Steps 1–5 always run without credentials;
 > no eval-set runner yet. It exists so tools and future features have a stable,
 > schema-governed, git-shareable way to name a group of metrics for an asset
 > class. See `docs/collaboration-design.md` §3.4a.
+
+### Export (local templates → a pack dir)
+
+Sharing works the other way too: `registry export` writes templates from your
+local registry into a **pack directory** — one YAML file per template under
+`templates/` — which you then commit and open a PR against a packs repository.
+Select what to export with **exactly one** of `--id`, `--namespace`, or `--all`:
+
+```sh
+$ mizan registry export --out packs/acme --all
+2 written, 0 skipped (dest: packs/acme)
+  written: acme/quality -> templates/quality.yaml
+  written: acme/tone -> templates/tone.yaml
+```
+
+```sh
+$ mizan registry export --out packs/acme --namespace acme     # one namespace
+$ mizan registry export --out packs/acme --id acme/quality    # one template
+```
+
+The output filename is derived from the template's **slug** (the part of the id
+after `<namespace>/`), so `acme/quality` becomes `templates/quality.yaml`.
+`export` writes locally only — it never pushes; committing the pack dir and
+opening the PR is your step.
+
+### Authoring a pack (`pack init`, `pack add`)
+
+`pack init` scaffolds an empty, valid pack directory: a `mizan-pack.yaml`
+manifest (whose `metadata.name` is the namespace), an empty `templates/`
+directory, and an empty `evalsets/` directory (the carriage hook for shareable
+eval-sets). It emits **no** CI workflow — the pack-validation workflow lives once
+in the `mizan-templates` repo, not in every scaffolded pack.
+
+```sh
+$ mizan pack init packs/acme --name acme
+initialized pack "packs/acme" (namespace "acme")
+
+$ ls packs/acme
+evalsets/  mizan-pack.yaml  templates/
+```
+
+`pack add` is a thin convenience over `export` that writes **one** local
+template into a pack dir as a schema-valid file:
+
+```sh
+$ mizan pack add packs/acme --from acme/quality
+1 written, 0 skipped (dest: packs/acme)
+  written: acme/quality -> templates/quality.yaml
+```
+
+### The export → PR → import round-trip (the collaborator loop)
+
+This is the founding differentiator: a metric you author locally can be shared,
+reviewed, and adopted by a collaborator **without loss** — the same fields come
+back on the other side, and re-exporting produces byte-identical files.
+
+```sh
+# 1. Author or refine a metric locally.
+$ mizan registry create --id acme/quality --name "Quality" \
+    --kind pointwise --prompt 'Rate the response: {{response}}'
+
+# 2. Scaffold a pack and export the metric into it.
+$ mizan pack init packs/acme --name acme
+$ mizan registry export --out packs/acme --namespace acme
+
+# 3. Commit the pack dir and open a PR against your packs repo (your git step).
+$ git add packs/acme && git commit -m "add acme quality metric" && git push
+
+# 4. A collaborator (or you, elsewhere) imports the merged pack.
+$ mizan registry import ./mizan-templates
+1 inserted, 0 skipped (source: ./mizan-templates)
+  inserted: acme/quality
+```
+
+Round-trips are stable by construction: the codec canonicalizes the pack file
+(sorted keys, canonical `spec.kind`, computed fields omitted), so
+`export → import → export` is byte-identical and a custom_schema template's
+`contentHash` does not drift from JSON key ordering.
 
 ### Output format
 

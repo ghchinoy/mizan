@@ -1,0 +1,24 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+    id: acme/rubric-brand
+    name: Rubric Brand
+    version: 1.2.3
+spec:
+    kind: rubric
+    modalities:
+        - text
+    rubricGroups:
+        clarity:
+            - clear
+            - concise
+        tone:
+            - on-brand
+    ratingRubric:
+        clarity:
+            "1": poor
+            "5": great
+    rubricDetail:
+        scale:
+            min: 1
+            max: 5

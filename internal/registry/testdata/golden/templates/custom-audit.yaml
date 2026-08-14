@@ -1,0 +1,21 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+    id: acme/custom-audit
+    name: Custom Audit
+    version: 0.9.0
+spec:
+    kind: custom_schema
+    modalities:
+        - text
+    responseSchema:
+        alpha:
+            type: string
+        nested:
+            x: 2
+            "y": 1
+        required:
+            - zeta
+            - alpha
+        zeta:
+            type: number

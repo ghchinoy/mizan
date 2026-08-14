@@ -2,6 +2,8 @@ package registry
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -43,10 +45,33 @@ func TestGitPackBackendLoadRejectsNonDir(t *testing.T) {
 	}
 }
 
-func TestGitPackBackendSaveNotImplemented(t *testing.T) {
-	b := NewGitPackBackend("testdata", NewYAMLCodec(), SyncConfig{})
-	if err := b.Save(context.Background(), nil); err == nil {
-		t.Fatal("Save should report not-implemented in P2.1")
+// TestGitPackBackendSaveWritesTemplates covers P2.4 export write: Save creates
+// templates/ and writes one file per template, deriving the filename from the
+// validated slug (never the raw id), and rejects an id that fails the shape
+// guard. (The full Service.Export + round-trip acceptance lives in export_test.go.)
+func TestGitPackBackendSaveWritesTemplates(t *testing.T) {
+	dst := t.TempDir()
+	b := NewGitPackBackend(dst, NewYAMLCodec(), SyncConfig{})
+
+	// nil templates: creates the dir, writes nothing, no error.
+	if err := b.Save(context.Background(), nil); err != nil {
+		t.Fatalf("Save(nil): %v", err)
+	}
+
+	if err := b.Save(context.Background(), []MetricTemplate{
+		{ID: "acme/quality", Kind: KindPointwise},
+	}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, "templates", "quality.yaml")); err != nil {
+		t.Fatalf("expected templates/quality.yaml: %v", err)
+	}
+
+	// A malformed id is rejected at the path-derivation chokepoint (audit rec#3).
+	if err := b.Save(context.Background(), []MetricTemplate{
+		{ID: "../evil", Kind: KindPointwise},
+	}); err == nil {
+		t.Fatal("Save accepted a malformed id; want rejection")
 	}
 }
 

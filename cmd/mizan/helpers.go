@@ -146,6 +146,27 @@ func renderImportReport(w io.Writer, r registry.ImportReport) error {
 	return nil
 }
 
+// renderExportReport prints the outcome of `registry export` / `pack add`. Text
+// mode prints a one-line summary followed by the per-template actions; JSON mode
+// prints the whole report.
+func renderExportReport(w io.Writer, r registry.ExportReport) error {
+	if outputFormat == outputJSON {
+		return printJSON(w, r)
+	}
+	fmt.Fprintf(w, "%d written, %d skipped (dest: %s)\n", r.Written, r.Skipped, r.Dest)
+	for _, e := range r.Entries {
+		switch {
+		case e.Reason != "":
+			fmt.Fprintf(w, "  %s: %s (%s)\n", e.Action, e.ID, e.Reason)
+		case e.Path != "":
+			fmt.Fprintf(w, "  %s: %s -> %s\n", e.Action, e.ID, e.Path)
+		default:
+			fmt.Fprintf(w, "  %s: %s\n", e.Action, e.ID)
+		}
+	}
+	return nil
+}
+
 func joinModalities(ms []registry.Modality) string {
 	var s []string
 	for _, m := range ms {

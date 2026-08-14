@@ -3,6 +3,8 @@ package registry
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -436,4 +438,169 @@ func namespaceOf(id string) string {
 		return id[:i]
 	}
 	return id
+}
+
+// --- P2.4: export + pack authoring ------------------------------------------
+
+// Selector chooses which stored templates an Export writes. Exactly one of the
+// three modes must be set: a single ID, a Namespace (all templates whose id
+// begins "<namespace>/"), or All. It mirrors the `registry export`
+// `--id | --namespace | --all` flag group (design §3.7).
+type Selector struct {
+	ID        string // export the one template with this exact id
+	Namespace string // export every template in this namespace
+	All       bool   // export every template in the store
+}
+
+// ExportAction is the outcome recorded per template in an ExportReport.
+type ExportAction string
+
+const (
+	// ExportWritten means the template was written to the pack dir.
+	ExportWritten ExportAction = "written"
+	// ExportSkipped means the template was skipped because its id failed the
+	// "<namespace>/<slug>" shape guard, so no path-safe filename could be derived
+	// (audit rec#3); it is reported, never written.
+	ExportSkipped ExportAction = "skipped"
+)
+
+// ExportEntry is the per-template record in an ExportReport.
+type ExportEntry struct {
+	ID     string
+	Path   string // path written, relative to the pack dir (e.g. "templates/foo.yaml")
+	Action ExportAction
+	Reason string // human-readable note (e.g. why it was skipped)
+}
+
+// ExportReport summarizes an Export run.
+type ExportReport struct {
+	Dest    string
+	Written int
+	Skipped int
+	Entries []ExportEntry
+}
+
+// Export writes selected templates from the local store into a pack directory at
+// dst (one file per template under dst/templates/, design §3.3). It is the write
+// side of the round-trip: export → (human commits + PRs) → import.
+//
+// Namespaced-id enforcement on write (audit rec#3): the output filename is
+// derived from a VALIDATED slug via slugForID, never from a raw id, so a
+// malformed or hostile stored id (a second '/', a "..", a control character)
+// cannot escape the templates/ dir. Such an id is SKIPPED and reported rather
+// than written. custom_schema templates have their responseSchema canonicalized
+// by the codec on write, so a CLI-authored template's key order does not drift a
+// later re-export or its contentHash (P2.1 review #2).
+func (s *Service) Export(ctx context.Context, dst string, sel Selector) (ExportReport, error) {
+	if strings.TrimSpace(dst) == "" {
+		return ExportReport{}, fmt.Errorf("registry: export destination is required (a pack dir, e.g. packs/<name>)")
+	}
+	templates, err := s.selectForExport(ctx, sel)
+	if err != nil {
+		return ExportReport{}, err
+	}
+
+	report := ExportReport{Dest: dst}
+	ext := s.codec.Ext()
+	valid := make([]MetricTemplate, 0, len(templates))
+	// Written entries are staged, not yet committed to the report: a template's
+	// "written" status is only true once Save has landed all files. Skips, by
+	// contrast, are decided here (they never reach Save) so they go into the
+	// report immediately.
+	writtenEntries := make([]ExportEntry, 0, len(templates))
+	for _, t := range templates {
+		slug, err := slugForID(t.ID)
+		if err != nil {
+			report.Skipped++
+			report.Entries = append(report.Entries, ExportEntry{
+				ID:     t.ID,
+				Action: ExportSkipped,
+				Reason: err.Error(),
+			})
+			continue
+		}
+		valid = append(valid, t)
+		writtenEntries = append(writtenEntries, ExportEntry{
+			ID:     t.ID,
+			Path:   filepath.Join("templates", slug+"."+ext),
+			Action: ExportWritten,
+		})
+	}
+
+	backend := NewGitPackBackend(dst, s.codec, s.syncCfg)
+	if err := backend.Save(ctx, valid); err != nil {
+		// Save is all-or-nothing from the report's perspective: on failure the
+		// report claims no writes, so a caller that inspects it on the error path
+		// never sees files that did not land (review Opt#2). Skips are already
+		// recorded (they never reached Save).
+		return report, err
+	}
+	// Save succeeded: promote the staged writes into the report.
+	report.Written = len(writtenEntries)
+	report.Entries = append(report.Entries, writtenEntries...)
+	return report, nil
+}
+
+// selectForExport resolves a Selector to the templates to export, sorted by id
+// for deterministic output (so an export dir and its report are byte-stable).
+// Exactly one selector mode must be set.
+func (s *Service) selectForExport(ctx context.Context, sel Selector) ([]MetricTemplate, error) {
+	modes := 0
+	if sel.ID != "" {
+		modes++
+	}
+	if sel.Namespace != "" {
+		modes++
+	}
+	if sel.All {
+		modes++
+	}
+	if modes != 1 {
+		return nil, fmt.Errorf("registry: export requires exactly one of --id, --namespace, or --all")
+	}
+
+	switch {
+	case sel.ID != "":
+		t, err := s.store.Get(ctx, sel.ID)
+		if err != nil {
+			return nil, err
+		}
+		return []MetricTemplate{*t}, nil
+	case sel.Namespace != "":
+		ts, err := s.store.List(ctx, ListFilter{Namespace: sel.Namespace})
+		if err != nil {
+			return nil, err
+		}
+		// Defensive prefix filter: not every Store honors ListFilter.Namespace,
+		// so re-check here rather than trust the query to have narrowed it.
+		out := make([]MetricTemplate, 0, len(ts))
+		for _, t := range ts {
+			if namespaceOf(t.ID) == sel.Namespace {
+				out = append(out, t)
+			}
+		}
+		sortByID(out)
+		return out, nil
+	default:
+		ts, err := s.store.List(ctx, ListFilter{})
+		if err != nil {
+			return nil, err
+		}
+		sortByID(ts)
+		return ts, nil
+	}
+}
+
+// sortByID orders templates by id in place for deterministic export.
+func sortByID(ts []MetricTemplate) {
+	sort.Slice(ts, func(i, j int) bool { return ts[i].ID < ts[j].ID })
+}
+
+// InitPack scaffolds an empty, valid pack directory at dir with metadata.name =
+// namespace: a mizan-pack.yaml manifest, an empty templates/ dir, and an empty
+// evalsets/ dir (the §3.4a EvalSet carriage hook). It emits NO CI workflow
+// (design §6/P2.4). It is exposed on the Service so cmd/* scaffolds a pack
+// through the façade without importing the codec/YAML packages (the seam).
+func (s *Service) InitPack(_ context.Context, dir, namespace string) error {
+	return scaffoldPack(dir, namespace)
 }

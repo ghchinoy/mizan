@@ -328,6 +328,26 @@ func ValidatePack(root string) (*Report, error) {
 	return rep, nil
 }
 
+// ValidateTemplateSchema checks that a single MetricTemplate manifest's bytes
+// satisfy the strict JSON Schema (schema/metrictemplate.json) DIRECTLY — the
+// structural/JSON-Schema step only, without the identity, kind-specific, or
+// placeholder-consistency rules that the full ValidatePack layers on top. It is
+// the write-side counterpart used to assert that Export / `pack add` output is
+// schema-valid on its own, not merely re-importable, and reuses the same
+// compiled schema and YAML→JSON normalization as ValidatePack's structural step.
+// It returns nil when the document conforms, or an error describing the
+// violation(s).
+func ValidateTemplateSchema(data []byte) error {
+	v, err := yamlToJSONValue(data)
+	if err != nil {
+		return fmt.Errorf("registry: parse template: %w", err)
+	}
+	if err := metricTemplateSchema.Validate(v); err != nil {
+		return fmt.Errorf("registry: template violates schema/metrictemplate.json: %w", err)
+	}
+	return nil
+}
+
 // resolveReal returns the absolute, symlink-resolved form of p. It is the
 // canonical path used by containedPath so that containment comparisons are made
 // between two fully-resolved absolute paths (mixing relative/absolute or
