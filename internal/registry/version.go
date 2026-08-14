@@ -1,9 +1,23 @@
 package registry
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
+
+// ValidateSemver reports whether s parses as a semantic version, reusing the
+// SAME parser (parseSemver) that import reconciliation uses to order versions
+// (design/collaboration-design.md §3.8). It is the exported guard the CLI's
+// `registry create`/`update` --version flag calls so an authored version is
+// rejected with a clear error at authoring time rather than only being flagged
+// later by `pack validate` or silently treated as incomparable at import.
+func ValidateSemver(s string) error {
+	if _, ok := parseSemver(s); !ok {
+		return fmt.Errorf("%q is not valid semver (want MAJOR.MINOR.PATCH, e.g. 0.1.0)", s)
+	}
+	return nil
+}
 
 // compareVersions orders two template semver strings for import reconciliation
 // (design/collaboration-design.md §3.8). It returns (cmp, ok) where cmp is -1, 0,

@@ -73,6 +73,8 @@ registry-db     /home/you/.config/mizan/registry.db   default
 pack-cache      /home/you/.cache/mizan/packs          default
 templates-repo  github.com/ghchinoy/mizan-templates   default
 default-model   gemini-2.5-flash (built-in)           default
+author-name     (unset)                               default
+default-license (unset)                               default
 ```
 
 Each row is labelled by the **exact `config set` key**, so what `config show`
@@ -93,8 +95,14 @@ without one.
 `mizan config set` persists values to `<UserConfigDir>/mizan/.env` (e.g.
 `~/.config/mizan/.env` on Linux), created with restrictive permissions
 (`chmod 0600` on the file, `0700` on the directory). Valid keys: `api-endpoint`,
-`default-model`, `location`, `pack-cache`, `project-id`, `registry-db`,
-`staging-bucket`, `templates-repo`.
+`author-name`, `default-license`, `default-model`, `location`, `pack-cache`,
+`project-id`, `registry-db`, `staging-bucket`, `templates-repo`.
+
+The `author-name` and `default-license` keys are authoring conveniences:
+`registry create` falls back to them when you omit `--author` / `--license`, so
+you can set your identity once and have every new template you author carry it
+(an explicit flag always wins over the configured value — see the [Registry
+walkthrough](#registry-walkthrough)).
 
 You can also configure via environment variables instead of (or in addition
 to) the persisted file — real environment variables always win over the
@@ -110,6 +118,8 @@ to) the persisted file — real environment variables always win over the
 | Pack cache dir | `MIZAN_PACK_CACHE` |
 | Templates repo | `MIZAN_TEMPLATES_REPO` |
 | Default model | `MIZAN_DEFAULT_MODEL` |
+| Author name | `MIZAN_AUTHOR_NAME` |
+| Default license | `MIZAN_DEFAULT_LICENSE` |
 
 You can also point Mizan at an explicit env file with `MIZAN_ENV_FILE`.
 
@@ -180,6 +190,7 @@ $ mizan registry create --id demo/conciseness --name "Conciseness" \
     --model gemini-2.5-flash
 ID:             demo/conciseness
 Name:           Conciseness
+Version:        0.1.0
 Kind:           pointwise
 Modalities:     text
 Model:          gemini-2.5-flash
@@ -187,6 +198,11 @@ SamplingCount:  4
 Description:    Scores how concise a response is
 Prompt:         Rate how concise this response is from 0 (verbose) to 1 (concise). Response: {{response}}
 ```
+
+Every new template starts at **version `0.1.0`** unless you pass `--version`
+(the value is validated as [semver](https://semver.org); a malformed version is
+rejected at create time). This is a create-time default — it is *not* a
+configurable one, because every fresh template reasonably begins at `0.1.0`.
 
 Prompt templates use double-brace `{{var}}` placeholders. The check runs in
 **both directions** before any API call, so a mis-authored template or a stray
@@ -248,6 +264,46 @@ latency), `--modality` (repeatable; default `text`), `--tag` (repeatable),
 `--flip-enabled` (pairwise position-bias mitigation, default `true`; see the
 compare/pairwise flip note below).
 
+#### Authoring metadata (`--version`, `--license`, `--author`, `--input`)
+
+`registry create` and `registry update` also expose the template's metadata and
+declared inputs:
+
+- **`--version <semver>`** — the template version. Defaults to `0.1.0` at create
+  time; validated as semver (a malformed value is rejected).
+- **`--license <id>`** — a license id, e.g. `Apache-2.0`.
+- **`--author <name>`** — the primary author's name.
+- **`--input name:modality[:required]`** — a declared input placeholder
+  (**repeatable**). `modality` must be one of `text`, `image`, `audio`, `video`,
+  `music`; the optional `required` field parses as a boolean and **defaults to
+  `false`**. A malformed spec (missing modality, unknown modality, non-boolean
+  `required`, or a duplicate input name) is rejected with a clear error. On
+  `update`, `--input` **replaces** the template's entire input set (omitting it
+  leaves the existing inputs untouched).
+
+`--author` and `--license` fall back to the configured `author-name` /
+`default-license` (env `MIZAN_AUTHOR_NAME` / `MIZAN_DEFAULT_LICENSE`) when the
+flag is omitted at create time — an explicit flag always wins over the config
+value. This lets you set your identity once with `config set` and have every new
+template carry it:
+
+```sh
+$ mizan config set author-name "Jane Doe"
+$ mizan config set default-license Apache-2.0
+$ mizan registry create --id demo/quality --name "Quality" --kind pointwise \
+    --prompt "Rate {{response}}" --input response:text:true
+ID:             demo/quality
+Name:           Quality
+Version:        0.1.0
+Kind:           pointwise
+Modalities:     text
+License:        Apache-2.0
+Authors:        Jane Doe
+Input[response]: text (required=true)
+SamplingCount:  4
+Prompt:         Rate {{response}}
+```
+
 ### List
 
 ```sh
@@ -264,6 +320,7 @@ Filter with `--namespace <prefix>` or `--kind <kind>`.
 $ mizan registry get demo/conciseness
 ID:             demo/conciseness
 Name:           Conciseness
+Version:        0.1.0
 Kind:           pointwise
 Modalities:     text
 Model:          gemini-2.5-flash
@@ -282,6 +339,13 @@ $ mizan registry update demo/conciseness --description "Updated description"
 
 (Verified: updating just `--description` leaves the prompt, model, and every
 other field untouched.)
+
+The authoring-metadata flags work on `update` too: `--version` (re-validated as
+semver), `--license`, `--author`, and `--input`. Passing `--input` on update
+**replaces** the entire declared-input set; omit it to keep the existing inputs.
+Unlike `create`, `update` does **not** apply the `author-name` /
+`default-license` config fallback — it only changes a field when you pass its
+flag, so an existing template's metadata is never silently rewritten.
 
 ### Delete
 

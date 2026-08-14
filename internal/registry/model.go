@@ -21,6 +21,31 @@ const (
 	ModalityMusic Modality = "music"
 )
 
+// validModalities is the accepted asset-modality set, the single source of truth
+// for both ValidModality and ParseModality.
+var validModalities = map[Modality]bool{
+	ModalityText:  true,
+	ModalityImage: true,
+	ModalityAudio: true,
+	ModalityVideo: true,
+	ModalityMusic: true,
+}
+
+// ValidModality reports whether m is one of the accepted modalities.
+func ValidModality(m Modality) bool { return validModalities[m] }
+
+// ParseModality validates a user-supplied modality string and returns it as a
+// Modality, or an error naming the allowed set. It is the parse-boundary guard
+// the CLI's --input flag calls so a typo (e.g. "txt") fails clearly at authoring
+// time instead of producing an input the eval/validation path later rejects.
+func ParseModality(s string) (Modality, error) {
+	m := Modality(s)
+	if !ValidModality(m) {
+		return "", fmt.Errorf("unknown modality %q (want one of: text, image, audio, video, music)", s)
+	}
+	return m, nil
+}
+
 // MetricKind selects the evaluation path used for a template.
 type MetricKind string
 

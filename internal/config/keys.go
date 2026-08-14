@@ -86,6 +86,8 @@ func Fields() []Field {
 		{Key: "pack-cache", EnvVars: []string{"MIZAN_PACK_CACHE"}, Value: func(c *Config) string { return c.PackCacheDir }},
 		{Key: "templates-repo", EnvVars: []string{"MIZAN_TEMPLATES_REPO"}, Value: func(c *Config) string { return c.DefaultTemplatesRepo }},
 		{Key: "default-model", EnvVars: []string{"MIZAN_DEFAULT_MODEL"}, Value: func(c *Config) string { return c.DefaultModel }},
+		{Key: "author-name", EnvVars: []string{"MIZAN_AUTHOR_NAME"}, Value: func(c *Config) string { return c.AuthorName }},
+		{Key: "default-license", EnvVars: []string{"MIZAN_DEFAULT_LICENSE"}, Value: func(c *Config) string { return c.DefaultLicense }},
 	}
 }
 
