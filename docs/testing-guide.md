@@ -440,6 +440,87 @@ For the same guidance framed for end users, see "Pairwise flip and the
 `Choice` is authoritative" in `docs/user-guide.md`, and
 `docs/llm-as-judge-scenarios.md#scenario-2-compare-two-responses-pairwise`.
 
+### Compare two media assets (pairwise)
+
+The compare recipes above pit two **text** responses against each other. The
+same command compares two **media** assets — two images, two videos, two audio
+clips — by filling the baseline and candidate slots from `--gcs` (a pre-staged
+`gs://` URI) or `--file` (a local asset the engine stages for you) instead of
+`--baseline`/`--candidate`. Everything else is the pairwise path you already
+know (the CLI keeps `mizan eval pairwise` as its spelling); the difference is
+only where the two slots get their values, so the judge actually sees both
+assets and grounds its verdict in their content.
+
+Create a compare template whose baseline/candidate fields are media — declare
+the asset modality alongside `text`, and point the prompt's
+`{{baseline_…}}`/`{{candidate_…}}` placeholders at those fields:
+
+```sh
+$ mizan registry create --id demo/pairwise-image --name "Pairwise Image Compare" --kind pairwise \
+    --modality image --modality text --model gemini-2.5-flash \
+    --prompt "You are comparing two images as candidate pet photographs. Describe what each image shows, then choose which is the better, clearer photo of a domestic pet. Baseline: {{baseline_image}} Candidate: {{candidate_image}}" \
+    --baseline-field baseline_image --candidate-field candidate_image
+ID:             demo/pairwise-image
+Name:           Pairwise Image Compare
+Kind:           pairwise
+Modalities:     image,text
+Model:          gemini-2.5-flash
+SamplingCount:  4
+Prompt:         You are comparing two images as candidate pet photographs. Describe what each image shows, then choose which is the better, clearer photo of a domestic pet. Baseline: {{baseline_image}} Candidate: {{candidate_image}}
+```
+
+Run the compare with each media slot supplied via `--gcs` (live, captured in
+this pass against two public sample images:
+`gs://cloud-samples-data/generative-ai/image/320px-Felis_catus-cat_on_snow.jpg`
+as baseline, `.../a-man-and-a-dog.png` as candidate):
+
+```sh
+$ mizan eval pairwise --metric demo/pairwise-image \
+    --gcs baseline_image=gs://cloud-samples-data/generative-ai/image/320px-Felis_catus-cat_on_snow.jpg \
+    --gcs candidate_image=gs://cloud-samples-data/generative-ai/image/a-man-and-a-dog.png
+Choice:       BASELINE
+Explanation:  Image (A) shows a tabby cat standing in the snow, clearly and sharply focused as the sole subject. Image (B) shows a man and a dog taking a selfie together in a living room, where the dog shares prominence with the human. Image (A) is a clearer and better photo *of a domestic pet* because the pet is the singular and primary focus.
+```
+
+The `Explanation` describes what is **actually in each image** — a cat in the
+snow vs. a man-and-dog selfie — which is the proof that the judge saw the media
+rather than a literal URI string. As with every compare run, the pre-flight echo
+and (because flip is on by default) the flip warning go to **stderr**:
+
+```
+mizan: autorater → project=ghchinoy-genai-sa (src=env) location=us-central1 (src=env-file) model=gemini-2.5-flash (path=native)
+pairwise flip is enabled: the Choice is the de-biased, authoritative verdict; the explanation is a sampled artifact whose 'baseline'/'candidate' wording may reflect a flipped ordering and may not match your input. Disable flip (--flip-enabled=false on the template) to keep the explanation's wording aligned with the presented order, at the cost of position-bias mitigation.
+```
+
+`Choice` (and the wording of the `Explanation`) is live autorater output and
+varies run to run — see [Pairwise flip and why the Choice is
+authoritative](#pairwise-flip-and-why-the-choice-is-authoritative) above. Videos
+and audio compare the same way: declare `--modality video`/`--modality audio` on
+the template and pass `.mp4`/audio URIs to the same two slots.
+
+#### Media belongs in `--gcs`/`--file`, never a text slot
+
+A media reference only reaches the judge *as media* through `--gcs`/`--file`.
+Passing a `gs://` URI to a **text** slot
+(`--baseline`/`--candidate`/`--field`) is a hard error with a non-zero exit —
+the guard stops you before the URI is sent verbatim to the judge (which would
+never see the media, and would confabulate about a literal string):
+
+```sh
+$ mizan eval pairwise --metric demo/pairwise-image \
+    --baseline baseline_image=gs://cloud-samples-data/generative-ai/image/320px-Felis_catus-cat_on_snow.jpg \
+    --candidate candidate_image=gs://cloud-samples-data/generative-ai/image/a-man-and-a-dog.png
+error: --baseline baseline_image=<value> looks like a gs:// media URI passed as TEXT; a gs:// URI in a text slot is sent verbatim to the judge (which never sees the media). Use --gcs baseline_image=gs://cloud-samples-data/generative-ai/image/320px-Felis_catus-cat_on_snow.jpg to evaluate it as a media asset
+
+$ echo $?
+1
+```
+
+The error names the offending slot and hands you the exact `--gcs` form to use
+instead (a local media path in a text slot is caught the same way, pointing you
+at `--file`). The fix is the working run above: put each media asset in `--gcs`
+(pre-staged) or `--file` (local, auto-staged), never a text slot.
+
 ## Multimodal
 
 Native multimodal pointwise (and pairwise) evaluation is implemented: local
