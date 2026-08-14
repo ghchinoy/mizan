@@ -184,6 +184,101 @@ func TestInferFalseIsNoOp(t *testing.T) {
 	}
 }
 
+// TestInferFalseIsNoOpOnUpdate: --infer-inputs=false is a true no-op on the
+// UPDATE path too (design D6 — false is a no-op on BOTH create and update). Two
+// directions, both with a prompt that DOES contain {{placeholders}} inference
+// WOULD otherwise pick up, so each assertion fails if update ever infers when the
+// flag is false:
+//
+//	(a) with --input on update -> inputs are EXACTLY the --input set (replace),
+//	    the prompt's other placeholder is NOT added;
+//	(b) without --input on update -> the existing input set is UNCHANGED, the
+//	    prompt's placeholders are NOT added.
+func TestInferFalseIsNoOpOnUpdate(t *testing.T) {
+	newBase := func() *registry.MetricTemplate {
+		return &registry.MetricTemplate{
+			ID:                   "test/x",
+			Kind:                 registry.KindPointwise,
+			Version:              "1.0.0",
+			Inputs:               []registry.InputSpec{{Name: "existing", Modality: registry.ModalityText, Required: true}},
+			MetricPromptTemplate: "old {{existing}}",
+		}
+	}
+
+	// (a) update with --input=false-inference: prompt has {{kept}} and {{skipme}};
+	// only the explicit --input set survives, and NOTHING from the prompt is added.
+	gotA, stderrA, err := applyInfer(t, true, newBase(),
+		"--infer-inputs=false",
+		"--input", "kept:image:false",
+		"--prompt", "New {{kept}} and {{skipme}}")
+	if err != nil {
+		t.Fatalf("apply (a): %v", err)
+	}
+	wantA := []registry.InputSpec{{Name: "kept", Modality: registry.ModalityImage, Required: false}}
+	if !reflect.DeepEqual(gotA.Inputs, wantA) {
+		t.Fatalf("(a) Inputs = %#v, want exactly the --input set %#v (false must not infer {{skipme}})", gotA.Inputs, wantA)
+	}
+	if stderrA != "" {
+		t.Errorf("(a) stderr = %q, want empty with --infer-inputs=false", stderrA)
+	}
+
+	// (b) update without --input: existing inputs unchanged; the new prompt's
+	// placeholders ({{existing}} already declared, {{added}} new) are NOT inferred.
+	gotB, stderrB, err := applyInfer(t, true, newBase(),
+		"--infer-inputs=false",
+		"--prompt", "Now mentions {{existing}} and {{added}}")
+	if err != nil {
+		t.Fatalf("apply (b): %v", err)
+	}
+	wantB := []registry.InputSpec{{Name: "existing", Modality: registry.ModalityText, Required: true}}
+	if !reflect.DeepEqual(gotB.Inputs, wantB) {
+		t.Fatalf("(b) Inputs = %#v, want unchanged %#v (false must not infer {{added}})", gotB.Inputs, wantB)
+	}
+	if stderrB != "" {
+		t.Errorf("(b) stderr = %q, want empty with --infer-inputs=false", stderrB)
+	}
+}
+
+// TestInferDedupAcrossFieldsAndExplicitViaCLI: exercises the additive + dedup
+// path through the cmd/registry create flow (not just the InferInputs unit) when
+// a placeholder appears in BOTH the prompt and the system text AND one such name
+// is already declared explicitly via --input. Asserts (design D5):
+//   - a placeholder in both fields is inferred EXACTLY ONCE;
+//   - an explicitly-declared name is NOT re-inferred, keeps its explicit modality,
+//     and keeps its leading position;
+//   - a name appearing only in the system text is still inferred.
+func TestInferDedupAcrossFieldsAndExplicitViaCLI(t *testing.T) {
+	got, stderr, err := applyInfer(t, false, nil,
+		"--infer-inputs",
+		"--input", "shared:image:false", // explicit; also appears in BOTH fields below
+		"--prompt", "Prompt uses {{shared}} and {{both}}",
+		"--system", "System also uses {{shared}}, {{both}}, and {{sysonly}}")
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	want := []registry.InputSpec{
+		{Name: "shared", Modality: registry.ModalityImage, Required: false}, // explicit wins + keeps position, not re-inferred
+		{Name: "both", Modality: registry.ModalityText, Required: true},     // in both fields -> inferred once
+		{Name: "sysonly", Modality: registry.ModalityText, Required: true},  // system-only -> inferred
+	}
+	if !reflect.DeepEqual(got.Inputs, want) {
+		t.Fatalf("Inputs = %#v, want %#v (explicit wins/position, dedup across fields, system-only inferred)", got.Inputs, want)
+	}
+	// Non-vacuous stderr: names exactly the two inferred (once each), never the
+	// explicit "shared".
+	if !strings.Contains(stderr, "inferred 2") {
+		t.Errorf("stderr = %q, want 'inferred 2'", stderr)
+	}
+	for _, sub := range []string{"both", "sysonly"} {
+		if !strings.Contains(stderr, sub) {
+			t.Errorf("stderr %q missing inferred name %q", stderr, sub)
+		}
+	}
+	if strings.Contains(stderr, "shared") {
+		t.Errorf("stderr %q must not name the explicitly-declared 'shared'", stderr)
+	}
+}
+
 // TestInferScansSystemInstruction: placeholders in --system are inferred too
 // (inference scans the author-written prompt AND system text), consistent with
 // how validate.go treats both fields.
