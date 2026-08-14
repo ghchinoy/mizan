@@ -148,6 +148,14 @@ func scanCmdSeam(cmdRoot string) (scanned []string, violations []seamViolation, 
 			}
 		}
 		// (b) forbidden constructor references in non-test source files.
+		//
+		// This is a deliberately CONSERVATIVE, fail-safe check: it does a raw
+		// whole-file substring match, so it also matches a reference inside a
+		// comment or string literal (it favors a false positive over letting a
+		// real construction slip through). It scans only pkg.GoFiles — go/build
+		// classifies _test.go into TestGoFiles, so test files are correctly
+		// excluded. A cmd/* file that must legitimately mention one of these names
+		// in prose should reword it rather than weaken this guard.
 		for _, f := range pkg.GoFiles {
 			src, rerr := os.ReadFile(filepath.Join(path, f))
 			if rerr != nil {
@@ -178,22 +186,39 @@ func TestCmdImportSeam(t *testing.T) {
 		t.Fatalf("scan cmd seam: %v", err)
 	}
 
-	// Guard against a vacuous pass: the walk MUST have found cmd/mizan (this
-	// package). If enumeration silently found nothing, the test would otherwise
-	// "pass" while proving nothing.
-	if len(scanned) == 0 {
-		t.Fatal("seam scan found no cmd packages — enumeration is broken")
-	}
-	foundSelf := false
+	// Guard against a vacuous pass: EVERY top-level cmd/<x> dir that contains a
+	// main.go must appear in the scanned set. This derives the expected packages
+	// independently of the walk (a plain readdir for main.go), so it can't be
+	// fooled by the same bug — and unlike a single hard-coded "mizan" name it
+	// notices if any cmd package (e.g. cmd/mizan-desktop) is ever dropped or
+	// silently skipped (emptied of Go files → NoGoError). If enumeration returned
+	// nothing, this also fails.
+	scannedSet := make(map[string]bool, len(scanned))
 	for _, p := range scanned {
-		if filepath.Base(p) == "mizan" {
-			foundSelf = true
+		scannedSet[filepath.Base(p)] = true
+	}
+	entries, err := os.ReadDir(cmdRoot)
+	if err != nil {
+		t.Fatalf("read cmd root %q: %v", cmdRoot, err)
+	}
+	var wantPkgs []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(cmdRoot, e.Name(), "main.go")); err == nil {
+			wantPkgs = append(wantPkgs, e.Name())
 		}
 	}
-	if !foundSelf {
-		t.Fatalf("seam scan did not enumerate cmd/mizan; scanned=%v", scanned)
+	if len(wantPkgs) == 0 {
+		t.Fatal("no cmd/<x> package with a main.go found — enumeration expectation is broken")
 	}
-	t.Logf("seam scan enumerated %d cmd package(s): %v", len(scanned), scanned)
+	for _, w := range wantPkgs {
+		if !scannedSet[w] {
+			t.Fatalf("seam scan did not enumerate cmd/%s; scanned=%v, want at least %v", w, scanned, wantPkgs)
+		}
+	}
+	t.Logf("seam scan enumerated %d cmd package(s): %v (required: %v)", len(scanned), scanned, wantPkgs)
 
 	for _, v := range violations {
 		t.Errorf("SEAM VIOLATION: %s — cmd/* must depend on registry.Service/eval.Engine/config/wire ONLY (design §3.1/§3.11)", v)
