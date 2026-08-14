@@ -408,8 +408,20 @@ above (`--strategy`, `--dry-run`) apply unchanged.
 > strict host, and no `..`/option-looking path segments), any credentials embedded
 > in the URL are redacted from output and stored provenance, and the git process
 > runs under a timeout. A cloned repo is treated as **untrusted content**: reads
-> are confined to the checkout (symlinks that would escape the tree are skipped)
-> and bounded in size.
+> are confined to the checkout (symlinks that would escape the tree are skipped),
+> bounded per file, and bounded in aggregate (a total template-count and total-byte
+> ceiling across the whole import). The `ext::`/`file::` git transports are blocked
+> outright. Choosing a cleartext transport (`http`, `git://`) prints a one-line
+> warning, since any credentials embedded in such a URL travel unencrypted — prefer
+> `https`/`ssh`.
+>
+> **Requirements and residuals.** Mizan drives your system `git` (a modern
+> release — **git ≥ 2.20** — is assumed for the `--single-branch`/`--no-tags`
+> options used here). Submodules are intentionally **not** recursed: a pack tree is
+> read as-is, so a template referenced only through a submodule is not imported.
+> Clone size is bounded by the git timeout and the aggregate read cap but **not** by
+> a hard disk quota — that is a deployment concern; for an untrusted or high-volume
+> cache, mount `pack-cache` on a quota'd volume.
 
 ### Validating a pack (`pack validate`)
 

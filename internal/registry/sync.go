@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -30,6 +31,41 @@ var packNamespacePattern = regexp.MustCompile(`^[a-z0-9-]+$`)
 // (CWE-400). It is the ONE source of truth for that bound — cmd/mizan's --*-file
 // flags reference it too, so the CLI and the import reader stay in lockstep.
 const MaxTemplateFileBytes int64 = 1 << 20 // 1 MiB
+
+// maxImportTemplates and maxImportTotalBytes are the AGGREGATE read caps applied
+// across a whole import, complementing the per-file MaxTemplateFileBytes cap. A
+// hostile pack could otherwise ship an enormous NUMBER of individually-bounded
+// files and still exhaust memory on `registry import` (CWE-400); Load fails
+// closed with a clear error naming the limit once either budget is exceeded.
+// They are vars (not consts) solely so tests can lower them to trip the budget
+// cheaply — treat them as constants in production. Defaults (10,000 templates /
+// 64 MiB total) sit comfortably above any real pack yet well below a
+// memory-exhaustion threshold.
+var (
+	maxImportTemplates        = 10_000
+	maxImportTotalBytes int64 = 64 << 20 // 64 MiB
+)
+
+// loadBudget tracks the running aggregate read cost of a single Load so the
+// per-import caps are enforced across ALL packs, not merely per file. add records
+// one more template of n bytes and returns a fail-closed error if either
+// aggregate cap is exceeded.
+type loadBudget struct {
+	templates int
+	bytes     int64
+}
+
+func (bg *loadBudget) add(n int64) error {
+	bg.templates++
+	bg.bytes += n
+	if bg.templates > maxImportTemplates {
+		return fmt.Errorf("registry: import exceeds the aggregate template-count cap (%d); refusing", maxImportTemplates)
+	}
+	if bg.bytes > maxImportTotalBytes {
+		return fmt.Errorf("registry: import exceeds the aggregate size cap (%d bytes); refusing", maxImportTotalBytes)
+	}
+	return nil
+}
 
 // SyncConfig carries the ambient sync settings the composition root injects into
 // the Service (design §3.1). It is deliberately tiny: source selection is a
@@ -110,6 +146,11 @@ func gitEnv() []string {
 // redacted for any embedded credentials before it reaches an error message.
 var gitClone = func(ctx context.Context, remote, dest string) error {
 	cmd := exec.CommandContext(ctx, "git",
+		// Belt-and-suspenders transport lockdown (defense-in-depth alongside the
+		// scheme allow-list): forbid the ext:: (arbitrary-command) and file::
+		// (local-path) transports outright so a remote can never select them even
+		// if a future change loosened normalizeGitURL.
+		"-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never",
 		"clone", "--depth", "1", "--single-branch", "--no-tags",
 		"--", remote, dest)
 	cmd.Env = gitEnv()
@@ -125,7 +166,9 @@ var gitClone = func(ctx context.Context, remote, dest string) error {
 // prompts disabled, output redacted. --ff-only refuses a divergent history
 // rather than creating a merge commit in the cache.
 var gitPull = func(ctx context.Context, dest string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", dest, "pull", "--ff-only", "--no-tags")
+	cmd := exec.CommandContext(ctx, "git",
+		"-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never",
+		"-C", dest, "pull", "--ff-only", "--no-tags")
 	cmd.Env = gitEnv()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -136,15 +179,65 @@ var gitPull = func(ctx context.Context, dest string) error {
 
 // redactURL strips any userinfo (user:token@) from a URL so a credential a user
 // embedded in the remote never lands in an error message, a log line, or the
-// stored provenance Source. A value that does not parse is returned unchanged
-// (it carries no parseable userinfo to leak).
+// stored provenance Source. It handles a scheme-less input too (e.g.
+// "user:tok@host/o/r"), which url.Parse would not expose userinfo for, by
+// retrying with a synthetic scheme and stripping it back off. A value that
+// carries no parseable userinfo is returned unchanged.
 func redactURL(raw string) string {
-	u, err := url.Parse(raw)
-	if err != nil || u.User == nil {
-		return raw
+	if u, err := url.Parse(raw); err == nil && u.User != nil {
+		u.User = url.User("redacted")
+		return u.String()
 	}
-	u.User = url.User("redacted")
-	return u.String()
+	// Scheme-less input does not parse userinfo; retry with a synthetic scheme so
+	// an embedded credential is still redacted, then strip the scheme we added.
+	if !strings.Contains(raw, "://") {
+		if u, err := url.Parse("https://" + raw); err == nil && u.User != nil {
+			u.User = url.User("redacted")
+			return strings.TrimPrefix(u.String(), "https://")
+		}
+	}
+	return raw
+}
+
+// redactGitErr scrubs any of the given remote strings (and their redacted forms)
+// from an error surfaced by the git shell-out seam. It is applied at
+// resolveSource so that even a substituted (test) gitClone/gitPull whose error
+// echoes a credential-bearing URL cannot leak it — defense-in-depth on top of
+// the redaction the real gitClone/gitPull already perform on git's own output.
+func redactGitErr(err error, remotes ...string) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	for _, r := range remotes {
+		if r == "" {
+			continue
+		}
+		msg = strings.ReplaceAll(msg, r, redactURL(r))
+	}
+	return errors.New(msg)
+}
+
+// warnWriter is where the non-TLS transport warning is emitted. It is a package
+// var (defaulting to os.Stderr) so a test can capture the warning without
+// touching the real stderr.
+var warnWriter io.Writer = os.Stderr
+
+// warnIfInsecureTransport emits a one-line stderr warning when a normalized git
+// remote uses a cleartext/unauthenticated transport (http or git://). These
+// transports are intentionally still allowed (local-mirror use cases), but any
+// URL-embedded credentials travel in the clear over them, so the user is warned
+// once per import. The URL is redacted before it is printed.
+func warnIfInsecureTransport(normalizedURL string) {
+	u, err := url.Parse(normalizedURL)
+	if err != nil {
+		return
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http", "git":
+		fmt.Fprintf(warnWriter, "registry: WARNING: %s uses a cleartext/unauthenticated transport (%s); any URL-embedded credentials travel in the clear\n",
+			redactURL(normalizedURL), strings.ToLower(u.Scheme))
+	}
 }
 
 // redactBytes removes a raw remote string (and its redacted form) from git's
@@ -164,6 +257,13 @@ func redactBytes(out []byte, remote string) string {
 // misread as a URL), and a non-existent "host.tld/owner/repo"-shaped value is
 // treated as a scheme-less remote (the shape of the shipped DefaultTemplatesRepo,
 // github.com/ghchinoy/mizan-templates).
+//
+// BOUNDARY (intentional): the scheme-less classifier keys on the first path
+// segment looking like a hostname — it contains a dot and does not begin with
+// one. So a NON-EXISTENT dotted-first-segment value such as "my.thing/x" is
+// classified as a remote, while "./x", "../x", and any path that EXISTS on disk
+// stay local. The existing-path check runs first, so a real local directory
+// named "my.thing" is always read as a local path regardless of its dot.
 func isGitSource(src string) bool {
 	if strings.Contains(src, "://") {
 		return true
@@ -188,7 +288,7 @@ func isGitSource(src string) bool {
 // normalized to https.
 func normalizeGitURL(src string) (string, error) {
 	if strings.HasPrefix(src, "-") {
-		return "", fmt.Errorf("registry: refusing git remote %q: leading '-' could be read as a git option (argument injection)", src)
+		return "", fmt.Errorf("registry: refusing git remote %q: leading '-' could be read as a git option (argument injection)", redactURL(src))
 	}
 	raw := src
 	if !strings.Contains(raw, "://") {
@@ -196,22 +296,22 @@ func normalizeGitURL(src string) (string, error) {
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return "", fmt.Errorf("registry: invalid git remote %q: %w", src, err)
+		return "", fmt.Errorf("registry: invalid git remote %q: %w", redactURL(src), err)
 	}
 	scheme := strings.ToLower(u.Scheme)
 	if !allowedGitSchemes[scheme] {
-		return "", fmt.Errorf("registry: refusing git remote %q: scheme %q is not in the allow-list (https, http, ssh, git)", src, u.Scheme)
+		return "", fmt.Errorf("registry: refusing git remote %q: scheme %q is not in the allow-list (https, http, ssh, git)", redactURL(src), u.Scheme)
 	}
 	if u.Host == "" || !gitHostPattern.MatchString(u.Host) {
-		return "", fmt.Errorf("registry: refusing git remote %q: invalid host %q", src, u.Host)
+		return "", fmt.Errorf("registry: refusing git remote %q: invalid host %q", redactURL(src), u.Host)
 	}
 	segs := pathSegments(u.Path)
 	if len(segs) < 1 {
-		return "", fmt.Errorf("registry: refusing git remote %q: missing repository path", src)
+		return "", fmt.Errorf("registry: refusing git remote %q: missing repository path", redactURL(src))
 	}
 	for _, seg := range segs {
 		if seg == "." || seg == ".." || !gitPathSegmentPattern.MatchString(seg) {
-			return "", fmt.Errorf("registry: refusing git remote %q: invalid path segment %q", src, seg)
+			return "", fmt.Errorf("registry: refusing git remote %q: invalid path segment %q", redactURL(src), seg)
 		}
 	}
 	u.Scheme = scheme
@@ -241,7 +341,7 @@ func cacheDirFor(cacheRoot, normalizedURL string) (string, error) {
 	}
 	u, err := url.Parse(normalizedURL)
 	if err != nil {
-		return "", fmt.Errorf("registry: invalid git remote %q: %w", normalizedURL, err)
+		return "", fmt.Errorf("registry: invalid git remote %q: %w", redactURL(normalizedURL), err)
 	}
 	host := u.Hostname() // host without port; a port would not be a safe dir component
 	if host == "" || !gitPathSegmentPattern.MatchString(host) {
@@ -249,7 +349,7 @@ func cacheDirFor(cacheRoot, normalizedURL string) (string, error) {
 	}
 	segs := pathSegments(u.Path)
 	if len(segs) < 1 {
-		return "", fmt.Errorf("registry: refusing cache dir: missing repository path in %q", normalizedURL)
+		return "", fmt.Errorf("registry: refusing cache dir: missing repository path in %q", redactURL(normalizedURL))
 	}
 	// Strip a trailing ".git" from the final repo segment for a tidy cache path.
 	segs[len(segs)-1] = strings.TrimSuffix(segs[len(segs)-1], ".git")
@@ -299,7 +399,15 @@ func NewGitPackBackend(src string, codec Codec, cfg SyncConfig) *GitPackBackend 
 // path. It performs no I/O and never blocks, so it is safe to call before Load.
 func (b *GitPackBackend) Describe() SourceInfo {
 	if isGitSource(b.src) {
-		return SourceInfo{Type: "git", Origin: redactURL(b.src)}
+		// Stamp the NORMALIZED (and redacted) URL so provenance matches the
+		// cache-dir derivation and the seam-pivot dedup (a scheme-less src and its
+		// https form resolve to one origin). It never fails or does I/O: if the URL
+		// does not normalize, fall back to the redacted raw src.
+		origin := redactURL(b.src)
+		if normalized, err := normalizeGitURL(b.src); err == nil {
+			origin = redactURL(normalized)
+		}
+		return SourceInfo{Type: "git", Origin: origin}
 	}
 	return SourceInfo{Type: "local", Origin: b.src}
 }
@@ -318,6 +426,7 @@ func (b *GitPackBackend) resolveSource(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	warnIfInsecureTransport(normalized)
 	dest, err := cacheDirFor(b.cfg.PackCacheDir, normalized)
 	if err != nil {
 		return "", err
@@ -326,15 +435,25 @@ func (b *GitPackBackend) resolveSource(ctx context.Context) (string, error) {
 	defer cancel()
 	if isGitCheckout(dest) {
 		if err := gitPull(ctx, dest); err != nil {
-			return "", err
+			return "", redactGitErr(err, normalized, b.src)
 		}
 		return dest, nil
+	}
+	// A non-empty dest that is NOT a valid checkout (an interrupted clone, or dirty
+	// leftovers) would wedge the cache: git pull has no .git to work with and git
+	// clone refuses a non-empty target, so `import` would fail until a human runs
+	// `rm`. Remove the partial dest before re-cloning. dest is containment-checked
+	// under the cache root by cacheDirFor, so this RemoveAll cannot escape it.
+	if _, err := os.Stat(dest); err == nil {
+		if err := os.RemoveAll(dest); err != nil {
+			return "", fmt.Errorf("registry: clear stale cache dir: %w", err)
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
 		return "", fmt.Errorf("registry: create cache dir: %w", err)
 	}
 	if err := gitClone(ctx, normalized, dest); err != nil {
-		return "", err
+		return "", redactGitErr(err, normalized, b.src)
 	}
 	return dest, nil
 }
@@ -551,9 +670,10 @@ func (b *GitPackBackend) Load(ctx context.Context) ([]MetricTemplate, error) {
 		return nil, err
 	}
 
+	budget := &loadBudget{}
 	var out []MetricTemplate
 	for _, pd := range packDirs {
-		ts, err := b.loadPack(resolvedRoot, pd)
+		ts, err := b.loadPack(resolvedRoot, pd, budget)
 		if err != nil {
 			return nil, err
 		}
@@ -599,7 +719,7 @@ func discoverPackDirs(root string) ([]string, error) {
 // discipline to the untrusted cloned tree: escapes and non-regular entries are
 // skipped (defensive), and a path that cannot be resolved (dangling symlink) is
 // fail-closed skipped.
-func (b *GitPackBackend) loadPack(resolvedRoot, packDir string) ([]MetricTemplate, error) {
+func (b *GitPackBackend) loadPack(resolvedRoot, packDir string, budget *loadBudget) ([]MetricTemplate, error) {
 	templatesDir := filepath.Join(packDir, "templates")
 	if fi, err := os.Lstat(templatesDir); err != nil || !fi.IsDir() {
 		return nil, nil
@@ -635,6 +755,11 @@ func (b *GitPackBackend) loadPack(resolvedRoot, packDir string) ([]MetricTemplat
 		}
 		data, err := readCappedFile(path)
 		if err != nil {
+			return nil, err
+		}
+		// Aggregate read cap (across all packs in this import): fail closed once the
+		// running template count or total bytes exceeds the budget (CWE-400).
+		if err := budget.add(int64(len(data))); err != nil {
 			return nil, err
 		}
 		t, err := b.codec.Unmarshal(data)
