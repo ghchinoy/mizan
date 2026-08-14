@@ -37,6 +37,15 @@ type YAMLCodec struct{}
 // NewYAMLCodec returns the default YAML codec.
 func NewYAMLCodec() YAMLCodec { return YAMLCodec{} }
 
+// MarshalTemplate serializes t to canonical pack YAML using the default codec.
+// It is the seam-friendly entry point for frontends (cmd/*) that need to write a
+// pack manifest — e.g. `rubric generate`'s draft template — WITHOUT constructing
+// the codec themselves (the codec is an internal detail wire injects into the
+// Service). The output round-trips through Unmarshal / registry import unchanged.
+func MarshalTemplate(t *MetricTemplate) ([]byte, error) {
+	return YAMLCodec{}.Marshal(t)
+}
+
 // Ext returns the file extension the codec writes ("yaml").
 func (YAMLCodec) Ext() string { return "yaml" }
 

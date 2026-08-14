@@ -17,6 +17,7 @@ import (
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/registry/sqlite"
+	"github.com/ghchinoy/mizan/internal/rubricgen"
 )
 
 // closableEvalClient is the native EvaluationClient the composition root builds
@@ -62,6 +63,23 @@ func OpenService(cfg *config.Config) (*registry.Service, func() error, error) {
 		}),
 	)
 	return svc, store.Close, nil
+}
+
+// NewRubricGenerator builds the ADC-authenticated adaptive-rubric generation
+// client (Stage 1) from config. It is the composition-root seam for the sync
+// `:generateInstanceRubrics` REST call used by `rubric generate` (CUJ 7) and
+// `eval adaptive` (CUJ 8), so cmd/* depends on the rubricgen.Client interface
+// only and never builds the authed transport itself.
+//
+// It requires a project id (generation is a live Vertex call). The endpoint
+// override is validated against the *.googleapis.com allow-list inside
+// rubricgen.NewRESTClient BEFORE the ADC bearer-token client is constructed
+// (token-exfil defense, mirroring NewEngine's genai base-URL guard).
+func NewRubricGenerator(ctx context.Context, cfg *config.Config) (rubricgen.Client, error) {
+	if cfg.ProjectID == "" {
+		return nil, config.ErrMissingProjectID
+	}
+	return rubricgen.NewRESTClient(ctx, cfg.ProjectID, cfg.Location, cfg.APIEndpoint)
 }
 
 // NewEngine returns an eval.Engine wired to a live EvaluationClient targeting

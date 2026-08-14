@@ -48,6 +48,12 @@ const templateIDRegex = `^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$`
 
 var templateIDPattern = regexp.MustCompile(templateIDRegex)
 
+// ValidateTemplateID is the exported wrapper over validateTemplateID so frontends
+// (cmd/*) can validate a user-supplied id (e.g. `eval adaptive --save-as`) with
+// the SAME single source of truth the ingest boundary uses — no hand-rolled id
+// validation elsewhere.
+func ValidateTemplateID(id string) error { return validateTemplateID(id) }
+
 // validateTemplateID rejects a metadata.id that is empty or not of the
 // "<namespace>/<slug>" shape.
 func validateTemplateID(id string) error {
