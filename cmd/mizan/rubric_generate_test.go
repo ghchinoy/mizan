@@ -194,6 +194,52 @@ func TestGenerateRubricGroupsHappyPath(t *testing.T) {
 	}
 }
 
+// TestWriteDraftRefusesSymlinkAndExisting proves the draft write does not follow
+// a pre-planted symlink and does not clobber an existing file (LOW-2). A fresh
+// path succeeds with 0600 perms.
+func TestWriteDraftRefusesSymlinkAndExisting(t *testing.T) {
+	dir := t.TempDir()
+
+	// Fresh path: succeeds, restrictive perms.
+	fresh := filepath.Join(dir, "fresh.yaml")
+	if err := writeDraft(fresh, []byte("kind: rubric\n")); err != nil {
+		t.Fatalf("writeDraft(fresh) = %v, want nil", err)
+	}
+	info, err := os.Lstat(fresh)
+	if err != nil {
+		t.Fatalf("lstat fresh: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Errorf("draft perms = %o, want 600", info.Mode().Perm())
+	}
+
+	// Existing regular file: O_EXCL refuses to overwrite.
+	if err := writeDraft(fresh, []byte("x")); err == nil {
+		t.Error("writeDraft over an existing file = nil, want error (no clobber)")
+	}
+
+	// Pre-planted symlink at the target: O_NOFOLLOW/O_EXCL refuse to follow it, so
+	// the sensitive link target is never written through.
+	secret := filepath.Join(dir, "secret.txt")
+	if err := os.WriteFile(secret, []byte("original"), 0o600); err != nil {
+		t.Fatalf("seed secret: %v", err)
+	}
+	link := filepath.Join(dir, "link.yaml")
+	if err := os.Symlink(secret, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	if err := writeDraft(link, []byte("attacker")); err == nil {
+		t.Error("writeDraft through a symlink = nil, want error (no symlink follow)")
+	}
+	got, err := os.ReadFile(secret)
+	if err != nil {
+		t.Fatalf("read secret: %v", err)
+	}
+	if string(got) != "original" {
+		t.Errorf("symlink target was modified through the draft write: %q", got)
+	}
+}
+
 func TestRubricGenerateFlagValidation(t *testing.T) {
 	// A fake is installed but must never be reached: each case fails on local
 	// validation BEFORE the generator is built.
@@ -211,6 +257,8 @@ func TestRubricGenerateFlagValidation(t *testing.T) {
 		{"bad-id", []string{"--sample", "s", "--id", "NotValid", "--out", out}},
 		{"bad-recipe", []string{"--sample", "s", "--id", "a/b", "--out", out, "--recipe", "Bad Recipe"}},
 		{"bad-group", []string{"--sample", "s", "--id", "a/b", "--out", out, "--group-name", "bad\nname"}},
+		// CRIT-1: a hostile --location is rejected locally, before any authed call.
+		{"location-host-injection", []string{"--sample", "s", "--id", "a/b", "--out", out, "--location", "evil.com/"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

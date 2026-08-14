@@ -21,7 +21,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
+	"time"
 
 	"google.golang.org/api/option"
 	htransport "google.golang.org/api/transport/http"
@@ -40,6 +43,11 @@ const maxResponseBytes = 8 << 20 // 8 MiB
 // maxRubrics caps how many generated rubrics are accepted from one response, so a
 // pathological response cannot flood the draft template / registry.
 const maxRubrics = 1024
+
+// generateTimeout bounds the whole generation call so a slow or malicious
+// endpoint cannot hang the CLI indefinitely (slowloris-style local DoS). The
+// 8 MiB read cap bounds memory; this bounds time. (LOW-1)
+const generateTimeout = 120 * time.Second
 
 // Rubric mirrors GoogleCloudAiplatformV1beta1Rubric (v1beta1 REST; absent from the
 // Go proto). Only the fields Mizan consumes are modeled; unknown fields are
@@ -160,20 +168,35 @@ func NewRESTClient(ctx context.Context, projectID, location, apiEndpoint string)
 	}, nil
 }
 
-// restBaseURL computes the https base URL for the generation endpoint and gates
-// any override through the same allow-list the native/genai paths use.
+// restBaseURL computes the https base URL for the generation endpoint. It gates
+// EVERY attacker-reachable input (the --location/MIZAN_LOCATION location and the
+// MIZAN_API_ENDPOINT override) through the shared config allow-lists, derives the
+// canonical dial host ONCE, and builds the URL only from that validated host — so
+// the representation that is validated and the representation that is dialed can
+// never diverge (the CRIT-1/CRIT-2 credential-redirect class).
 //
 //   - apiEndpoint override: validated via config.ValidateEndpoint (rejects a host
-//     that is not *.googleapis.com unless MIZAN_ALLOW_CUSTOM_ENDPOINT=1), then its
-//     bare host is used over https. Never send the ADC token to an unvalidated host.
-//   - otherwise: the regional host {loc}-aiplatform.googleapis.com; "" and
-//     "global" map to the bare global host aiplatform.googleapis.com (mirroring
-//     eval.endpointFor).
+//     that is not *.googleapis.com, or that carries a path/userinfo/query/fragment,
+//     unless MIZAN_ALLOW_CUSTOM_ENDPOINT=1), then its bare host is used over https.
+//   - otherwise: the location is validated via config.ValidateLocation and the
+//     regional host {loc}-aiplatform.googleapis.com is built from the validated
+//     label; "" and "global" map to the bare global host aiplatform.googleapis.com
+//     (mirroring eval.endpointFor).
+//
+// As a final belt-and-suspenders step the assembled base is re-parsed with
+// url.Parse and its host re-asserted against the Google-only allow-list before it
+// is ever handed to the ADC-authenticated transport (skipped only under the
+// MIZAN_ALLOW_CUSTOM_ENDPOINT=1 escape hatch, which the earlier validators
+// already honored).
 func restBaseURL(location, apiEndpoint string) (string, error) {
+	var base string
 	if apiEndpoint != "" {
 		if err := config.ValidateEndpoint(apiEndpoint); err != nil {
 			return "", err
 		}
+		// Derive the canonical dial host ONCE from the validated endpoint. Because
+		// ValidateEndpoint has already rejected any '/@?#\' in the host, these trims
+		// only strip an optional scheme/trailing slash and cannot smuggle a path.
 		host := apiEndpoint
 		host = strings.TrimPrefix(host, "https://")
 		host = strings.TrimPrefix(host, "http://")
@@ -181,13 +204,31 @@ func restBaseURL(location, apiEndpoint string) (string, error) {
 		if h, _, err := net.SplitHostPort(host); err == nil {
 			host = h
 		}
-		return "https://" + host, nil
+		base = "https://" + host
+	} else {
+		loc := locationOrDefault(location)
+		if err := config.ValidateLocation(loc); err != nil {
+			return "", fmt.Errorf("rubricgen: %w", err)
+		}
+		if loc == "global" {
+			base = "https://aiplatform.googleapis.com"
+		} else {
+			base = "https://" + loc + "-aiplatform.googleapis.com"
+		}
 	}
-	loc := locationOrDefault(location)
-	if loc == "global" {
-		return "https://aiplatform.googleapis.com", nil
+
+	// Defense-in-depth: parse the FINAL assembled base and re-assert its host is
+	// Google-only before the ADC-authenticated client is built. The custom-endpoint
+	// escape hatch (already honored by ValidateEndpoint above) is respected here
+	// too, so an operator-authorized non-Google host is not double-rejected.
+	u, err := url.Parse(base)
+	if err != nil || u.Hostname() == "" {
+		return "", fmt.Errorf("rubricgen: could not parse assembled base URL %q", base)
 	}
-	return "https://" + loc + "-aiplatform.googleapis.com", nil
+	if os.Getenv("MIZAN_ALLOW_CUSTOM_ENDPOINT") != "1" && !config.EndpointHostAllowed(u.Hostname()) {
+		return "", fmt.Errorf("rubricgen: refusing to dial non-Google host %q (assembled from location/endpoint)", u.Hostname())
+	}
+	return base, nil
 }
 
 // locationOrDefault normalizes an empty location to "global" (the bare-host case),
@@ -208,6 +249,10 @@ func (c *RESTClient) Generate(ctx context.Context, contents []InstanceContent, s
 	if len(contents) == 0 {
 		return nil, fmt.Errorf("rubricgen: at least one content is required")
 	}
+
+	// Bound the whole call so a slow/stalled endpoint cannot hang the CLI (LOW-1).
+	ctx, cancel := context.WithTimeout(ctx, generateTimeout)
+	defer cancel()
 
 	body, err := json.Marshal(generateRequest{
 		Contents:                       contents,

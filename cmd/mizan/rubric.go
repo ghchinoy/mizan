@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -240,8 +241,8 @@ func newRubricGenerateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := os.WriteFile(out, yamlBytes, 0o600); err != nil {
-				return fmt.Errorf("write draft %q: %w", out, err)
+			if err := writeDraft(out, yamlBytes); err != nil {
+				return err
 			}
 
 			if err := renderRubricCriteria(cmd.OutOrStdout(), groupName, rubrics); err != nil {
@@ -264,12 +265,36 @@ func newRubricGenerateCmd() *cobra.Command {
 	return cmd
 }
 
+// writeDraft writes the draft template YAML without following a symlink at the
+// target path. os.WriteFile would follow (and truncate) a pre-planted symlink,
+// letting an attacker who controls a predictable --out path redirect the write;
+// O_EXCL|O_NOFOLLOW refuses both an existing file and a symlink so the draft only
+// ever lands at a fresh, regular path. Perms stay restrictive (0600). (LOW-2)
+func writeDraft(out string, data []byte) error {
+	f, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600) //nolint:gosec // out is an explicit operator-supplied path; O_EXCL|O_NOFOLLOW hardens it
+	if err != nil {
+		return fmt.Errorf("write draft %q: %w", out, err)
+	}
+	if _, werr := f.Write(data); werr != nil {
+		_ = f.Close()
+		return fmt.Errorf("write draft %q: %w", out, werr)
+	}
+	if cerr := f.Close(); cerr != nil {
+		return fmt.Errorf("write draft %q: %w", out, cerr)
+	}
+	return nil
+}
+
 // applyRubricTarget validates and applies the per-invocation --project/--location
 // overrides used by the rubric-generation commands, at the TOP of the precedence
-// chain (flag > env > .env > default). It validates --project with the same
-// canonical guard the eval path uses BEFORE it reaches Vertex.
+// chain (flag > env > .env > default). It validates --project and --location with
+// the same canonical guards the eval/rubricgen paths use BEFORE they reach Vertex,
+// so a hostile value is a crisp local error rather than a redirected bearer token.
 func applyRubricTarget(cfg *config.Config, project, location string) error {
 	if err := config.ValidateProjectID(project); err != nil {
+		return err
+	}
+	if err := config.ValidateLocation(location); err != nil {
 		return err
 	}
 	applyProjectOverride(cfg, project)

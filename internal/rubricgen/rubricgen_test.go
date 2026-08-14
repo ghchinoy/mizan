@@ -203,6 +203,21 @@ func TestRestBaseURL(t *testing.T) {
 		{name: "valid-endpoint-override", apiEndpoint: "us-east4-aiplatform.googleapis.com", want: "https://us-east4-aiplatform.googleapis.com"},
 		{name: "valid-endpoint-with-port", apiEndpoint: "us-west1-aiplatform.googleapis.com:443", want: "https://us-west1-aiplatform.googleapis.com"},
 		{name: "hostile-endpoint-rejected", apiEndpoint: "evil.example.com", wantErr: true},
+
+		// CRIT-1: a --location / MIZAN_LOCATION that carries authority-structural
+		// bytes must be REJECTED before the ADC bearer token is attached — it must
+		// never assemble a base whose real host is the attacker's.
+		{name: "location-slash-injection-rejected", location: "evil.com/", wantErr: true},
+		{name: "location-fragment-injection-rejected", location: "evil.com#", wantErr: true},
+		{name: "location-userinfo-injection-rejected", location: "@evil.com/", wantErr: true},
+		{name: "location-query-injection-rejected", location: "evil.com?", wantErr: true},
+
+		// CRIT-2: a crafted apiEndpoint whose real authority is evil.com must be
+		// REJECTED even though the string "ends with" .googleapis.com.
+		{name: "endpoint-path-differential-rejected", apiEndpoint: "evil.com/foo.googleapis.com", wantErr: true},
+		{name: "endpoint-path-dot-differential-rejected", apiEndpoint: "evil.com/.googleapis.com", wantErr: true},
+		{name: "endpoint-fragment-differential-rejected", apiEndpoint: "evil.com#.googleapis.com", wantErr: true},
+		{name: "endpoint-query-differential-rejected", apiEndpoint: "evil.com?.googleapis.com", wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

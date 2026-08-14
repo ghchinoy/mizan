@@ -11,6 +11,7 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -19,6 +20,14 @@ import (
 // endpoint 404s and must never be used (spike-core). Callers close the returned
 // client. The concrete *aiplatform.EvaluationClient satisfies EvaluationClient.
 func NewClient(ctx context.Context, location, apiEndpoint string) (*aiplatform.EvaluationClient, error) {
+	// Validate the location BEFORE it is concatenated into the regional host and
+	// handed to the ADC-authenticated transport: an unvalidated location can move
+	// the real authority to an attacker host and exfiltrate the bearer token
+	// (shared source-of-truth guard, same class as the endpoint allow-list).
+	// endpointFor already validates the apiEndpoint override at config load.
+	if err := config.ValidateLocation(location); err != nil {
+		return nil, err
+	}
 	return aiplatform.NewEvaluationClient(ctx, option.WithEndpoint(endpointFor(location, apiEndpoint)))
 }
 
