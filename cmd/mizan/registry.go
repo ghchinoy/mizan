@@ -42,6 +42,10 @@ type templateFlags struct {
 	license string
 	author  string
 	inputs  []string // repeatable "name:modality[:required]" -> spec.inputs
+	// inferInputs, when set, scans the (post-apply) prompt/system text for
+	// {{name}} placeholders and ADDS an input for each one not already declared
+	// and not reserved (placeholder-inference design D1). Opt-in, additive.
+	inferInputs bool
 	// rubric (KindRubric) authoring
 	rubricGroups     []string // repeatable "name=criterion one;criterion two"
 	rubricGroupsFile string   // JSON object {"group": ["crit1", ...], ...}
@@ -86,6 +90,11 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	// StringArrayVar (not StringSliceVar): each value is kept intact and parsed
 	// on ':' below, mirroring --rubric-group's repeatable pattern.
 	fl.StringArrayVar(&f.inputs, "input", nil, `declared input as "name:modality[:required]" (repeatable; modality one of text|image|audio|video|music; required defaults to false). On update, replaces all inputs`)
+	// Opt-in placeholder inference (placeholder-inference design D1). Off by
+	// default: inference guesses modality=text, which can be wrong, so it stays
+	// explicit and reversible. Additive to --input (D5): explicit entries win,
+	// inference only ADDS placeholders not already declared and not reserved.
+	fl.BoolVar(&f.inferInputs, "infer-inputs", false, `also declare spec.inputs by scanning the prompt/system text for {{name}} placeholders (defaults each to modality=text, required=true). Additive: explicit --input entries win and are never overridden; the reserved {{response}} token is excluded. On update, runs after --input replaces the set, adding only placeholders not already declared`)
 }
 
 // buildInputs parses the repeatable --input flags into spec.inputs. Each spec is
@@ -378,6 +387,31 @@ func (f *templateFlags) apply(cmd *cobra.Command, t *registry.MetricTemplate, up
 		}
 		if schema != nil {
 			t.ResponseSchema = schema
+		}
+	}
+
+	// Placeholder inference (--infer-inputs, placeholder-inference design). Runs
+	// LAST so it scans the FINAL prompt/system text — after --prompt/--system are
+	// applied (create) and after the explicit --input set is applied or REPLACED
+	// (update, D6). Inference is ADDITIVE + NON-DESTRUCTIVE (D5): it only APPENDS
+	// inputs for {{name}} placeholders not already declared by name and not
+	// reserved (e.g. {{response}}, D3), each defaulted to modality=text,
+	// required=true (D4). Explicit --input entries keep their position and win on
+	// any name collision. A one-line stderr summary reports what was inferred so
+	// the author can correct a wrong modality by declaring that input explicitly.
+	// Gated on the flag VALUE (not merely "changed"), so --infer-inputs=false is a
+	// no-op on both create and update.
+	if f.inferInputs {
+		inferred := registry.InferInputs(t.Inputs, t.MetricPromptTemplate, t.SystemInstruction)
+		t.Inputs = append(t.Inputs, inferred...)
+		if len(inferred) == 0 {
+			fmt.Fprintln(cmd.ErrOrStderr(), "--infer-inputs: no new input placeholders inferred from prompt text")
+		} else {
+			names := make([]string, len(inferred))
+			for i, in := range inferred {
+				names[i] = in.Name
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "--infer-inputs: inferred %d input(s) (modality=text, required=true): %s\n", len(inferred), strings.Join(names, ", "))
 		}
 	}
 	return nil

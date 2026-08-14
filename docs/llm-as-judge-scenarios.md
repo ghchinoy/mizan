@@ -41,6 +41,7 @@ for the authoritative architecture see
 | See timing, token cost, and the resolved target of a run | Per-run observability | any | `--stats` + pre-flight echo | [↓](#scenario-8-see-what-a-run-cost-and-where-it-went) |
 | Reuse a template someone else authored | Consume a shared pack (local import) | any | `mizan registry import <path>` | [↓](#scenario-9-consume-a-shared-template-from-a-pack-local-import) |
 | Check a pack is well-formed before sharing it | Validate a pack (PR gate) | any / EvalSet | `mizan pack validate <path>` | [↓](#scenario-10-validate-a-pack-before-you-share-it-pack-validate) |
+| Declare `spec.inputs` automatically from prompt placeholders | Infer inputs from `{{placeholders}}` | any | `registry create/update --infer-inputs` | [↓](#scenario-13-declare-inputs-from-placeholders-infer-inputs) |
 
 > **single = pointwise, compare = pairwise.** *Pointwise* and *pairwise* are
 > the Vertex AI Gen AI Evaluation Service's own terms — non-standard jargon —
@@ -811,6 +812,48 @@ multiple source repos coexist and a re-import only pulls the delta.
 > import) — same reconciliation engine, now over a fetched checkout. Still not
 > built: importing or *running* a `kind: EvalSet` manifest (P2 carries/validates
 > the format only).
+
+---
+
+## Scenario 13: Declare inputs from placeholders (`--infer-inputs`)
+
+**Goal.** Author a template without hand-writing every `spec.inputs` entry. Your
+prompt already names its inputs as `{{name}}` placeholders, so let Mizan derive
+the input list from the prompt text.
+
+Pass **`--infer-inputs`** (opt-in, off by default) on `registry create` or
+`registry update`. Mizan scans the prompt **and system** text for `{{name}}`
+placeholders and **adds** an input for each one you did not already declare —
+defaulting it to `modality=text`, `required=true` — then prints a one-line stderr
+summary of what it inferred:
+
+```sh
+$ mizan registry create --id demo/quality --name "Quality" --kind pointwise \
+    --input response:text:true \
+    --infer-inputs \
+    --prompt "Rate {{response}} for {{clarity}} and {{depth}}"
+--infer-inputs: inferred 2 input(s) (modality=text, required=true): clarity, depth
+```
+
+The rules that keep it safe:
+
+- **`{{response}}` is reserved** — it is the model *output* a judge scores, not an
+  input, so it is never inferred. Declare it yourself with `--input
+  response:text:true` when your template needs it (as above).
+- **Explicit `--input` always wins** — inference is additive and never overrides,
+  reorders, or drops an explicit entry. `--input foo:image` next to `{{foo}}`
+  keeps `foo` as `image`, not `text`.
+- **Modality is not guessed** — everything inferred is `text`. For an image/audio/
+  video input, declare it explicitly with `--input name:modality`.
+- On **`update`** it is **replace-then-infer**: `--input` replaces the set first,
+  then inference adds any prompt placeholders not already present.
+
+Inferred inputs are indistinguishable from hand-declared ones downstream — they
+pass the same validation and round-trip through the pack codec unchanged, so an
+inferred-input template shares (Scenario 11) and validates (Scenario 10) exactly
+like a hand-authored one. See
+[`docs/user-guide.md`](user-guide.md#inferring-inputs-from-placeholders) for the
+full recipe.
 
 ---
 

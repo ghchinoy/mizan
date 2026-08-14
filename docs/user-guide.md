@@ -280,6 +280,10 @@ declared inputs:
   `required`, or a duplicate input name) is rejected with a clear error. On
   `update`, `--input` **replaces** the template's entire input set (omitting it
   leaves the existing inputs untouched).
+- **`--infer-inputs`** — opt-in (off by default). Scans the prompt **and system**
+  text for `{{name}}` placeholders and **adds** a declared input for each one you
+  did not already declare with `--input`. See
+  [Inferring inputs from placeholders](#inferring-inputs-from-placeholders) below.
 
 `--author` and `--license` fall back to the configured `author-name` /
 `default-license` (env `MIZAN_AUTHOR_NAME` / `MIZAN_DEFAULT_LICENSE`) when the
@@ -303,6 +307,51 @@ Input[response]: text (required=true)
 SamplingCount:  4
 Prompt:         Rate {{response}}
 ```
+
+#### Inferring inputs from placeholders (`--infer-inputs`)
+
+Prompts reference inputs as `{{name}}` placeholders, so most of `spec.inputs` can
+be inferred from the prompt text instead of declared by hand. Pass
+**`--infer-inputs`** on `registry create` or `registry update` to opt in (it is
+**off by default**):
+
+```sh
+$ mizan registry create --id demo/quality --name "Quality" --kind pointwise \
+    --input response:text:true \
+    --infer-inputs \
+    --prompt "Rate {{response}} for {{clarity}} and {{depth}}"
+--infer-inputs: inferred 2 input(s) (modality=text, required=true): clarity, depth
+```
+
+What inference does:
+
+- **Scans the prompt and system-instruction text** for double-brace `{{name}}`
+  placeholders (names match `[A-Za-z0-9_]+`, optional spaces inside the braces are
+  ignored). Names are **deduplicated** and kept in **first-seen order**.
+- **Defaults** each inferred input to **`modality=text`** and **`required=true`**.
+  Modality is *not* guessed from the name — if an input is an image/audio/video,
+  declare it explicitly with `--input name:modality` (see the next point). A
+  one-line **stderr summary** lists exactly what was inferred so you can correct it.
+- **Excludes the reserved `{{response}}` token.** `{{response}}` is the model
+  **output** a pointwise/single judge scores, not an author-supplied input, so it
+  is never inferred. If your template needs it declared, add it explicitly with
+  `--input response:text:true` (as in the example above).
+- **Is additive and non-destructive.** Explicit `--input` entries **always win**:
+  inference only **adds** placeholders you did not already declare by name, and it
+  never overrides, reorders, or drops an explicit entry. For example,
+  `--input foo:image` alongside `{{foo}}` in the prompt keeps `foo` as `image`
+  (not `text`) and does not duplicate it.
+- **Passes the same validation** as explicit inputs (modality allow-list, name
+  rules, placeholder-consistency), so an inferred-input template validates and
+  round-trips through the pack codec exactly like a hand-declared one.
+
+On **`update`**, the order is **replace-then-infer**: `--input` first **replaces**
+the entire input set (per the metadata-flags rule above), and *then*
+`--infer-inputs` adds any prompt placeholders not already present in that
+post-replacement set. If you pass `--infer-inputs` on update **without** `--input`,
+the existing inputs are kept untouched and inference adds only the placeholders
+(from the current or newly-set `--prompt`/`--system` text) that are not already
+declared.
 
 ### List
 
