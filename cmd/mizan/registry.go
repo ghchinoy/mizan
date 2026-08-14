@@ -5,13 +5,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/wire"
 )
+
+// createDefaultVersion is the semver every newly created template starts at when
+// --version is omitted. This is a CREATE-TIME default, deliberately NOT a
+// config.Fields entry: every new template reasonably starts at 0.1.0, and a
+// config-level override would encourage authoring many templates at the same
+// non-initial version.
+const createDefaultVersion = "0.1.0"
 
 // templateFlags collects the fields a user can set on create/update.
 type templateFlags struct {
@@ -28,6 +37,11 @@ type templateFlags struct {
 	tags          []string
 	candidate     string
 	baseline      string
+	// authoring metadata
+	version string
+	license string
+	author  string
+	inputs  []string // repeatable "name:modality[:required]" -> spec.inputs
 	// rubric (KindRubric) authoring
 	rubricGroups     []string // repeatable "name=criterion one;criterion two"
 	rubricGroupsFile string   // JSON object {"group": ["crit1", ...], ...}
@@ -62,6 +76,84 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	fl.StringVar(&f.rubricGroupsFile, "rubric-groups-file", "", `rubric: path to a JSON object file {"group": ["crit1","crit2"], ...}`)
 	fl.StringVar(&f.responseSchema, "response-schema", "", "custom_schema: inline JSON-Schema string")
 	fl.StringVar(&f.responseSchemaFile, "response-schema-file", "", "custom_schema: path to a JSON-Schema file")
+	// Authoring metadata (exposes MetricTemplate fields the model+codec already
+	// carry). --version defaults to createDefaultVersion at create time; --author
+	// and --license fall back to config (author-name / default-license) when
+	// omitted on create.
+	fl.StringVar(&f.version, "version", "", fmt.Sprintf("semver version (validated); default %q at create when omitted", createDefaultVersion))
+	fl.StringVar(&f.license, "license", "", "license id, e.g. Apache-2.0 (falls back to config default-license / MIZAN_DEFAULT_LICENSE when omitted at create)")
+	fl.StringVar(&f.author, "author", "", "primary author name (falls back to config author-name / MIZAN_AUTHOR_NAME when omitted at create)")
+	// StringArrayVar (not StringSliceVar): each value is kept intact and parsed
+	// on ':' below, mirroring --rubric-group's repeatable pattern.
+	fl.StringArrayVar(&f.inputs, "input", nil, `declared input as "name:modality[:required]" (repeatable; modality one of text|image|audio|video|music; required defaults to false). On update, replaces all inputs`)
+}
+
+// buildInputs parses the repeatable --input flags into spec.inputs. Each spec is
+// "name:modality[:required]"; the modality is validated against the allowed set
+// and a duplicate input name is rejected. Returns (nil, nil) when no --input was
+// given (leaving the template's inputs unchanged).
+func (f *templateFlags) buildInputs() ([]registry.InputSpec, error) {
+	if len(f.inputs) == 0 {
+		return nil, nil
+	}
+	var out []registry.InputSpec
+	seen := map[string]bool{}
+	for _, spec := range f.inputs {
+		in, err := parseInputSpec(spec)
+		if err != nil {
+			return nil, err
+		}
+		if seen[in.Name] {
+			return nil, fmt.Errorf("--input %q: duplicate input name %q", spec, in.Name)
+		}
+		seen[in.Name] = true
+		out = append(out, in)
+	}
+	return out, nil
+}
+
+// parseInputSpec parses one "name:modality[:required]" spec into an InputSpec.
+// The name is required, the modality is validated against the allowed set, and
+// the optional required flag parses as a bool (default false).
+func parseInputSpec(spec string) (registry.InputSpec, error) {
+	parts := strings.Split(spec, ":")
+	if len(parts) < 2 || len(parts) > 3 {
+		return registry.InputSpec{}, fmt.Errorf(`--input %q: want "name:modality[:required]"`, spec)
+	}
+	name := strings.TrimSpace(parts[0])
+	if name == "" {
+		return registry.InputSpec{}, fmt.Errorf(`--input %q: input name is required ("name:modality[:required]")`, spec)
+	}
+	modality, err := registry.ParseModality(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return registry.InputSpec{}, fmt.Errorf("--input %q: %w", spec, err)
+	}
+	required := false
+	if len(parts) == 3 {
+		r := strings.TrimSpace(parts[2])
+		parsed, perr := strconv.ParseBool(r)
+		if perr != nil {
+			return registry.InputSpec{}, fmt.Errorf(`--input %q: required must be true or false, got %q`, spec, r)
+		}
+		required = parsed
+	}
+	return registry.InputSpec{Name: name, Modality: modality, Required: required}, nil
+}
+
+// applyMetadataConfigDefaults fills author/license from config when the
+// corresponding flag was not passed (precedence: explicit flag > config value).
+// It is CREATE-ONLY: update never injects config defaults, so an existing
+// template's metadata is only touched by an explicit flag (update-safe).
+func applyMetadataConfigDefaults(cmd *cobra.Command, t *registry.MetricTemplate, cfg *config.Config) {
+	if cfg == nil {
+		return
+	}
+	if !cmd.Flags().Changed("license") && t.License == "" && cfg.DefaultLicense != "" {
+		t.License = cfg.DefaultLicense
+	}
+	if !cmd.Flags().Changed("author") && len(t.Authors) == 0 && cfg.AuthorName != "" {
+		t.Authors = []registry.Author{{Name: cfg.AuthorName}}
+	}
 }
 
 // readTemplateFile reads a small CLI-supplied config file safely. It mirrors the
@@ -208,6 +300,47 @@ func (f *templateFlags) apply(cmd *cobra.Command, t *registry.MetricTemplate, up
 		}
 		t.Kind = k
 	}
+	// Version: on create, default to createDefaultVersion when --version is
+	// omitted; on update, only set when explicitly changed. Always validated as
+	// semver via the P2.3 parser so a malformed value fails fast at authoring
+	// time. Kept out of set() because it can error and needs the create-default.
+	if !update {
+		v := createDefaultVersion
+		if changed("version") {
+			v = f.version
+		}
+		if err := registry.ValidateSemver(v); err != nil {
+			return fmt.Errorf("--version: %w", err)
+		}
+		t.Version = v
+	} else if changed("version") {
+		if err := registry.ValidateSemver(f.version); err != nil {
+			return fmt.Errorf("--version: %w", err)
+		}
+		t.Version = f.version
+	}
+
+	set("license", func() { t.License = f.license })
+	// Author: set from the flag when given (create always applies, update only
+	// when changed). On create an omitted --author leaves Authors untouched so the
+	// create command's config fallback (applyMetadataConfigDefaults) can fill it;
+	// the config fallback is deliberately create-only.
+	if (!update || changed("author")) && f.author != "" {
+		t.Authors = []registry.Author{{Name: f.author}}
+	}
+	// Inputs (spec.inputs): on update, left untouched unless --input was set
+	// (update-safe, REPLACE semantics — the given inputs replace all existing
+	// ones); on create, populated from whatever --input flags were given.
+	if !update || changed("input") {
+		inputs, err := f.buildInputs()
+		if err != nil {
+			return err
+		}
+		if inputs != nil {
+			t.Inputs = inputs
+		}
+	}
+
 	set("prompt", func() { t.MetricPromptTemplate = f.prompt })
 	set("system", func() { t.SystemInstruction = f.system })
 	set("model", func() { t.AutoraterModel = f.model })
@@ -399,17 +532,22 @@ func newRegistryCreateCmd() *cobra.Command {
 			if f.id == "" {
 				return fmt.Errorf("--id is required")
 			}
-			// Build and validate the template before acquiring any backend, so a
-			// missing rubric/schema fails fast without opening a DB.
+			// Load config first (no DB is opened here — only wire.OpenService
+			// below does that) so --author/--license can fall back to the
+			// configured author-name / default-license when omitted.
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			// Build, apply config fallbacks, then validate the template before
+			// acquiring any backend, so a missing rubric/schema fails fast
+			// without opening a DB.
 			var t registry.MetricTemplate
 			if err := f.apply(cmd, &t, false); err != nil {
 				return err
 			}
+			applyMetadataConfigDefaults(cmd, &t, cfg)
 			if err := validateTemplate(&t); err != nil {
-				return err
-			}
-			cfg, err := mustConfig()
-			if err != nil {
 				return err
 			}
 			svc, closeSvc, err := wire.OpenService(cfg)

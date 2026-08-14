@@ -712,9 +712,15 @@ template under `templates/`). Select with exactly one of `--id`, `--namespace`,
 or `--all`:
 
 ```sh
-# 1. Author (or refine) a metric in your local registry.
+# 1. Author (or refine) a metric in your local registry. Set the metadata a
+#    shared pack should carry — version, license, author, and the declared
+#    inputs — so the exported YAML is complete for collaborators. --version
+#    defaults to 0.1.0; --author/--license fall back to your configured
+#    author-name / default-license (see docs/user-guide.md) when omitted.
 $ mizan registry create --id acme/quality --name "Quality" \
-    --kind pointwise --prompt 'Rate the response: {{response}}'
+    --kind pointwise --prompt 'Rate the response: {{response}}' \
+    --version 1.0.0 --license Apache-2.0 --author "Jane Doe" \
+    --input response:text:true
 
 # 2. Scaffold an empty pack, then export into it.
 $ mizan pack init packs/acme --name acme

@@ -23,6 +23,7 @@ func clearEnv(t *testing.T) {
 		"MIZAN_TEMPLATES_REPO", "MIZAN_DEFAULT_MODEL",
 		"MIZAN_REGISTRY_DB", "MIZAN_PACK_CACHE",
 		"MIZAN_ENV_FILE", "MIZAN_ALLOW_CUSTOM_ENDPOINT",
+		"MIZAN_AUTHOR_NAME", "MIZAN_DEFAULT_LICENSE",
 	} {
 		t.Setenv(k, "")
 	}
@@ -116,6 +117,101 @@ func TestLoadConfigDefaultModelFromEnvFile(t *testing.T) {
 	if c.DefaultModel != "gemini-3.5-flash" {
 		t.Errorf("DefaultModel = %q, want gemini-3.5-flash (loaded from env file)", c.DefaultModel)
 	}
+}
+
+// TestAuthorLicenseFromEnvFile proves the two authoring metadata keys
+// (author-name, default-license) are also loaded from a trusted env file (not
+// only from live environment variables), that a real exported env var shadows
+// the env-file value, and that an unset key reports SourceDefault. It mirrors
+// TestLoadConfigDefaultModelFromEnvFile for the metadata keys specifically.
+func TestAuthorLicenseFromEnvFile(t *testing.T) {
+	t.Run("loaded from env file", func(t *testing.T) {
+		clearEnv(t)
+		dir := t.TempDir()
+		envPath := filepath.Join(dir, "mizan.env")
+		if err := os.WriteFile(envPath, []byte(
+			"MIZAN_PROJECT_ID=proj-123\nMIZAN_AUTHOR_NAME=File Author\nMIZAN_DEFAULT_LICENSE=MIT\n"), 0o600); err != nil {
+			t.Fatalf("write env file: %v", err)
+		}
+		// godotenv.Load does not override already-set variables (even empty), so
+		// unset the keys the env file supplies.
+		os.Unsetenv("MIZAN_PROJECT_ID")
+		os.Unsetenv("PROJECT_ID")
+		os.Unsetenv("MIZAN_AUTHOR_NAME")
+		os.Unsetenv("MIZAN_DEFAULT_LICENSE")
+		t.Setenv("MIZAN_ENV_FILE", envPath)
+
+		c, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("LoadConfig: %v", err)
+		}
+		if c.AuthorName != "File Author" {
+			t.Errorf("AuthorName = %q, want File Author (from env file)", c.AuthorName)
+		}
+		if c.DefaultLicense != "MIT" {
+			t.Errorf("DefaultLicense = %q, want MIT (from env file)", c.DefaultLicense)
+		}
+		if got := c.SourceOf("author-name"); got != SourceEnvFile {
+			t.Errorf("SourceOf(author-name) = %v, want env-file", got)
+		}
+		if got := c.SourceOf("default-license"); got != SourceEnvFile {
+			t.Errorf("SourceOf(default-license) = %v, want env-file", got)
+		}
+	})
+
+	t.Run("real env shadows env file", func(t *testing.T) {
+		clearEnv(t)
+		dir := t.TempDir()
+		envPath := filepath.Join(dir, "mizan.env")
+		if err := os.WriteFile(envPath, []byte(
+			"MIZAN_AUTHOR_NAME=File Author\nMIZAN_DEFAULT_LICENSE=MIT\n"), 0o600); err != nil {
+			t.Fatalf("write env file: %v", err)
+		}
+		t.Setenv("MIZAN_PROJECT_ID", "proj-123")
+		t.Setenv("MIZAN_ENV_FILE", envPath)
+		// Exported env vars must win over the env file (godotenv does not override).
+		t.Setenv("MIZAN_AUTHOR_NAME", "Env Author")
+		t.Setenv("MIZAN_DEFAULT_LICENSE", "Apache-2.0")
+
+		c, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("LoadConfig: %v", err)
+		}
+		if c.AuthorName != "Env Author" {
+			t.Errorf("AuthorName = %q, want Env Author (real env shadows env file)", c.AuthorName)
+		}
+		if c.DefaultLicense != "Apache-2.0" {
+			t.Errorf("DefaultLicense = %q, want Apache-2.0 (real env shadows env file)", c.DefaultLicense)
+		}
+		if got := c.SourceOf("author-name"); got != SourceEnv {
+			t.Errorf("SourceOf(author-name) = %v, want env", got)
+		}
+		if got := c.SourceOf("default-license"); got != SourceEnv {
+			t.Errorf("SourceOf(default-license) = %v, want env", got)
+		}
+	})
+
+	t.Run("unset reports SourceDefault", func(t *testing.T) {
+		clearEnv(t)
+		t.Setenv("MIZAN_PROJECT_ID", "proj-123") // avoid ErrMissingProjectID
+
+		c, err := LoadConfig()
+		if err != nil {
+			t.Fatalf("LoadConfig: %v", err)
+		}
+		if c.AuthorName != "" {
+			t.Errorf("AuthorName = %q, want empty when unset", c.AuthorName)
+		}
+		if c.DefaultLicense != "" {
+			t.Errorf("DefaultLicense = %q, want empty when unset", c.DefaultLicense)
+		}
+		if got := c.SourceOf("author-name"); got != SourceDefault {
+			t.Errorf("SourceOf(author-name) = %v, want default", got)
+		}
+		if got := c.SourceOf("default-license"); got != SourceDefault {
+			t.Errorf("SourceOf(default-license) = %v, want default", got)
+		}
+	})
 }
 
 func TestLoadConfigProjectIDPrecedence(t *testing.T) {

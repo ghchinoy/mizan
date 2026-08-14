@@ -39,6 +39,8 @@ type Config struct {
 	PackCacheDir         string // default: <UserCacheDir>/mizan/packs (for import <git-url>)
 	DefaultTemplatesRepo string // default: github.com/ghchinoy/mizan-templates
 	DefaultModel         string // default autorater model (env: MIZAN_DEFAULT_MODEL); "" -> built-in (WI-F3)
+	AuthorName           string // default template author name (env: MIZAN_AUTHOR_NAME); "" -> unset
+	DefaultLicense       string // default template license (env: MIZAN_DEFAULT_LICENSE); "" -> unset
 
 	// Sources records where each field's resolved value came from (real env /
 	// env file / built-in default), keyed by `config set` key. It powers the
@@ -90,6 +92,12 @@ func LoadConfig() (*Config, error) {
 		// empty value as "fall through to the built-in", so no default is baked in
 		// here (WI-F3).
 		DefaultModel: os.Getenv("MIZAN_DEFAULT_MODEL"),
+		// AuthorName / DefaultLicense are authoring conveniences: `registry create`
+		// falls back to them when --author / --license are omitted (flag > config).
+		// Left empty when unset so an unset value renders "(unset)" and injects
+		// nothing into a created template.
+		AuthorName:     os.Getenv("MIZAN_AUTHOR_NAME"),
+		DefaultLicense: os.Getenv("MIZAN_DEFAULT_LICENSE"),
 	}
 
 	c.RegistryDBPath = firstNonEmpty(os.Getenv("MIZAN_REGISTRY_DB"), defaultDBPath())

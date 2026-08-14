@@ -80,8 +80,20 @@ func renderTemplate(w io.Writer, t *registry.MetricTemplate) error {
 	tw := newTabWriter(w)
 	fmt.Fprintf(tw, "ID:\t%s\n", t.ID)
 	fmt.Fprintf(tw, "Name:\t%s\n", t.Name)
+	if t.Version != "" {
+		fmt.Fprintf(tw, "Version:\t%s\n", t.Version)
+	}
 	fmt.Fprintf(tw, "Kind:\t%s\n", t.Kind)
 	fmt.Fprintf(tw, "Modalities:\t%s\n", joinModalities(t.Modalities))
+	if t.License != "" {
+		fmt.Fprintf(tw, "License:\t%s\n", t.License)
+	}
+	if len(t.Authors) > 0 {
+		fmt.Fprintf(tw, "Authors:\t%s\n", joinAuthors(t.Authors))
+	}
+	for _, in := range t.Inputs {
+		fmt.Fprintf(tw, "Input[%s]:\t%s (required=%t)\n", in.Name, in.Modality, in.Required)
+	}
 	fmt.Fprintf(tw, "Model:\t%s\n", t.AutoraterModel)
 	fmt.Fprintf(tw, "SamplingCount:\t%d\n", t.SamplingCount)
 	if t.Source != "" {
@@ -165,6 +177,21 @@ func renderExportReport(w io.Writer, r registry.ExportReport) error {
 		}
 	}
 	return nil
+}
+
+func joinAuthors(as []registry.Author) string {
+	var s []string
+	for _, a := range as {
+		switch {
+		case a.Name != "" && a.Email != "":
+			s = append(s, fmt.Sprintf("%s <%s>", a.Name, a.Email))
+		case a.Name != "":
+			s = append(s, a.Name)
+		case a.Email != "":
+			s = append(s, a.Email)
+		}
+	}
+	return strings.Join(s, ", ")
 }
 
 func joinModalities(ms []registry.Modality) string {
