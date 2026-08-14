@@ -128,6 +128,58 @@ func TestGenerateResponseCap(t *testing.T) {
 	}
 }
 
+func TestGenerateRubricCountCap(t *testing.T) {
+	// A response with more than maxRubrics entries must be rejected (defensive
+	// bound) rather than flooding the draft template / registry.
+	var b strings.Builder
+	b.WriteString(`{"generatedRubrics":[`)
+	for i := 0; i < maxRubrics+1; i++ {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(`{"content":{"property":{"description":"c"}}}`)
+	}
+	b.WriteString(`]}`)
+	payload := b.String()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(payload))
+	}))
+	defer srv.Close()
+
+	_, err := newTestClient(srv).Generate(context.Background(),
+		TextContents("x"), Spec{PredefinedMetric: "general_quality_v1"})
+	if err == nil || !strings.Contains(err.Error(), "cap") {
+		t.Fatalf("expected rubric-count-cap error, got %v", err)
+	}
+}
+
+func TestGenerateRequiresContents(t *testing.T) {
+	// The empty-contents guard must fire locally, before any request is issued.
+	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("server should not be called when contents are empty")
+	}))
+	defer srv.Close()
+
+	_, err := newTestClient(srv).Generate(context.Background(), nil, Spec{PredefinedMetric: "general_quality_v1"})
+	if err == nil || !strings.Contains(err.Error(), "content") {
+		t.Fatalf("expected local contents-required error, got %v", err)
+	}
+}
+
+func TestDecodeErrorMessageWithoutStatus(t *testing.T) {
+	// A Vertex error envelope that carries a message but no status must still
+	// surface the message verbatim (the no-status branch of decodeError).
+	err := decodeError(http.StatusBadRequest,
+		[]byte(`{"error":{"code":400,"message":"prompt too long"}}`))
+	if err == nil || !strings.Contains(err.Error(), "prompt too long") {
+		t.Fatalf("decodeError = %v, want verbatim message", err)
+	}
+	if strings.Contains(err.Error(), "INVALID_ARGUMENT") {
+		t.Fatalf("decodeError leaked a status where none was provided: %v", err)
+	}
+}
+
 func TestGenerateRequiresRecipe(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		t.Error("server should not be called when recipe is empty")

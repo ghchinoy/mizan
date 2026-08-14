@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -131,6 +132,65 @@ func TestRubricGenerateWritesDraft(t *testing.T) {
 	}
 	if tmpl.MetricPromptTemplate == "" || !strings.Contains(tmpl.MetricPromptTemplate, "{{prompt}}") {
 		t.Errorf("draft metricPromptTemplate missing placeholders: %q", tmpl.MetricPromptTemplate)
+	}
+}
+
+// TestGenerateRubricGroupsNoUsableCriteria proves the SHARED generation+conversion
+// path (used by both CUJ 7 and CUJ 8) rejects a response whose rubrics all lack a
+// criterion description — a defensive edge case (missing/partial fields) that must
+// be an error, not a silently empty rubric written to a draft or the registry.
+func TestGenerateRubricGroupsNoUsableCriteria(t *testing.T) {
+	fake := &rubricgentest.FakeClient{}
+	fake.PushRubrics([]rubricgen.Rubric{
+		rubricgentest.Rubric("", "T", "HIGH"),
+		rubricgentest.Rubric("   ", "T", "LOW"),
+	})
+
+	_, _, err := generateRubricGroups(context.Background(), fake, "sample", defaultRecipe, "general_quality")
+	if err == nil || !strings.Contains(err.Error(), "no usable rubric criteria") {
+		t.Fatalf("generateRubricGroups = %v, want no-usable-criteria error", err)
+	}
+}
+
+// TestGenerateRubricGroupsPropagatesClientError proves a generation-client error
+// (e.g. a Vertex INVALID_ARGUMENT surfaced verbatim by rubricgen) flows out of the
+// shared path unchanged rather than being swallowed.
+func TestGenerateRubricGroupsPropagatesClientError(t *testing.T) {
+	fake := &rubricgentest.FakeClient{}
+	fake.PushError(errors.New("rubricgen: generation failed (HTTP 400 INVALID_ARGUMENT): recipe not found"))
+
+	_, _, err := generateRubricGroups(context.Background(), fake, "sample", defaultRecipe, "general_quality")
+	if err == nil || !strings.Contains(err.Error(), "recipe not found") {
+		t.Fatalf("generateRubricGroups = %v, want propagated client error", err)
+	}
+}
+
+// TestGenerateRubricGroupsHappyPath pins the shared path's success contract: the
+// sample and recipe reach the client, and criteria are returned in declared order
+// under the requested group key.
+func TestGenerateRubricGroupsHappyPath(t *testing.T) {
+	fake := &rubricgentest.FakeClient{}
+	fake.PushRubrics([]rubricgen.Rubric{
+		rubricgentest.Rubric("first", "T", "HIGH"),
+		rubricgentest.Rubric("second", "T", "LOW"),
+	})
+
+	groups, rubrics, err := generateRubricGroups(context.Background(), fake, "the sample", "general_quality_v1", "general_quality")
+	if err != nil {
+		t.Fatalf("generateRubricGroups: %v", err)
+	}
+	if len(rubrics) != 2 {
+		t.Fatalf("rubrics = %d, want 2", len(rubrics))
+	}
+	if got := groups["general_quality"]; strings.Join(got, "|") != "first|second" {
+		t.Fatalf("criteria = %v, want [first second] in declared order", got)
+	}
+	last := fake.LastCall()
+	if last == nil || last.Spec.PredefinedMetric != "general_quality_v1" {
+		t.Fatalf("client not called with the recipe: %+v", last)
+	}
+	if len(last.Contents) != 1 || len(last.Contents[0].Parts) != 1 || last.Contents[0].Parts[0].Text != "the sample" {
+		t.Fatalf("client not called with the sample as a single text part: %+v", last.Contents)
 	}
 }
 
