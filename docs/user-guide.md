@@ -761,6 +761,73 @@ set, matched by the exact **(group, criterion)** pair:
   a warning is printed to **stderr** — extras are informative, not corrupting, so
   they do not fail the run.
 
+## Adaptive rubrics (authoring aid)
+
+Mizan can draft rubric criteria for you from a sample prompt, using Vertex AI's
+adaptive rubric generation. This is an **authoring aid, not a new kind of metric**:
+Gemini proposes the criteria, *you* review and edit them, and once you freeze them
+the result is an **ordinary, reproducible static `rubric` template** — the same
+kind you would author by hand, run through the same deterministic eval path. There
+is **no ephemeral per-prompt metric**: nothing generated is treated as a hidden or
+one-off rubric.
+
+Both entry points below are built on the **same** generation + conversion
+primitives; they differ only in where the generated rubric goes.
+
+### Draft a reusable rubric template (`mizan rubric generate`)
+
+Generate criteria from a representative prompt and write a **draft** template YAML
+for review. This writes **nothing** to the registry:
+
+```bash
+mizan rubric generate \
+  --sample "Write a concise product description for a wireless mouse." \
+  --id acme/product-copy \
+  --out drafts/product-copy.yaml
+```
+
+It prints the proposed criteria (`GROUP` / `CRITERION` / `TYPE` / `IMPORTANCE`)
+and writes the draft to `--out`. Review and edit the YAML, then bring it into the
+registry with the ordinary authoring path and run it like any other template:
+
+```bash
+mizan registry import drafts/product-copy.yaml   # or: mizan registry create …
+mizan eval run --metric acme/product-copy \
+  --field prompt="…" --field response="…"
+```
+
+Useful flags: `--recipe <name>` (the pinned generation recipe, default
+`general_quality_v1`), `--group-name <key>` (the `rubricGroups` key; defaults to
+the recipe family name), and `--name` (a human-readable template name).
+
+### Generate-and-score in one step (`mizan eval adaptive`)
+
+Generate criteria from a prompt and immediately score a response against them.
+The generated rubric is held **in memory** and is **never persisted** unless you
+ask for it:
+
+```bash
+mizan eval adaptive \
+  --prompt "Write a concise product description for a wireless mouse." \
+  --response "The Acme M1 is a wireless mouse."
+```
+
+This runs through the ordinary rubric eval path, so `--rubric-detail`
+(and `--rubric-scale`), `--model`, `--stats`, and `--project` all behave exactly
+as they do on `eval run`. The proposed criteria are echoed to **stderr** for
+transparency (so `--output json` on stdout stays a single clean object).
+
+Add `--save-as <namespace>/<slug>` to **freeze** the generated rubric into the
+registry as an ordinary reproducible static template you can rerun later:
+
+```bash
+mizan eval adaptive --prompt "…" --response "…" --save-as acme/product-copy
+mizan eval run --metric acme/product-copy --field prompt="…" --field response="…"
+```
+
+Saving fails if the id already exists — freezing never silently overwrites an
+existing template.
+
 ## Version and releases
 
 Check which build you're running:

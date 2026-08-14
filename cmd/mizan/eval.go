@@ -41,7 +41,185 @@ func newEvalCmd() *cobra.Command {
 		"override the GCP project for this run (highest precedence: flag > env > .env > default)")
 	cmd.AddCommand(newEvalRunCmd())
 	cmd.AddCommand(newEvalPairwiseCmd())
+	cmd.AddCommand(newEvalAdaptiveCmd())
 	// eval batch (P3) is intentionally not wired in this slice.
+	return cmd
+}
+
+// newEvalAdaptiveCmd wires `mizan eval adaptive` (CUJ 8): generate rubric criteria
+// inline from the prompt, run the response against them, and optionally freeze the
+// rubric to the registry. It is built on the SAME rubricgen generation+conversion
+// primitives as `rubric generate` (generateRubricGroups / draftRubricTemplate) and
+// the SAME eval path as `eval run` (buildInstance + eng.Run honoring
+// --rubric-detail). The generated rubric is held IN MEMORY and never persisted
+// unless --save-as is given, in which case the FROZEN rubric — an ordinary
+// reproducible static template — is written via svc.Create.
+func newEvalAdaptiveCmd() *cobra.Command {
+	var (
+		prompt       string
+		response     string
+		recipe       string
+		groupName    string
+		model        string
+		stats        bool
+		rubricDetail bool
+		rubricScale  string
+		saveAs       string
+	)
+	cmd := &cobra.Command{
+		Use:   "adaptive --prompt <text> --response <text> [--save-as <ns/slug>]",
+		Short: "Generate rubric criteria from the prompt, then score the response against them (one live call each)",
+		Long: "Score a response against rubric criteria generated on the fly from the\n" +
+			"prompt.\n\n" +
+			"Adaptive generation here is an AUTHORING AID applied inline: Gemini drafts\n" +
+			"the criteria from the prompt (one generation call), then the response is\n" +
+			"scored against them through the ordinary rubric eval path (one eval call).\n" +
+			"The generated rubric is held IN MEMORY and never persisted — there is no\n" +
+			"ephemeral per-prompt metric in the registry.\n\n" +
+			"Pass --save-as <namespace>/<slug> to FREEZE the generated rubric into the\n" +
+			"registry as an ordinary reproducible static template you can rerun with\n" +
+			"`mizan eval run --metric <ns/slug>`.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if strings.TrimSpace(prompt) == "" {
+				return fmt.Errorf("--prompt is required")
+			}
+			if strings.TrimSpace(response) == "" {
+				return fmt.Errorf("--response is required")
+			}
+			if err := validateRecipe(recipe); err != nil {
+				return err
+			}
+			if groupName == "" {
+				groupName = defaultRubricGroupName(recipe)
+			}
+			if err := validateGroupName(groupName); err != nil {
+				return err
+			}
+			// Validate --save-as with the same canonical id guard the registry uses,
+			// BEFORE any live call, so a malformed id fails locally rather than after
+			// the (billable) generation + eval succeed.
+			if saveAs != "" {
+				if err := registry.ValidateTemplateID(saveAs); err != nil {
+					return err
+				}
+			}
+			// Validate --model locally before it is echoed or composed into a Vertex
+			// resource name (mirrors eval run).
+			if err := eval.ValidateModel(model); err != nil {
+				return err
+			}
+
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			// The eval group's persistent --project flag overrides the resolved
+			// project at the top of the precedence chain; validate then apply BEFORE
+			// any client is built (mirrors eval run / pairwise).
+			if err := config.ValidateProjectID(projectOverride); err != nil {
+				return err
+			}
+			applyProjectOverride(cfg, projectOverride)
+
+			// Stage 1: generate the rubric criteria inline from the prompt, via the
+			// SAME shared generation+conversion path as `rubric generate`.
+			gen, err := newRubricGenerator(cmd.Context(), cfg)
+			if err != nil {
+				return err
+			}
+			groups, rubrics, err := generateRubricGroups(cmd.Context(), gen, prompt, recipe, groupName)
+			if err != nil {
+				return err
+			}
+			// Echo the criteria that will drive the score to stderr (never stdout, so
+			// --output json stays a clean single object) for transparency.
+			if outputFormat != outputJSON {
+				fmt.Fprintln(cmd.ErrOrStderr(), "mizan: generated rubric criteria:")
+				if err := renderRubricCriteria(cmd.ErrOrStderr(), groupName, rubrics); err != nil {
+					return err
+				}
+			}
+
+			// Build the IN-MEMORY KindRubric template from the SAME builder the draft
+			// path uses. When --save-as is set the id is the target id (so the frozen
+			// template is byte-identical to what is persisted); otherwise a fixed
+			// inline id keeps the in-memory template well-formed.
+			tmplID := saveAs
+			if tmplID == "" {
+				tmplID = "adaptive/inline"
+			}
+			tmpl := draftRubricTemplate(tmplID, "", groupName, []string{"prompt", "response"}, groups)
+
+			// Build the instance from the SAME buildInstance path as eval run (prompt
+			// + response as guarded text slots).
+			inst, err := buildInstance([]string{"prompt=" + prompt, "response=" + response}, nil, nil)
+			if err != nil {
+				return err
+			}
+
+			runOpts := []eval.RunOption{eval.WithModel(model)}
+			if rubricDetail {
+				if cmd.Flags().Changed("rubric-scale") {
+					min, max, err := eval.ParseRubricScale(rubricScale)
+					if err != nil {
+						return err
+					}
+					runOpts = append(runOpts, eval.WithRubricDetail(min, max))
+				} else {
+					runOpts = append(runOpts, eval.WithRubricDetailDefaultScale())
+				}
+			}
+
+			// Stage 2: score the response against the generated rubric through the
+			// ordinary eval engine path.
+			eng, closeEng, err := openEngine(cmd.Context(), cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeEng() }()
+
+			target := eng.Resolve(tmpl, model, rubricDetail)
+			projSrc, locSrc := preflightSources(cfg, target)
+			printPreflight(cmd.ErrOrStderr(), target, projSrc, locSrc)
+
+			res, err := eng.Run(cmd.Context(), tmpl, inst, runOpts...)
+			if err != nil {
+				return err
+			}
+			emitWarnings(cmd.ErrOrStderr(), res.Warnings)
+			if err := renderResult(cmd.OutOrStdout(), res, stats); err != nil {
+				return err
+			}
+
+			// Optionally FREEZE the generated rubric into the registry. This persists
+			// the SAME in-memory template that was just scored (svc.Create fails if the
+			// id already exists), turning the adaptive draft into an ordinary
+			// reproducible static rubric.
+			if saveAs != "" {
+				svc, closeSvc, err := wire.OpenService(cfg)
+				if err != nil {
+					return err
+				}
+				defer func() { _ = closeSvc() }()
+				if err := svc.Create(cmd.Context(), tmpl); err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.ErrOrStderr(),
+					"mizan: froze generated rubric as %s — rerun it with `mizan eval run --metric %s`\n",
+					saveAs, saveAs)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt to generate rubric criteria from and score against (required)")
+	cmd.Flags().StringVar(&response, "response", "", "response to score against the generated rubric (required)")
+	cmd.Flags().StringVar(&recipe, "recipe", defaultRecipe, "predefined generation recipe (pinned version)")
+	cmd.Flags().StringVar(&groupName, "group-name", "", "RubricGroups key for the generated rubric (default: the recipe family name)")
+	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
+	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
+	cmd.Flags().BoolVar(&rubricDetail, "rubric-detail", false, "return per-criterion scores via the genai structured path (location=global; drops sampling)")
+	cmd.Flags().StringVar(&rubricScale, "rubric-scale", "1-5", "Likert scale for --rubric-detail as \"<min>-<max>\" (two non-negative integers, min<max)")
+	cmd.Flags().StringVar(&saveAs, "save-as", "", "freeze the generated rubric into the registry under this <namespace>/<slug>")
 	return cmd
 }
 
