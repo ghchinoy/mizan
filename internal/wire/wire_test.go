@@ -43,6 +43,43 @@ func TestOpenService(t *testing.T) {
 	}
 }
 
+// TestOpenService_InjectsCodecAndSyncConfig is the P2 wiring assertion (design
+// §3.1/§3.11): the composition root — the ONLY place that knows the concrete
+// codec/sync wiring — must inject the YAML pack codec and a SyncConfig derived
+// from config so cmd/* never imports the codec/sync packages. It proves model B
+// is a drop-in: swap these two lines in OpenService and nothing else changes.
+func TestOpenService_InjectsCodecAndSyncConfig(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &config.Config{
+		RegistryDBPath:       filepath.Join(dir, "registry.db"),
+		PackCacheDir:         filepath.Join(dir, "packcache"),
+		DefaultTemplatesRepo: "github.com/ghchinoy/mizan-templates",
+	}
+	svc, closeFn, err := OpenService(cfg)
+	if err != nil {
+		t.Fatalf("OpenService: %v", err)
+	}
+	defer func() { _ = closeFn() }()
+
+	// The injected codec is the YAML codec (Ext "yaml"), not the zero value.
+	codec := svc.Codec()
+	if _, ok := codec.(registry.YAMLCodec); !ok {
+		t.Errorf("OpenService injected codec = %T, want registry.YAMLCodec", codec)
+	}
+	if got := codec.Ext(); got != "yaml" {
+		t.Errorf("injected codec Ext() = %q, want %q", got, "yaml")
+	}
+
+	// The injected SyncConfig is derived from config, field-for-field.
+	want := registry.SyncConfig{
+		PackCacheDir:         cfg.PackCacheDir,
+		DefaultTemplatesRepo: cfg.DefaultTemplatesRepo,
+	}
+	if got := svc.SyncConfig(); got != want {
+		t.Errorf("OpenService injected SyncConfig = %+v, want %+v", got, want)
+	}
+}
+
 // builtNative records one newNativeClient construction so a test can assert the
 // (location, apiEndpoint) each native client was built for and inspect the fake.
 type builtNative struct {
