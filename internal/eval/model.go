@@ -62,6 +62,35 @@ func firstNonEmptyModel(vals ...string) string {
 	return ""
 }
 
+// Model-source labels for AppliedAutorater.ModelSource, one per branch of the
+// resolveModel precedence chain (§4.3). Kept as consts so callers and tests name
+// the same string.
+const (
+	modelSourceFlag          = "flag"
+	modelSourceTemplate      = "template"
+	modelSourceConfigDefault = "config-default"
+	modelSourceBuiltin       = "builtin"
+)
+
+// modelSource classifies WHY the resolved model was chosen, mirroring EXACTLY the
+// precedence firstNonEmptyModel applies in resolveModel
+// (flag > template > config default-model > built-in). It is a pure function so
+// the "why" label stays in ONE place with the precedence it describes and can be
+// unit-tested across all four branches. It takes the same first-three inputs as
+// resolveModel; the fourth (BuiltinDefaultModel) is the implicit final fallback.
+func modelSource(override, templateModel, configDefault string) string {
+	switch {
+	case override != "":
+		return modelSourceFlag
+	case templateModel != "":
+		return modelSourceTemplate
+	case configDefault != "":
+		return modelSourceConfigDefault
+	default:
+		return modelSourceBuiltin
+	}
+}
+
 // bareModelID strips any "publishers/google/models/<id>" (or "projects/.../<id>")
 // prefix, returning the publisher-relative id (e.g. "gemini-2.5-flash").
 func bareModelID(model string) string {
