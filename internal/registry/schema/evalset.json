@@ -69,7 +69,11 @@
               "type": "string",
               "enum": ["mean", "weighted-mean", "min", "max", "median", "sum"]
             },
-            "threshold": { "type": "number" }
+            "threshold": { "type": "number" },
+            "gate": {
+              "description": "Opt-in pass/fail gate flag (default false). Consumed by the eval-set runner; carried and lenient here.",
+              "type": "boolean"
+            }
           }
         },
         "display": {
