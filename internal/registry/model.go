@@ -132,6 +132,39 @@ type RubricScale struct {
 	Max int `yaml:"max" json:"max"`
 }
 
+// RubricProvenance records that (and how) a template's RubricGroups were
+// AI-drafted via adaptive generation (design §4.4/§4.7). A nil *RubricProvenance
+// on a MetricTemplate means the rubric was hand-authored — existing templates are
+// unaffected, so there is no migration and no behavior change. It is persisted,
+// schema-validated, and INCLUDED in the content hash (Decision 3, following the
+// RatingRubric precedent): editing either a generated rubric's criteria OR its
+// provenance shifts the hash, which is what auditability wants.
+//
+// CROSS-TEAM CONTRACT: the Method field name is read by mizan-em-resultsstore's
+// RubricRef.Method — do NOT rename it.
+type RubricProvenance struct {
+	// Method is how the rubric was produced, e.g. "adaptive-generated".
+	Method         string       `yaml:"method"                   json:"method"`
+	GeneratorModel string       `yaml:"generatorModel"           json:"generatorModel"`
+	Recipe         string       `yaml:"recipe,omitempty"         json:"recipe,omitempty"`
+	PromptTemplate string       `yaml:"promptTemplate,omitempty" json:"promptTemplate,omitempty"`
+	SampleInputRef string       `yaml:"sampleInputRef"           json:"sampleInputRef"`
+	GeneratedAt    time.Time    `yaml:"generatedAt"              json:"generatedAt"`
+	APIVersion     string       `yaml:"apiVersion"               json:"apiVersion"`
+	RubricMeta     []RubricMeta `yaml:"rubricMeta,omitempty"     json:"rubricMeta,omitempty"`
+}
+
+// RubricMeta preserves the API's per-criterion type/importance metadata that the
+// flat RubricGroups (map[string][]string) cannot carry (Decision 2). Entries are
+// kept in declared order and aligned 1:1 with the RubricGroups criteria, so no
+// generation fidelity is lost even though the runnable model is unchanged.
+type RubricMeta struct {
+	Group      string `yaml:"group"                json:"group"`
+	Criterion  string `yaml:"criterion"            json:"criterion"`
+	Type       string `yaml:"type,omitempty"       json:"type,omitempty"`
+	Importance string `yaml:"importance,omitempty" json:"importance,omitempty"`
+}
+
 // MetricTemplate is a stored, named autorater definition. This is the single
 // in-memory model that the YAML codec (P2) and a future Firestore document
 // mapping both target. See design/collaboration-design.md §6 (authoritative).
@@ -182,6 +215,12 @@ type MetricTemplate struct {
 	// --rubric-detail run flag (see internal/eval Engine.resolveRubricScale for the
 	// precedence: explicit run-flag scale > template scale > default 1-5).
 	RubricDetail *RubricDetail `yaml:"rubricDetail,omitempty" json:"rubricDetail,omitempty"`
+
+	// RubricProvenance is OPTIONAL adaptive-generation provenance (design §4.4):
+	// it records that (and how) RubricGroups were AI-drafted. A nil pointer means
+	// hand-authored — existing templates are unaffected (no migration, no behavior
+	// change). It is persisted, schema-validated, and hashed (Decision 3).
+	RubricProvenance *RubricProvenance `yaml:"rubricProvenance,omitempty" json:"rubricProvenance,omitempty"`
 
 	// Provenance / sync (see collaboration-design.md §3.9)
 	Source      string

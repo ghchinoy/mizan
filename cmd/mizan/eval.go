@@ -148,7 +148,12 @@ func newEvalAdaptiveCmd() *cobra.Command {
 			if tmplID == "" {
 				tmplID = "adaptive/inline"
 			}
-			tmpl := draftRubricTemplate(tmplID, "", groupName, []string{"prompt", "response"}, groups)
+			// Stamp the SAME fully-populated adaptive-generation provenance the draft
+			// path uses (design §4.4) for the rubrics actually used — the sample input
+			// that drove generation is the prompt. When --save-as freezes this template
+			// the provenance is persisted (and hashed) with it.
+			prov := buildRubricProvenance(recipe, groupName, prompt, rubrics)
+			tmpl := draftRubricTemplate(tmplID, "", groupName, []string{"prompt", "response"}, groups, prov)
 
 			// Build the instance from the SAME buildInstance path as eval run (prompt
 			// + response as guarded text slots).

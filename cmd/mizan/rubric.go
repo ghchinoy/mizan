@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -26,6 +29,85 @@ const defaultRecipe = "general_quality_v1"
 // draftTemplateVersion is the semver stamped on a generated draft so it validates
 // under the strict pack schema and round-trips through registry import/create.
 const draftTemplateVersion = "0.1.0"
+
+// Adaptive-generation provenance constants (design §4.4/§4.7). These stamp HOW a
+// generated rubric was drafted so a consumer can always tell an AI-drafted rubric
+// from a hand-authored one and reproduce/audit the draft.
+const (
+	// adaptiveMethod is the RubricProvenance.Method value for adaptive generation.
+	// CROSS-TEAM CONTRACT: mizan-em-resultsstore reads RubricRef.Method.
+	adaptiveMethod = "adaptive-generated"
+	// adaptiveAPIVersion identifies the RPC/surface that produced the rubric.
+	adaptiveAPIVersion = "v1beta1:generateInstanceRubrics"
+	// adaptiveGeneratorModel is the builtin generator model the predefined-recipe
+	// path uses (design §4.2: default builtin gemini-2.5-flash). Phase 2 supports
+	// the predefined path only; a custom generator model rides a later phase.
+	adaptiveGeneratorModel = "gemini-2.5-flash"
+	// maxSampleRefPreview bounds the sample-input preview stored in provenance so
+	// the persisted YAML never carries an unbounded prompt blob (security): the
+	// full input is pinned by its SHA-256, only a capped preview is human-readable.
+	maxSampleRefPreview = 256
+)
+
+// sampleInputRef builds a BOUNDED, auditable reference to the sample input that
+// drove generation: a length-capped, single-line preview plus the SHA-256 of the
+// FULL sample. It deliberately does NOT dump the (possibly large,
+// attacker-influenceable) sample verbatim into persisted, hashed YAML — the hash
+// pins the exact input for reproducibility while the preview stays small and safe.
+func sampleInputRef(sample string) string {
+	sum := sha256.Sum256([]byte(sample))
+	return fmt.Sprintf("inline:%q sha256:%s", previewText(sample, maxSampleRefPreview), hex.EncodeToString(sum[:]))
+}
+
+// previewText collapses whitespace runs to single spaces (so the preview is
+// single-line) and rune-safely truncates to max, appending an ellipsis when cut.
+func previewText(s string, max int) string {
+	joined := strings.Join(strings.Fields(s), " ")
+	r := []rune(joined)
+	if len(r) > max {
+		return string(r[:max]) + "…"
+	}
+	return joined
+}
+
+// rubricMetaFor preserves the API's per-criterion type/importance (Decision 2)
+// alongside the flat RubricGroups, keyed by group+criterion in DECLARED order. It
+// applies the SAME trim/skip-empty rule as rubricgen.ToRubricGroups so RubricMeta
+// stays aligned 1:1 with the criteria that actually landed in RubricGroups.
+func rubricMetaFor(groupName string, rubrics []rubricgen.Rubric) []registry.RubricMeta {
+	meta := make([]registry.RubricMeta, 0, len(rubrics))
+	for _, r := range rubrics {
+		desc := strings.TrimSpace(r.Content.Property.Description)
+		if desc == "" {
+			continue
+		}
+		meta = append(meta, registry.RubricMeta{
+			Group:      groupName,
+			Criterion:  desc,
+			Type:       r.Type,
+			Importance: r.Importance,
+		})
+	}
+	return meta
+}
+
+// buildRubricProvenance assembles the fully-populated RubricProvenance stamped on
+// BOTH `rubric generate` (CUJ 7) drafts and `eval adaptive --save-as` (CUJ 8)
+// frozen templates. Keeping it in one place is the owner's no-duplication
+// constraint and guarantees the two commands stamp identical provenance for the
+// rubrics actually used. PromptTemplate is left empty here (the custom
+// generation-prompt path is a later phase).
+func buildRubricProvenance(recipe, groupName, sample string, rubrics []rubricgen.Rubric) *registry.RubricProvenance {
+	return &registry.RubricProvenance{
+		Method:         adaptiveMethod,
+		GeneratorModel: adaptiveGeneratorModel,
+		Recipe:         recipe,
+		SampleInputRef: sampleInputRef(sample),
+		GeneratedAt:    time.Now().UTC(),
+		APIVersion:     adaptiveAPIVersion,
+		RubricMeta:     rubricMetaFor(groupName, rubrics),
+	}
+}
 
 // newRubricGenerator is the composition-root seam for the Stage-1 generation
 // client. It is a package-level var ONLY so command tests can substitute a fake
@@ -133,11 +215,13 @@ func renderRubricCriteria(w io.Writer, groupName string, rubrics []rubricgen.Rub
 }
 
 // draftRubricTemplate builds the frozen KindRubric template Mizan writes/saves for
-// a generated rubric. It is a PLAIN template (Phase 1 does NOT add a provenance
-// field or change the hash), so it validates under the current strict schema and
-// round-trips through registry import/create unchanged. The instance field keys
-// drive both the metricPromptTemplate placeholders and the declared inputs.
-func draftRubricTemplate(id, name, groupName string, fieldKeys []string, groups map[string][]string) registry.MetricTemplate {
+// a generated rubric. The instance field keys drive both the metricPromptTemplate
+// placeholders and the declared inputs. When prov is non-nil it stamps the
+// adaptive-generation provenance (Phase 2, design §4.4) — a persisted, hashed,
+// schema-valid field — so the draft records how it was AI-drafted; a nil prov
+// leaves the template hand-authored-equivalent. The result validates under the
+// strict schema and round-trips through registry import/create unchanged.
+func draftRubricTemplate(id, name, groupName string, fieldKeys []string, groups map[string][]string, prov *registry.RubricProvenance) registry.MetricTemplate {
 	sorted := append([]string(nil), fieldKeys...)
 	sort.Strings(sorted)
 	inputs := make([]registry.InputSpec, 0, len(sorted))
@@ -157,6 +241,7 @@ func draftRubricTemplate(id, name, groupName string, fieldKeys []string, groups 
 		Inputs:               inputs,
 		MetricPromptTemplate: adaptiveMetricPrompt(sorted),
 		RubricGroups:         groups,
+		RubricProvenance:     prov,
 	}
 }
 
@@ -236,7 +321,8 @@ func newRubricGenerateCmd() *cobra.Command {
 				return err
 			}
 
-			tmpl := draftRubricTemplate(id, name, groupName, []string{"prompt", "response"}, groups)
+			prov := buildRubricProvenance(recipe, groupName, sample, rubrics)
+			tmpl := draftRubricTemplate(id, name, groupName, []string{"prompt", "response"}, groups, prov)
 			yamlBytes, err := registry.MarshalTemplate(&tmpl)
 			if err != nil {
 				return err

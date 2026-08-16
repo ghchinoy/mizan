@@ -100,6 +100,33 @@
             }
           }
         },
+        "rubricProvenance": {
+          "type": "object",
+          "description": "OPTIONAL adaptive-generation provenance (design §4.4). Absent means hand-authored. Included in the content hash (Decision 3).",
+          "additionalProperties": false,
+          "properties": {
+            "method": { "type": "string" },
+            "generatorModel": { "type": "string" },
+            "recipe": { "type": "string" },
+            "promptTemplate": { "type": "string" },
+            "sampleInputRef": { "type": "string" },
+            "generatedAt": { "type": "string" },
+            "apiVersion": { "type": "string" },
+            "rubricMeta": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "group": { "type": "string" },
+                  "criterion": { "type": "string" },
+                  "type": { "type": "string" },
+                  "importance": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
         "autorater": {
           "type": "object",
           "additionalProperties": false,

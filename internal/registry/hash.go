@@ -33,8 +33,11 @@ func canonicalizeJSON(s string) string {
 // EXCLUDED by construction: the provenance/lifecycle fields that are not part of
 // "what the template is" — Source, ContentHash (the hash cannot include itself),
 // Dirty, CreatedAt, UpdatedAt, ImportedAt. Everything else (the full current
-// spec, including the RFC-0001 additive fields RatingRubric/RubricDetail) is
-// covered so a change to any authored field shifts the hash.
+// spec, including the RFC-0001 additive fields RatingRubric/RubricDetail and the
+// adaptive-generation RubricProvenance — Decision 3) is covered so a change to any
+// authored field shifts the hash. NOTE: RubricProvenance carries a GeneratedAt
+// TIMESTAMP; that is generation-content, hashed by design, and is distinct from
+// the EXCLUDED registry-level lifecycle timestamps (CreatedAt/UpdatedAt/ImportedAt).
 //
 // Determinism: the canonical view is a fixed-field-order struct (json.Marshal
 // emits struct fields in declaration order and sorts map keys), and every slice
@@ -73,6 +76,7 @@ func contentHash(t *MetricTemplate) string {
 		ResponseSchema       string                       `json:"responseSchema"`
 		RatingRubric         map[string]map[string]string `json:"ratingRubric"`
 		RubricDetail         *RubricDetail                `json:"rubricDetail"`
+		RubricProvenance     *RubricProvenance            `json:"rubricProvenance"`
 		AutoraterModel       string                       `json:"autoraterModel"`
 		SamplingCount        int32                        `json:"samplingCount"`
 		FlipEnabled          bool                         `json:"flipEnabled"`
@@ -92,6 +96,7 @@ func contentHash(t *MetricTemplate) string {
 		RubricGroups:         t.RubricGroups,
 		RatingRubric:         t.RatingRubric,
 		RubricDetail:         t.RubricDetail,
+		RubricProvenance:     t.RubricProvenance,
 		AutoraterModel:       t.AutoraterModel,
 		SamplingCount:        t.SamplingCount,
 		FlipEnabled:          t.FlipEnabled,

@@ -133,6 +133,92 @@ func TestRubricGenerateWritesDraft(t *testing.T) {
 	if tmpl.MetricPromptTemplate == "" || !strings.Contains(tmpl.MetricPromptTemplate, "{{prompt}}") {
 		t.Errorf("draft metricPromptTemplate missing placeholders: %q", tmpl.MetricPromptTemplate)
 	}
+
+	// CUJ 7: the draft carries fully-populated adaptive-generation provenance that
+	// survives the codec round-trip (Phase 2, design §4.4).
+	prov := tmpl.RubricProvenance
+	if prov == nil {
+		t.Fatalf("draft is missing RubricProvenance")
+	}
+	if prov.Method != "adaptive-generated" {
+		t.Errorf("provenance.Method = %q, want adaptive-generated", prov.Method)
+	}
+	if prov.GeneratorModel == "" || prov.Recipe != defaultRecipe || prov.APIVersion != adaptiveAPIVersion {
+		t.Errorf("provenance scalars not stamped: %+v", prov)
+	}
+	if !strings.Contains(prov.SampleInputRef, "sha256:") || !strings.Contains(prov.SampleInputRef, "Explain the offer") {
+		t.Errorf("provenance.SampleInputRef = %q, want bounded ref + sha256", prov.SampleInputRef)
+	}
+	if prov.GeneratedAt.IsZero() {
+		t.Error("provenance.GeneratedAt not stamped")
+	}
+	// Decision 2: per-criterion type/importance preserved, aligned with RubricGroups.
+	if len(prov.RubricMeta) != 2 {
+		t.Fatalf("provenance.RubricMeta len = %d, want 2 (aligned with criteria)", len(prov.RubricMeta))
+	}
+	if prov.RubricMeta[0].Criterion != "Answers the question directly" ||
+		prov.RubricMeta[0].Type != "CONTENT" || prov.RubricMeta[0].Importance != "HIGH" {
+		t.Errorf("provenance.RubricMeta[0] not preserved: %+v", prov.RubricMeta[0])
+	}
+	if prov.RubricMeta[0].Group != "general_quality" {
+		t.Errorf("provenance.RubricMeta[0].Group = %q, want general_quality", prov.RubricMeta[0].Group)
+	}
+}
+
+// TestBuildRubricProvenanceSharedByBothCUJs pins the SINGLE provenance builder
+// used by both `rubric generate` (CUJ 7) and `eval adaptive --save-as` (CUJ 8): it
+// stamps method/model/recipe/apiVersion, a bounded sample-input ref + SHA-256, a
+// timestamp, and the per-criterion meta in declared order aligned with the criteria
+// that survive ToRubricGroups' skip-empty rule.
+func TestBuildRubricProvenanceSharedByBothCUJs(t *testing.T) {
+	rubrics := []rubricgen.Rubric{
+		rubricgentest.Rubric("first", "CONTENT", "HIGH"),
+		rubricgentest.Rubric("   ", "SKIP", "LOW"), // empty desc -> skipped, kept aligned
+		rubricgentest.Rubric("second", "STYLE", "MEDIUM"),
+	}
+	prov := buildRubricProvenance("general_quality_v1", "general_quality", "the sample prompt", rubrics)
+	if prov.Method != adaptiveMethod || prov.APIVersion != adaptiveAPIVersion {
+		t.Errorf("method/apiVersion not stamped: %+v", prov)
+	}
+	if prov.GeneratorModel != adaptiveGeneratorModel || prov.Recipe != "general_quality_v1" {
+		t.Errorf("model/recipe not stamped: %+v", prov)
+	}
+	if prov.PromptTemplate != "" {
+		t.Errorf("PromptTemplate should be empty on the predefined path, got %q", prov.PromptTemplate)
+	}
+	if prov.GeneratedAt.IsZero() {
+		t.Error("GeneratedAt not stamped")
+	}
+	// The empty-description rubric is skipped, so meta aligns with the two criteria
+	// that ToRubricGroups keeps, in declared order.
+	if len(prov.RubricMeta) != 2 {
+		t.Fatalf("RubricMeta len = %d, want 2 (skip-empty aligned)", len(prov.RubricMeta))
+	}
+	if prov.RubricMeta[0].Criterion != "first" || prov.RubricMeta[1].Criterion != "second" {
+		t.Errorf("RubricMeta order/alignment wrong: %+v", prov.RubricMeta)
+	}
+}
+
+// TestSampleInputRefBoundedAndHashed proves the sample-input ref never dumps an
+// unbounded blob: a large sample is truncated in the preview but pinned by the
+// SHA-256 of the FULL input (security requirement (b)).
+func TestSampleInputRefBoundedAndHashed(t *testing.T) {
+	big := strings.Repeat("A", 100_000)
+	ref := sampleInputRef(big)
+	if len(ref) > maxSampleRefPreview+128 {
+		t.Errorf("sampleInputRef not bounded: len=%d", len(ref))
+	}
+	if !strings.Contains(ref, "sha256:") {
+		t.Errorf("sampleInputRef missing sha256: %q", ref)
+	}
+	// Different inputs -> different hashes; identical inputs -> identical ref.
+	if sampleInputRef("x") == sampleInputRef("y") {
+		t.Error("sampleInputRef collides for distinct inputs")
+	}
+	a, b := sampleInputRef("same"), sampleInputRef("same")
+	if a != b {
+		t.Error("sampleInputRef not deterministic")
+	}
 }
 
 // TestGenerateRubricGroupsNoUsableCriteria proves the SHARED generation+conversion

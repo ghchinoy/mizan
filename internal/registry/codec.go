@@ -102,6 +102,7 @@ type packSpec struct {
 	ResponseSchema       map[string]any               `yaml:"responseSchema,omitempty"`     // custom_schema (JSON-Schema object)
 	RatingRubric         map[string]map[string]string `yaml:"ratingRubric,omitempty"`       // RFC-0001 §4.4
 	RubricDetail         *RubricDetail                `yaml:"rubricDetail,omitempty"`       // RFC-0001 §4.4
+	RubricProvenance     *RubricProvenance            `yaml:"rubricProvenance,omitempty"`   // adaptive-generation provenance (§4.4)
 	Autorater            packAutorater                `yaml:"autorater,omitempty"`
 }
 
@@ -180,6 +181,7 @@ func (c YAMLCodec) Unmarshal(data []byte) (*MetricTemplate, error) {
 		RubricGroups:         pf.Spec.RubricGroups,
 		RatingRubric:         pf.Spec.RatingRubric,
 		RubricDetail:         pf.Spec.RubricDetail,
+		RubricProvenance:     pf.Spec.RubricProvenance,
 		AutoraterModel:       autoraterModel,
 		SamplingCount:        pf.Spec.Autorater.SamplingCount,
 		FlipEnabled:          pf.Spec.Autorater.FlipEnabled,
@@ -239,6 +241,7 @@ func (c YAMLCodec) Marshal(t *MetricTemplate) ([]byte, error) {
 			RubricGroups:         t.RubricGroups,
 			RatingRubric:         t.RatingRubric,
 			RubricDetail:         t.RubricDetail,
+			RubricProvenance:     t.RubricProvenance,
 			Autorater: packAutorater{
 				Model:         t.AutoraterModel,
 				SamplingCount: t.SamplingCount,

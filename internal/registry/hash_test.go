@@ -7,7 +7,13 @@ import "testing"
 // canonicalization shifts this value, this test fails LOUD so the shift is a
 // conscious decision (design §3.6: the hash must be stable/back-compatible).
 // Regenerate deliberately only when you intend to change the hash contract.
-const goldenFixtureHash = "sha256:b7e4810b51c21e973ce45f8f63c1158efbdb44b76370e2a4424027ade988c9c2"
+//
+// SHIFTED INTENTIONALLY in Phase 2 (adaptive rubrics, Decision 3): adding the
+// hashed RubricProvenance field to the canonical struct emits a `rubricProvenance`
+// key (null for this hand-authored fixture), so every template's contentHash moves
+// once. This is the established pattern for additive hashed fields (RatingRubric
+// set the precedent) — the golden value below was regenerated in the same commit.
+const goldenFixtureHash = "sha256:3cb0f1a5e64eb1cef5689ea274c348e7dd87132aab353b09674507c2e50bac49"
 
 func TestContentHashGolden(t *testing.T) {
 	c := NewYAMLCodec()
