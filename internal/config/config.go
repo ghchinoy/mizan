@@ -235,6 +235,15 @@ func resolveSource(envVars []string, realEnv, fileVars map[string]string) Source
 // stray/hostile config from redirecting the authenticated Vertex client (which
 // attaches an ADC OAuth bearer token to every RPC) to an attacker-controlled
 // host. It never disables ADC or TLS.
+//
+// The endpoint is a BARE host[:port] (this is how the native gRPC path and the
+// rubricgen REST path both consume it). A value carrying a path, userinfo,
+// query, or fragment is rejected outright: such bytes move the real authority
+// to an attacker host while the *.googleapis.com suffix collapses into the
+// path/query/fragment, so the string passes a naive HasSuffix allow-list yet a
+// URL/gRPC dialer connects to the attacker host — the parser-differential
+// token-exfil vector (CRIT-2). Validation and use must agree, so the same bare
+// host asserted here is the host the client is built from.
 func ValidateEndpoint(ep string) error {
 	if ep == "" {
 		return nil
@@ -246,11 +255,51 @@ func ValidateEndpoint(ep string) error {
 	if h, _, err := net.SplitHostPort(ep); err == nil {
 		host = h
 	}
+	// A bare host must not contain a scheme separator, path, userinfo, query, or
+	// fragment. Reject any of these before the *.googleapis.com suffix check so a
+	// crafted "evil.com/foo.googleapis.com" (real authority evil.com) cannot pass.
+	if strings.ContainsAny(host, "/@?#\\") {
+		return fmt.Errorf("config: refusing custom API endpoint %q: expected a bare host[:port] with no scheme, path, userinfo, query, or fragment (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", ep)
+	}
 	if endpointHostAllowed(host) {
 		return nil
 	}
 	return fmt.Errorf("config: refusing custom API endpoint %q: host is not *.googleapis.com (set MIZAN_ALLOW_CUSTOM_ENDPOINT=1 to override)", ep)
 }
+
+// locationPattern is the canonical GCP region/location label: a lowercase
+// letter first, then lowercase letters, digits, or hyphens, and no trailing
+// hyphen. It deliberately forbids '/', '@', '?', '#', ':' and every other
+// authority-structural byte so a location can never carry a host.
+var locationPattern = regexp.MustCompile(`^[a-z]([a-z0-9-]*[a-z0-9])?$`)
+
+// ValidateLocation rejects a location that is not a bare GCP region label (or
+// "global"). The regional Vertex host is built by concatenating the location
+// into {location}-aiplatform.googleapis.com; an unvalidated location containing
+// '/', '@', '?', '#', etc. moves the real authority to an attacker host while
+// the literal "-aiplatform.googleapis.com" degrades to a path/query/fragment,
+// exfiltrating the ADC OAuth bearer token to that host (CRIT-1). This is the
+// single source of truth shared by the native gRPC and rubricgen REST paths, so
+// location gets the same allow-list discipline as the endpoint override.
+//
+// An empty location is accepted: callers normalize "" to the global/default
+// host (see rubricgen.locationOrDefault / eval.endpointFor), so "" never
+// reaches the concatenation branch.
+func ValidateLocation(location string) error {
+	if location == "" || location == "global" {
+		return nil
+	}
+	if !locationPattern.MatchString(location) {
+		return fmt.Errorf("config: invalid location %q: expected a GCP region label (a lowercase letter, then lowercase letters, digits or '-', no trailing '-'; e.g. \"us-central1\") or \"global\"", location)
+	}
+	return nil
+}
+
+// EndpointHostAllowed reports whether host is permitted under the Google-only
+// endpoint policy (the canonical apex or any *.googleapis.com subdomain). It is
+// exported so an outbound client (e.g. rubricgen) can re-assert the FINAL,
+// fully-assembled dial host as defense-in-depth after building its base URL.
+func EndpointHostAllowed(host string) bool { return endpointHostAllowed(host) }
 
 // projectIDPattern is the canonical GCP project-ID format: 6–30 characters, a
 // lowercase letter first, then lowercase letters / digits / hyphens, and no

@@ -313,6 +313,20 @@ func TestValidateEndpoint(t *testing.T) {
 		{"non-google host rejected", "evil.attacker.example:443", "", true},
 		{"lookalike suffix rejected", "googleapis.com.evil.example:443", "", true},
 		{"non-google allowed with override", "evil.attacker.example:443", "1", false},
+		// CRIT-2 parser-differential vectors: the real authority is evil.com but a
+		// naive HasSuffix(".googleapis.com") on the whole string would have PASSED
+		// these. The bare-host check rejects any path/userinfo/query/fragment so
+		// validation (here) and use (rubricgen.restBaseURL / eval.endpointFor) agree.
+		{"path smuggles google suffix", "evil.com/foo.googleapis.com", "", true},
+		{"path with dot-google suffix", "evil.com/.googleapis.com", "", true},
+		{"fragment smuggles google suffix", "evil.com#.googleapis.com", "", true},
+		{"query smuggles google suffix", "evil.com?.googleapis.com", "", true},
+		{"userinfo before google host", "@evil.com/foo.googleapis.com", "", true},
+		{"scheme prefix rejected", "https://evil.com/.googleapis.com", "", true},
+		{"backslash path rejected", "evil.com\\foo.googleapis.com", "", true},
+		// The escape hatch still relaxes the host allow-list for these crafted values
+		// (operator explicitly opted in), matching endpoint policy elsewhere.
+		{"differential allowed with override", "evil.com/foo.googleapis.com", "1", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -323,6 +337,47 @@ func TestValidateEndpoint(t *testing.T) {
 			}
 			if !tc.wantErr && err != nil {
 				t.Errorf("ValidateEndpoint(%q) = %v, want nil", tc.ep, err)
+			}
+		})
+	}
+}
+
+func TestValidateLocation(t *testing.T) {
+	cases := []struct {
+		name    string
+		loc     string
+		wantErr bool
+	}{
+		// Positive: the region label and the sentinels callers normalize to.
+		{"empty is allowed (normalized to global)", "", false},
+		{"global sentinel", "global", false},
+		{"typical region us-central1", "us-central1", false},
+		{"region europe-west4", "europe-west4", false},
+		{"region asia-northeast1", "asia-northeast1", false},
+		// CRIT-1 host-injection vectors: a location that carries authority-
+		// structural bytes must be rejected BEFORE it is concatenated into
+		// {loc}-aiplatform.googleapis.com and the ADC bearer token is attached.
+		{"slash moves authority", "evil.com/", true},
+		{"fragment moves authority", "evil.com#", true},
+		{"userinfo moves authority", "@evil.com/", true},
+		{"query moves authority", "evil.com?", true},
+		{"colon port injection", "evil.com:443", true},
+		{"embedded dot host", "evil.com", true},
+		{"uppercase rejected", "US-CENTRAL1", true},
+		{"leading hyphen rejected", "-central1", true},
+		{"trailing hyphen rejected", "us-central1-", true},
+		{"leading digit rejected", "1region", true},
+		{"whitespace rejected", "us central1", true},
+		{"newline rejected", "us-central1\n", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateLocation(tc.loc)
+			if tc.wantErr && err == nil {
+				t.Errorf("ValidateLocation(%q) = nil, want error", tc.loc)
+			}
+			if !tc.wantErr && err != nil {
+				t.Errorf("ValidateLocation(%q) = %v, want nil", tc.loc, err)
 			}
 		})
 	}
