@@ -90,6 +90,53 @@ func TestRun_IdentityBinding(t *testing.T) {
 	}
 }
 
+// TestRun_IdentityBindingPerMember proves the shared set inputs are identity-bound
+// into EVERY member's instance (not just the first), and that binding.go copies the
+// map so a member run cannot mutate the caller's shared inputs (documented in
+// binding.go, otherwise untested).
+func TestRun_IdentityBindingPerMember(t *testing.T) {
+	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{
+		"p/a": tmpl("p/a"), "p/b": tmpl("p/b"),
+	}}
+	runner := &fakeRunner{results: map[string]eval.Result{
+		"p/a": {Score: f32(0.9)}, "p/b": {Score: f32(0.8)},
+	}}
+	r := New(getter, runner)
+
+	inputs := map[string]eval.AssetRef{
+		"asset": {Modality: registry.ModalityText, Text: "hello"},
+	}
+	set := Set{
+		ID: "p/set",
+		Members: []Member{
+			{MetricID: "p/a", Weight: 1},
+			{MetricID: "p/b", Weight: 1},
+		},
+		Aggregation: Aggregation{Method: AggMean},
+	}
+
+	if _, err := r.Run(context.Background(), set, RunOptions{Inputs: inputs}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(runner.seen) != 2 {
+		t.Fatalf("expected 2 engine calls, got %d", len(runner.seen))
+	}
+	for i, inst := range runner.seen {
+		if !reflect.DeepEqual(inst.Fields, inputs) {
+			t.Fatalf("member %d identity binding mismatch: got %#v want %#v", i, inst.Fields, inputs)
+		}
+	}
+	// The instance must be a copy: mutating a member's fields must not bleed into
+	// the shared inputs or into the sibling member's instance.
+	runner.seen[0].Fields["asset"] = eval.AssetRef{Text: "mutated"}
+	if got := inputs["asset"].Text; got != "hello" {
+		t.Fatalf("shared inputs mutated through member instance: asset=%q", got)
+	}
+	if got := runner.seen[1].Fields["asset"].Text; got != "hello" {
+		t.Fatalf("sibling member instance shares backing map: asset=%q", got)
+	}
+}
+
 func TestRun_ContinueOnError(t *testing.T) {
 	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{
 		"p/a": tmpl("p/a"), "p/b": tmpl("p/b"), "p/c": tmpl("p/c"),

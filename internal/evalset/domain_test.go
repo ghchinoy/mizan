@@ -3,6 +3,7 @@ package evalset
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ghchinoy/mizan/internal/registry/pack"
@@ -127,5 +128,55 @@ func TestFromDoc_NonStringInputRejected(t *testing.T) {
 	}
 	if _, err := FromDoc(doc); err == nil {
 		t.Fatal("FromDoc accepted non-string input value, want error")
+	}
+}
+
+// TestFromDoc_NonStringValueRejectedNamesKey covers the design §6-§9 requirement
+// that FromDoc rejects a non-string value in EITHER spec.inputs OR a member's
+// spec.members[i].bind, and that the error NAMES the offending key so an author
+// can locate it. The bind path is exercised here (the existing input-only test
+// does not touch member bind conversion) and both paths assert the key appears
+// in the message.
+func TestFromDoc_NonStringValueRejectedNamesKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		doc     *pack.EvalSetDoc
+		wantKey string
+	}{
+		{
+			name: "non-string input value names key",
+			doc: &pack.EvalSetDoc{
+				Metadata: pack.EvalSetMetadata{ID: "p/s"},
+				Spec: pack.EvalSetSpec{
+					Inputs:  map[string]any{"asset": 42},
+					Members: []pack.EvalSetMember{{Metric: "p/a"}},
+				},
+			},
+			wantKey: "asset",
+		},
+		{
+			name: "non-string bind value names key",
+			doc: &pack.EvalSetDoc{
+				Metadata: pack.EvalSetMetadata{ID: "p/s"},
+				Spec: pack.EvalSetSpec{
+					Members: []pack.EvalSetMember{
+						{Metric: "p/a", Bind: map[string]any{"prompt": true}},
+					},
+				},
+			},
+			wantKey: "prompt",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := FromDoc(tc.doc)
+			if err == nil {
+				t.Fatalf("FromDoc accepted non-string value, want error")
+			}
+			if !strings.Contains(err.Error(), tc.wantKey) {
+				t.Fatalf("error %q does not name offending key %q", err, tc.wantKey)
+			}
+		})
 	}
 }
