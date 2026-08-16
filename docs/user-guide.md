@@ -296,16 +296,17 @@ $ mizan config set author-name "Jane Doe"
 $ mizan config set default-license Apache-2.0
 $ mizan registry create --id demo/quality --name "Quality" --kind pointwise \
     --prompt "Rate {{response}}" --input response:text:true
-ID:             demo/quality
-Name:           Quality
-Version:        0.1.0
-Kind:           pointwise
-Modalities:     text
-License:        Apache-2.0
-Authors:        Jane Doe
-Input[response]: text (required=true)
-SamplingCount:  4
-Prompt:         Rate {{response}}
+ID:               demo/quality
+Name:             Quality
+Version:          0.1.0
+Kind:             pointwise
+Modalities:       text
+License:          Apache-2.0
+Authors:          Jane Doe
+Input[response]:  text (required=true)
+Model:            
+SamplingCount:    4
+Prompt:           Rate {{response}}
 ```
 
 #### Inferring inputs from placeholders (`--infer-inputs`)
@@ -590,7 +591,7 @@ Templates whose inputs include a non-text modality are skipped (a live probe
 can't fabricate a real asset). Steps 1–5 always run without credentials;
 `--dry-run` is the only part that needs a configured project.
 
-> **EvalSet is format-only in P2.** A `kind: EvalSet` manifest is **carried and
+> **EvalSet is format-only.** A `kind: EvalSet` manifest is **carried and
 > validated** but is **not** imported into your local registry or run — there is
 > no eval-set runner yet. It exists so tools and future features have a stable,
 > schema-governed, git-shareable way to name a group of metrics for an asset
@@ -665,7 +666,7 @@ $ git add packs/acme && git commit -m "add acme quality metric" && git push
 
 # 4. A collaborator (or you, elsewhere) imports the merged pack.
 $ mizan registry import ./mizan-templates
-1 inserted, 0 skipped (source: ./mizan-templates)
+1 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: ./mizan-templates)
   inserted: acme/quality
 ```
 

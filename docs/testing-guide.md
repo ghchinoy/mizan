@@ -593,6 +593,99 @@ Audio/video/music follow the same `--modality`/`--file`/`--gcs` shape; image
 is shown here because it's the easiest asset to synthesize for a
 reproducible test.
 
+## Template packs: author, validate, export & import
+
+Packs are how metric templates travel between registries: a pack directory is a
+`mizan-pack.yaml` manifest plus a `templates/` tree (and an empty `evalsets/`
+carriage hook). The whole author → export → validate → import loop is
+**pure-local** — no project, no ADC, no Vertex call — so, like `mizan version`
+above, it's a recipe you can run anywhere. This is the hands-on companion to the
+user-guide's fuller [Registry walkthrough](user-guide.md#registry-walkthrough);
+see there for the narrative and for the full `--strategy` / `--dry-run`
+reconciliation semantics, which this recipe deliberately does not re-derive.
+
+The output below was captured live against the built binary in this pass, using
+a scratch `MIZAN_REGISTRY_DB` seeded with three throwaway pointwise templates in
+an `acme` namespace. The `mizan: loaded env file …` notice each command writes to
+stderr is omitted for copy-pasteability.
+
+Scaffold an empty pack and confirm its shape:
+
+```sh
+$ mizan pack init packs/acme --name acme
+initialized pack "packs/acme" (namespace "acme")
+
+$ ls packs/acme
+evalsets
+mizan-pack.yaml
+templates
+```
+
+`pack add` writes a single template into the pack straight from the registry (a
+thin convenience over `registry export --id`) — a handy way to build a pack up
+one template at a time. Start with just `acme/clarity`:
+
+```sh
+$ mizan pack add packs/acme --from acme/clarity
+1 written, 0 skipped (dest: packs/acme)
+  written: acme/clarity -> templates/clarity.yaml
+```
+
+Export pulls a whole namespace out of the registry into the pack (use `--all` for
+every template, or `--id <id>` for a single one) — one file per template lands
+under `templates/`. Export always writes the entire selection, so here it adds
+`helpfulness` and `tone` and re-writes the `clarity.yaml` that `pack add` just
+placed — the two commands are complementary, not competing:
+
+```sh
+$ mizan registry export --out packs/acme --namespace acme
+3 written, 0 skipped (dest: packs/acme)
+  written: acme/clarity -> templates/clarity.yaml
+  written: acme/helpfulness -> templates/helpfulness.yaml
+  written: acme/tone -> templates/tone.yaml
+```
+
+Validate the pack — this is the creds-free PR gate (structural schema, identity,
+kind semantics, placeholder consistency, and lint). It exits non-zero only when
+there are `error(s)`; `warning(s)` are advisory and never fail:
+
+```sh
+$ mizan pack validate packs/acme
+templates/clarity.yaml:
+  [warn ] lint: missing metadata.description
+  [warn ] lint: no autorater.model set (eval-time default will be used)
+templates/helpfulness.yaml:
+  [warn ] lint: missing metadata.description
+  [warn ] lint: no autorater.model set (eval-time default will be used)
+templates/tone.yaml:
+  [warn ] lint: missing metadata.description
+  [warn ] lint: no autorater.model set (eval-time default will be used)
+
+0 error(s), 6 warning(s)
+```
+
+Import the pack into a **fresh** `MIZAN_REGISTRY_DB`. The summary is the same
+six-field report used by the import examples elsewhere in this guide:
+
+```sh
+$ mizan registry import packs/acme
+3 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: packs/acme)
+  inserted: acme/clarity
+  inserted: acme/helpfulness
+  inserted: acme/tone
+```
+
+Re-importing the same pack is a no-op — nothing changed on disk, so every
+template lands in the `unchanged` column instead of `inserted`:
+
+```sh
+$ mizan registry import packs/acme
+0 inserted, 0 updated, 0 skipped, 0 conflicted, 3 unchanged, 0 forked (source: packs/acme)
+  unchanged: acme/clarity (unchanged (same content))
+  unchanged: acme/helpfulness (unchanged (same content))
+  unchanged: acme/tone (unchanged (same content))
+```
+
 ## Per-criterion rubric detail and reconciliation (`--rubric-detail`)
 
 > **ADC-required — captured live.** Every command in this section makes a live
@@ -855,23 +948,6 @@ write test recipes against them. Each was re-verified absent from the built
 binary rather than assumed. See
 [`docs/user-guide.md`](user-guide.md#coming-soon--roadmap) for the roadmap.
 
-- **Template packs and registry import/export** — `mizan pack` and
-  `mizan registry import`/`export` do not exist:
-
-  ```sh
-  $ mizan pack
-  Error: unknown command "pack" for "mizan"
-
-  $ mizan registry --help
-  Available Commands:
-    create      Create a metric template
-    delete      Delete a metric template
-    get         Show a metric template
-    list        List metric templates
-    update      Update a metric template
-  ```
-
-  (No `import`/`export` subcommand is listed.)
 - **Batch evaluation** (`EvaluateDataset` over GCS-hosted datasets) — no such
   command exists yet.
 - **The Wails desktop app** (`cmd/mizan-desktop`) — design-stage scaffolding
