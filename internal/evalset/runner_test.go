@@ -73,8 +73,8 @@ func TestRun_IdentityBinding(t *testing.T) {
 		"asset": {Modality: registry.ModalityText, Text: "hello"},
 	}
 	set := Set{
-		ID:      "p/set",
-		Members: []Member{{MetricID: "p/a", Weight: 1}},
+		ID:          "p/set",
+		Members:     []Member{{MetricID: "p/a", Weight: 1}},
 		Aggregation: Aggregation{Method: AggMean},
 	}
 
