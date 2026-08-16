@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -22,6 +23,7 @@ func clearEnv(t *testing.T) {
 		"MIZAN_API_ENDPOINT", "VERTEX_API_ENDPOINT",
 		"MIZAN_TEMPLATES_REPO", "MIZAN_DEFAULT_MODEL",
 		"MIZAN_REGISTRY_DB", "MIZAN_PACK_CACHE",
+		"MIZAN_RESULTS_BACKEND", "MIZAN_RESULTS_DB", "MIZAN_RESULTS_RETENTION",
 		"MIZAN_ENV_FILE", "MIZAN_ALLOW_CUSTOM_ENDPOINT",
 		"MIZAN_AUTHOR_NAME", "MIZAN_DEFAULT_LICENSE",
 	} {
@@ -296,6 +298,70 @@ func TestLoadConfigRegistryDBOverride(t *testing.T) {
 	}
 	if c.RegistryDBPath != "/tmp/custom/registry.db" {
 		t.Errorf("RegistryDBPath = %q, want the explicit override", c.RegistryDBPath)
+	}
+}
+
+func TestLoadConfigResultsDefaults(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("PROJECT_ID", "proj-123")
+
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.ResultsBackend != "sqlite" {
+		t.Errorf("ResultsBackend = %q, want sqlite", c.ResultsBackend)
+	}
+	if c.ResultsRetention != "hybrid" {
+		t.Errorf("ResultsRetention = %q, want hybrid", c.ResultsRetention)
+	}
+	if !strings.HasSuffix(filepath.ToSlash(c.ResultsDBPath), "mizan/results.db") {
+		t.Errorf("ResultsDBPath = %q, want a path ending in mizan/results.db", c.ResultsDBPath)
+	}
+	// The results DB must be a SEPARATE file from the registry DB.
+	if c.ResultsDBPath == c.RegistryDBPath {
+		t.Errorf("ResultsDBPath == RegistryDBPath (%q); they must be separate files", c.ResultsDBPath)
+	}
+}
+
+func TestLoadConfigResultsOverrides(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("PROJECT_ID", "proj-123")
+	t.Setenv("MIZAN_RESULTS_BACKEND", "firestore")
+	t.Setenv("MIZAN_RESULTS_DB", "/tmp/custom/results.db")
+	t.Setenv("MIZAN_RESULTS_RETENTION", "reference")
+
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.ResultsBackend != "firestore" {
+		t.Errorf("ResultsBackend = %q, want firestore", c.ResultsBackend)
+	}
+	if c.ResultsDBPath != "/tmp/custom/results.db" {
+		t.Errorf("ResultsDBPath = %q, want the explicit override", c.ResultsDBPath)
+	}
+	if c.ResultsRetention != "reference" {
+		t.Errorf("ResultsRetention = %q, want reference", c.ResultsRetention)
+	}
+}
+
+func TestResultsFieldsPresent(t *testing.T) {
+	want := map[string]string{
+		"results-backend":   "MIZAN_RESULTS_BACKEND",
+		"results-db":        "MIZAN_RESULTS_DB",
+		"results-retention": "MIZAN_RESULTS_RETENTION",
+	}
+	got := make(map[string]string)
+	for _, f := range Fields() {
+		if _, ok := want[f.Key]; ok {
+			got[f.Key] = f.EnvVars[0]
+		}
+	}
+	for k, env := range want {
+		if got[k] != env {
+			t.Errorf("Fields() key %q env = %q, want %q", k, got[k], env)
+		}
 	}
 }
 

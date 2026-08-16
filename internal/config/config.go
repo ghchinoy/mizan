@@ -36,6 +36,9 @@ type Config struct {
 	StagingBucket        string // gs:// prefix stripped; required only for multimodal (not this slice)
 	APIEndpoint          string // optional override
 	RegistryDBPath       string // default: <UserConfigDir>/mizan/registry.db
+	ResultsBackend       string // eval results store backend; default "sqlite" (env: MIZAN_RESULTS_BACKEND)
+	ResultsDBPath        string // default: <UserConfigDir>/mizan/results.db (env: MIZAN_RESULTS_DB)
+	ResultsRetention     string // input retention policy: inline|reference|hybrid; default "hybrid" (env: MIZAN_RESULTS_RETENTION)
 	PackCacheDir         string // default: <UserCacheDir>/mizan/packs (for import <git-url>)
 	DefaultTemplatesRepo string // default: github.com/ghchinoy/mizan-templates
 	DefaultModel         string // default autorater model (env: MIZAN_DEFAULT_MODEL); "" -> built-in (WI-F3)
@@ -102,6 +105,14 @@ func LoadConfig() (*Config, error) {
 
 	c.RegistryDBPath = firstNonEmpty(os.Getenv("MIZAN_REGISTRY_DB"), defaultDBPath())
 	c.PackCacheDir = firstNonEmpty(os.Getenv("MIZAN_PACK_CACHE"), defaultPackCacheDir())
+
+	// Eval results store (design/eval-results-store-design.md §4.4/§4.5). The
+	// results DB is a SEPARATE file from registry.db with its own lifecycle. Only
+	// "sqlite" is implemented in Phase 1; "firestore" is a visible deferred leg
+	// (wire.OpenResultService returns a clear not-implemented error).
+	c.ResultsBackend = firstNonEmpty(os.Getenv("MIZAN_RESULTS_BACKEND"), "sqlite")
+	c.ResultsDBPath = firstNonEmpty(os.Getenv("MIZAN_RESULTS_DB"), defaultResultsDBPath())
+	c.ResultsRetention = firstNonEmpty(os.Getenv("MIZAN_RESULTS_RETENTION"), "hybrid")
 
 	c.Sources = resolveSources(realEnv, fileVars)
 
@@ -373,6 +384,14 @@ func defaultDBPath() string {
 		return "registry.db"
 	}
 	return filepath.Join(dir, "mizan", "registry.db")
+}
+
+func defaultResultsDBPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "results.db"
+	}
+	return filepath.Join(dir, "mizan", "results.db")
 }
 
 func defaultPackCacheDir() string {
