@@ -158,9 +158,13 @@ type RubricScale struct {
 // RubricRef.Method — do NOT rename it.
 type RubricProvenance struct {
 	// Method is how the rubric was produced, e.g. "adaptive-generated".
-	Method         string       `yaml:"method"                   json:"method"`
-	GeneratorModel string       `yaml:"generatorModel"           json:"generatorModel"`
-	Recipe         string       `yaml:"recipe,omitempty"         json:"recipe,omitempty"`
+	Method         string `yaml:"method"                   json:"method"`
+	GeneratorModel string `yaml:"generatorModel"           json:"generatorModel"`
+	Recipe         string `yaml:"recipe,omitempty"         json:"recipe,omitempty"`
+	// PromptTemplate is reserved; not currently populated (custom generation-prompt
+	// path not offered — see rubric-generation-mechanics-research.md §3.1). Kept as
+	// a carry-and-reserve field so a future documented custom path would not shift
+	// the content hash or the schema.
 	PromptTemplate string       `yaml:"promptTemplate,omitempty" json:"promptTemplate,omitempty"`
 	SampleInputRef string       `yaml:"sampleInputRef"           json:"sampleInputRef"`
 	GeneratedAt    time.Time    `yaml:"generatedAt"              json:"generatedAt"`
