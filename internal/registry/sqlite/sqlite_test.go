@@ -306,6 +306,105 @@ func TestMigrateV1ToV2(t *testing.T) {
 	}
 }
 
+// columnExists reports whether table has a column of the given name (via
+// PRAGMA table_info), used to assert a rolled-back ALTER left no trace.
+func columnExists(t *testing.T, db *sql.DB, table, column string) bool {
+	t.Helper()
+	rows, err := db.QueryContext(context.Background(), "PRAGMA table_info("+table+")")
+	if err != nil {
+		t.Fatalf("table_info(%s): %v", table, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			cid        int
+			name, typ  string
+			notNull    int
+			dfltValue  sql.NullString
+			primaryKey int
+		)
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &dfltValue, &primaryKey); err != nil {
+			t.Fatalf("scan table_info: %v", err)
+		}
+		if name == column {
+			return true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("table_info rows: %v", err)
+	}
+	return false
+}
+
+// TestMigrateV1ToV2Atomic proves the v1→v2 migration is transactional: when an
+// ALTER fails partway (here rubric_provenance already exists — the shape an
+// interrupted pre-transaction migration would have left behind), the WHOLE
+// migration rolls back. user_version stays 1 and the earlier, individually
+// successful ALTERs (rating_rubric/rubric_detail) are undone, so the DB is never
+// stranded half-migrated. Without the transaction wrap this DB would be bricked
+// (open re-runs the ALTERs and dies on "duplicate column name" forever).
+func TestMigrateV1ToV2Atomic(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "registry.db")
+
+	// Build a v1 DB and pre-add ONLY rubric_provenance (the 3rd ALTER's target),
+	// leaving user_version=1. migrate()'s 1st/2nd ALTERs will succeed inside the
+	// txn and the 3rd will hit "duplicate column name", forcing a full rollback.
+	{
+		db, err := sql.Open("sqlite", path)
+		if err != nil {
+			t.Fatalf("open raw v1 db: %v", err)
+		}
+		db.SetMaxOpenConns(1)
+		if _, err := db.ExecContext(ctx, v1Schema); err != nil {
+			t.Fatalf("create v1 schema: %v", err)
+		}
+		if _, err := db.ExecContext(ctx,
+			"ALTER TABLE metric_templates ADD COLUMN rubric_provenance TEXT NOT NULL DEFAULT 'null'"); err != nil {
+			t.Fatalf("pre-add rubric_provenance: %v", err)
+		}
+		if _, err := db.ExecContext(ctx, "PRAGMA user_version = 1;"); err != nil {
+			t.Fatalf("set user_version=1: %v", err)
+		}
+		if err := db.Close(); err != nil {
+			t.Fatalf("close raw v1 db: %v", err)
+		}
+	}
+
+	// Open runs migrate(), which must fail on the duplicate rubric_provenance.
+	s, err := Open(path)
+	if err == nil {
+		_ = s.Close()
+		t.Fatal("Open: want migration error (duplicate column), got nil")
+	}
+
+	// The failed migration must have rolled back cleanly: version still 1, and the
+	// earlier ALTERs undone (rating_rubric absent) — proving atomicity, not a
+	// half-applied schema.
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("reopen raw db: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	if uv := userVersion(t, db); uv != 1 {
+		t.Errorf("after failed migration: user_version = %d, want 1 (rolled back)", uv)
+	}
+	if columnExists(t, db, "metric_templates", "rating_rubric") {
+		t.Error("rating_rubric present after rollback: migration was NOT atomic (partial schema left behind)")
+	}
+	if columnExists(t, db, "metric_templates", "rubric_detail") {
+		t.Error("rubric_detail present after rollback: migration was NOT atomic (partial schema left behind)")
+	}
+}
+
+// TestStoreImplementsInterface is a compile-time assertion that *Store still
+// satisfies registry.Store — the additive-field work must not have changed the
+// interface (mirrors the production-side var _ in sqlite.go).
+func TestStoreImplementsInterface(t *testing.T) {
+	var _ registry.Store = (*Store)(nil)
+}
+
 // TestReconcileUnchangedIdempotent proves the §7.5 second-order fix: once the
 // additive fields persist, contentHash(local) — recomputed by Service.reconcileOne
 // on the store-loaded copy — matches the incoming pack's hash, so a byte-identical
@@ -429,8 +528,8 @@ func TestEmptyNonNilVsNullDistinction(t *testing.T) {
 	want := fullTemplate()
 	want.ID = "empty/pointwise"
 	want.RatingRubric = map[string]map[string]string{} // non-nil, empty
-	want.RubricDetail = &registry.RubricDetail{}        // non-nil, Scale nil
-	want.RubricProvenance = nil                         // nil → must stay nil
+	want.RubricDetail = &registry.RubricDetail{}       // non-nil, Scale nil
+	want.RubricProvenance = nil                        // nil → must stay nil
 
 	if err := s.Put(ctx, &want); err != nil {
 		t.Fatalf("Put: %v", err)
@@ -469,9 +568,22 @@ func TestPutUpsert(t *testing.T) {
 	if err := s.Put(ctx, &tmpl); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	// Update a field and re-put; CreatedAt must be preserved.
+	// Update a field and re-put; CreatedAt must be preserved. Also mutate ALL
+	// THREE additive fields so the ON CONFLICT DO UPDATE SET path is proven to
+	// actually update the new columns (rating_rubric/rubric_detail/
+	// rubric_provenance), not just Name/CreatedAt — a stale excluded.col clause or
+	// a column-order slip in the upsert would otherwise pass silently.
 	tmpl.Name = "Helpfulness v2"
 	tmpl.UpdatedAt = time.Time{} // force store to stamp a new updated_at
+	tmpl.RatingRubric = map[string]map[string]string{"quality": {"1": "poor", "5": "excellent"}}
+	tmpl.RubricDetail = &registry.RubricDetail{Scale: &registry.RubricScale{Min: 0, Max: 10}}
+	tmpl.RubricProvenance = &registry.RubricProvenance{
+		Method:         "hand-authored",
+		GeneratorModel: "none",
+		SampleInputRef: "sample-002",
+		GeneratedAt:    time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC),
+		APIVersion:     "mizan.dev/v1alpha1",
+	}
 	if err := s.Put(ctx, &tmpl); err != nil {
 		t.Fatalf("Put update: %v", err)
 	}
@@ -485,6 +597,16 @@ func TestPutUpsert(t *testing.T) {
 	}
 	if !got.CreatedAt.Equal(fullTemplate().CreatedAt) {
 		t.Errorf("CreatedAt not preserved on upsert: %v", got.CreatedAt)
+	}
+	// The three additive fields must reflect the UPDATED values, not the originals.
+	if !reflect.DeepEqual(got.RatingRubric, tmpl.RatingRubric) {
+		t.Errorf("RatingRubric not updated on upsert: got %#v want %#v", got.RatingRubric, tmpl.RatingRubric)
+	}
+	if !reflect.DeepEqual(got.RubricDetail, tmpl.RubricDetail) {
+		t.Errorf("RubricDetail not updated on upsert: got %#v want %#v", got.RubricDetail, tmpl.RubricDetail)
+	}
+	if !reflect.DeepEqual(got.RubricProvenance, tmpl.RubricProvenance) {
+		t.Errorf("RubricProvenance not updated on upsert: got %#v want %#v", got.RubricProvenance, tmpl.RubricProvenance)
 	}
 
 	all, err := s.List(ctx, registry.ListFilter{})

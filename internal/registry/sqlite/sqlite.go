@@ -137,9 +137,31 @@ CREATE INDEX IF NOT EXISTS idx_metric_templates_source ON metric_templates(sourc
 	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&uv); err != nil {
 		return fmt.Errorf("sqlite: read user_version: %w", err)
 	}
+
+	// Run the schema build, the v1→v2 column adds, and the version bump inside a
+	// SINGLE transaction so migration is atomic: SQLite DDL (CREATE/ALTER) and the
+	// user_version header write all participate in the transaction and roll back
+	// together on any failure. Without this, a crash after some ALTERs but before
+	// user_version=2 would leave the DB at v1 with columns already added, so the
+	// next Open re-runs the ALTERs and fails with "duplicate column name" — a
+	// bricked DB. With it, an interrupted migration rolls back cleanly to v1 and
+	// the next Open migrates fresh.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("sqlite: begin migration: %w", err)
+	}
+	// Roll back on every non-commit path; a Rollback after a successful Commit is
+	// a harmless no-op (sql.ErrTxDone), so the flag keeps the happy path clean.
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
 	// CREATE TABLE IF NOT EXISTS builds fresh DBs at v2 shape; it is a no-op for
 	// an existing table (which is missing the v2 columns and needs the ALTERs).
-	if _, err := s.db.ExecContext(ctx, schema); err != nil {
+	if _, err := tx.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("sqlite: migrate base schema: %w", err)
 	}
 	// Existing v1 DBs: the table already exists WITHOUT the v2 columns → add them.
@@ -152,14 +174,18 @@ CREATE INDEX IF NOT EXISTS idx_metric_templates_source ON metric_templates(sourc
 			"ALTER TABLE metric_templates ADD COLUMN rubric_detail     TEXT NOT NULL DEFAULT 'null'",
 			"ALTER TABLE metric_templates ADD COLUMN rubric_provenance TEXT NOT NULL DEFAULT 'null'",
 		} {
-			if _, err := s.db.ExecContext(ctx, alter); err != nil {
+			if _, err := tx.ExecContext(ctx, alter); err != nil {
 				return fmt.Errorf("sqlite: migrate v2 alter: %w", err)
 			}
 		}
 	}
-	if _, err := s.db.ExecContext(ctx, "PRAGMA user_version = 2;"); err != nil {
+	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 2;"); err != nil {
 		return fmt.Errorf("sqlite: set user_version: %w", err)
 	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("sqlite: commit migration: %w", err)
+	}
+	committed = true
 	return nil
 }
 
@@ -384,20 +410,20 @@ type scanner interface {
 
 func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 	var (
-		t                                          registry.MetricTemplate
-		authors, maintainers, tags, modalities     string
-		inputs, rubric, schema                     string
-		ratingRubric, rubricDetail, rubricProvJSON string
-		kind                                       string
-		flip, dirty                                int
-		createdAt, updatedAt, importedAt           sql.NullTime
+		t                                            registry.MetricTemplate
+		authors, maintainers, tags, modalities       string
+		inputs, rubric, schema                       string
+		ratingRubric, rubricDetail, rubricProvenance string
+		kind                                         string
+		flip, dirty                                  int
+		createdAt, updatedAt, importedAt             sql.NullTime
 	)
 	if err := sc.Scan(
 		&t.ID, &t.Name, &t.Description, &t.Version, &authors, &maintainers, &t.License, &tags,
 		&kind, &modalities, &inputs, &t.MetricPromptTemplate, &t.SystemInstruction,
 		&t.CandidateFieldName, &t.BaselineFieldName, &rubric, &schema,
 		&t.AutoraterModel, &t.SamplingCount, &flip,
-		&ratingRubric, &rubricDetail, &rubricProvJSON,
+		&ratingRubric, &rubricDetail, &rubricProvenance,
 		&t.Source, &t.ContentHash, &dirty, &createdAt, &updatedAt, &importedAt,
 	); err != nil {
 		return nil, err
@@ -442,7 +468,7 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 	if err := unmarshalIf(rubricDetail, &t.RubricDetail); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(rubricProvJSON, &t.RubricProvenance); err != nil {
+	if err := unmarshalIf(rubricProvenance, &t.RubricProvenance); err != nil {
 		return nil, err
 	}
 	return &t, nil
