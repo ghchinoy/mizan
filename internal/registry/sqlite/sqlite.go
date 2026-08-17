@@ -441,34 +441,34 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 		t.ImportedAt = importedAt.Time.UTC()
 	}
 
-	if err := unmarshalIf(authors, &t.Authors); err != nil {
+	if err := unmarshalIf("authors", authors, &t.Authors); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(maintainers, &t.Maintainers); err != nil {
+	if err := unmarshalIf("maintainers", maintainers, &t.Maintainers); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(tags, &t.Tags); err != nil {
+	if err := unmarshalIf("tags", tags, &t.Tags); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(modalities, &t.Modalities); err != nil {
+	if err := unmarshalIf("modalities", modalities, &t.Modalities); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(inputs, &t.Inputs); err != nil {
+	if err := unmarshalIf("inputs", inputs, &t.Inputs); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(rubric, &t.RubricGroups); err != nil {
+	if err := unmarshalIf("rubric_groups", rubric, &t.RubricGroups); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(schema, &t.ResponseSchema); err != nil {
+	if err := unmarshalIf("response_schema", schema, &t.ResponseSchema); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(ratingRubric, &t.RatingRubric); err != nil {
+	if err := unmarshalIf("rating_rubric", ratingRubric, &t.RatingRubric); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(rubricDetail, &t.RubricDetail); err != nil {
+	if err := unmarshalIf("rubric_detail", rubricDetail, &t.RubricDetail); err != nil {
 		return nil, err
 	}
-	if err := unmarshalIf(rubricProvenance, &t.RubricProvenance); err != nil {
+	if err := unmarshalIf("rubric_provenance", rubricProvenance, &t.RubricProvenance); err != nil {
 		return nil, err
 	}
 	return &t, nil
@@ -483,9 +483,28 @@ func mustJSON(v any) string {
 	return string(b)
 }
 
-func unmarshalIf(s string, dst any) error {
+// maxJSONColumnBytes bounds the raw size of a single JSON TEXT column before it
+// is unmarshaled on read (defense-in-depth against a pathologically large row,
+// e.g. one written by direct DB tampering rather than the schema-validated write
+// path — CWE-770). 1 MiB is far above any legitimate template: the strict pack
+// schema already caps every provenance string (promptTemplate 8192,
+// sampleInputRef/criterion 4096, the rest ≤256), so even a union-before-freeze
+// template with a couple hundred fully-populated rubricMeta criteria (per PR #74)
+// stays comfortably under this bound, while a multi-megabyte column is rejected
+// with a clear error instead of being unmarshaled.
+const maxJSONColumnBytes = 1 << 20 // 1 MiB
+
+// unmarshalIf unmarshals a JSON TEXT column value into dst, treating the empty
+// string and the literal "null" as "leave dst at its zero value". It enforces
+// maxJSONColumnBytes before unmarshaling and fails closed (returns an error
+// naming the column) on either an oversized value or malformed JSON, so a
+// corrupt or pathological row can never silently drop to a zero value.
+func unmarshalIf(column, s string, dst any) error {
 	if s == "" || s == "null" {
 		return nil
+	}
+	if len(s) > maxJSONColumnBytes {
+		return fmt.Errorf("sqlite: %s column is %d bytes, exceeds the %d-byte cap", column, len(s), maxJSONColumnBytes)
 	}
 	return json.Unmarshal([]byte(s), dst)
 }
