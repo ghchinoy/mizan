@@ -89,9 +89,13 @@ func Open(path string) (*Store, error) {
 // Close releases the underlying database handle.
 func (s *Store) Close() error { return s.db.Close() }
 
-// migrate applies schema migration v1 (idempotent). The provenance columns
-// (source, content_hash, imported_at, updated_at, dirty) are included now so
-// P2's sync layer needs no migration churn (collab §3.9).
+// migrate brings the schema up to v2 (idempotent, version-gated via
+// PRAGMA user_version). The provenance/sync columns (source, content_hash,
+// imported_at, updated_at, dirty) were included at v1 so P2's sync layer needed
+// no migration churn (collab §3.9). v2 adds the three additive RFC-0001 template
+// fields — rating_rubric, rubric_detail, rubric_provenance — as JSON TEXT columns
+// (registry-provenance-persistence-scope §4/§6): fresh DBs are born v2-shaped by
+// the CREATE TABLE below; existing v1 DBs gain the columns in place via ALTER.
 func (s *Store) migrate(ctx context.Context) error {
 	const schema = `
 CREATE TABLE IF NOT EXISTS metric_templates (
@@ -115,6 +119,10 @@ CREATE TABLE IF NOT EXISTS metric_templates (
     autorater_model        TEXT NOT NULL DEFAULT '',
     sampling_count         INTEGER NOT NULL DEFAULT 0,
     flip_enabled           INTEGER NOT NULL DEFAULT 0,
+    -- additive RFC-0001 template fields (v2; scope §4)
+    rating_rubric          TEXT NOT NULL DEFAULT 'null', -- JSON map[string]map[string]string
+    rubric_detail          TEXT NOT NULL DEFAULT 'null', -- JSON *RubricDetail
+    rubric_provenance      TEXT NOT NULL DEFAULT 'null', -- JSON *RubricProvenance
     -- provenance / sync (collab §3.9)
     source                 TEXT NOT NULL DEFAULT '',
     content_hash           TEXT NOT NULL DEFAULT '',
@@ -125,12 +133,59 @@ CREATE TABLE IF NOT EXISTS metric_templates (
 );
 CREATE INDEX IF NOT EXISTS idx_metric_templates_source ON metric_templates(source);
 `
-	if _, err := s.db.ExecContext(ctx, "PRAGMA user_version = 1;"); err != nil {
+	var uv int
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&uv); err != nil {
+		return fmt.Errorf("sqlite: read user_version: %w", err)
+	}
+
+	// Run the schema build, the v1→v2 column adds, and the version bump inside a
+	// SINGLE transaction so migration is atomic: SQLite DDL (CREATE/ALTER) and the
+	// user_version header write all participate in the transaction and roll back
+	// together on any failure. Without this, a crash after some ALTERs but before
+	// user_version=2 would leave the DB at v1 with columns already added, so the
+	// next Open re-runs the ALTERs and fails with "duplicate column name" — a
+	// bricked DB. With it, an interrupted migration rolls back cleanly to v1 and
+	// the next Open migrates fresh.
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("sqlite: begin migration: %w", err)
+	}
+	// Roll back on every non-commit path; a Rollback after a successful Commit is
+	// a harmless no-op (sql.ErrTxDone), so the flag keeps the happy path clean.
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// CREATE TABLE IF NOT EXISTS builds fresh DBs at v2 shape; it is a no-op for
+	// an existing table (which is missing the v2 columns and needs the ALTERs).
+	if _, err := tx.ExecContext(ctx, schema); err != nil {
+		return fmt.Errorf("sqlite: migrate base schema: %w", err)
+	}
+	// Existing v1 DBs: the table already exists WITHOUT the v2 columns → add them.
+	// ADD COLUMN is a cheap metadata-only op; existing rows take the 'null'
+	// default, which unmarshalIf reads back as nil — exactly what they returned
+	// before (they never held these fields). No data is rewritten or dropped.
+	if uv == 1 {
+		for _, alter := range []string{
+			"ALTER TABLE metric_templates ADD COLUMN rating_rubric     TEXT NOT NULL DEFAULT 'null'",
+			"ALTER TABLE metric_templates ADD COLUMN rubric_detail     TEXT NOT NULL DEFAULT 'null'",
+			"ALTER TABLE metric_templates ADD COLUMN rubric_provenance TEXT NOT NULL DEFAULT 'null'",
+		} {
+			if _, err := tx.ExecContext(ctx, alter); err != nil {
+				return fmt.Errorf("sqlite: migrate v2 alter: %w", err)
+			}
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 2;"); err != nil {
 		return fmt.Errorf("sqlite: set user_version: %w", err)
 	}
-	if _, err := s.db.ExecContext(ctx, schema); err != nil {
-		return fmt.Errorf("sqlite: migrate v1: %w", err)
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("sqlite: commit migration: %w", err)
 	}
+	committed = true
 	return nil
 }
 
@@ -160,6 +215,9 @@ func (s *Store) Put(ctx context.Context, t *registry.MetricTemplate) error {
 	inputs := mustJSON(t.Inputs)
 	rubric := mustJSON(t.RubricGroups)
 	schema := mustJSON(t.ResponseSchema)
+	ratingRubric := mustJSON(t.RatingRubric)
+	rubricDetail := mustJSON(t.RubricDetail)
+	rubricProvenance := mustJSON(t.RubricProvenance)
 
 	const q = `
 INSERT INTO metric_templates (
@@ -167,11 +225,13 @@ INSERT INTO metric_templates (
     kind, modalities, inputs, metric_prompt_template, system_instruction,
     candidate_field_name, baseline_field_name, rubric_groups, response_schema,
     autorater_model, sampling_count, flip_enabled,
+    rating_rubric, rubric_detail, rubric_provenance,
     source, content_hash, dirty, created_at, updated_at, imported_at
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?, ?,
+    ?, ?, ?,
     ?, ?, ?,
     ?, ?, ?, ?, ?, ?
 )
@@ -184,6 +244,8 @@ ON CONFLICT(id) DO UPDATE SET
     baseline_field_name=excluded.baseline_field_name, rubric_groups=excluded.rubric_groups,
     response_schema=excluded.response_schema, autorater_model=excluded.autorater_model,
     sampling_count=excluded.sampling_count, flip_enabled=excluded.flip_enabled,
+    rating_rubric=excluded.rating_rubric, rubric_detail=excluded.rubric_detail,
+    rubric_provenance=excluded.rubric_provenance,
     source=excluded.source, content_hash=excluded.content_hash, dirty=excluded.dirty,
     updated_at=excluded.updated_at, imported_at=excluded.imported_at
 `
@@ -192,6 +254,7 @@ ON CONFLICT(id) DO UPDATE SET
 		string(t.Kind), modalities, inputs, t.MetricPromptTemplate, t.SystemInstruction,
 		t.CandidateFieldName, t.BaselineFieldName, rubric, schema,
 		t.AutoraterModel, t.SamplingCount, boolToInt(t.FlipEnabled),
+		ratingRubric, rubricDetail, rubricProvenance,
 		t.Source, t.ContentHash, boolToInt(t.Dirty), created, updated, nullTime(t.ImportedAt),
 	)
 	if err != nil {
@@ -337,6 +400,7 @@ const selectCols = `SELECT
     kind, modalities, inputs, metric_prompt_template, system_instruction,
     candidate_field_name, baseline_field_name, rubric_groups, response_schema,
     autorater_model, sampling_count, flip_enabled,
+    rating_rubric, rubric_detail, rubric_provenance,
     source, content_hash, dirty, created_at, updated_at, imported_at`
 
 // scanner is satisfied by both *sql.Row and *sql.Rows.
@@ -346,18 +410,20 @@ type scanner interface {
 
 func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 	var (
-		t                                      registry.MetricTemplate
-		authors, maintainers, tags, modalities string
-		inputs, rubric, schema                 string
-		kind                                   string
-		flip, dirty                            int
-		createdAt, updatedAt, importedAt       sql.NullTime
+		t                                            registry.MetricTemplate
+		authors, maintainers, tags, modalities       string
+		inputs, rubric, schema                       string
+		ratingRubric, rubricDetail, rubricProvenance string
+		kind                                         string
+		flip, dirty                                  int
+		createdAt, updatedAt, importedAt             sql.NullTime
 	)
 	if err := sc.Scan(
 		&t.ID, &t.Name, &t.Description, &t.Version, &authors, &maintainers, &t.License, &tags,
 		&kind, &modalities, &inputs, &t.MetricPromptTemplate, &t.SystemInstruction,
 		&t.CandidateFieldName, &t.BaselineFieldName, &rubric, &schema,
 		&t.AutoraterModel, &t.SamplingCount, &flip,
+		&ratingRubric, &rubricDetail, &rubricProvenance,
 		&t.Source, &t.ContentHash, &dirty, &createdAt, &updatedAt, &importedAt,
 	); err != nil {
 		return nil, err
@@ -394,6 +460,15 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 		return nil, err
 	}
 	if err := unmarshalIf(schema, &t.ResponseSchema); err != nil {
+		return nil, err
+	}
+	if err := unmarshalIf(ratingRubric, &t.RatingRubric); err != nil {
+		return nil, err
+	}
+	if err := unmarshalIf(rubricDetail, &t.RubricDetail); err != nil {
+		return nil, err
+	}
+	if err := unmarshalIf(rubricProvenance, &t.RubricProvenance); err != nil {
 		return nil, err
 	}
 	return &t, nil
