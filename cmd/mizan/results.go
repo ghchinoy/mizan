@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -226,6 +227,15 @@ func renderResultDetail(w io.Writer, r *results.Result) error {
 	// not a defect (the store records the template faithfully, never synthesizes).
 	if r.Rubric != nil {
 		fmt.Fprintf(tw, "Rubric Method:\t%s\n", sanitizeCell(r.Rubric.Method))
+		if r.Rubric.GeneratorModel != "" {
+			fmt.Fprintf(tw, "Rubric GeneratorModel:\t%s\n", sanitizeCell(r.Rubric.GeneratorModel))
+		}
+		if r.Rubric.Recipe != "" {
+			fmt.Fprintf(tw, "Rubric Recipe:\t%s\n", sanitizeCell(r.Rubric.Recipe))
+		}
+		if len(r.Rubric.Origins) > 0 {
+			fmt.Fprintf(tw, "Rubric Origins:\t%s\n", sanitizeCell(strings.Join(r.Rubric.Origins, ", ")))
+		}
 		if r.Rubric.ScaleMin != nil && r.Rubric.ScaleMax != nil {
 			fmt.Fprintf(tw, "Rubric Scale:\t%d-%d\n", *r.Rubric.ScaleMin, *r.Rubric.ScaleMax)
 		} else {

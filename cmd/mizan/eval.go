@@ -283,6 +283,7 @@ func newEvalRunCmd() *cobra.Command {
 		files        []string
 		gcs          []string
 		noStore      bool
+		noHostLabel  bool
 	)
 	cmd := &cobra.Command{
 		Use: "run (--metric <id> | --set <path>) [--field key=value] [--file key=/path] [--gcs key=gs://…]",
@@ -383,6 +384,9 @@ func newEvalRunCmd() *cobra.Command {
 			projSrc, locSrc := preflightSources(cfg, target)
 			printPreflight(cmd.ErrOrStderr(), target, projSrc, locSrc)
 
+			// Stamp the run's wall-clock start BEFORE dispatch so a stored result's
+			// RunAt reflects when the eval began, not when it was later recorded.
+			runStart := time.Now()
 			res, err := eng.Run(cmd.Context(), *tmpl, inst, runOpts...)
 			if err != nil {
 				return err
@@ -398,7 +402,7 @@ func newEvalRunCmd() *cobra.Command {
 			// STRICTLY non-fatal: any store error is a stderr warning and never
 			// changes stdout or the exit code (design §4.8).
 			if !noStore {
-				storeResult(cmd, cfg, "eval run", *tmpl, inst, res)
+				storeResult(cmd, cfg, "eval run", *tmpl, inst, res, storeHookOpts{RunAt: runStart, NoHostLabel: noHostLabel})
 			}
 			return nil
 		},
@@ -414,20 +418,22 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&files, "file", nil, "local asset field as key=/path; engine stages to GCS (repeatable)")
 	cmd.Flags().StringArrayVar(&gcs, "gcs", nil, "pre-staged asset field as key=gs://… (repeatable)")
 	cmd.Flags().BoolVar(&noStore, "no-store", false, "do not persist this run's result to the eval results store (persistence is on by default)")
+	cmd.Flags().BoolVar(&noHostLabel, "no-host-label", false, "omit the machine hostname (HostLabel) from the stored result while still persisting the rest (field-level privacy opt-out)")
 	return cmd
 }
 
 func newEvalPairwiseCmd() *cobra.Command {
 	var (
-		metric    string
-		model     string
-		stats     bool
-		baseline  string
-		candidate string
-		fields    []string
-		files     []string
-		gcs       []string
-		noStore   bool
+		metric      string
+		model       string
+		stats       bool
+		baseline    string
+		candidate   string
+		fields      []string
+		files       []string
+		gcs         []string
+		noStore     bool
+		noHostLabel bool
 	)
 	cmd := &cobra.Command{
 		Use: "pairwise --metric <id> (--baseline key=… --candidate key=… | --gcs key=gs://… …) [--field/--file/--gcs …]",
@@ -538,6 +544,9 @@ func newEvalPairwiseCmd() *cobra.Command {
 			projSrc, locSrc := preflightSources(cfg, target)
 			printPreflight(cmd.ErrOrStderr(), target, projSrc, locSrc)
 
+			// Stamp the run's wall-clock start BEFORE dispatch so a stored result's
+			// RunAt reflects when the eval began, not when it was later recorded.
+			runStart := time.Now()
 			res, err := eng.Run(cmd.Context(), *tmpl, inst, eval.WithModel(model))
 			if err != nil {
 				return err
@@ -553,7 +562,7 @@ func newEvalPairwiseCmd() *cobra.Command {
 			// STRICTLY non-fatal: any store error is a stderr warning and never
 			// changes stdout or the exit code (design §4.8).
 			if !noStore {
-				storeResult(cmd, cfg, "eval pairwise", *tmpl, inst, res)
+				storeResult(cmd, cfg, "eval pairwise", *tmpl, inst, res, storeHookOpts{RunAt: runStart, NoHostLabel: noHostLabel})
 			}
 			return nil
 		},
@@ -567,6 +576,7 @@ func newEvalPairwiseCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&files, "file", nil, "additional local asset field as key=/path (repeatable)")
 	cmd.Flags().StringArrayVar(&gcs, "gcs", nil, "additional pre-staged asset field as key=gs://… (repeatable)")
 	cmd.Flags().BoolVar(&noStore, "no-store", false, "do not persist this run's result to the eval results store (persistence is on by default)")
+	cmd.Flags().BoolVar(&noHostLabel, "no-host-label", false, "omit the machine hostname (HostLabel) from the stored result while still persisting the rest (field-level privacy opt-out)")
 	return cmd
 }
 
@@ -827,13 +837,24 @@ func sanitizeCell(s string) string {
 	}, s)
 }
 
+// storeHookOpts carries the per-invocation write-hook toggles resolved from the
+// eval command's flags: RunAt is the wall-clock start of the run (so a stored
+// result reflects when the eval began, not when it was recorded — a zero value
+// lets the Service stamp time.Now()); NoHostLabel is the field-level privacy
+// opt-out (--no-host-label) that omits the machine hostname while still persisting
+// the rest of the result.
+type storeHookOpts struct {
+	RunAt       time.Time
+	NoHostLabel bool
+}
+
 // storeResult persists a SUCCESSFUL eval result to the configured results store
 // (design §4.8 write-hook). It is called only after the run succeeded and the
 // result has already been rendered, and it is STRICTLY non-fatal: any failure
 // opening the store or recording the result is reported as a `warning:` line on
 // stderr and never affects stdout or the command's exit code. cmd/* stays behind
 // the results.Service façade + wire — it never imports internal/results/sqlite.
-func storeResult(cmd *cobra.Command, cfg *config.Config, command string, tmpl registry.MetricTemplate, inst eval.Instance, res eval.Result) {
+func storeResult(cmd *cobra.Command, cfg *config.Config, command string, tmpl registry.MetricTemplate, inst eval.Instance, res eval.Result, opts storeHookOpts) {
 	svc, closeSvc, err := wire.OpenResultService(cfg)
 	if err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: results store unavailable, result not persisted: %v\n", err)
@@ -857,8 +878,13 @@ func storeResult(cmd *cobra.Command, cfg *config.Config, command string, tmpl re
 	}
 
 	// HostLabel is coarse, non-PII machine attribution (§4.2); ignore the error
-	// (empty on failure). Actor is policy-gated and off by default (OQ-3).
-	host, _ := os.Hostname()
+	// (empty on failure). Actor is policy-gated and off by default (OQ-3). The
+	// --no-host-label field-level opt-out omits the hostname entirely (stored
+	// empty) while the rest of the result still persists normally.
+	var host string
+	if !opts.NoHostLabel {
+		host, _ = os.Hostname()
+	}
 
 	if _, err := svc.Record(cmd.Context(), results.RecordInput{
 		Command:   command,
@@ -870,6 +896,7 @@ func storeResult(cmd *cobra.Command, cfg *config.Config, command string, tmpl re
 		Instance:  inst,
 		Applied:   applied,
 		Outcome:   res,
+		RunAt:     opts.RunAt,
 	}); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: failed to persist result: %v\n", err)
 	}

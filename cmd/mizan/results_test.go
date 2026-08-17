@@ -178,6 +178,39 @@ func TestRenderResultDetailRubricScaleEmpty(t *testing.T) {
 	}
 }
 
+// TestRenderResultDetailRubricProvenance proves an adaptive-generated rubric
+// result renders the provenance-derived fields (method, generator model, recipe,
+// and the distinct per-criterion origins) surfaced by RubricRef.
+func TestRenderResultDetailRubricProvenance(t *testing.T) {
+	prev := outputFormat
+	outputFormat = outputTable
+	defer func() { outputFormat = prev }()
+
+	r := sampleStoredResult()
+	r.Template.Kind = registry.KindRubric
+	r.Rubric = &results.RubricRef{
+		Method:         "adaptive-generated",
+		GeneratorModel: "gemini-2.5-pro",
+		Recipe:         "general_quality_v1",
+		Origins:        []string{"adaptive-generated", "hand-authored"},
+	}
+	var out bytes.Buffer
+	if err := renderResultDetail(&out, &r); err != nil {
+		t.Fatalf("renderResultDetail: %v", err)
+	}
+	s := out.String()
+	for _, want := range []string{
+		"Rubric Method:", "adaptive-generated",
+		"Rubric GeneratorModel:", "gemini-2.5-pro",
+		"Rubric Recipe:", "general_quality_v1",
+		"Rubric Origins:", "hand-authored",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("detail missing %q:\n%s", want, s)
+		}
+	}
+}
+
 // TestRenderResultDetailSanitizesUntrusted proves judge/input-derived text is run
 // through sanitizeCell (ANSI escapes + control chars stripped) before it reaches
 // a terminal cell (security O1).
