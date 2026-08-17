@@ -71,6 +71,7 @@ var forbiddenCmdImports = []string{
 	"internal/registry/sqlite", // concrete Store backend — wire injects it
 	"internal/registry/sync",   // sync backend subpackage (future-proofing)
 	"internal/registry/codec",  // pack codec subpackage (future-proofing)
+	"internal/results/sqlite",  // concrete ResultStore backend — wire injects it
 	"gopkg.in/yaml",            // YAML lib — pack encoding is behind the Service
 	"github.com/go-git",        // git libs — Mizan shells out, never embeds git
 	"gopkg.in/src-d/go-git",
@@ -247,6 +248,7 @@ func TestForbiddenImportRuleHasTeeth(t *testing.T) {
 		"github.com/ghchinoy/mizan/internal/registry/sqlite": "internal/registry/sqlite",
 		"github.com/ghchinoy/mizan/internal/registry/sync":   "internal/registry/sync",
 		"github.com/ghchinoy/mizan/internal/registry/codec":  "internal/registry/codec",
+		"github.com/ghchinoy/mizan/internal/results/sqlite":  "internal/results/sqlite",
 		"gopkg.in/yaml.v3":            "gopkg.in/yaml",
 		"gopkg.in/yaml.v2":            "gopkg.in/yaml",
 		"github.com/go-git/go-git/v5": "github.com/go-git",
