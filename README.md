@@ -48,6 +48,11 @@ what isn't built — Mizan never claims a capability it hasn't actually shipped.
 - **Multimodal evaluation** (image/audio/video/music) — `eval run`/`eval
   pairwise` accept `--file key=/path` (auto-staged to your configured GCS
   staging bucket) or `--gcs key=gs://...` (pre-staged) for non-text fields.
+- **Eval results store** — `eval run`/`eval pairwise` persist each run's outcome
+  and provenance to a local, pure-Go SQLite store by default (`--no-store` opts
+  out); `mizan results list` lists stored results newest-first (filter by
+  `--metric`, `--namespace`, `--since`, `--limit`) and `mizan results show
+  <run-id>` prints the full provenance and outcome for one run.
 - **Template packs & sharing** — `mizan pack init|add|validate` scaffolds and
   validates a metric-template pack (the `validate` step is a credential-free PR
   gate), and `mizan registry import|export` moves templates between the local
