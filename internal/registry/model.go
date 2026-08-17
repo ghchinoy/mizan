@@ -177,7 +177,25 @@ type RubricMeta struct {
 	Criterion  string `yaml:"criterion"            json:"criterion"`
 	Type       string `yaml:"type,omitempty"       json:"type,omitempty"`
 	Importance string `yaml:"importance,omitempty" json:"importance,omitempty"`
+	// Origin records whether this criterion was AI-generated or hand-authored in a
+	// union-before-freeze draft (CUJ 9 / design §6.5 Option A). Values:
+	// OriginAdaptiveGenerated | OriginHandAuthored. It is additive and OPTIONAL
+	// (omitempty): a single-origin generated draft (CUJ 7) and every existing
+	// hand-authored/generated template leave it empty, so absent means "no
+	// per-criterion origin recorded" — no migration and no behavior change. When
+	// present it is part of the content hash (it lives inside the hashed
+	// *RubricProvenance, Decision 3), keeping a mixed-origin audit record honest.
+	Origin string `yaml:"origin,omitempty" json:"origin,omitempty"`
 }
+
+// Per-criterion origin values for RubricMeta.Origin (design §6.5 Option A). These
+// are the ONLY valid values; the strict pack schema enforces the same enum.
+const (
+	// OriginAdaptiveGenerated marks a criterion drafted by adaptive generation.
+	OriginAdaptiveGenerated = "adaptive-generated"
+	// OriginHandAuthored marks a criterion supplied by the user (union-before-freeze).
+	OriginHandAuthored = "hand-authored"
+)
 
 // MetricTemplate is a stored, named autorater definition. This is the single
 // in-memory model that the YAML codec (P2) and a future Firestore document
