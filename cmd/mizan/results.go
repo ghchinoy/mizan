@@ -233,8 +233,13 @@ func renderResultDetail(w io.Writer, r *results.Result) error {
 		if r.Rubric.Recipe != "" {
 			fmt.Fprintf(tw, "Rubric Recipe:\t%s\n", sanitizeCell(r.Rubric.Recipe))
 		}
-		if len(r.Rubric.Origins) > 0 {
-			fmt.Fprintf(tw, "Rubric Origins:\t%s\n", sanitizeCell(strings.Join(r.Rubric.Origins, ", ")))
+		// Origins adds information only for a mixed-origin (union-before-freeze)
+		// rubric; suppress it when the lone recorded origin just restates Method
+		// (e.g. a single-origin adaptive-generated draft).
+		origins := r.Rubric.Origins
+		redundant := len(origins) == 1 && origins[0] == r.Rubric.Method
+		if len(origins) > 0 && !redundant {
+			fmt.Fprintf(tw, "Rubric Origins:\t%s\n", sanitizeCell(strings.Join(origins, ", ")))
 		}
 		if r.Rubric.ScaleMin != nil && r.Rubric.ScaleMax != nil {
 			fmt.Fprintf(tw, "Rubric Scale:\t%d-%d\n", *r.Rubric.ScaleMin, *r.Rubric.ScaleMax)

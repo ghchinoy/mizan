@@ -211,6 +211,29 @@ func TestRenderResultDetailRubricProvenance(t *testing.T) {
 	}
 }
 
+// TestRenderResultDetailRubricOriginsRedundantSuppressed proves a single recorded
+// origin that just restates Method is not rendered as a redundant "Rubric Origins"
+// line (it adds no information beyond Method).
+func TestRenderResultDetailRubricOriginsRedundantSuppressed(t *testing.T) {
+	prev := outputFormat
+	outputFormat = outputTable
+	defer func() { outputFormat = prev }()
+
+	r := sampleStoredResult()
+	r.Template.Kind = registry.KindRubric
+	r.Rubric = &results.RubricRef{
+		Method:  "adaptive-generated",
+		Origins: []string{"adaptive-generated"},
+	}
+	var out bytes.Buffer
+	if err := renderResultDetail(&out, &r); err != nil {
+		t.Fatalf("renderResultDetail: %v", err)
+	}
+	if strings.Contains(out.String(), "Rubric Origins:") {
+		t.Errorf("single origin equal to Method should not render a redundant Origins line:\n%s", out.String())
+	}
+}
+
 // TestRenderResultDetailSanitizesUntrusted proves judge/input-derived text is run
 // through sanitizeCell (ANSI escapes + control chars stripped) before it reaches
 // a terminal cell (security O1).
