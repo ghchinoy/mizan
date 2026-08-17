@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -538,6 +539,69 @@ func TestScanMalformedJSONFailsClosed(t *testing.T) {
 	}()
 	if _, err := s.Get(ctx, tmpl.ID); err == nil {
 		t.Fatal("Get: want error on malformed rating_rubric JSON, got nil (silent data loss)")
+	}
+}
+
+// TestScanOversizedJSONColumnRejected proves the byte cap (defense-in-depth,
+// CWE-770): a JSON TEXT column whose raw bytes exceed maxJSONColumnBytes makes
+// Get return a clear error naming the column instead of unmarshaling a
+// pathologically large row. The oversized value is written directly with SQL —
+// NOT via Put — because the normal write path is schema-bounded and cannot
+// produce one, which is exactly the tampering/corruption case the cap guards.
+func TestScanOversizedJSONColumnRejected(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	tmpl := fullTemplate()
+	if err := s.Put(ctx, &tmpl); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	// A syntactically valid JSON string one byte over the cap: proves the size
+	// check fires BEFORE (and independently of) json.Unmarshal.
+	oversized := `"` + strings.Repeat("x", maxJSONColumnBytes) + `"`
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE metric_templates SET rubric_provenance = ? WHERE id = ?`,
+		oversized, tmpl.ID,
+	); err != nil {
+		t.Fatalf("write oversized column: %v", err)
+	}
+
+	_, err := s.Get(ctx, tmpl.ID)
+	if err == nil {
+		t.Fatal("Get: want error on oversized rubric_provenance column, got nil")
+	}
+	if !strings.Contains(err.Error(), "rubric_provenance") || !strings.Contains(err.Error(), "cap") {
+		t.Fatalf("Get error = %q, want it to name the rubric_provenance column and the cap", err)
+	}
+}
+
+// TestScanAtByteCapAccepted proves the cap is inclusive at the boundary: a value
+// exactly maxJSONColumnBytes long still unmarshals, so a legitimate (if large)
+// template is never rejected by an off-by-one.
+func TestScanAtByteCapAccepted(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	tmpl := fullTemplate()
+	if err := s.Put(ctx, &tmpl); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	// Build a JSON string value whose raw column bytes are exactly the cap.
+	atCap := `"` + strings.Repeat("x", maxJSONColumnBytes-2) + `"`
+	if len(atCap) != maxJSONColumnBytes {
+		t.Fatalf("test setup: value is %d bytes, want %d", len(atCap), maxJSONColumnBytes)
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE metric_templates SET rubric_provenance = ? WHERE id = ?`,
+		atCap, tmpl.ID,
+	); err != nil {
+		t.Fatalf("write at-cap column: %v", err)
+	}
+	// A bare JSON string is not a valid *RubricProvenance, so a JSON shape error is
+	// expected here — what must NOT happen is the cap error, which would mean a
+	// value exactly at the boundary was wrongly rejected by the size gate.
+	if _, err := s.Get(ctx, tmpl.ID); err != nil && strings.Contains(err.Error(), "cap") {
+		t.Fatalf("Get error = %q; a value exactly at the cap must pass the size gate", err)
 	}
 }
 

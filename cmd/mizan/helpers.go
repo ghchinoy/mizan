@@ -79,7 +79,13 @@ func validOutput(format string) error {
 
 // openEngine constructs a live eval.Engine via the composition root. It
 // requires a project ID.
-func openEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() error, error) {
+//
+// It is a package-level var ONLY so command tests can substitute a fake engine
+// (built over a fake eval.EvaluationClient) and exercise the full
+// `eval adaptive --save-as` provenance round-trip against a real temp-file
+// sqlite store without live ADC/Vertex — mirroring the newRubricGenerator seam
+// in rubric.go. Production always builds the live engine via wire.NewEngine.
+var openEngine = func(ctx context.Context, cfg *config.Config) (*eval.Engine, func() error, error) {
 	if err := requireProject(cfg); err != nil {
 		return nil, nil, err
 	}
