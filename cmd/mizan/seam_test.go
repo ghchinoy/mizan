@@ -234,6 +234,7 @@ func TestForbiddenImportRuleHasTeeth(t *testing.T) {
 		"github.com/ghchinoy/mizan/internal/registry/sqlite": "internal/registry/sqlite",
 		"github.com/ghchinoy/mizan/internal/registry/sync":   "internal/registry/sync",
 		"github.com/ghchinoy/mizan/internal/registry/codec":  "internal/registry/codec",
+		"github.com/ghchinoy/mizan/internal/results/sqlite":  "internal/results/sqlite",
 		"gopkg.in/yaml.v3":            "gopkg.in/yaml",
 		"gopkg.in/yaml.v2":            "gopkg.in/yaml",
 		"github.com/go-git/go-git/v5": "github.com/go-git",
