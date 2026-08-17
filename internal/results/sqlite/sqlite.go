@@ -126,6 +126,37 @@ func (s *Store) Put(ctx context.Context, r *results.Result) error {
 		return errors.New("sqlite: result RunID is required")
 	}
 
+	// Serialize the JSON-composite columns up front so a marshal failure aborts
+	// the insert (no partial/corrupt row) instead of silently persisting "null".
+	mizanJSON, err := marshalJSON("mizan", r.Mizan)
+	if err != nil {
+		return err
+	}
+	invocationJSON, err := marshalJSON("invocation", r.Invocation)
+	if err != nil {
+		return err
+	}
+	templateJSON, err := marshalJSON("template", r.Template)
+	if err != nil {
+		return err
+	}
+	autoraterJSON, err := marshalJSON("autorater", r.Autorater)
+	if err != nil {
+		return err
+	}
+	rubricJSON, err := marshalJSON("rubric", r.Rubric)
+	if err != nil {
+		return err
+	}
+	inputsJSON, err := marshalJSON("inputs", r.Inputs)
+	if err != nil {
+		return err
+	}
+	outcomeJSON, err := marshalJSON("outcome", r.Outcome)
+	if err != nil {
+		return err
+	}
+
 	const q = `
 INSERT INTO results (
     run_id, run_at, run_kind, template_id, template_version, kind, namespace,
@@ -134,14 +165,14 @@ INSERT INTO results (
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?, ?
 )`
-	_, err := s.db.ExecContext(ctx, q,
+	_, err = s.db.ExecContext(ctx, q,
 		r.RunID, r.RunAt.UTC(), string(r.RunKind), r.Template.ID, r.Template.Version,
 		string(r.Template.Kind), namespaceOf(r.Template.ID),
 		// scorecard_run_id: always empty in Phase 1 (single results only). The
 		// column + filter exist now so scorecard persistence is additive (§4.6).
-		"", mustJSON(r.Mizan), mustJSON(r.Invocation),
-		mustJSON(r.Template), mustJSON(r.Autorater), mustJSON(r.Rubric),
-		mustJSON(r.Inputs), mustJSON(r.Outcome),
+		"", mizanJSON, invocationJSON,
+		templateJSON, autoraterJSON, rubricJSON,
+		inputsJSON, outcomeJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("sqlite: put %q (results are immutable; duplicate RunID?): %w", r.RunID, err)
@@ -329,13 +360,18 @@ func namespaceOf(id string) string {
 	return ""
 }
 
-func mustJSON(v any) string {
+// marshalJSON serializes a JSON-composite column value. A marshal failure is
+// propagated (never silently coerced to "null"): the domain types are plain
+// data, but a caller-supplied field such as Outcome.CustomOutput can carry an
+// unmarshalable value, and persisting a corrupt row would be worse than
+// rejecting the write. The field name is included so Put's error names the
+// offending column.
+func marshalJSON(field string, v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		// The domain types are all plain data; marshal cannot realistically fail.
-		return "null"
+		return "", fmt.Errorf("results/sqlite: marshal %s: %w", field, err)
 	}
-	return string(b)
+	return string(b), nil
 }
 
 func unmarshalIf(s string, dst any) error {

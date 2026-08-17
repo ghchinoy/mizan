@@ -113,6 +113,31 @@ func TestPutNilAndEmptyID(t *testing.T) {
 	}
 }
 
+// TestPutMarshalErrorNoRow proves Put propagates a json.Marshal failure (an
+// unmarshalable value in a caller-supplied field) instead of silently
+// persisting "null", and that NO row is written when it does.
+func TestPutMarshalErrorNoRow(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	r := fullResult("01HHHHHHHHHHHHHHHHHHHHHHHH", time.Now().UTC())
+	// A channel value cannot be JSON-marshaled; carry it in CustomOutput.
+	r.Outcome.CustomOutput = map[string]any{"bad": make(chan int)}
+
+	err := s.Put(ctx, &r)
+	if err == nil {
+		t.Fatal("Put with unmarshalable field = nil error, want marshal error")
+	}
+	var jsonErr *json.UnsupportedTypeError
+	if !errors.As(err, &jsonErr) {
+		t.Errorf("Put err = %v, want a json.UnsupportedTypeError in the chain", err)
+	}
+
+	// Nothing must have been persisted.
+	if _, err := s.Get(ctx, r.RunID); !errors.Is(err, results.ErrNotFound) {
+		t.Errorf("Get after failed Put err = %v, want ErrNotFound (no row written)", err)
+	}
+}
+
 func TestJSONWholeRecordRoundTrip(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
