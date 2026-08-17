@@ -1,6 +1,15 @@
 package pack
 
-import "testing"
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/santhosh-tekuri/jsonschema/v5"
+	yaml "gopkg.in/yaml.v3"
+)
 
 func TestParseEvalSet(t *testing.T) {
 	data := []byte(`apiVersion: mizan.dev/v1alpha1
@@ -55,6 +64,91 @@ spec:
 	if doc.Spec.Inputs["asset"] != "response" {
 		t.Errorf("reserved spec.inputs not carried: %+v", doc.Spec.Inputs)
 	}
+}
+
+// TestParseEvalSetGate covers the end-to-end gate carriage the test-engineer
+// flagged as untested: (1) ParseEvalSet decodes aggregation.gate:true into
+// EvalSetAggregation.Gate (pointer to true), and (2) the shipped
+// schema/evalset.json ACCEPTS a manifest carrying aggregation.gate:true.
+func TestParseEvalSetGate(t *testing.T) {
+	data := []byte(`apiVersion: mizan.dev/v1alpha1
+kind: EvalSet
+metadata:
+  id: acme/suite
+  name: Suite
+  version: 1.0.0
+  assetClass: product-video
+spec:
+  members:
+    - metric: acme/one
+  aggregation:
+    method: mean
+    threshold: 0.8
+    gate: true
+`)
+
+	// (1) parse carries gate as *bool(true).
+	doc, err := ParseEvalSet(data)
+	if err != nil {
+		t.Fatalf("ParseEvalSet: %v", err)
+	}
+	if doc.Spec.Aggregation == nil {
+		t.Fatal("aggregation not carried")
+	}
+	if doc.Spec.Aggregation.Gate == nil {
+		t.Fatal("aggregation.gate not carried (want *bool true, got nil)")
+	}
+	if !*doc.Spec.Aggregation.Gate {
+		t.Fatalf("aggregation.gate = %v, want true", *doc.Spec.Aggregation.Gate)
+	}
+
+	// (2) the shipped schema accepts a gate:true manifest.
+	schema := compileEvalSetSchema(t)
+	if err := schema.Validate(yamlToJSON(t, data)); err != nil {
+		t.Fatalf("schema rejected a valid gate:true manifest: %v", err)
+	}
+}
+
+// compileEvalSetSchema compiles the shipped schema/evalset.json (the single
+// source of truth also embedded by internal/registry) so the pack test can
+// assert the schema accepts the gate property without importing registry (which
+// would be an import cycle: registry imports pack).
+func compileEvalSetSchema(t *testing.T) *jsonschema.Schema {
+	t.Helper()
+	path := filepath.FromSlash("../schema/evalset.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read schema %s: %v", path, err)
+	}
+	c := jsonschema.NewCompiler()
+	if err := c.AddResource("evalset.json", bytes.NewReader(data)); err != nil {
+		t.Fatalf("add schema: %v", err)
+	}
+	s, err := c.Compile("evalset.json")
+	if err != nil {
+		t.Fatalf("compile schema: %v", err)
+	}
+	return s
+}
+
+// yamlToJSON converts a YAML manifest into the generic JSON value shape the
+// jsonschema validator expects (map[string]any / []any / float64 / …), mirroring
+// the registry validator's yamlToJSONValue.
+func yamlToJSON(t *testing.T, data []byte) any {
+	t.Helper()
+	var y any
+	if err := yaml.Unmarshal(data, &y); err != nil {
+		t.Fatalf("yaml unmarshal: %v", err)
+	}
+	jb, err := json.Marshal(y)
+	if err != nil {
+		t.Fatalf("json marshal: %v", err)
+	}
+	var v any
+	if err := json.Unmarshal(jb, &v); err != nil {
+		t.Fatalf("json unmarshal: %v", err)
+	}
+	return v
 }
 
 func TestParseEvalSetEmpty(t *testing.T) {

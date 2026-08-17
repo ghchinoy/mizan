@@ -58,6 +58,10 @@ type EvalSetMetadata struct {
 type EvalSetAggregation struct {
 	Method    string   `yaml:"method,omitempty"`
 	Threshold *float64 `yaml:"threshold,omitempty"`
+	// Gate is the opt-in pass/fail gate flag (default off). It is carried here and
+	// consumed by the eval-set runner (internal/evalset); P2 validate does not
+	// interpret it.
+	Gate *bool `yaml:"gate,omitempty"`
 }
 
 // EvalSetSpec is the behavior block of an eval-set manifest.
