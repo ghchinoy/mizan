@@ -188,6 +188,55 @@ spec:
 	}
 }
 
+// TestContentHashIncludesRubricMetaOrigin proves the additive per-criterion Origin
+// (CUJ 9 union provenance, design §6.5 Option A) is part of the content hash WHEN
+// PRESENT: two templates identical but for a RubricMeta.Origin value hash
+// differently, so a mixed-origin audit record cannot be silently altered. (Because
+// Origin is omitempty and the hand-authored golden fixture carries no rubricMeta,
+// the golden content hash is UNSHIFTED — see hash_test.go's TestContentHashGolden.)
+func TestContentHashIncludesRubricMetaOrigin(t *testing.T) {
+	base := provTemplate()
+	hBase := contentHash(&base)
+
+	withOrigin := provTemplate()
+	withOrigin.RubricProvenance.RubricMeta[0].Origin = OriginHandAuthored
+	if contentHash(&withOrigin) == hBase {
+		t.Error("setting RubricMeta.Origin did not change the content hash (it must be hashed when present)")
+	}
+}
+
+// TestRubricMetaOriginSchema proves the additive origin enum is accepted for the
+// two valid values and rejected for anything else (strict schema discipline).
+func TestRubricMetaOriginSchema(t *testing.T) {
+	valid := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+  id: acme/quality
+  version: 0.1.0
+spec:
+  kind: rubric
+  rubricGroups:
+    general_quality:
+      - Answers the question directly
+  rubricProvenance:
+    method: adaptive-generated
+    rubricMeta:
+      - group: general_quality
+        criterion: Answers the question directly
+        origin: adaptive-generated
+      - group: general_quality
+        criterion: Uses the brand palette
+        origin: hand-authored
+`
+	if err := ValidateTemplateSchema([]byte(valid)); err != nil {
+		t.Fatalf("valid origin values rejected by schema: %v", err)
+	}
+	bad := strings.Replace(valid, "origin: hand-authored", "origin: bogus-origin", 1)
+	if err := ValidateTemplateSchema([]byte(bad)); err == nil {
+		t.Error("invalid origin value should fail the strict schema enum")
+	}
+}
+
 // TestRubricProvenanceMaxLengthEnforced proves the pragmatic maxLength bounds
 // (audit LOW / CWE-770) reject an over-length provenance string: neither an
 // attacker-influenceable sampleInputRef nor a rubricMeta scalar can smuggle an

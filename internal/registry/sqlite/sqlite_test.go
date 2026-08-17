@@ -122,6 +122,64 @@ func TestPutGetRoundTrip(t *testing.T) {
 	}
 }
 
+// TestPutGetRoundTripMixedOrigin proves the additive per-criterion RubricMeta.Origin
+// (CUJ 9 union provenance, design §6.6) round-trips through the JSON TEXT
+// rubric_provenance column with NO schema migration — an additive struct field
+// inside the whole-object JSON persists for free. A mixed-origin template is Put
+// then Get; the Origin values come back byte-identical and in order.
+func TestPutGetRoundTripMixedOrigin(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	ts := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)
+
+	want := registry.MetricTemplate{
+		ID:                   "acme/union",
+		Name:                 "Adaptive rubric union",
+		Version:              "0.1.0",
+		Kind:                 registry.KindRubric,
+		Modalities:           []registry.Modality{registry.ModalityText},
+		Inputs:               []registry.InputSpec{{Name: "response", Modality: registry.ModalityText, Required: true}},
+		MetricPromptTemplate: "Assess the response: {{response}}",
+		RubricGroups: map[string][]string{
+			"general_quality": {"Answers the question directly", "Uses the brand palette"},
+		},
+		RubricProvenance: &registry.RubricProvenance{
+			Method:         "adaptive-generated",
+			GeneratorModel: "gemini-2.5-flash",
+			Recipe:         "general_quality_v1",
+			SampleInputRef: `inline:"Explain the offer" sha256:abc123`,
+			GeneratedAt:    ts,
+			APIVersion:     "v1beta1:generateInstanceRubrics",
+			RubricMeta: []registry.RubricMeta{
+				{Group: "general_quality", Criterion: "Answers the question directly", Type: "CONTENT", Importance: "HIGH", Origin: registry.OriginAdaptiveGenerated},
+				{Group: "general_quality", Criterion: "Uses the brand palette", Origin: registry.OriginHandAuthored},
+			},
+		},
+		CreatedAt: ts,
+		UpdatedAt: ts,
+	}
+	if err := s.Put(ctx, &want); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	got, err := s.Get(ctx, want.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.RubricProvenance == nil {
+		t.Fatal("provenance dropped on round-trip")
+	}
+	gotMeta := got.RubricProvenance.RubricMeta
+	if len(gotMeta) != 2 {
+		t.Fatalf("RubricMeta len = %d, want 2", len(gotMeta))
+	}
+	if gotMeta[0].Origin != registry.OriginAdaptiveGenerated || gotMeta[1].Origin != registry.OriginHandAuthored {
+		t.Errorf("Origin not round-tripped byte-identical: got[0]=%q got[1]=%q", gotMeta[0].Origin, gotMeta[1].Origin)
+	}
+	if !reflect.DeepEqual(gotMeta, want.RubricProvenance.RubricMeta) {
+		t.Errorf("mixed-origin RubricMeta mismatch:\n got: %#v\nwant: %#v", gotMeta, want.RubricProvenance.RubricMeta)
+	}
+}
+
 // TestPutGetRoundTripMinimalNil locks the nil-JSON behavior for a minimal
 // pointwise template whose slice/map/pointer fields are nil (Tags, Authors,
 // Maintainers, Modalities, Inputs, RubricGroups, ResponseSchema). These persist

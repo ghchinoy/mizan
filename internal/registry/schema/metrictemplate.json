@@ -121,7 +121,8 @@
                   "group": { "type": "string", "maxLength": 128 },
                   "criterion": { "type": "string", "maxLength": 4096 },
                   "type": { "type": "string", "maxLength": 128 },
-                  "importance": { "type": "string", "maxLength": 128 }
+                  "importance": { "type": "string", "maxLength": 128 },
+                  "origin": { "type": "string", "enum": ["adaptive-generated", "hand-authored"] }
                 }
               }
             }

@@ -179,3 +179,29 @@ func TestRenderRubricGroupsDeterministic(t *testing.T) {
 		t.Errorf("groups not sorted:\n%s", got1)
 	}
 }
+
+// TestRenderRubricGroupsUnionCriteria proves the eval path needs ZERO change for a
+// union-before-freeze draft (CUJ 9, design §6.6): a union is list-concat within one
+// group, and renderRubricGroups already emits every criterion — generated AND
+// hand-authored — as a bullet line in declared order. This confirms runRubric is
+// untouched by the union feature (Origin lives only in provenance, never read here).
+func TestRenderRubricGroupsUnionCriteria(t *testing.T) {
+	groups := map[string][]string{
+		"general_quality": {
+			"Answers the question directly",                 // generated
+			"Is free of jargon",                             // generated
+			"Uses the brand's blue-and-white palette.",      // hand-authored
+			"The brand logo is in the bottom-right corner.", // hand-authored
+		},
+	}
+	got := renderRubricGroups(groups)
+	for _, c := range groups["general_quality"] {
+		if !strings.Contains(got, "- "+c) {
+			t.Errorf("judge prompt missing union criterion %q:\n%s", c, got)
+		}
+	}
+	// Declared order preserved: a generated criterion precedes a hand-authored one.
+	if strings.Index(got, "Answers the question directly") > strings.Index(got, "Uses the brand's") {
+		t.Errorf("union criteria not rendered in declared order:\n%s", got)
+	}
+}

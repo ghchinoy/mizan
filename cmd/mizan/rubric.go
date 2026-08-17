@@ -26,6 +26,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -137,6 +138,164 @@ func buildRubricProvenance(recipe, groupName, sample string, rubrics []rubricgen
 		APIVersion:     adaptiveAPIVersion,
 		RubricMeta:     rubricMetaFor(groupName, rubrics),
 	}
+}
+
+// maxCriterionLen bounds a single hand-authored criterion so an unbounded blob
+// cannot be smuggled into persisted, hashed YAML (CWE-770). It matches the pack
+// schema's rubricMeta.criterion maxLength so a criterion accepted here also
+// validates under the strict schema.
+const maxCriterionLen = 4096
+
+// maxAddCriterion bounds the NUMBER of hand-authored --add-criterion flags on a
+// single generate call (CWE-770): the per-item length cap alone would leave the
+// total persisted, hashed YAML unbounded (N × maxCriterionLen). 256 is far above
+// any plausible hand-authored rubric set while capping worst-case blob size.
+const maxAddCriterion = 256
+
+// validateCriterion rejects a hand-authored --add-criterion value that is unsafe
+// to place into the YAML draft and the judge prompt. A criterion becomes a YAML
+// value and a single judge-prompt line, so — mirroring the sanitization discipline
+// applied to group names and rendered cells — it must be non-empty, bounded, and
+// free of control runes (which would break the single-line judge prompt or smuggle
+// terminal-escape structure). Unlike a group name it MAY contain ordinary prose
+// punctuation (apostrophes, commas, periods), so groupNamePattern's key-safe
+// allow-list is intentionally NOT reused verbatim here — that would reject
+// legitimate criteria like "Uses the brand's blue-and-white palette."
+func validateCriterion(c string) error {
+	trimmed := strings.TrimSpace(c)
+	if trimmed == "" {
+		return fmt.Errorf("must not be empty")
+	}
+	if n := len([]rune(trimmed)); n > maxCriterionLen {
+		return fmt.Errorf("criterion too long (%d runes; max %d)", n, maxCriterionLen)
+	}
+	for _, r := range trimmed {
+		// Reject control (Cc) runes AND format (Cf) runes. Cf covers bidi
+		// overrides (U+202E) and zero-width characters (U+200B) that would not
+		// break the single-line judge prompt but could spoof how the persisted
+		// YAML and the rendered table read to a human auditor (trojan-source,
+		// CWE-150). Ordinary prose — apostrophes, commas, accents — is unaffected.
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return fmt.Errorf("criterion must not contain control or format characters")
+		}
+	}
+	return nil
+}
+
+// criterionRecord is one criterion in a union-before-freeze draft, carrying enough
+// to build BOTH the flat RubricGroups entry and its 1:1 RubricMeta entry (including
+// per-criterion Origin) from a single source, so the two can never drift.
+type criterionRecord struct {
+	Criterion  string
+	Type       string
+	Importance string
+	Origin     string
+}
+
+// normalizeCriterion is the conservative dedup key (Decision 3b): trim, collapse
+// internal whitespace runs to a single space, and lower-case. Two criteria are
+// "exact duplicates" only if their normalized forms are identical — deliberately
+// NO semantic/similarity matching, so a criterion the author meant to keep is
+// never silently dropped. strings.ToLower (not full Unicode case folding) is used
+// on purpose: it is strictly more conservative — it collapses fewer distinct
+// spellings, so it can never drop a criterion the author intended to keep.
+func normalizeCriterion(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(s), " "))
+}
+
+// unionCriteria merges the single generation pass's criteria with the user's
+// hand-authored criteria for CUJ 9 (design §6.3/§6.5). Generated criteria come
+// first (declared order), then hand-authored in flag order. Conservative
+// exact-after-normalization dedup (Decision 3b) runs across the FULL list: the
+// first occurrence of a normalized form wins, later duplicates are dropped and
+// reported to stderr, and the order of survivors is preserved. Each survivor keeps
+// its Origin so provenance stays honest across the mixed-origin set.
+func unionCriteria(generated []rubricgen.UsableRubric, handAuthored []string, stderr io.Writer) []criterionRecord {
+	records := make([]criterionRecord, 0, len(generated)+len(handAuthored))
+	for _, g := range generated {
+		records = append(records, criterionRecord{
+			Criterion:  g.Criterion,
+			Type:       g.Rubric.Type,
+			Importance: g.Rubric.Importance,
+			Origin:     registry.OriginAdaptiveGenerated,
+		})
+	}
+	for _, h := range handAuthored {
+		records = append(records, criterionRecord{
+			Criterion: strings.TrimSpace(h),
+			Origin:    registry.OriginHandAuthored,
+		})
+	}
+	seen := make(map[string]bool, len(records))
+	out := make([]criterionRecord, 0, len(records))
+	for _, rec := range records {
+		key := normalizeCriterion(rec.Criterion)
+		if seen[key] {
+			fmt.Fprintf(stderr,
+				"mizan: dropped duplicate %s criterion %q (conservative exact-after-normalization dedup; first occurrence kept)\n",
+				rec.Origin, previewText(rec.Criterion, maxSampleRefPreview))
+			continue
+		}
+		seen[key] = true
+		out = append(out, rec)
+	}
+	return out
+}
+
+// criteriaOf projects the ordered criterion strings out of union records.
+func criteriaOf(records []criterionRecord) []string {
+	out := make([]string, 0, len(records))
+	for _, r := range records {
+		out = append(out, r.Criterion)
+	}
+	return out
+}
+
+// buildUnionProvenance stamps provenance for a union-before-freeze draft. The
+// top-level fields describe the single generation pass exactly as today (Method is
+// UNCHANGED — "adaptive-generated" — for any template with >=1 generated criterion,
+// Decision 3c route i: zero cross-team ripple to mizan-em-resultsstore). The
+// per-criterion Origin on RubricMeta carries the mixed-origin truth. RubricMeta is
+// built from the SAME deduped records that populate RubricGroups, so it stays 1:1
+// aligned with the criteria that actually landed in the draft.
+func buildUnionProvenance(recipe, groupName, sample string, records []criterionRecord) *registry.RubricProvenance {
+	meta := make([]registry.RubricMeta, 0, len(records))
+	for _, r := range records {
+		meta = append(meta, registry.RubricMeta{
+			Group:      groupName,
+			Criterion:  r.Criterion,
+			Type:       r.Type,
+			Importance: r.Importance,
+			Origin:     r.Origin,
+		})
+	}
+	return &registry.RubricProvenance{
+		Method:         adaptiveMethod,
+		GeneratorModel: adaptiveGeneratorModel,
+		Recipe:         recipe,
+		SampleInputRef: sampleInputRef(sample),
+		GeneratedAt:    time.Now().UTC(),
+		APIVersion:     adaptiveAPIVersion,
+		RubricMeta:     meta,
+	}
+}
+
+// renderUnionCriteria prints the merged criterion set (generated + hand-authored)
+// with an ORIGIN column so the author can see, before freezing, which criteria are
+// AI-drafted and which are their own. Every cell is sanitized — generated criteria
+// are model (untrusted) text.
+func renderUnionCriteria(w io.Writer, groupName string, records []criterionRecord) error {
+	if outputFormat == outputJSON {
+		return printJSON(w, records)
+	}
+	tw := newTabWriter(w)
+	fmt.Fprintln(tw, "GROUP\tCRITERION\tTYPE\tIMPORTANCE\tORIGIN")
+	for _, r := range records {
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+			sanitizeCell(groupName), sanitizeCell(r.Criterion),
+			sanitizeCell(r.Type), sanitizeCell(r.Importance), sanitizeCell(r.Origin))
+	}
+	return tw.Flush()
 }
 
 // newRubricGenerator is the composition-root seam for the Stage-1 generation
@@ -327,14 +486,15 @@ func newRubricCmd() *cobra.Command {
 // static mizan rubric.
 func newRubricGenerateCmd() *cobra.Command {
 	var (
-		sample    string
-		recipe    string
-		groupName string
-		id        string
-		name      string
-		out       string
-		project   string
-		location  string
+		sample       string
+		recipe       string
+		groupName    string
+		id           string
+		name         string
+		out          string
+		project      string
+		location     string
+		addCriterion []string
 	)
 	cmd := &cobra.Command{
 		Use:   "generate --sample <prompt> --id <ns/slug> --out <draft.yaml>",
@@ -376,6 +536,19 @@ func newRubricGenerateCmd() *cobra.Command {
 			if err := validateGroupName(groupName); err != nil {
 				return err
 			}
+			// Guard hand-authored criteria locally, BEFORE any authed generation
+			// call, so a bad value is a crisp local error and never rides a billable
+			// round-trip (parity with the other --add-criterion-adjacent guards).
+			// Bound the COUNT as well as each value's length (CWE-770): the per-item
+			// cap alone leaves total persisted/hashed YAML unbounded (N × maxCriterionLen).
+			if len(addCriterion) > maxAddCriterion {
+				return fmt.Errorf("too many --add-criterion flags (%d; max %d)", len(addCriterion), maxAddCriterion)
+			}
+			for i, c := range addCriterion {
+				if err := validateCriterion(c); err != nil {
+					return fmt.Errorf("--add-criterion #%d: %w", i+1, err)
+				}
+			}
 
 			cfg, err := mustConfig()
 			if err != nil {
@@ -395,7 +568,22 @@ func newRubricGenerateCmd() *cobra.Command {
 				return err
 			}
 
-			prov := buildRubricProvenance(recipe, groupName, sample, rubrics)
+			// Single-pass (no --add-criterion) stays BYTE-IDENTICAL to today: the
+			// existing generate-only path, no Origin stamped (CUJ 7/8 unbroken). The
+			// union-before-freeze path (CUJ 9) is taken only when the user supplies
+			// >=1 hand-authored criterion.
+			var (
+				prov    *registry.RubricProvenance
+				records []criterionRecord
+			)
+			if len(addCriterion) == 0 {
+				prov = buildRubricProvenance(recipe, groupName, sample, rubrics)
+			} else {
+				records = unionCriteria(rubricgen.UsableRubrics(rubrics), addCriterion, cmd.ErrOrStderr())
+				groups[groupName] = criteriaOf(records)
+				prov = buildUnionProvenance(recipe, groupName, sample, records)
+			}
+
 			tmpl := draftRubricTemplate(id, name, groupName, []string{"prompt", "response"}, groups, prov)
 			yamlBytes, err := registry.MarshalTemplate(&tmpl)
 			if err != nil {
@@ -405,8 +593,14 @@ func newRubricGenerateCmd() *cobra.Command {
 				return err
 			}
 
-			if err := renderRubricCriteria(cmd.OutOrStdout(), groupName, rubrics); err != nil {
-				return err
+			if len(addCriterion) == 0 {
+				if err := renderRubricCriteria(cmd.OutOrStdout(), groupName, rubrics); err != nil {
+					return err
+				}
+			} else {
+				if err := renderUnionCriteria(cmd.OutOrStdout(), groupName, records); err != nil {
+					return err
+				}
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(),
 				"mizan: wrote draft template %s to %s — review/edit, then wrap it under a pack's templates/ dir and `mizan registry import <pack>` (a loose draft file is not a valid import source), then `mizan eval run --metric %s` (or freeze in one step with `mizan eval adaptive --save-as %s`)\n",
@@ -417,6 +611,7 @@ func newRubricGenerateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&sample, "sample", "", "sample prompt to generate rubric criteria from (required)")
 	cmd.Flags().StringVar(&recipe, "recipe", defaultRecipe, recipeFlagUsage())
 	cmd.Flags().StringVar(&groupName, "group-name", "", "RubricGroups key for the output (default: the recipe family name)")
+	cmd.Flags().StringArrayVar(&addCriterion, "add-criterion", nil, "hand-authored criterion to union into the draft, appended AFTER the generated criteria (repeatable; kept in flag order; conservative exact-after-normalization duplicates are dropped and reported to stderr)")
 	cmd.Flags().StringVar(&id, "id", "", "draft template id, <namespace>/<slug> (required)")
 	cmd.Flags().StringVar(&name, "name", "", "draft template human-readable name")
 	cmd.Flags().StringVar(&out, "out", "", "path to write the draft template YAML (required)")
