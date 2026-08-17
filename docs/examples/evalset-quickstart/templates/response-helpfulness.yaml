@@ -1,0 +1,41 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+
+metadata:
+  id: quickstart/response-helpfulness
+  name: Response Helpfulness
+  description: >
+    Scores how helpful and complete a response is for the given prompt on a
+    1-5 scale.
+  version: 1.0.0
+  authors:
+    - name: Mizan Team
+  maintainers:
+    - mizan-team
+  license: Apache-2.0
+  tags: [quality, text, helpfulness]
+
+spec:
+  kind: pointwise
+  modalities: [text]
+  inputs:
+    - name: prompt
+      modality: text
+      required: true
+    - name: response
+      modality: text
+      required: true
+  metricPromptTemplate: |
+    Rate how helpful and complete the response is for the user's prompt on a
+    1-5 scale, where 5 is fully helpful and 1 is unhelpful.
+
+    Prompt:
+    {{prompt}}
+
+    Response:
+    {{response}}
+  systemInstruction: |
+    Be a fair but strict rater. Reward accuracy and completeness.
+  autorater:
+    model: gemini-2.5-pro
+    samplingCount: 1

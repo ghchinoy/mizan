@@ -41,7 +41,9 @@ func TestEvalProjectFlagIsPersistent(t *testing.T) {
 // before any config load, DB open, or live API call.
 func TestEvalRunAcceptsProjectFlag(t *testing.T) {
 	out, err := executeRoot(t, "eval", "run", "--project", "flag-project")
-	assertFlagParsedButMetricMissing(t, out, err)
+	// `eval run` now guards mutual exclusivity of --metric/--set, so its
+	// missing-input error differs from pairwise's --metric-required guard.
+	assertFlagParsedButInputMissing(t, out, err, "exactly one of --metric or --set is required")
 }
 
 // TestEvalPairwiseAcceptsProjectFlag proves `eval pairwise --project <p>` parses
@@ -49,22 +51,22 @@ func TestEvalRunAcceptsProjectFlag(t *testing.T) {
 // stops at the required --metric check, so it touches no backend.
 func TestEvalPairwiseAcceptsProjectFlag(t *testing.T) {
 	out, err := executeRoot(t, "eval", "pairwise", "--project", "flag-project")
-	assertFlagParsedButMetricMissing(t, out, err)
+	assertFlagParsedButInputMissing(t, out, err, "--metric is required")
 }
 
-// assertFlagParsedButMetricMissing asserts a run stopped at the --metric
-// validation rather than a flag-parsing error: proof that --project was accepted
-// as a known flag before any backend work.
-func assertFlagParsedButMetricMissing(t *testing.T, out string, err error) {
+// assertFlagParsedButInputMissing asserts a run stopped at its required-input
+// validation (naming the expected message) rather than a flag-parsing error:
+// proof that --project was accepted as a known flag before any backend work.
+func assertFlagParsedButInputMissing(t *testing.T, out string, err error, want string) {
 	t.Helper()
 	if err == nil {
-		t.Fatalf("expected --metric required error, got nil (out=%q)", out)
+		t.Fatalf("expected required-input error, got nil (out=%q)", out)
 	}
 	if strings.Contains(err.Error(), "unknown flag") {
 		t.Fatalf("--project was rejected as unknown; persistent flag not wired: %v", err)
 	}
-	if !strings.Contains(err.Error(), "--metric is required") {
-		t.Errorf("error = %v, want it to reach the --metric required check", err)
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error = %v, want it to reach the required-input check (%q)", err, want)
 	}
 }
 
