@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -111,7 +112,7 @@ func newResultsShowCmd() *cobra.Command {
 
 			r, err := svc.Get(cmd.Context(), args[0])
 			if err != nil {
-				if err == results.ErrNotFound {
+				if errors.Is(err, results.ErrNotFound) {
 					return fmt.Errorf("no result with run id %q", args[0])
 				}
 				return err

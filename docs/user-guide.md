@@ -778,6 +778,16 @@ persistence for that one-off run:
 mizan eval run --metric demo/quality --field response="…" --no-store
 ```
 
+### Privacy: what a stored result records
+
+Each persisted result records the machine hostname (`os.Hostname()`) inline as a
+coarse, non-PII-intended team-attribution label (design §4.2) — it is captured so
+runs can later be told apart by originating machine, not to identify a person.
+Persistence is on by default and `--no-store` disables it entirely, so opting out
+of the hostname today means opting out of storing the run at all. A field-level
+opt-out that suppresses just the hostname is a planned future enhancement; it
+matters most once the store becomes syncable, whereas Phase 1 is local-only SQLite.
+
 ### Where results are stored (config keys)
 
 Backend selection is config-driven (same shape as the registry store), via the
