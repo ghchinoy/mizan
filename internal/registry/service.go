@@ -69,6 +69,18 @@ func NewService(store Store, opts ...Option) *Service {
 
 // Create inserts a new template. It fails if a template with the same ID
 // already exists (use Update to modify an existing one).
+//
+// A directly-authored template — via `registry create` or frozen from an
+// adaptive run via `eval adaptive --save-as` — never travels through a pack, so
+// it bypasses both the codec ingest boundary AND `pack validate`'s strict schema
+// gate that every imported template passes. Create therefore closes that gap on
+// two axes so the authoring path is at parity with the import/pack path:
+//   - it runs the SAME strict JSON schema (schema/metrictemplate.json) the
+//     `pack validate` gate uses, rejecting a malformed or invalid-enum template
+//     before it lands in the store; and
+//   - it stamps ContentHash the same way the import path does (stampImported), so
+//     an authored template carries a real content fingerprint for drift
+//     detection and import no-op short-circuiting rather than an empty stamp.
 func (s *Service) Create(ctx context.Context, t MetricTemplate) error {
 	if t.ID == "" {
 		return fmt.Errorf("registry: template ID is required")
@@ -78,11 +90,24 @@ func (s *Service) Create(ctx context.Context, t MetricTemplate) error {
 	} else if err != ErrNotFound {
 		return err
 	}
+	// Strict-schema pre-check (parity with `pack validate`). Marshaling through the
+	// codec yields the canonical pack bytes the schema is defined over; the schema
+	// is the single source of truth already used at the pack gate.
+	data, err := s.codec.Marshal(&t)
+	if err != nil {
+		return fmt.Errorf("registry: create %q: %w", t.ID, err)
+	}
+	if err := ValidateTemplateSchema(data); err != nil {
+		return err
+	}
 	now := time.Now().UTC()
 	if t.CreatedAt.IsZero() {
 		t.CreatedAt = now
 	}
 	t.UpdatedAt = now
+	// Compute the content fingerprint exactly as the import path does
+	// (stampImported) so an authored template is not persisted with an empty hash.
+	t.ContentHash = contentHash(&t)
 	return s.store.Put(ctx, &t)
 }
 

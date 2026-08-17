@@ -99,7 +99,8 @@ func TestCreate_Success_SetsTimestamps(t *testing.T) {
 	svc := NewService(store)
 
 	before := time.Now().UTC()
-	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", Name: "A"}); err != nil {
+	// Kind is required by the strict-schema pre-check Create now runs.
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", Name: "A", Kind: KindPointwise}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	after := time.Now().UTC()
@@ -121,7 +122,7 @@ func TestCreate_PreservesSuppliedCreatedAt(t *testing.T) {
 	svc := NewService(store)
 
 	orig := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
-	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", CreatedAt: orig}); err != nil {
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", Kind: KindPointwise, CreatedAt: orig}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	got := store.items["ns/a"]
@@ -171,6 +172,90 @@ func TestCreate_StoreGetErrorPropagates(t *testing.T) {
 	}
 	if store.putCalls != 0 {
 		t.Errorf("Put called despite a Get error, want 0")
+	}
+}
+
+// --- Create parity fast-follows (ContentHash + strict schema) -----------------
+
+// TestCreate_ComputesContentHash pins Item 1: a directly-authored template must
+// be persisted with a non-empty ContentHash computed the same way the import path
+// (stampImported) computes it, not left empty.
+func TestCreate_ComputesContentHash(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	in := MetricTemplate{
+		ID:           "ns/hashed",
+		Name:         "Hashed",
+		Version:      "1.0.0",
+		Kind:         KindRubric,
+		RubricGroups: map[string][]string{"quality": {"is good"}},
+	}
+	if err := svc.Create(ctx(), in); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	got := store.items["ns/hashed"]
+	if got == nil {
+		t.Fatal("template not stored")
+	}
+	if got.ContentHash == "" {
+		t.Fatal("ContentHash is empty; Create must stamp it like the import path")
+	}
+	// contentHash excludes lifecycle/provenance fields, so the stored copy hashes
+	// identically to the input content computed independently.
+	if want := contentHash(&in); got.ContentHash != want {
+		t.Errorf("ContentHash = %q, want %q", got.ContentHash, want)
+	}
+}
+
+// TestCreate_RejectsSchemaInvalidEnum pins Item 2: an enum value the strict
+// schema forbids (a modality outside text|image|audio|video|music) is rejected
+// before anything is written, at parity with the pack/import gate.
+func TestCreate_RejectsSchemaInvalidEnum(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	bad := MetricTemplate{
+		ID:         "ns/bad",
+		Kind:       KindPointwise,
+		Modalities: []Modality{"hologram"},
+	}
+	if err := svc.Create(ctx(), bad); err == nil {
+		t.Fatal("Create with an invalid modality: expected a schema error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on a schema-invalid template, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_RejectsSchemaInvalidID confirms an id that violates the
+// "<namespace>/<slug>" pattern (rejected by the import ingest boundary) is now
+// also rejected on the authoring path via the strict-schema pre-check.
+func TestCreate_RejectsSchemaInvalidID(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	bad := MetricTemplate{ID: "Bad_ID", Kind: KindPointwise}
+	if err := svc.Create(ctx(), bad); err == nil {
+		t.Fatal("Create with a malformed id: expected a schema error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on a malformed id, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_MissingKindRejected confirms the strict schema's spec.kind
+// requirement is enforced on the authoring path (spec.kind is required, like the
+// import codec requires it).
+func TestCreate_MissingKindRejected(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/nokind"}); err == nil {
+		t.Fatal("Create without a kind: expected a schema error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times without a kind, want 0", store.putCalls)
 	}
 }
 
