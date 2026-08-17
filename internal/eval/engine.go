@@ -87,13 +87,14 @@ type Result struct {
 	Stats    Stats    // per-run telemetry (WI-F4)
 	// Applied is the RESOLVED autorater-as-applied — the model, sampling, flip,
 	// and effective host/location Engine.Run actually used after the precedence
-	// chain and R-GLOBAL routing (eval-results-store-design §4.3). It is additive
-	// and set on EVERY path by Run; the results store copies it verbatim. It is a
-	// POINTER with omitempty (mirroring the TokenUsage neighbour) so a Result NOT
-	// produced by Run — e.g. a literal in an existing test or renderer golden —
-	// serializes exactly as before (the field is omitted when nil), keeping this
-	// change purely additive. Run always sets it, so real runs carry it.
-	Applied *AppliedAutorater `json:"applied,omitempty"`
+	// chain and R-GLOBAL routing (eval-results-store-design §4.3). Run populates it
+	// ONLY on a successful run (err == nil); it stays nil on every error path, so a
+	// failed run has no applied autorater. The results store reads this as a Go
+	// STRUCT FIELD, not via JSON, so the field is tagged json:"-" and is NEVER
+	// serialized in the eval command's output — keeping that output byte-for-byte
+	// unchanged (eval-results-store-design §6). The AppliedAutorater snake_case
+	// json tags are kept for any direct marshaling of that value elsewhere.
+	Applied *AppliedAutorater `json:"-"`
 }
 
 // Stats holds per-run telemetry (WI-F4). Duration is ALWAYS populated with the
@@ -325,11 +326,17 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	start := time.Now()
 	res, err := e.dispatch(ctx, tmpl, inst, model, rc)
 	res.Stats.Duration = time.Since(start)
+	if err != nil {
+		// A failed run has no applied autorater: leave Result.Applied nil on EVERY
+		// error path (dispatch errors here, and the validation errors that returned
+		// early above) so "the run did not happen" is represented uniformly.
+		return res, err
+	}
 	// Record the RESOLVED autorater-as-applied on EVERY kind/path uniformly, right
 	// where Run already stamps the shared telemetry (§4.3). EffectiveHost/Location
 	// reuse the SAME resolution + routing decision the run took, via Resolve — no
-	// re-derivation of routing here. Set on both the success and timing path so a
-	// caller (the results store) always sees what actually ran.
+	// re-derivation of routing here. Populated only on success so a caller (the
+	// results store) sees exactly what actually ran.
 	target := e.Resolve(tmpl, rc.modelOverride, rc.rubricDetail)
 	effectiveHost := "regional"
 	if target.Location == globalLocation || target.Location == "" {
@@ -343,7 +350,7 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		Location:      target.Location,
 		ModelSource:   modelSource(rc.modelOverride, tmpl.AutoraterModel, e.defaultModel),
 	}
-	return res, err
+	return res, nil
 }
 
 // dispatch routes to the per-kind path with the already-resolved model. Keeping
