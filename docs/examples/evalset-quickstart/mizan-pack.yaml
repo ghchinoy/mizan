@@ -1,0 +1,12 @@
+apiVersion: mizan.dev/v1alpha1
+kind: Pack
+metadata:
+  name: quickstart                # namespace — must match this directory name
+  version: 1.0.0                  # pack-level semver (human release tag)
+  description: >
+    Quickstart text-eval templates and a 2-member EvalSet used by the eval-set
+    runner recipe in docs/user-guide.md and docs/testing-guide.md.
+  maintainers: [mizan-team]
+  license: Apache-2.0
+spec:
+  requiresApiVersion: mizan.dev/v1alpha1

@@ -99,13 +99,14 @@ func TestValidOutput(t *testing.T) {
 }
 
 func TestEvalRunRequiresMetric(t *testing.T) {
-	// Fails on the --metric check before config/DB/API.
+	// Fails on the mutual-exclusivity check (exactly one of --metric/--set)
+	// before config/DB/API.
 	out, err := executeRoot(t, "eval", "run")
 	if err == nil {
-		t.Fatalf("expected error for missing --metric, got nil (out=%q)", out)
+		t.Fatalf("expected error for missing --metric/--set, got nil (out=%q)", out)
 	}
-	if !strings.Contains(err.Error(), "--metric is required") {
-		t.Errorf("error = %v, want --metric is required", err)
+	if !strings.Contains(err.Error(), "exactly one of --metric or --set is required") {
+		t.Errorf("error = %v, want exactly one of --metric or --set is required", err)
 	}
 }
 

@@ -1,0 +1,42 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+
+metadata:
+  id: quickstart/response-conciseness
+  name: Response Conciseness
+  description: >
+    Scores how concise a response is (free of padding and repetition) for the
+    given prompt on a 1-5 scale.
+  version: 1.0.0
+  authors:
+    - name: Mizan Team
+  maintainers:
+    - mizan-team
+  license: Apache-2.0
+  tags: [quality, text, conciseness]
+
+spec:
+  kind: pointwise
+  modalities: [text]
+  inputs:
+    - name: prompt
+      modality: text
+      required: true
+    - name: response
+      modality: text
+      required: true
+  metricPromptTemplate: |
+    Rate how concise the response is on a 1-5 scale, where 5 is tight and free
+    of padding or repetition and 1 is padded and repetitive. Do not reward
+    brevity that omits necessary information.
+
+    Prompt:
+    {{prompt}}
+
+    Response:
+    {{response}}
+  systemInstruction: |
+    Be a fair but strict rater. Penalize padding and repetition.
+  autorater:
+    model: gemini-2.5-pro
+    samplingCount: 1
