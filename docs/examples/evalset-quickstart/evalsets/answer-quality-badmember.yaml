@@ -1,0 +1,29 @@
+apiVersion: mizan.dev/v1alpha1
+kind: EvalSet
+metadata:
+  id: quickstart/answer-quality-badmember
+  name: Answer Quality Suite (with a broken member)
+  description: >
+    A partial-failure demo: the first member references a template id that does
+    not exist. Under the default continue-on-error the run COMPLETES, that member
+    is reported Missing, and the aggregate reflects only the scored members. With
+    --fail-fast the run aborts at that first failure and the rest are Skipped.
+  version: 1.0.0
+  assetClass: text-answer
+  tags: [quality, text]
+spec:
+  inputs:
+    prompt: prompt
+    response: response
+  members:
+    - metric: quickstart/does-not-exist   # intentionally unresolvable => Missing
+    - metric: quickstart/response-helpfulness
+      weight: 2
+    - metric: quickstart/response-conciseness
+      weight: 1
+  aggregation:
+    method: weighted-mean
+    threshold: 3.0
+    gate: false
+  display:
+    order: as-listed

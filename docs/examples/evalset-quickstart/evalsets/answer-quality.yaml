@@ -1,0 +1,28 @@
+apiVersion: mizan.dev/v1alpha1
+kind: EvalSet                          # the second manifest kind (design §3.4a)
+metadata:
+  id: quickstart/answer-quality        # namespaced <pack>/<slug>
+  name: Answer Quality Suite
+  description: >
+    A 2-member text eval-set: score a response for helpfulness and conciseness,
+    then aggregate to a single weighted-mean verdict.
+  version: 1.0.0
+  assetClass: text-answer
+  tags: [quality, text]
+spec:
+  # Shared set-level inputs are passed by identity to every member (the set input
+  # name is the member placeholder name). Phase 1 does not resolve bind aliases.
+  inputs:
+    prompt: prompt
+    response: response
+  members:
+    - metric: quickstart/response-helpfulness
+      weight: 2
+    - metric: quickstart/response-conciseness
+      weight: 1
+  aggregation:
+    method: weighted-mean
+    threshold: 3.0                       # scores are on the judge's 1-5 scale
+    gate: false                         # opt-in gate is OFF: verdict shown, exit stays 0
+  display:
+    order: as-listed

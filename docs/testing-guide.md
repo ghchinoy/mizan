@@ -1148,6 +1148,123 @@ See [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-8-see-
 (Scenario 8) for the fuller narrative, including how `--stats` pairs with the
 always-on pre-flight target echo.
 
+## Eval-set runner (`eval run --set`)
+
+Run several metric templates against one asset in a single call and get a
+**scorecard** with an aggregate verdict. `--set` takes a **path** to an EvalSet
+manifest (Phase 1 is path-based; id-from-packs-tree is a fast-follow) and is
+**mutually exclusive** with `--metric`. The outputs below were captured live
+against project `ghchinoy-genai-sa` using the committed example pack
+[`docs/examples/evalset-quickstart`](examples/evalset-quickstart).
+
+**Setup — import the member templates** (the set members reference template ids,
+so they must resolve in your registry):
+
+```console
+$ mizan registry import docs/examples/evalset-quickstart
+2 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: docs/examples/evalset-quickstart)
+  inserted: quickstart/response-conciseness
+  inserted: quickstart/response-helpfulness
+```
+
+**Table scorecard** (one row per member; the aggregate line carries method,
+scored count, threshold, and the always-computed verdict):
+
+```console
+$ mizan eval run --set docs/examples/evalset-quickstart/evalsets/answer-quality.yaml \
+    --field prompt="What is the capital of France?" \
+    --field response="The capital of France is Paris, a major European city on the Seine."
+EvalSet: quickstart/answer-quality (v1.0.0)  asset-class: text-answer
+
+MEMBER                           STATUS  WEIGHT  SCORE  NOTE
+quickstart/response-helpfulness  ok      2       5.00
+quickstart/response-conciseness  ok      1       4.00
+
+Aggregate (weighted-mean over 2 scored): 4.67   threshold: 3   PASSED
+```
+
+**JSON** (`-o json`) serializes the whole `EvalSetResult`; each member carries
+its full `eval.Result`:
+
+```console
+$ mizan eval run --set …/answer-quality.yaml --field prompt="…" --field response="…" -o json
+{
+  "SetID": "quickstart/answer-quality",
+  "Members": [
+    { "MetricID": "quickstart/response-helpfulness", "Status": "OK", "Score": 5, "Result": { "Explanation": "…", … } },
+    { "MetricID": "quickstart/response-conciseness",  "Status": "OK", "Score": 3, "Result": { "Explanation": "…", … } }
+  ],
+  "Aggregate": { "Method": "weighted-mean", "Score": 4.33, "Threshold": 3, "Passed": true, "Scored": 2, "Failed": 0 },
+  "Verdict": "PASSED",
+  "Gate": false
+}
+```
+
+> **Note:** The scores in these examples are illustrative and were captured from
+> **separate live runs**. The judge model is non-deterministic, so exact
+> per-member scores and the aggregate vary run-to-run — the table and JSON blocks
+> above come from different invocations, which is why their conciseness score and
+> aggregate differ. Assert on structure and pass/fail behavior, not the exact
+> numbers.
+
+**Partial failure — continue-on-error (default).** The
+[`answer-quality-badmember.yaml`](examples/evalset-quickstart/evalsets/answer-quality-badmember.yaml)
+set's first member points at a template that does not exist. The run **completes**;
+the broken member is `missing` (reason in NOTE) and the aggregate covers only the
+scored members:
+
+```console
+$ mizan eval run --set …/answer-quality-badmember.yaml --field prompt="…" --field response="…"
+MEMBER                           STATUS   WEIGHT  SCORE  NOTE
+quickstart/does-not-exist        missing  1       -      registry: template not found
+quickstart/response-helpfulness  ok       2       5.00
+quickstart/response-conciseness  ok       1       3.00
+
+Aggregate (weighted-mean over 2 scored): 4.33   threshold: 3   PASSED
+```
+
+**`--fail-fast`** aborts at the first errored/missing member; the rest are
+`skipped`:
+
+```console
+$ mizan eval run --set …/answer-quality-badmember.yaml --field … --fail-fast
+MEMBER                           STATUS   WEIGHT  SCORE  NOTE
+quickstart/does-not-exist        missing  1       -      registry: template not found
+quickstart/response-helpfulness  skipped  2       -
+quickstart/response-conciseness  skipped  1       -
+
+Aggregate (weighted-mean over 0 scored): -   threshold: 3   FAILED
+```
+
+**Opt-in gate → exit code.** The scorecard always shows the verdict; the process
+exits non-zero **only** when `aggregation.gate: true` **and** the verdict is
+`FAILED`. The gate error goes to **stderr**, so stdout stays a clean scorecard.
+
+```console
+$ mizan eval run --set …/answer-quality-strict-gate.yaml --field prompt="…" --field response="…"
+Aggregate (weighted-mean over 2 scored): 4.33   threshold: 4.9   FAILED
+error: eval-set gate failed: FAILED verdict for quickstart/answer-quality-strict-gate
+$ echo $?
+1
+```
+
+The same failing set with `gate: false` still prints `FAILED` but exits `0`:
+
+```console
+$ mizan eval run --set …/answer-quality-strict-nogate.yaml --field prompt="…" --field response="…"
+Aggregate (weighted-mean over 2 scored): 4.67   threshold: 4.9   FAILED
+$ echo $?
+0
+```
+
+**Mutual exclusivity.** Supplying neither or both of `--metric`/`--set` fails
+fast, before any config load or API call:
+
+```console
+$ mizan eval run --field prompt="…"
+error: exactly one of --metric or --set is required
+```
+
 ## What each result means
 
 - **`Score` + `Explanation`** (pointwise and rubric) — demonstrated live

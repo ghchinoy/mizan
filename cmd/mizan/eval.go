@@ -272,6 +272,8 @@ func applyProjectOverride(cfg *config.Config, project string) {
 func newEvalRunCmd() *cobra.Command {
 	var (
 		metric       string
+		set          string
+		failFast     bool
 		model        string
 		stats        bool
 		rubricDetail bool
@@ -281,7 +283,7 @@ func newEvalRunCmd() *cobra.Command {
 		gcs          []string
 	)
 	cmd := &cobra.Command{
-		Use: "run --metric <id> [--field key=value] [--file key=/path] [--gcs key=gs://…]",
+		Use: "run (--metric <id> | --set <path>) [--field key=value] [--file key=/path] [--gcs key=gs://…]",
 		// `single` is the plain-vernacular alias: `mizan eval single` == `mizan eval
 		// run` — score ONE response (a.k.a. pointwise). run is also the entry for
 		// rubric/custom_schema templates, dispatched by the template's kind.
@@ -298,8 +300,14 @@ func newEvalRunCmd() *cobra.Command {
 			"ContentMap path, which requires gs:// FileData; local --file assets are\n" +
 			"staged automatically when a StagingBucket is configured.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if metric == "" {
-				return fmt.Errorf("--metric is required")
+			// Enforce EXACTLY ONE of --metric / --set (mutually exclusive). The
+			// --set branch is a distinct code path (runEvalSet, in evalset.go) so
+			// this shared file stays minimal; the --metric path below is unchanged.
+			if (metric == "") == (set == "") {
+				return fmt.Errorf("exactly one of --metric or --set is required")
+			}
+			if set != "" {
+				return runEvalSet(cmd, set, model, fields, files, gcs, failFast)
 			}
 			cfg, err := mustConfig()
 			if err != nil {
@@ -384,7 +392,9 @@ func newEvalRunCmd() *cobra.Command {
 			return renderResult(cmd.OutOrStdout(), res, stats)
 		},
 	}
-	cmd.Flags().StringVar(&metric, "metric", "", "template id to run (required)")
+	cmd.Flags().StringVar(&metric, "metric", "", "template id to run (mutually exclusive with --set; exactly one required)")
+	cmd.Flags().StringVar(&set, "set", "", "path to an EvalSet manifest file to run (mutually exclusive with --metric; exactly one required)")
+	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "for --set, abort at the first errored/missing member (default: continue-on-error)")
 	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
 	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
 	cmd.Flags().BoolVar(&rubricDetail, "rubric-detail", false, "for a rubric template, return per-criterion scores via the genai structured path (location=global; drops sampling)")
