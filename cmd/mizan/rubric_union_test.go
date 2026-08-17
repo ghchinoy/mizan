@@ -43,14 +43,44 @@ func TestValidateCriterion(t *testing.T) {
 			t.Errorf("validateCriterion(%q) = %v, want nil", ok, err)
 		}
 	}
-	// Empty/blank, control characters, and terminal-escape bytes are rejected.
-	for _, bad := range []string{"", "   ", "has\nnewline", "tab\there", "esc\x1b[31mred"} {
+	// Empty/blank, control characters, terminal-escape bytes, and format runes
+	// (bidi override U+202E, zero-width space U+200B) are rejected — the latter
+	// would spoof how the persisted YAML / rendered table read to an auditor
+	// (trojan-source, CWE-150).
+	for _, bad := range []string{
+		"", "   ", "has\nnewline", "tab\there", "esc\x1b[31mred",
+		"bidi\u202eoverride", "zero\u200bwidth",
+	} {
 		if err := validateCriterion(bad); err == nil {
 			t.Errorf("validateCriterion(%q) = nil, want error", bad)
 		}
 	}
 	if err := validateCriterion(strings.Repeat("a", maxCriterionLen+1)); err == nil {
 		t.Error("over-length criterion should be rejected (CWE-770 bound)")
+	}
+}
+
+// TestRubricGenerateTooManyAddCriterion proves the aggregate --add-criterion count
+// bound (CWE-770): more than maxAddCriterion flags fail LOCALLY, before any
+// (billable) generation call, so total persisted/hashed YAML stays bounded.
+func TestRubricGenerateTooManyAddCriterion(t *testing.T) {
+	fake := &rubricgentest.FakeClient{}
+	fake.Rubrics = []rubricgen.Rubric{rubricgentest.Rubric("x", "T", "HIGH")}
+	withFakeGenerator(t, fake)
+
+	args := []string{"--sample", "s", "--id", "a/b", "--out", filepath.Join(t.TempDir(), "d.yaml")}
+	for i := 0; i < maxAddCriterion+1; i++ {
+		args = append(args, "--add-criterion", "criterion")
+	}
+	cmd := newRubricGenerateCmd()
+	cmd.SetOut(new(bytes.Buffer))
+	cmd.SetErr(new(bytes.Buffer))
+	cmd.SetArgs(args)
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected an error when --add-criterion count exceeds maxAddCriterion")
+	}
+	if fake.Calls() != 0 {
+		t.Fatalf("generator was called %d times; the count bound must be checked first", fake.Calls())
 	}
 }
 

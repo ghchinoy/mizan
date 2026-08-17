@@ -129,6 +129,12 @@ func buildRubricProvenance(recipe, groupName, sample string, rubrics []rubricgen
 // validates under the strict schema.
 const maxCriterionLen = 4096
 
+// maxAddCriterion bounds the NUMBER of hand-authored --add-criterion flags on a
+// single generate call (CWE-770): the per-item length cap alone would leave the
+// total persisted, hashed YAML unbounded (N × maxCriterionLen). 256 is far above
+// any plausible hand-authored rubric set while capping worst-case blob size.
+const maxAddCriterion = 256
+
 // validateCriterion rejects a hand-authored --add-criterion value that is unsafe
 // to place into the YAML draft and the judge prompt. A criterion becomes a YAML
 // value and a single judge-prompt line, so — mirroring the sanitization discipline
@@ -147,8 +153,13 @@ func validateCriterion(c string) error {
 		return fmt.Errorf("criterion too long (%d runes; max %d)", n, maxCriterionLen)
 	}
 	for _, r := range trimmed {
-		if unicode.IsControl(r) {
-			return fmt.Errorf("criterion must not contain control characters")
+		// Reject control (Cc) runes AND format (Cf) runes. Cf covers bidi
+		// overrides (U+202E) and zero-width characters (U+200B) that would not
+		// break the single-line judge prompt but could spoof how the persisted
+		// YAML and the rendered table read to a human auditor (trojan-source,
+		// CWE-150). Ordinary prose — apostrophes, commas, accents — is unaffected.
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return fmt.Errorf("criterion must not contain control or format characters")
 		}
 	}
 	return nil
@@ -165,10 +176,12 @@ type criterionRecord struct {
 }
 
 // normalizeCriterion is the conservative dedup key (Decision 3b): trim, collapse
-// internal whitespace runs to a single space, and case-fold. Two criteria are
+// internal whitespace runs to a single space, and lower-case. Two criteria are
 // "exact duplicates" only if their normalized forms are identical — deliberately
 // NO semantic/similarity matching, so a criterion the author meant to keep is
-// never silently dropped.
+// never silently dropped. strings.ToLower (not full Unicode case folding) is used
+// on purpose: it is strictly more conservative — it collapses fewer distinct
+// spellings, so it can never drop a criterion the author intended to keep.
 func normalizeCriterion(s string) string {
 	return strings.ToLower(strings.Join(strings.Fields(s), " "))
 }
@@ -480,6 +493,11 @@ func newRubricGenerateCmd() *cobra.Command {
 			// Guard hand-authored criteria locally, BEFORE any authed generation
 			// call, so a bad value is a crisp local error and never rides a billable
 			// round-trip (parity with the other --add-criterion-adjacent guards).
+			// Bound the COUNT as well as each value's length (CWE-770): the per-item
+			// cap alone leaves total persisted/hashed YAML unbounded (N × maxCriterionLen).
+			if len(addCriterion) > maxAddCriterion {
+				return fmt.Errorf("too many --add-criterion flags (%d; max %d)", len(addCriterion), maxAddCriterion)
+			}
 			for i, c := range addCriterion {
 				if err := validateCriterion(c); err != nil {
 					return fmt.Errorf("--add-criterion #%d: %w", i+1, err)
