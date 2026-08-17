@@ -85,6 +85,16 @@ type Result struct {
 	// (R-R2). The CLI prints these to stderr after the run (WI-F7 echo style).
 	Warnings []string `json:"warnings,omitempty"`
 	Stats    Stats    // per-run telemetry (WI-F4)
+	// Applied is the RESOLVED autorater-as-applied — the model, sampling, flip,
+	// and effective host/location Engine.Run actually used after the precedence
+	// chain and R-GLOBAL routing (eval-results-store-design §4.3). Run populates it
+	// ONLY on a successful run (err == nil); it stays nil on every error path, so a
+	// failed run has no applied autorater. The results store reads this as a Go
+	// STRUCT FIELD, not via JSON, so the field is tagged json:"-" and is NEVER
+	// serialized in the eval command's output — keeping that output byte-for-byte
+	// unchanged (eval-results-store-design §6). The AppliedAutorater snake_case
+	// json tags are kept for any direct marshaling of that value elsewhere.
+	Applied *AppliedAutorater `json:"-"`
 }
 
 // Stats holds per-run telemetry (WI-F4). Duration is ALWAYS populated with the
@@ -316,7 +326,31 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	start := time.Now()
 	res, err := e.dispatch(ctx, tmpl, inst, model, rc)
 	res.Stats.Duration = time.Since(start)
-	return res, err
+	if err != nil {
+		// A failed run has no applied autorater: leave Result.Applied nil on EVERY
+		// error path (dispatch errors here, and the validation errors that returned
+		// early above) so "the run did not happen" is represented uniformly.
+		return res, err
+	}
+	// Record the RESOLVED autorater-as-applied on EVERY kind/path uniformly, right
+	// where Run already stamps the shared telemetry (§4.3). EffectiveHost/Location
+	// reuse the SAME resolution + routing decision the run took, via Resolve — no
+	// re-derivation of routing here. Populated only on success so a caller (the
+	// results store) sees exactly what actually ran.
+	target := e.Resolve(tmpl, rc.modelOverride, rc.rubricDetail)
+	effectiveHost := "regional"
+	if target.Location == globalLocation || target.Location == "" {
+		effectiveHost = "global"
+	}
+	res.Applied = &AppliedAutorater{
+		Model:         model,
+		SamplingCount: tmpl.SamplingCount,
+		FlipEnabled:   tmpl.FlipEnabled,
+		EffectiveHost: effectiveHost,
+		Location:      target.Location,
+		ModelSource:   modelSource(rc.modelOverride, tmpl.AutoraterModel, e.defaultModel),
+	}
+	return res, nil
 }
 
 // dispatch routes to the per-kind path with the already-resolved model. Keeping
