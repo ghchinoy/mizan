@@ -828,6 +828,163 @@ mizan eval run --metric acme/product-copy --field prompt="…" --field response=
 Saving fails if the id already exists — freezing never silently overwrites an
 existing template.
 
+## Running an eval-set (`eval run --set`)
+
+An **eval-set** bundles several metric templates so you can score one asset
+against all of them in a single run and get one **scorecard** with an aggregate
+verdict. `mizan eval run` grows a `--set` flag for this — it is **mutually
+exclusive** with `--metric` (supply exactly one).
+
+> In Phase 1 `--set` is **path-based**: it takes a filesystem **path** to an
+> EvalSet manifest file (parsed on the spot). Resolving a set by its namespaced
+> id from an imported packs tree is a documented fast-follow.
+
+The worked example below lives under
+[`docs/examples/evalset-quickstart`](examples/evalset-quickstart): a small pack
+with two text templates (`response-helpfulness`, `response-conciseness`) and a
+2-member set that aggregates them.
+
+### 1. Author a manifest and import its member templates
+
+The set members reference metric template **ids**, so the templates must be in
+your registry before the run can resolve them. Import the example pack:
+
+```console
+$ mizan registry import docs/examples/evalset-quickstart
+2 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: docs/examples/evalset-quickstart)
+  inserted: quickstart/response-conciseness
+  inserted: quickstart/response-helpfulness
+```
+
+The set manifest itself (`kind: EvalSet`, design §3.4a) lists the members, their
+weights, and how to aggregate:
+
+```yaml
+# docs/examples/evalset-quickstart/evalsets/answer-quality.yaml
+apiVersion: mizan.dev/v1alpha1
+kind: EvalSet
+metadata:
+  id: quickstart/answer-quality
+  version: 1.0.0
+  assetClass: text-answer
+spec:
+  inputs:                       # shared inputs, passed by identity to every member
+    prompt: prompt
+    response: response
+  members:
+    - metric: quickstart/response-helpfulness
+      weight: 2
+    - metric: quickstart/response-conciseness
+      weight: 1
+  aggregation:
+    method: weighted-mean       # mean | weighted-mean | min
+    threshold: 3.0              # scores are on the judge's 1-5 scale
+    gate: false                # opt-in; see the gate section below
+```
+
+### 2. Run the set and read the scorecard
+
+`--field/--file/--gcs` populate the **shared set inputs** (the same flags as a
+single `eval run`), and `--model` passes through to every member:
+
+```console
+$ mizan eval run --set docs/examples/evalset-quickstart/evalsets/answer-quality.yaml \
+    --field prompt="What is the capital of France?" \
+    --field response="The capital of France is Paris, a major European city on the Seine."
+EvalSet: quickstart/answer-quality (v1.0.0)  asset-class: text-answer
+
+MEMBER                           STATUS  WEIGHT  SCORE  NOTE
+quickstart/response-helpfulness  ok      2       5.00
+quickstart/response-conciseness  ok      1       4.00
+
+Aggregate (weighted-mean over 2 scored): 4.67   threshold: 3   PASSED
+```
+
+Each row is one member; the aggregate line names the method, the count of scored
+members, the threshold (if any), and the always-computed **verdict**. Add
+`--output json` to get the whole result — every member carries its full
+`eval.Result` (score, explanation, stats) for machine consumers:
+
+```console
+$ mizan eval run --set …/answer-quality.yaml --field prompt="…" --field response="…" -o json
+{
+  "SetID": "quickstart/answer-quality",
+  "Members": [
+    { "MetricID": "quickstart/response-helpfulness", "Status": "OK", "Score": 5, … },
+    { "MetricID": "quickstart/response-conciseness",  "Status": "OK", "Score": 3, … }
+  ],
+  "Aggregate": { "Method": "weighted-mean", "Score": 4.33, "Threshold": 3, "Passed": true, "Scored": 2 },
+  "Verdict": "PASSED",
+  "Gate": false
+}
+```
+
+### 3. Partial failures (continue-on-error vs `--fail-fast`)
+
+By default a member that can't resolve or errors does **not** abort the run — it
+is recorded and the set continues, and the aggregate is computed over only the
+scored members. The
+[`answer-quality-badmember.yaml`](examples/evalset-quickstart/evalsets/answer-quality-badmember.yaml)
+example has a first member pointing at a template that does not exist:
+
+```console
+$ mizan eval run --set …/answer-quality-badmember.yaml --field prompt="…" --field response="…"
+EvalSet: quickstart/answer-quality-badmember (v1.0.0)  asset-class: text-answer
+
+MEMBER                           STATUS   WEIGHT  SCORE  NOTE
+quickstart/does-not-exist        missing  1       -      registry: template not found
+quickstart/response-helpfulness  ok       2       5.00
+quickstart/response-conciseness  ok       1       3.00
+
+Aggregate (weighted-mean over 2 scored): 4.33   threshold: 3   PASSED
+```
+
+The broken member is reported `missing` with the reason in the NOTE column; the
+run still completes. Pass `--fail-fast` to abort at the first errored/missing
+member instead — the remaining members are then reported `skipped`:
+
+```console
+$ mizan eval run --set …/answer-quality-badmember.yaml --field … --fail-fast
+MEMBER                           STATUS   WEIGHT  SCORE  NOTE
+quickstart/does-not-exist        missing  1       -      registry: template not found
+quickstart/response-helpfulness  skipped  2       -
+quickstart/response-conciseness  skipped  1       -
+
+Aggregate (weighted-mean over 0 scored): -   threshold: 3   FAILED
+```
+
+### 4. The opt-in gate and exit code
+
+The scorecard **always** shows the `PASSED`/`FAILED` verdict. Whether a failing
+set makes the **process exit non-zero** is opt-in: set `aggregation.gate: true`
+in the manifest. A non-zero exit happens **only** when the set is a gate **and**
+the verdict is `FAILED`; the concise gate error is written to **stderr** so
+stdout stays a clean scorecard. This is how you wire an eval-set into a CI check.
+
+With `gate: true` and a strict threshold the set misses
+([`answer-quality-strict-gate.yaml`](examples/evalset-quickstart/evalsets/answer-quality-strict-gate.yaml)):
+
+```console
+$ mizan eval run --set …/answer-quality-strict-gate.yaml --field prompt="…" --field response="…"
+…
+Aggregate (weighted-mean over 2 scored): 4.33   threshold: 4.9   FAILED
+error: eval-set gate failed: FAILED verdict for quickstart/answer-quality-strict-gate
+$ echo $?
+1
+```
+
+The **same failing set** with `gate: false`
+([`answer-quality-strict-nogate.yaml`](examples/evalset-quickstart/evalsets/answer-quality-strict-nogate.yaml))
+still reports `FAILED` on the scorecard, but exits `0`:
+
+```console
+$ mizan eval run --set …/answer-quality-strict-nogate.yaml --field prompt="…" --field response="…"
+…
+Aggregate (weighted-mean over 2 scored): 4.67   threshold: 4.9   FAILED
+$ echo $?
+0
+```
+
 ## Version and releases
 
 Check which build you're running:
