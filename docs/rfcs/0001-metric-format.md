@@ -548,7 +548,7 @@ spec:
 | `rubricMeta[]` | — | Per-criterion `{group, criterion, type, importance}`, aligned 1:1 with `rubricGroups` in declared order (Decision 2, §13.3). |
 
 A consumer can therefore always (a) tell an AI-drafted rubric from a hand-authored
-one, and (b) reproduce/audit *how* it was drafted (model, recipe or custom prompt,
+one, and (b) reproduce/audit *how* it was drafted (model, recipe,
 sample-input hash, timestamp, API surface).
 
 ### 13.3 Decision 2 — preserve per-rubric `type`/`importance` in provenance
