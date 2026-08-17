@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/rubricgen"
@@ -30,14 +32,52 @@ import (
 )
 
 func TestValidateRecipe(t *testing.T) {
-	for _, ok := range []string{"general_quality_v1", "general_quality_v2", "abc123"} {
+	// The curated allow-list accepts exactly the three confirmed recipes, and the
+	// default is the first of them.
+	for _, ok := range []string{"general_quality_v1", "instruction_following_v1", "text_quality_v1"} {
 		if err := validateRecipe(ok); err != nil {
 			t.Errorf("validateRecipe(%q) = %v, want nil", ok, err)
 		}
 	}
+	if err := validateRecipe(defaultRecipe); err != nil {
+		t.Errorf("validateRecipe(defaultRecipe=%q) = %v, want nil", defaultRecipe, err)
+	}
+	if defaultRecipe != "general_quality_v1" {
+		t.Errorf("defaultRecipe = %q, want %q", defaultRecipe, "general_quality_v1")
+	}
+
+	// Unlisted recipes (an unenabled _v2, a wrong family, a fully-customized name,
+	// and a typo) are rejected, and the error names all three valid values so the
+	// user can self-correct without a billable round-trip.
+	for _, bad := range []string{"general_quality_v2", "generic_quality_v1", "fully_customized_generic_quality_v1", "generral_quality_v1"} {
+		err := validateRecipe(bad)
+		if err == nil {
+			t.Errorf("validateRecipe(%q) = nil, want error", bad)
+			continue
+		}
+		for _, want := range knownRecipes {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("validateRecipe(%q) error %q does not name valid value %q", bad, err.Error(), want)
+			}
+		}
+	}
+}
+
+// TestValidateRecipeEscapeHatch proves MIZAN_ALLOW_CUSTOM_RECIPE=1 admits an
+// unlisted-but-well-formed recipe (API drift relief) while still rejecting a
+// structurally-invalid token, so the escape hatch cannot smuggle structure into
+// the request.
+func TestValidateRecipeEscapeHatch(t *testing.T) {
+	t.Setenv(allowCustomRecipeEnv, "1")
+
+	for _, ok := range []string{"general_quality_v2", "some_new_recipe_v3", "abc123"} {
+		if err := validateRecipe(ok); err != nil {
+			t.Errorf("with %s=1, validateRecipe(%q) = %v, want nil", allowCustomRecipeEnv, ok, err)
+		}
+	}
 	for _, bad := range []string{"", "Bad", "has space", "semi;colon", "../etc"} {
 		if err := validateRecipe(bad); err == nil {
-			t.Errorf("validateRecipe(%q) = nil, want error", bad)
+			t.Errorf("with %s=1, validateRecipe(%q) = nil, want error", allowCustomRecipeEnv, bad)
 		}
 	}
 }
@@ -57,14 +97,23 @@ func TestValidateGroupName(t *testing.T) {
 
 func TestDefaultRubricGroupName(t *testing.T) {
 	cases := map[string]string{
-		"general_quality_v1": "general_quality",
-		"general_quality_v2": "general_quality",
-		"foo_v10":            "foo",
-		"no_version":         "no_version",
+		"general_quality_v1":       "general_quality",
+		"general_quality_v2":       "general_quality",
+		"instruction_following_v1": "instruction_following",
+		"text_quality_v1":          "text_quality",
+		"foo_v10":                  "foo",
+		"no_version":               "no_version",
 	}
 	for in, want := range cases {
 		if got := defaultRubricGroupName(in); got != want {
 			t.Errorf("defaultRubricGroupName(%q) = %q, want %q", in, got, want)
+		}
+	}
+	// Every curated recipe must yield a non-empty family name (the derived name
+	// becomes a RubricGroups key / group-name default).
+	for _, r := range knownRecipes {
+		if got := defaultRubricGroupName(r); got == "" || got == r {
+			t.Errorf("defaultRubricGroupName(%q) = %q, want a stripped family name", r, got)
 		}
 	}
 }
@@ -77,6 +126,28 @@ func TestAdaptiveMetricPromptDeterministicAndReferencesKeys(t *testing.T) {
 	}
 	if !strings.Contains(a, "{{prompt}}") || !strings.Contains(a, "{{response}}") {
 		t.Fatalf("prompt missing placeholders: %q", a)
+	}
+}
+
+// TestRecipeFlagHelpListsValuesAndDefault proves both commands' --recipe help text
+// (built from the shared recipeFlagUsage) enumerates every curated recipe and names
+// the default, so `-h` is discoverable (design §4.6 step 3).
+func TestRecipeFlagHelpListsValuesAndDefault(t *testing.T) {
+	for _, newCmd := range []func() *cobra.Command{newRubricGenerateCmd, newEvalAdaptiveCmd} {
+		cmd := newCmd()
+		f := cmd.Flags().Lookup("recipe")
+		if f == nil {
+			t.Fatalf("%s: --recipe flag not registered", cmd.Name())
+		}
+		for _, r := range knownRecipes {
+			if !strings.Contains(f.Usage, r) {
+				t.Errorf("%s: --recipe help %q does not list %q", cmd.Name(), f.Usage, r)
+			}
+		}
+		// cobra/pflag surfaces the default via DefValue (appended to -h output).
+		if f.DefValue != defaultRecipe {
+			t.Errorf("%s: --recipe default = %q, want %q", cmd.Name(), f.DefValue, defaultRecipe)
+		}
 	}
 }
 
@@ -356,6 +427,9 @@ func TestRubricGenerateFlagValidation(t *testing.T) {
 		{"missing-out", []string{"--sample", "s", "--id", "a/b"}},
 		{"bad-id", []string{"--sample", "s", "--id", "NotValid", "--out", out}},
 		{"bad-recipe", []string{"--sample", "s", "--id", "a/b", "--out", out, "--recipe", "Bad Recipe"}},
+		// An unlisted-but-well-formed recipe is rejected by the curated enum BEFORE
+		// any generator call (no escape hatch set here).
+		{"unlisted-recipe", []string{"--sample", "s", "--id", "a/b", "--out", out, "--recipe", "general_quality_v2"}},
 		{"bad-group", []string{"--sample", "s", "--id", "a/b", "--out", out, "--group-name", "bad\nname"}},
 		// CRIT-1: a hostile --location is rejected locally, before any authed call.
 		{"location-host-injection", []string{"--sample", "s", "--id", "a/b", "--out", out, "--location", "evil.com/"}},

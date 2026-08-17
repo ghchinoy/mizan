@@ -842,9 +842,19 @@ If you don't want to keep a reviewed draft file, the `mizan eval adaptive …
 --save-as` path below freezes the generated rubric straight into the registry in
 one step — no draft file and no pack needed.
 
-Useful flags: `--recipe <name>` (the pinned generation recipe, default
+Useful flags: `--recipe <name>` (the predefined generation recipe, default
 `general_quality_v1`), `--group-name <key>` (the `rubricGroups` key; defaults to
 the recipe family name), and `--name` (a human-readable template name).
+
+`--recipe` accepts one of the three predefined recipes confirmed live:
+`general_quality_v1` (default), `instruction_following_v1`, and
+`text_quality_v1`. An unrecognized value (a typo, or a recipe the API cannot
+serve) is rejected **locally** with an error listing the valid values, so you
+don't pay for a failed generation round-trip to discover it was wrong. If you
+need to pass a recipe not on this list — for example a new version the Vertex
+API enables before Mizan curates it — set `MIZAN_ALLOW_CUSTOM_RECIPE=1` to relax
+the check to a bare-token format check. This applies to both `rubric generate`
+and `eval adaptive`.
 
 ### Generate-and-score in one step (`mizan eval adaptive`)
 

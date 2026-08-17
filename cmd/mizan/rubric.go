@@ -35,10 +35,24 @@ import (
 	"github.com/ghchinoy/mizan/internal/wire"
 )
 
-// defaultRecipe is the pinned predefined generation recipe. general_quality_v1 is
-// proven live in-project; general_quality_v2 returned 400 (see the live probe), so
-// the version is pinned explicitly and exposed via --recipe.
-const defaultRecipe = "general_quality_v1"
+// knownRecipes is the curated allow-list of predefined generation recipes
+// confirmed live in-project (rubric-generation-mechanics-research.md §5, probed
+// against ghchinoy-genai-sa). It is the SINGLE source of truth for --recipe
+// validation on both `rubric generate` (CUJ 7) and `eval adaptive` (CUJ 8), which
+// share validateRecipe. Ordered for a stable help/error listing; the first entry
+// is the default. Recipe availability can drift per project/date (general_quality_v2
+// returned 400 live), so the escape hatch MIZAN_ALLOW_CUSTOM_RECIPE=1 relaxes this
+// list to the bare-token regex for power users ahead of an mizan update.
+var knownRecipes = []string{
+	"general_quality_v1",       // default; prompt-aligned, encodes bound tokens in type codes
+	"instruction_following_v1", // most prompt-alignment-focused (Gecko/DSG decomposition)
+	"text_quality_v1",          // more holistic / generic quality dimensions
+}
+
+// defaultRecipe is the pinned predefined generation recipe exposed via --recipe.
+// It is the first curated recipe (general_quality_v1): proven live in-project,
+// while general_quality_v2 returned 400 (see the live probe).
+var defaultRecipe = knownRecipes[0]
 
 // draftTemplateVersion is the semver stamped on a generated draft so it validates
 // under the strict pack schema and round-trips unchanged when the draft is wrapped
@@ -128,10 +142,18 @@ func buildRubricProvenance(recipe, groupName, sample string, rubrics []rubricgen
 // without a live call or ADC. Production always uses wire.NewRubricGenerator.
 var newRubricGenerator = wire.NewRubricGenerator
 
-// recipePattern is a conservative allow-list for the --recipe token, which is
-// placed into the request body's metric_spec_name. It keeps a hostile/garbled
-// value from smuggling structure into the request.
+// recipePattern is a conservative structural allow-list for the --recipe token,
+// which is placed into the request body's metric_spec_name. It keeps a
+// hostile/garbled value from smuggling structure into the request. It is no longer
+// the primary gate (knownRecipes is), but backs the MIZAN_ALLOW_CUSTOM_RECIPE=1
+// escape hatch so an unlisted-but-well-formed recipe can still be passed.
 var recipePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_]*$`)
+
+// allowCustomRecipeEnv is the escape-hatch env var (matching the house
+// MIZAN_ALLOW_CUSTOM_ENDPOINT idiom): when set to "1", validateRecipe relaxes the
+// curated allow-list to the bare-token regex so a power user can pass an unlisted
+// recipe (e.g. a new version Vertex ships before mizan curates it).
+const allowCustomRecipeEnv = "MIZAN_ALLOW_CUSTOM_RECIPE"
 
 // groupNamePattern is a conservative allow-list for a rubric group name: letters,
 // digits, spaces, and the separators '_' '-' '.'. It becomes a YAML map key and a
@@ -143,12 +165,25 @@ var groupNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._-]*$`)
 // the recipe's family name (general_quality_v1 -> general_quality).
 var recipeVersionSuffix = regexp.MustCompile(`_v[0-9]+$`)
 
-// validateRecipe rejects a --recipe value that is not a bare recipe token.
+// validateRecipe accepts only a member of the curated knownRecipes allow-list so a
+// recipe the API cannot serve (a typo, a not-yet-enabled _v2, an unsupported family)
+// fails locally instead of after a billable 400 round-trip. As an escape hatch, when
+// MIZAN_ALLOW_CUSTOM_RECIPE=1 is set an unlisted recipe is admitted if it still
+// passes the conservative bare-token structural check (recipePattern), keeping power
+// users unblocked against API drift without smuggling structure into the request.
 func validateRecipe(recipe string) error {
-	if !recipePattern.MatchString(recipe) {
-		return fmt.Errorf("invalid --recipe %q: expected a bare recipe token (lowercase letters, digits, '_'), e.g. %q", recipe, defaultRecipe)
+	for _, r := range knownRecipes {
+		if recipe == r {
+			return nil
+		}
 	}
-	return nil
+	if os.Getenv(allowCustomRecipeEnv) == "1" {
+		if !recipePattern.MatchString(recipe) {
+			return fmt.Errorf("invalid --recipe %q: expected a bare recipe token (lowercase letters, digits, '_') when %s=1", recipe, allowCustomRecipeEnv)
+		}
+		return nil
+	}
+	return fmt.Errorf("invalid --recipe %q: choose one of %s (set %s=1 to pass an unlisted recipe)", recipe, strings.Join(knownRecipes, ", "), allowCustomRecipeEnv)
 }
 
 // validateGroupName rejects an empty or unsafe rubric group name.
@@ -166,6 +201,14 @@ func validateGroupName(name string) error {
 // dropping any trailing version suffix (general_quality_v1 -> general_quality).
 func defaultRubricGroupName(recipe string) string {
 	return recipeVersionSuffix.ReplaceAllString(recipe, "")
+}
+
+// recipeFlagUsage is the shared --recipe help string for both `rubric generate`
+// and `eval adaptive`, listing the curated values so the enum is discoverable via
+// `-h` (design §4.6 step 3). cobra/pflag appends the default value automatically
+// from DefValue, so it is not repeated here.
+func recipeFlagUsage() string {
+	return fmt.Sprintf("predefined generation recipe; one of %s", strings.Join(knownRecipes, ", "))
 }
 
 // adaptiveMetricPrompt builds the metricPromptTemplate for a generated rubric
@@ -369,7 +412,7 @@ func newRubricGenerateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&sample, "sample", "", "sample prompt to generate rubric criteria from (required)")
-	cmd.Flags().StringVar(&recipe, "recipe", defaultRecipe, "predefined generation recipe (pinned version)")
+	cmd.Flags().StringVar(&recipe, "recipe", defaultRecipe, recipeFlagUsage())
 	cmd.Flags().StringVar(&groupName, "group-name", "", "RubricGroups key for the output (default: the recipe family name)")
 	cmd.Flags().StringVar(&id, "id", "", "draft template id, <namespace>/<slug> (required)")
 	cmd.Flags().StringVar(&name, "name", "", "draft template human-readable name")

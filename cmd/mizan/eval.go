@@ -237,7 +237,7 @@ func newEvalAdaptiveCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&prompt, "prompt", "", "prompt to generate rubric criteria from and score against (required)")
 	cmd.Flags().StringVar(&response, "response", "", "response to score against the generated rubric (required)")
-	cmd.Flags().StringVar(&recipe, "recipe", defaultRecipe, "predefined generation recipe (pinned version)")
+	cmd.Flags().StringVar(&recipe, "recipe", defaultRecipe, recipeFlagUsage())
 	cmd.Flags().StringVar(&groupName, "group-name", "", "RubricGroups key for the generated rubric (default: the recipe family name)")
 	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
 	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")

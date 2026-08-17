@@ -111,7 +111,7 @@ func Fields() []Field {
 // operationalEnvVars are recognized MIZAN_*-prefixed variables that steer the
 // loader but are not `config set` keys, so the unknown-var warning must not flag
 // them.
-var operationalEnvVars = []string{"MIZAN_ENV_FILE", "MIZAN_ALLOW_CUSTOM_ENDPOINT"}
+var operationalEnvVars = []string{"MIZAN_ENV_FILE", "MIZAN_ALLOW_CUSTOM_ENDPOINT", "MIZAN_ALLOW_CUSTOM_RECIPE"}
 
 // recognizedEnvVars returns the set of every environment variable the loader
 // understands (all Field env vars plus the operational vars), derived from the

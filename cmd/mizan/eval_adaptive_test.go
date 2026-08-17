@@ -40,6 +40,9 @@ func TestEvalAdaptiveFlagValidation(t *testing.T) {
 		{"missing-prompt", []string{"--response", "r"}},
 		{"missing-response", []string{"--prompt", "p"}},
 		{"bad-recipe", []string{"--prompt", "p", "--response", "r", "--recipe", "Bad Recipe"}},
+		// An unlisted-but-well-formed recipe is rejected by the curated enum BEFORE
+		// any generator call (no escape hatch set here).
+		{"unlisted-recipe", []string{"--prompt", "p", "--response", "r", "--recipe", "general_quality_v2"}},
 		{"bad-group", []string{"--prompt", "p", "--response", "r", "--group-name", "bad\nname"}},
 		{"bad-save-as", []string{"--prompt", "p", "--response", "r", "--save-as", "NotValid"}},
 		{"bad-model", []string{"--prompt", "p", "--response", "r", "--model", "../../etc"}},
