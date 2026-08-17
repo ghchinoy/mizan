@@ -173,3 +173,39 @@ spec:
 		t.Error("unknown key under rubricProvenance should fail strict schema (additionalProperties:false)")
 	}
 }
+
+// TestRubricProvenanceMaxLengthEnforced proves the pragmatic maxLength bounds
+// (audit LOW / CWE-770) reject an over-length provenance string: neither an
+// attacker-influenceable sampleInputRef nor a rubricMeta scalar can smuggle an
+// unbounded blob into persisted, hashed YAML.
+func TestRubricProvenanceMaxLengthEnforced(t *testing.T) {
+	header := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+  id: acme/quality
+  version: 0.1.0
+spec:
+  kind: rubric
+  rubricGroups:
+    general_quality:
+      - Answers the question directly
+  rubricProvenance:
+`
+	cases := []struct {
+		name string
+		body string
+	}{
+		{"method>256", "    method: " + strings.Repeat("m", 257) + "\n"},
+		{"sampleInputRef>4096", "    sampleInputRef: " + strings.Repeat("s", 4097) + "\n"},
+		{"rubricMeta.type>128", "    rubricMeta:\n      - type: " + strings.Repeat("t", 129) + "\n"},
+		{"rubricMeta.importance>128", "    rubricMeta:\n      - importance: " + strings.Repeat("i", 129) + "\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := header + tc.body
+			if err := ValidateTemplateSchema([]byte(doc)); err == nil {
+				t.Errorf("%s: over-length value should fail strict schema (maxLength)", tc.name)
+			}
+		})
+	}
+}

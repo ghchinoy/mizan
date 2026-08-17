@@ -27,7 +27,8 @@ import (
 const defaultRecipe = "general_quality_v1"
 
 // draftTemplateVersion is the semver stamped on a generated draft so it validates
-// under the strict pack schema and round-trips through registry import/create.
+// under the strict pack schema and round-trips unchanged when the draft is wrapped
+// in a pack and brought in via `mizan registry import <pack>`.
 const draftTemplateVersion = "0.1.0"
 
 // Adaptive-generation provenance constants (design §4.4/§4.7). These stamp HOW a
@@ -60,32 +61,30 @@ func sampleInputRef(sample string) string {
 }
 
 // previewText collapses whitespace runs to single spaces (so the preview is
-// single-line) and rune-safely truncates to max, appending an ellipsis when cut.
-func previewText(s string, max int) string {
+// single-line) and rune-safely truncates to maxLen, appending an ellipsis when cut.
+func previewText(s string, maxLen int) string {
 	joined := strings.Join(strings.Fields(s), " ")
 	r := []rune(joined)
-	if len(r) > max {
-		return string(r[:max]) + "…"
+	if len(r) > maxLen {
+		return string(r[:maxLen]) + "…"
 	}
 	return joined
 }
 
 // rubricMetaFor preserves the API's per-criterion type/importance (Decision 2)
 // alongside the flat RubricGroups, keyed by group+criterion in DECLARED order. It
-// applies the SAME trim/skip-empty rule as rubricgen.ToRubricGroups so RubricMeta
-// stays aligned 1:1 with the criteria that actually landed in RubricGroups.
+// reads from the SAME rubricgen.UsableRubrics filter that backs ToRubricGroups, so
+// RubricMeta stays aligned 1:1 with the criteria that actually landed in
+// RubricGroups (no re-implemented filter that could drift).
 func rubricMetaFor(groupName string, rubrics []rubricgen.Rubric) []registry.RubricMeta {
-	meta := make([]registry.RubricMeta, 0, len(rubrics))
-	for _, r := range rubrics {
-		desc := strings.TrimSpace(r.Content.Property.Description)
-		if desc == "" {
-			continue
-		}
+	usable := rubricgen.UsableRubrics(rubrics)
+	meta := make([]registry.RubricMeta, 0, len(usable))
+	for _, u := range usable {
 		meta = append(meta, registry.RubricMeta{
 			Group:      groupName,
-			Criterion:  desc,
-			Type:       r.Type,
-			Importance: r.Importance,
+			Criterion:  u.Criterion,
+			Type:       u.Rubric.Type,
+			Importance: u.Rubric.Importance,
 		})
 	}
 	return meta
@@ -220,7 +219,8 @@ func renderRubricCriteria(w io.Writer, groupName string, rubrics []rubricgen.Rub
 // adaptive-generation provenance (Phase 2, design §4.4) — a persisted, hashed,
 // schema-valid field — so the draft records how it was AI-drafted; a nil prov
 // leaves the template hand-authored-equivalent. The result validates under the
-// strict schema and round-trips through registry import/create unchanged.
+// strict schema and round-trips unchanged when wrapped in a pack and brought in
+// via `mizan registry import <pack>`.
 func draftRubricTemplate(id, name, groupName string, fieldKeys []string, groups map[string][]string, prov *registry.RubricProvenance) registry.MetricTemplate {
 	sorted := append([]string(nil), fieldKeys...)
 	sort.Strings(sorted)
@@ -258,10 +258,13 @@ func newRubricCmd() *cobra.Command {
 
 // newRubricGenerateCmd wires `rubric generate` (CUJ 7): draft a KindRubric
 // template from a sample prompt via the Stage-1 generation RPC, print the
-// criteria, and WRITE a draft YAML. It writes NOTHING to the registry — the human
-// reviews/edits, then imports via the existing `registry import`/`registry create`
-// path. Adaptive generation is an AUTHORING AID; the frozen draft is an ordinary
-// reproducible static mizan rubric.
+// criteria, and WRITE a draft YAML. It writes NOTHING to the registry. To bring a
+// reviewed draft into the registry, wrap it under a pack's templates/ dir and
+// `mizan registry import <pack>` (a loose draft file is NOT a valid import source,
+// and `registry create` has no whole-file input); or skip the draft entirely and
+// freeze in one step with `mizan eval adaptive --save-as <id>`. Adaptive
+// generation is an AUTHORING AID; the frozen draft is an ordinary reproducible
+// static mizan rubric.
 func newRubricGenerateCmd() *cobra.Command {
 	var (
 		sample    string
@@ -281,8 +284,19 @@ func newRubricGenerateCmd() *cobra.Command {
 			"Adaptive generation is an AUTHORING AID: Gemini drafts the criteria, you\n" +
 			"review/edit/freeze them, and from that moment the template is an ordinary\n" +
 			"reproducible static mizan rubric. This command writes NOTHING to the\n" +
-			"registry — import the reviewed draft with `mizan registry import`/\n" +
-			"`mizan registry create`, then run it with `mizan eval run`.",
+			"registry.\n\n" +
+			"To bring a reviewed draft into the registry, wrap it in a pack and import\n" +
+			"the pack — `registry import` reads a pack tree (a mizan-pack.yaml manifest\n" +
+			"plus a templates/ directory), not a loose template file, and `registry\n" +
+			"create` has no whole-file input:\n\n" +
+			"  mizan pack init packs/acme --name acme\n" +
+			"  cp <draft>.yaml packs/acme/templates/<slug>.yaml   # after review/edit\n" +
+			"  mizan registry import packs/acme\n" +
+			"  mizan eval run --metric <id> --field prompt=… --field response=…\n\n" +
+			"Or skip the draft file entirely and freeze the generated rubric straight\n" +
+			"into the registry in one step:\n\n" +
+			"  mizan eval adaptive --prompt … --response … --save-as <id>\n" +
+			"  mizan eval run --metric <id> --field prompt=… --field response=…",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(sample) == "" {
 				return fmt.Errorf("--sample is required")
@@ -335,8 +349,8 @@ func newRubricGenerateCmd() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(),
-				"mizan: wrote draft template %s to %s — review/edit, then `mizan registry import`/`create` it and `mizan eval run --metric %s`\n",
-				id, out, id)
+				"mizan: wrote draft template %s to %s — review/edit, then wrap it under a pack's templates/ dir and `mizan registry import <pack>` (a loose draft file is not a valid import source), then `mizan eval run --metric %s` (or freeze in one step with `mizan eval adaptive --save-as %s`)\n",
+				id, out, id, id)
 			return nil
 		},
 	}
