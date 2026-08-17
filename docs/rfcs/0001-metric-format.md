@@ -465,6 +465,149 @@ Per `software-engineering-process` → Sizing. This RFC authorizes **no code**; 
 
 ---
 
+## 13. Addendum — Adaptive-generation provenance (`rubricProvenance`) [additive, 2026-08-17]
+
+> **Amendment class:** this section is an **additive extension** under the RFC's own
+> evolution process (§10.1: *within a `v1*` line, changes are additive — new optional
+> fields*). It adds one **optional** field to `MetricTemplate` and documents its
+> semantics. It introduces **no breaking change and no `apiVersion` bump** —
+> `apiVersion: mizan.dev/v1alpha1` is unchanged. It does **not** alter `rubricGroups`
+> semantics (§4) and explicitly **does not touch** the reserved `ratingRubric` block
+> (§4.4, §11 item 3). Ground truth: mizan `MetricTemplate` /`RubricProvenance`
+> (`internal/registry/model.go`), `contentHash` (`internal/registry/hash.go`), pack
+> codec + strict schema (`internal/registry/codec.go`,
+> `schema/metrictemplate.json`). Design source: `design/adaptive-rubrics-support-plan.md`
+> §4.4/§4.7 (Decisions 2 & 3).
+
+### 13.1 Context: adaptive generation is an authoring aid, not a runtime metric mode
+
+Mizan can have Gemini **draft** rubric criteria from a sample prompt (Vertex AI's
+synchronous `:generateInstanceRubrics` RPC — CUJ 7 / CUJ 8). This is deliberately
+scoped as an **authoring-time action**, not a runtime metric kind:
+
+> **Generated-then-frozen ⇒ ordinary static rubric.** The moment a user reviews,
+> edits, and freezes a generated draft, the result is an **ordinary `KindRubric`
+> template** — the same shape one authors by hand (§4), run through mizan's existing
+> deterministic eval path, just **provenance-stamped**. Generation removes the
+> blank-page cost of authoring; it does **not** introduce a new metric kind, a new
+> runtime path, or an ephemeral per-prompt rubric.
+
+Consequences for this format:
+
+- **No new `MetricKind`.** A frozen generated rubric is a `KindRubric` template; the
+  `MetricKind` enum (§3, `model.go`) is unchanged.
+- **`RubricGroups` semantics are unchanged.** The generated criteria land in the
+  existing `rubricGroups` map[string][]string (§4.2); the native and structured
+  (`--rubric-detail`) paths consume them with **zero** modification.
+- **One new optional field records provenance** (§13.2). Its absence means
+  hand-authored — existing templates and packs are unaffected (no migration).
+
+This is the align-with-mizan's-reproducibility posture the format already takes
+(§7): identity + provenance are what distinguish a mizan template from an ephemeral
+Vertex SDK object; recording *how a rubric was drafted* is a natural extension of
+that discipline.
+
+### 13.2 The `rubricProvenance` object (normative)
+
+`MetricTemplate` gains one optional field, `rubricProvenance` (a pointer; `nil` ⇒
+hand-authored). When present it records that, and how, `rubricGroups` were
+AI-drafted:
+
+```yaml
+spec:
+  kind: rubric
+  rubricGroups:                      # unchanged runnable core (§4) — a flat map
+    general_quality:
+      - "The response is in English."
+      - "The product description is concise."
+
+  rubricProvenance:                  # OPTIONAL, additive; absent ⇒ hand-authored
+    method: adaptive-generated       # REQUIRED — how the rubric was produced
+    generatorModel: gemini-2.5-flash # REQUIRED — the drafting/generator model
+    recipe: general_quality_v1       # optional — the pinned predefined recipe
+    promptTemplate: "…"              # optional — custom-generation prompt (custom path)
+    sampleInputRef: 'inline:"…" sha256:…'  # REQUIRED — bounded ref + SHA-256 of the sample input
+    generatedAt: 2026-08-17T00:00:00Z      # REQUIRED — RFC3339 generation timestamp
+    apiVersion: v1beta1:generateInstanceRubrics  # REQUIRED — the generation API surface
+    rubricMeta:                      # optional — per-criterion type/importance (Decision 2)
+      - {group: general_quality, criterion: "The response is in English.", type: "LANGUAGE:PRIMARY_RESPONSE_LANGUAGE", importance: HIGH}
+      - {group: general_quality, criterion: "The product description is concise.", type: "FORMAT_REQUIREMENT:CONCISENESS", importance: HIGH}
+```
+
+**Field reference:**
+
+| Field | Req. | Meaning |
+|---|---|---|
+| `method` | ✔ | How the rubric was produced, e.g. `adaptive-generated`. **Cross-team contract:** the results-store capability reads this via `RubricRef.Method` — do not rename. |
+| `generatorModel` | ✔ | The model that drafted the criteria (e.g. `gemini-2.5-flash`). |
+| `recipe` | — | The pinned predefined generation recipe (e.g. `general_quality_v1`); present on the predefined path. |
+| `promptTemplate` | — | The custom rubric-generation prompt; present on the custom-generation path. |
+| `sampleInputRef` | ✔ | A **bounded** preview of the sample input **plus its SHA-256** — never an unbounded prompt blob. Lets a consumer identify/audit the sample without retaining it in full. |
+| `generatedAt` | ✔ | RFC3339 timestamp of the generation call. |
+| `apiVersion` | ✔ | The generation API surface, `v1beta1:generateInstanceRubrics`. Distinct from the template's format `apiVersion` (`mizan.dev/v1alpha1`) — this names the *generation RPC*, not the format version. |
+| `rubricMeta[]` | — | Per-criterion `{group, criterion, type, importance}`, aligned 1:1 with `rubricGroups` in declared order (Decision 2, §13.3). |
+
+A consumer can therefore always (a) tell an AI-drafted rubric from a hand-authored
+one, and (b) reproduce/audit *how* it was drafted (model, recipe or custom prompt,
+sample-input hash, timestamp, API surface).
+
+### 13.3 Decision 2 — preserve per-rubric `type`/`importance` in provenance
+
+The generation API returns richer per-criterion metadata (`type`, `importance`) than
+mizan's flat `rubricGroups map[string][]string` can carry. **Decision 2** (support
+plan §4.4): **preserve that metadata in `rubricProvenance.rubricMeta[]`, not in
+`rubricGroups`.** `rubricGroups` **stays a plain `map[string][]string`**, so the
+**runnable model is unchanged** — `runRubric` / `runRubricStructured` consume the
+criteria list exactly as before, and nothing downstream in the eval path changes.
+No generation fidelity is lost (it lives in `rubricMeta`), and the runtime carries
+zero new complexity. `rubricMeta` entries are kept in declared order and aligned
+1:1 with the criteria.
+
+### 13.4 Decision 3 — `rubricProvenance` is included in `contentHash`
+
+**Decision 3** (support plan §4.4): **`rubricProvenance` is part of the template's
+`contentHash`.** This follows the `ratingRubric` precedent — content that
+meaningfully distinguishes one template from another is hashed (§7.1). The
+consequence, which is exactly what auditability wants:
+
+> Editing a generated rubric's **criteria OR its provenance** changes the
+> `contentHash`.
+
+So a locally edited AI-drafted rubric is detectably different from the one Gemini
+produced (drift detection, no-op short-circuit on re-import, and version-vs-hash
+reconciliation from §7 all apply unchanged). `contentHash` is **computed, never
+authored** (§7.1); adding `rubricProvenance` to the canonical hash shifts the golden
+hash **by design** — the established pattern for additive hashed fields.
+
+### 13.5 Relationship to `ratingRubric` (explicitly untouched)
+
+Adaptive generation is **not** the async `EvaluateDataset`/`LLMBasedMetricSpec`
+metric. The reserved `ratingRubric` block (§4.4, Decision §11 item 3) — the
+rating-band→description map carried for that future async round-trip and for
+adapters — is **wholly unaffected** by this addendum. `rubricProvenance` records
+*how the criteria were drafted*; `ratingRubric` describes *score bands* for a
+reserved runtime path. They are independent optional fields; this section adds the
+former and changes nothing about the latter.
+
+### 13.6 Format-evolution bookkeeping
+
+Per §10.2, this addendum is the additive schema delta for `rubricProvenance`:
+
+- **Problem:** record that (and how) a rubric was AI-drafted, so generated-then-frozen
+  rubrics remain auditable and reproducible.
+- **Schema delta:** one optional `rubricProvenance` object on `MetricTemplate`
+  (subfields per §13.2); optional under `additionalProperties: false` in
+  `schema/metrictemplate.json`.
+- **Backward-compat impact:** **additive** (§10.1). `nil` ⇒ hand-authored; existing
+  templates/packs validate and behave exactly as before. No `apiVersion` bump.
+- **Adapter/interop impact:** none required — `rubricProvenance` is mizan-native
+  provenance with no promptfoo/Vertex counterpart; a promptfoo export drops it
+  (consistent with §8.2's provenance-is-lossy-on-export behavior).
+- **Migration:** none, other than the intentional golden-`contentHash` shift
+  (§13.4), handled in the field's implementation commit.
+
+---
+
 ## Appendix A — Evidence Ledger (re-verified 2026-08-11)
 
 **mizan @ `ce57ea2` (read-only clone):**

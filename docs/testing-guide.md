@@ -913,6 +913,72 @@ Score:        4.5
 Explanation:  The response effectively functions as a concise product description, clearly identifying the product and highlighting key features in clear English; however, it could more explicitly emphasize benefits and use slightly stronger persuasive language.
 ```
 
+### Verify generation provenance and content-hash auditability
+
+> **No live call needed here.** The checks below inspect the draft file and the
+> local registry produced by the steps above (`registry get`/`import` are local,
+> ADC-free). They confirm the two auditability guarantees: every AI-drafted rubric
+> carries `rubricProvenance`, and its `contentHash` moves when you edit it. For the
+> field reference see [`docs/user-guide.md`](user-guide.md#generation-provenance-rubricprovenance)
+> and RFC-0001 §13.
+
+**1. The draft carries `rubricProvenance` (CUJ 7).** After `rubric generate`
+writes `drafts/product-copy.yaml`, the block is right there in the file:
+
+```sh
+$ grep -A9 'rubricProvenance:' drafts/product-copy.yaml
+  rubricProvenance:
+    method: adaptive-generated
+    generatorModel: gemini-2.5-flash
+    recipe: general_quality_v1
+    sampleInputRef: 'inline:"Write a concise product description for a wireless mouse." sha256:…'
+    generatedAt: 2026-08-17T00:00:00Z
+    apiVersion: v1beta1:generateInstanceRubrics
+    rubricMeta:
+      - {group: general_quality, criterion: The response is in English., type: 'LANGUAGE:PRIMARY_RESPONSE_LANGUAGE', importance: HIGH}
+```
+
+**2. Provenance round-trips into the registry — both paths.** Whether you imported
+a reviewed pack (CUJ 7) or froze with `eval adaptive --save-as` (CUJ 8), the stored
+template returns its provenance and the frozen rubric's `ContentHash` from
+`registry get -o json`:
+
+```sh
+$ mizan registry get acme/product-copy -o json \
+    | jq '{method: .rubricProvenance.method, model: .rubricProvenance.generatorModel, recipe: .rubricProvenance.recipe, hash: .ContentHash}'
+{
+  "method": "adaptive-generated",
+  "model": "gemini-2.5-flash",
+  "recipe": "general_quality_v1",
+  "hash": "sha256:…"
+}
+```
+
+A hand-authored template has no such block — the same query returns
+`"method": null` — so you can always tell an AI-drafted rubric from a hand-authored
+one straight out of the registry.
+
+**3. Editing the rubric changes its `contentHash` (auditability).** `rubricProvenance`
+and the criteria are both part of the hash, so any edit is detectable. Capture the
+hash, reword one criterion in the pack template and bump `metadata.version`,
+re-import, and compare:
+
+```sh
+$ mizan registry get acme/product-copy -o json | jq -r .ContentHash
+sha256:1f3a…                       # before
+
+# edit packs/acme/templates/product-copy.yaml: reword a criterion, bump metadata.version
+$ mizan registry import packs/acme
+0 inserted, 1 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: packs/acme)
+  updated: acme/product-copy
+
+$ mizan registry get acme/product-copy -o json | jq -r .ContentHash
+sha256:9c72…                       # after — different: the edit is captured in the hash
+```
+
+(An edit *without* a version bump is reported as `1 conflicted` under the default
+`newer` strategy, not silently applied — bump the version to record the change.)
+
 ## Global-only judge auto-routing
 
 > **ADC-required — captured live.** Every command in this section makes a live

@@ -811,7 +811,10 @@ mizan rubric generate \
 
 It prints the proposed criteria (`GROUP` / `CRITERION` / `TYPE` / `IMPORTANCE`)
 and writes the draft to `--out`. The draft is a plain template YAML on disk, not
-a registry entry.
+a registry entry. The draft already carries a `rubricProvenance` block recording
+how it was drafted (`grep -A8 rubricProvenance drafts/product-copy.yaml` to see
+it); [Generation provenance](#generation-provenance-rubricprovenance) below
+covers the field in full.
 
 To bring the reviewed draft into the registry, **wrap it in a pack and import the
 pack**. `registry import` reads a *pack tree* — a `mizan-pack.yaml` manifest plus
@@ -871,13 +874,17 @@ mizan eval run --metric acme/product-copy --field prompt="…" --field response=
 Saving fails if the id already exists — freezing never silently overwrites an
 existing template.
 
+The frozen template is stored with its `rubricProvenance` intact in the default
+registry backend, so `registry get acme/product-copy -o json` shows the same
+provenance block, and any later `eval run --metric acme/product-copy` runs a
+fully auditable, reproducible rubric — no draft file or pack round-trip required.
+
 ### Generation provenance (`rubricProvenance`)
 
 Every rubric Mizan drafts — whether written by `rubric generate` or frozen by
 `eval adaptive --save-as` — carries a `rubricProvenance` block that records **that,
 and how, the criteria were AI-drafted**. A hand-authored template simply omits the
-field, so you can always tell the two apart, and the block travels with the
-template through pack export/import.
+field, so you can always tell the two apart.
 
 ```yaml
 spec:
@@ -907,6 +914,14 @@ list, so the runnable rubric is unchanged.
 *or* the provenance changes the hash, which is what makes an AI-drafted rubric
 auditable. The field is optional and purely additive — existing hand-authored
 templates and packs are unaffected.
+
+**Provenance survives both authoring paths, all the way into the registry.** The
+CUJ 7 path (`rubric generate` → wrap in a pack → `registry import`) carries the
+block through the pack YAML and into the registry; the CUJ 8 path (`eval adaptive
+--save-as`) freezes it straight into the registry. Either way, `registry get <id>
+-o json` returns the `rubricProvenance` block and the `ContentHash` for the exact
+frozen rubric, and a pack export re-emits the same block — so an AI-drafted rubric
+stays distinguishable, auditable, and reproducible no matter how it was frozen.
 
 ## Version and releases
 
