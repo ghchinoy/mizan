@@ -10,6 +10,7 @@ package wire
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/ghchinoy/mizan/internal/asset"
@@ -17,7 +18,10 @@ import (
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/registry/sqlite"
+	"github.com/ghchinoy/mizan/internal/results"
+	resultsqlite "github.com/ghchinoy/mizan/internal/results/sqlite"
 	"github.com/ghchinoy/mizan/internal/rubricgen"
+	"github.com/ghchinoy/mizan/internal/version"
 )
 
 // closableEvalClient is the native EvaluationClient the composition root builds
@@ -63,6 +67,34 @@ func OpenService(cfg *config.Config) (*registry.Service, func() error, error) {
 		}),
 	)
 	return svc, store.Close, nil
+}
+
+// OpenResultService returns a results.Service backed by the eval results store
+// selected by cfg.ResultsBackend, plus a close function the caller must invoke.
+// It follows OpenService's shape exactly: the composition root is the only place
+// that knows the concrete backend + the retention policy / version wiring, so
+// cmd/* depends on results.Service alone and never imports results/sqlite.
+//
+// Phase 1 implements only the "sqlite" backend (design §9). "firestore" (and any
+// unknown value) returns a clear error — the Firestore leg is a visible deferred
+// dependency, not a stub, so no firestore backend is imported or built here.
+func OpenResultService(cfg *config.Config) (*results.Service, func() error, error) {
+	switch cfg.ResultsBackend {
+	case "", "sqlite":
+		store, err := resultsqlite.Open(cfg.ResultsDBPath)
+		if err != nil {
+			return nil, nil, err
+		}
+		svc := results.NewService(store,
+			results.WithRetentionPolicy(results.PolicyFor(cfg.ResultsRetention)),
+			results.WithVersion(version.Get()),
+		)
+		return svc, store.Close, nil
+	case "firestore":
+		return nil, nil, fmt.Errorf("wire: results backend %q is not implemented in Phase 1 (sqlite only)", cfg.ResultsBackend)
+	default:
+		return nil, nil, fmt.Errorf("wire: unknown results backend %q (supported: sqlite)", cfg.ResultsBackend)
+	}
 }
 
 // NewRubricGenerator builds the ADC-authenticated adaptive-rubric generation
