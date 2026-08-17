@@ -121,16 +121,17 @@ func TestJSONColumnsRoundTrip(t *testing.T) {
 	}
 }
 
-// TestMigrationSetsUserVersion confirms migration v1 records PRAGMA
-// user_version = 1, the marker later migrations key off.
+// TestMigrationSetsUserVersion confirms migration records PRAGMA user_version = 2
+// (bumped from v1 by PR C, which adds the additive RFC-0001 columns), the marker
+// later migrations key off.
 func TestMigrationSetsUserVersion(t *testing.T) {
 	s := newStore(t)
 	var version int
 	if err := s.db.QueryRowContext(context.Background(), "PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatalf("read user_version: %v", err)
 	}
-	if version != 1 {
-		t.Errorf("user_version = %d, want 1", version)
+	if version != 2 {
+		t.Errorf("user_version = %d, want 2", version)
 	}
 }
 
