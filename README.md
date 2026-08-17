@@ -15,6 +15,8 @@ Wails v2 desktop app.
 - [Contributing](#contributing)
 - [Architecture](#architecture)
 - [Documentation](#documentation)
+- [License](#license)
+- [Disclaimer](#disclaimer)
 
 ## Status
 
@@ -145,10 +147,12 @@ go install github.com/ghchinoy/mizan/cmd/mizan@v0.1.0
 
 ## Contributing
 
-Contributions are welcome. For anything beyond a small fix, consider opening an
-issue first to discuss the change. Before opening a PR, run `make fmt-check`, `make vet`,
-and `make test` and keep them green. To share metric templates, author a pack
-with `mizan pack` and open a PR against
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for local
+setup, the CI gates your change must pass, and branch/PR conventions. In short:
+for anything beyond a small fix, consider opening an issue first to discuss the
+change, and before opening a PR run `make fmt-check`, `make vet`, and `make test`
+(plus `make lint` and `make vuln`) and keep them green. To share metric
+templates, author a pack with `mizan pack` and open a PR against
 [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates) —
 Mizan does not push on your behalf.
 
@@ -171,3 +175,12 @@ ones (see [`docs/roadmap.md`](docs/roadmap.md)):
   [`docs/architecture-final.md`](docs/architecture-final.md).
 - Planned capabilities that are **not built yet**:
   [`docs/roadmap.md`](docs/roadmap.md).
+
+## License
+
+Mizan is licensed under the Apache License 2.0. See [`LICENSE`](LICENSE) for the
+full text and [`NOTICE`](NOTICE) for attribution.
+
+## Disclaimer
+
+This project is not an official Google project. It is not supported by Google and Google specifically disclaims all warranties as to its quality, merchantability, or fitness for a particular purpose.
