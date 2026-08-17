@@ -800,6 +800,119 @@ they do **not** fail the run. The warning shows up on two surfaces:
   (JSON keys/shape illustrate the `warnings` field next to the kept criterion;
   the exact surrounding fields depend on your template and the live response.)
 
+## Adaptive rubrics: draft a template, or generate-and-score
+
+> **ADC-required — captured live.** Every command in this section makes a live
+> Vertex AI call (Gemini adaptive rubric generation, plus the eval call itself)
+> and needs ADC + a configured project. The output below was **run against live
+> Vertex** (project `ghchinoy-genai-sa`, `us-central1`) and captured verbatim;
+> the generated criteria, scores, and rationales are live autorater output and
+> are **non-deterministic** — your criteria set and numbers will differ run to
+> run. The `mizan: loaded env file …` notice each command writes to stderr is
+> omitted for copy-pasteability. For the narrative and the framing (adaptive
+> generation is an authoring aid, not a new metric kind) see
+> [`docs/user-guide.md`](user-guide.md#adaptive-rubrics-authoring-aid).
+
+Two entry points share the same generation primitive; they differ only in where
+the generated rubric goes.
+
+### Draft a reusable template (`mizan rubric generate`)
+
+Generate criteria from a sample prompt and write a **draft** template YAML for
+review. This writes nothing to the registry. Create the `--out` directory first —
+`rubric generate` does not create it and fails with `write draft "…": … no such
+file or directory` if it is missing:
+
+```sh
+$ mkdir -p drafts
+$ mizan rubric generate \
+    --sample "Write a concise product description for a wireless mouse." \
+    --id acme/product-copy --out drafts/product-copy.yaml
+GROUP            CRITERION                                                                                                                                                   TYPE                                        IMPORTANCE
+general_quality  The response is in English.                                                                                                                                 LANGUAGE:PRIMARY_RESPONSE_LANGUAGE          HIGH
+general_quality  The response is formatted as a product description.                                                                                                         FORMAT_REQUIREMENT:PRODUCT_DESCRIPTION      HIGH
+general_quality  The product being described is a wireless mouse.                                                                                                            CONTENT_REQUIREMENT:PRODUCT_IDENTIFICATION  HIGH
+general_quality  The product description is concise.                                                                                                                         FORMAT_REQUIREMENT:CONCISENESS              HIGH
+general_quality  The description highlights key benefits or selling points of a wireless mouse.                                                                              CONTENT_REQUIREMENT:BENEFITS                HIGH
+general_quality  The description mentions relevant technical features or characteristics typical of a wireless mouse (e.g., connectivity, battery life, design, precision).  CONTENT_REQUIREMENT:FEATURES                MEDIUM
+general_quality  The language used is persuasive and engaging, aimed at attracting potential buyers.                                                                         STYLE_REQUIREMENT:PERSUASIVE_TONE           MEDIUM
+mizan: wrote draft template acme/product-copy to drafts/product-copy.yaml — review/edit, then `mizan registry import`/`create` it and `mizan eval run --metric acme/product-copy`
+```
+
+The draft is a plain template YAML on disk, not a registry entry. `registry
+import` reads a **pack tree**, not a loose file, so to load the reviewed draft
+wrap it in a pack and import the pack — copy it under the pack's `templates/`
+directory and import the pack dir:
+
+```sh
+$ mizan pack init packs/acme --name acme
+initialized pack "packs/acme" (namespace "acme")
+
+$ cp drafts/product-copy.yaml packs/acme/templates/product-copy.yaml   # after review/edit
+$ mizan registry import packs/acme
+1 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: packs/acme)
+  inserted: acme/product-copy
+```
+
+See [Template packs](#template-packs-author-validate-export--import) above for the
+full pack author → validate → import loop. (Importing the loose file, `mizan
+registry import drafts/product-copy.yaml`, instead errors with `source "…" is not
+a directory`.)
+
+### Generate-and-score in one step (`mizan eval adaptive`)
+
+Generate criteria from a prompt and immediately score a response against them.
+The generated rubric is held in memory and never persisted unless you pass
+`--save-as`. The proposed criteria and the pre-flight target echo go to
+**stderr** (so `-o json` on stdout stays a single clean object); `Score` /
+`Explanation` go to stdout:
+
+```sh
+$ mizan eval adaptive \
+    --prompt "Write a concise product description for a wireless mouse." \
+    --response "The Acme M1 is a compact wireless mouse with a 12-month battery, silent clicks, and a precise optical sensor."
+mizan: generated rubric criteria:
+GROUP            CRITERION                                                                                                                           TYPE                                        IMPORTANCE
+general_quality  The response is in English.                                                                                                         LANGUAGE:PRIMARY_RESPONSE_LANGUAGE          HIGH
+general_quality  The response is a product description.                                                                                              FORMAT_REQUIREMENT:PRODUCT_DESCRIPTION      MEDIUM
+general_quality  The product being described is a wireless mouse.                                                                                    CONTENT_REQUIREMENT:PRODUCT_IDENTIFICATION  HIGH
+general_quality  The product description is concise.                                                                                                 STYLE_REQUIREMENT:CONCISENESS               HIGH
+general_quality  The description highlights key features of a wireless mouse (e.g., connectivity type, design, battery life, precision).             CONTENT_REQUIREMENT:PRODUCT_FEATURES        HIGH
+general_quality  The description communicates benefits of using the wireless mouse (e.g., freedom of movement, comfort, productivity, portability).  CONTENT_REQUIREMENT:PRODUCT_BENEFITS        HIGH
+general_quality  The description adopts an engaging and persuasive tone suitable for marketing.                                                      STYLE_REQUIREMENT:TONE_MARKETING            MEDIUM
+mizan: autorater → project=ghchinoy-genai-sa (src=env) location=us-central1 (src=env) model=gemini-2.5-flash (path=native)
+Score:        5
+Explanation:  The response perfectly meets all criteria: it is in English, is a concise product description for a wireless mouse, highlights key features (wireless, compact, 12-month battery, silent clicks, precise optical sensor), implicitly communicates benefits (portability, comfort, productivity, freedom), and adopts an engaging, persuasive tone by presenting desirable attributes.
+```
+
+Add `--save-as <ns>/<slug>` to **freeze** the generated rubric into the registry
+as an ordinary static template. This is the no-draft-file path — it needs no
+`rubric generate`, no pack, no import. Freezing fails if the id already exists
+(`error: registry: template "<id>" already exists`), so it never silently
+overwrites:
+
+```sh
+$ mizan eval adaptive \
+    --prompt "Write a concise product description for a wireless mouse." \
+    --response "The Acme M1 is a compact wireless mouse with a 12-month battery, silent clicks, and a precise optical sensor." \
+    --save-as acme/product-copy
+# … generated-criteria table + Score/Explanation on stderr/stdout as above …
+mizan: froze generated rubric as acme/product-copy — rerun it with `mizan eval run --metric acme/product-copy`
+```
+
+The frozen template declares `prompt` and `response` inputs, so rerun it like any
+other rubric template — the same deterministic eval path, reproducible from the
+registry:
+
+```sh
+$ mizan eval run --metric acme/product-copy \
+    --field prompt="Write a concise product description for a wireless mouse." \
+    --field response="The Acme M1 is a compact wireless mouse with a 12-month battery, silent clicks, and a precise optical sensor."
+mizan: autorater → project=ghchinoy-genai-sa (src=env) location=us-central1 (src=env) model=gemini-2.5-flash (path=native)
+Score:        4.5
+Explanation:  The response effectively functions as a concise product description, clearly identifying the product and highlighting key features in clear English; however, it could more explicitly emphasize benefits and use slightly stronger persuasive language.
+```
+
 ## Global-only judge auto-routing
 
 > **ADC-required — captured live.** Every command in this section makes a live
@@ -901,6 +1014,73 @@ mizan: autorater → project=ghchinoy-genai-sa (src=env-file) location=us-centra
 For a global-only judge, `--location` / `MIZAN_LOCATION` is kept for output
 **labeling only** — it is not honored as a residency region for that run,
 because the judge cannot run in your region.
+
+## Per-run stats (`--stats`)
+
+> **ADC-required — captured live.** The commands below make live Vertex AI eval
+> calls and need ADC + a configured project. Captured verbatim against live
+> Vertex (project `ghchinoy-genai-sa`, `us-central1`) with a scratch
+> `MIZAN_REGISTRY_DB` holding `demo/conciseness` (pointwise, from the
+> [Text pointwise](#text-pointwise) recipe) and `demo/rubric-quality` (rubric,
+> from the [Rubric](#rubric) recipe). The pre-flight echo (stderr) is elided here
+> to isolate the footer; `Duration` is wall-clock and varies run to run.
+
+`--stats` adds a footer to `eval run` with the run's **duration** (always
+measured) and, on the genai path only, **token usage**.
+
+**Native path** (pointwise/rubric/pairwise via `EvaluateInstances`) reports
+duration but no token usage — the native API returns no usage metadata, so the
+footer says so explicitly instead of showing zeros:
+
+```sh
+$ mizan eval run --metric demo/conciseness --field response="The cat sat on the mat." --stats
+Score:        1
+Explanation:  The response is a very short, direct, and common example sentence that conveys its meaning without any unnecessary words, making it highly concise.
+Duration:     1.703s
+Tokens:       token usage not available on this path (native EvaluateInstances returns no usage)
+```
+
+**Genai path** (a `custom_schema` template, or any run with `--rubric-detail`)
+reports both duration and `prompt` / `candidates` / `total` token counts:
+
+```sh
+$ mizan eval run --metric demo/rubric-quality --rubric-detail --rubric-scale 1-5 \
+    --field response="The Eiffel Tower is in Paris, France, completed in 1889." --stats
+Score:        5
+Explanation:  The response is perfectly clear, free of jargon, and entirely accurate in its factual content. It provides a concise and correct piece of information.
+Per-criterion:
+GROUP        CRITERION                        SCORE  RATIONALE
+clarity      Is the response clear            5      The response is very clear and easy to understand.
+clarity      Is it free of jargon             5      The response uses simple, common language with no jargon.
+correctness  Is the factual content accurate  5      The statement 'The Eiffel Tower is in Paris, France, completed in 1889' is factually correct.
+Duration:  2.68s
+Tokens:    prompt=168 candidates=229 total=595
+```
+
+In `-o json` the footer becomes a `"Stats"` object — always `"duration_ns"`, plus
+a nested `"token_usage"` (`prompt_tokens` / `candidates_tokens` / `total_tokens`)
+on the genai path. Native path (no `token_usage` key):
+
+```sh
+$ mizan eval run --metric demo/conciseness --field response="The cat sat on the mat." --stats -o json
+{
+  "Score": 1,
+  "PairwiseChoice": "",
+  "Explanation": "The sentence 'The cat sat on the mat' is a classic, simple, and direct statement that conveys its meaning with no superfluous words, making it highly concise.",
+  "RawOutput": null,
+  "CustomOutput": null,
+  "Stats": {
+    "duration_ns": 2128522658
+  }
+}
+```
+
+On the genai path the same `"Stats"` object additionally carries
+`"token_usage": { "prompt_tokens": …, "candidates_tokens": …, "total_tokens": … }`.
+
+See [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md#scenario-8-see-what-a-run-cost-and-where-it-went)
+(Scenario 8) for the fuller narrative, including how `--stats` pairs with the
+always-on pre-flight target echo.
 
 ## What each result means
 

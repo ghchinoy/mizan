@@ -741,6 +741,26 @@ detection details see
   not a fixed-format field — treat it as a qualitative aid, not something to
   parse programmatically.
 
+### Run stats (`--stats`)
+
+Add `--stats` to `eval run` for a per-run footer with two pieces of operational
+data:
+
+- **Duration** — wall-clock time for the run, **always measured** and shown for
+  every path.
+- **Tokens** — `prompt` / `candidates` / `total` token usage, available **only on
+  the genai path** (a `custom_schema` template, or any run with `--rubric-detail`).
+  The native `EvaluateInstances` path returns no usage metadata, so there
+  `--stats` prints `token usage not available on this path (native
+  EvaluateInstances returns no usage)` rather than showing zeros.
+
+In `-o json`, the same data appears as a `"Stats"` object — always a
+`"duration_ns"`, plus a nested `"token_usage"` (`prompt_tokens` /
+`candidates_tokens` / `total_tokens`) on the genai path. See
+[`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md) Scenario 8 for the
+fuller narrative, including how `--stats` pairs with the always-on pre-flight
+target echo.
+
 ## Per-criterion rubric detail (`--rubric-detail`)
 
 For a `rubric` template, add `--rubric-detail` to `eval run` to get a score and
@@ -778,9 +798,11 @@ primitives; they differ only in where the generated rubric goes.
 ### Draft a reusable rubric template (`mizan rubric generate`)
 
 Generate criteria from a representative prompt and write a **draft** template YAML
-for review. This writes **nothing** to the registry:
+for review. This writes **nothing** to the registry (create the output directory
+first — `rubric generate` does not `mkdir -p` its `--out` path for you):
 
-```bash
+```sh
+mkdir -p drafts
 mizan rubric generate \
   --sample "Write a concise product description for a wireless mouse." \
   --id acme/product-copy \
@@ -788,14 +810,34 @@ mizan rubric generate \
 ```
 
 It prints the proposed criteria (`GROUP` / `CRITERION` / `TYPE` / `IMPORTANCE`)
-and writes the draft to `--out`. Review and edit the YAML, then bring it into the
-registry with the ordinary authoring path and run it like any other template:
+and writes the draft to `--out`. The draft is a plain template YAML on disk, not
+a registry entry.
 
-```bash
-mizan registry import drafts/product-copy.yaml   # or: mizan registry create …
+To bring the reviewed draft into the registry, **wrap it in a pack and import the
+pack**. `registry import` reads a *pack tree* — a `mizan-pack.yaml` manifest plus
+a `templates/` directory — not a loose template file (`registry import
+drafts/product-copy.yaml` errors with `source "…" is not a directory`, and
+importing the containing `drafts/` finds nothing: `0 inserted … 0 forked`).
+`registry create` has no whole-template input either, so neither ingests the
+draft on its own:
+
+```sh
+mizan pack init packs/acme --name acme
+cp drafts/product-copy.yaml packs/acme/templates/product-copy.yaml   # after you review/edit it
+mizan registry import packs/acme        # -> 1 inserted: acme/product-copy
+```
+
+Once imported it is an ordinary registry entry. The generated template declares
+`prompt` and `response` inputs, so run it like any other template:
+
+```sh
 mizan eval run --metric acme/product-copy \
   --field prompt="…" --field response="…"
 ```
+
+If you don't want to keep a reviewed draft file, the `mizan eval adaptive …
+--save-as` path below freezes the generated rubric straight into the registry in
+one step — no draft file and no pack needed.
 
 Useful flags: `--recipe <name>` (the pinned generation recipe, default
 `general_quality_v1`), `--group-name <key>` (the `rubricGroups` key; defaults to
@@ -807,7 +849,7 @@ Generate criteria from a prompt and immediately score a response against them.
 The generated rubric is held **in memory** and is **never persisted** unless you
 ask for it:
 
-```bash
+```sh
 mizan eval adaptive \
   --prompt "Write a concise product description for a wireless mouse." \
   --response "The Acme M1 is a wireless mouse."
@@ -821,7 +863,7 @@ transparency (so `--output json` on stdout stays a single clean object).
 Add `--save-as <namespace>/<slug>` to **freeze** the generated rubric into the
 registry as an ordinary reproducible static template you can rerun later:
 
-```bash
+```sh
 mizan eval adaptive --prompt "…" --response "…" --save-as acme/product-copy
 mizan eval run --metric acme/product-copy --field prompt="…" --field response="…"
 ```
