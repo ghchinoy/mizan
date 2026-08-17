@@ -556,9 +556,13 @@ func TestScanOversizedJSONColumnRejected(t *testing.T) {
 	if err := s.Put(ctx, &tmpl); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	// A syntactically valid JSON string one byte over the cap: proves the size
-	// check fires BEFORE (and independently of) json.Unmarshal.
-	oversized := `"` + strings.Repeat("x", maxJSONColumnBytes) + `"`
+	// A syntactically valid JSON string exactly one byte over the cap (two quote
+	// bytes + (cap-1) content bytes = cap+1): proves the size check fires BEFORE
+	// (and independently of) json.Unmarshal.
+	oversized := `"` + strings.Repeat("x", maxJSONColumnBytes-1) + `"`
+	if len(oversized) != maxJSONColumnBytes+1 {
+		t.Fatalf("test setup: value is %d bytes, want %d", len(oversized), maxJSONColumnBytes+1)
+	}
 	if _, err := s.db.ExecContext(ctx,
 		`UPDATE metric_templates SET rubric_provenance = ? WHERE id = ?`,
 		oversized, tmpl.ID,
@@ -575,9 +579,10 @@ func TestScanOversizedJSONColumnRejected(t *testing.T) {
 	}
 }
 
-// TestScanAtByteCapAccepted proves the cap is inclusive at the boundary: a value
-// exactly maxJSONColumnBytes long still unmarshals, so a legitimate (if large)
-// template is never rejected by an off-by-one.
+// TestScanAtByteCapAccepted proves the cap is inclusive at the boundary: a VALID
+// provenance payload whose raw column bytes are exactly maxJSONColumnBytes still
+// unmarshals and round-trips, so a legitimate (if large) template is never
+// rejected by an off-by-one.
 func TestScanAtByteCapAccepted(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
@@ -586,8 +591,13 @@ func TestScanAtByteCapAccepted(t *testing.T) {
 	if err := s.Put(ctx, &tmpl); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
-	// Build a JSON string value whose raw column bytes are exactly the cap.
-	atCap := `"` + strings.Repeat("x", maxJSONColumnBytes-2) + `"`
+	// Build a VALID *RubricProvenance JSON object padded to exactly the cap, so
+	// success proves both that the size gate is inclusive AND that an at-cap value
+	// unmarshals (not merely that it dodges the cap error).
+	prefix := `{"method":"adaptive-generated","recipe":"`
+	suffix := `"}`
+	pad := strings.Repeat("y", maxJSONColumnBytes-len(prefix)-len(suffix))
+	atCap := prefix + pad + suffix
 	if len(atCap) != maxJSONColumnBytes {
 		t.Fatalf("test setup: value is %d bytes, want %d", len(atCap), maxJSONColumnBytes)
 	}
@@ -597,11 +607,12 @@ func TestScanAtByteCapAccepted(t *testing.T) {
 	); err != nil {
 		t.Fatalf("write at-cap column: %v", err)
 	}
-	// A bare JSON string is not a valid *RubricProvenance, so a JSON shape error is
-	// expected here — what must NOT happen is the cap error, which would mean a
-	// value exactly at the boundary was wrongly rejected by the size gate.
-	if _, err := s.Get(ctx, tmpl.ID); err != nil && strings.Contains(err.Error(), "cap") {
-		t.Fatalf("Get error = %q; a value exactly at the cap must pass the size gate", err)
+	got, err := s.Get(ctx, tmpl.ID)
+	if err != nil {
+		t.Fatalf("Get: a value exactly at the cap must be accepted, got error: %v", err)
+	}
+	if got.RubricProvenance == nil || got.RubricProvenance.Method != "adaptive-generated" || got.RubricProvenance.Recipe != pad {
+		t.Fatalf("at-cap provenance did not round-trip: %+v", got.RubricProvenance)
 	}
 }
 

@@ -259,7 +259,13 @@ spec:
 		body string
 	}{
 		{"method>256", "    method: " + strings.Repeat("m", 257) + "\n"},
+		{"generatorModel>256", "    generatorModel: " + strings.Repeat("g", 257) + "\n"},
+		{"recipe>256", "    recipe: " + strings.Repeat("r", 257) + "\n"},
+		{"promptTemplate>8192", "    promptTemplate: " + strings.Repeat("p", 8193) + "\n"},
 		{"sampleInputRef>4096", "    sampleInputRef: " + strings.Repeat("s", 4097) + "\n"},
+		{"apiVersion>256", "    apiVersion: " + strings.Repeat("a", 257) + "\n"},
+		{"rubricMeta.group>128", "    rubricMeta:\n      - group: " + strings.Repeat("g", 129) + "\n"},
+		{"rubricMeta.criterion>4096", "    rubricMeta:\n      - criterion: " + strings.Repeat("c", 4097) + "\n"},
 		{"rubricMeta.type>128", "    rubricMeta:\n      - type: " + strings.Repeat("t", 129) + "\n"},
 		{"rubricMeta.importance>128", "    rubricMeta:\n      - importance: " + strings.Repeat("i", 129) + "\n"},
 	}
