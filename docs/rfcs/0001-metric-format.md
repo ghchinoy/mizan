@@ -525,7 +525,7 @@ spec:
     method: adaptive-generated       # REQUIRED — how the rubric was produced
     generatorModel: gemini-2.5-flash # REQUIRED — the drafting/generator model
     recipe: general_quality_v1       # optional — the pinned predefined recipe
-    promptTemplate: "…"              # optional — custom-generation prompt (custom path)
+    # promptTemplate: reserved; not currently populated (custom generation-prompt path not offered)
     sampleInputRef: 'inline:"…" sha256:…'  # REQUIRED — bounded ref + SHA-256 of the sample input
     generatedAt: 2026-08-17T00:00:00Z      # REQUIRED — RFC3339 generation timestamp
     apiVersion: v1beta1:generateInstanceRubrics  # REQUIRED — the generation API surface
@@ -541,7 +541,7 @@ spec:
 | `method` | ✔ | How the rubric was produced, e.g. `adaptive-generated`. **Cross-team contract:** the results-store capability reads this via `RubricRef.Method` — do not rename. |
 | `generatorModel` | ✔ | The model that drafted the criteria (e.g. `gemini-2.5-flash`). |
 | `recipe` | — | The pinned predefined generation recipe (e.g. `general_quality_v1`); present on the predefined path. |
-| `promptTemplate` | — | The custom rubric-generation prompt; present on the custom-generation path. |
+| `promptTemplate` | — | Reserved; not currently populated. The custom rubric-generation (freeform `rubricGenerationSpec`) path is **not offered** — it is non-viable at the API (undocumented output contract; `rubric-generation-mechanics-research.md` §3.1). Additional-guidance use cases are served by union-before-freeze (CUJ 9). |
 | `sampleInputRef` | ✔ | A **bounded** preview of the sample input **plus its SHA-256** — never an unbounded prompt blob. Lets a consumer identify/audit the sample without retaining it in full. |
 | `generatedAt` | ✔ | RFC3339 timestamp of the generation call. |
 | `apiVersion` | ✔ | The generation API surface, `v1beta1:generateInstanceRubrics`. Distinct from the template's format `apiVersion` (`mizan.dev/v1alpha1`) — this names the *generation RPC*, not the format version. |

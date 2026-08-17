@@ -55,8 +55,10 @@ const (
 	// adaptiveAPIVersion identifies the RPC/surface that produced the rubric.
 	adaptiveAPIVersion = "v1beta1:generateInstanceRubrics"
 	// adaptiveGeneratorModel is the builtin generator model the predefined-recipe
-	// path uses (design §4.2: default builtin gemini-2.5-flash). Phase 2 supports
-	// the predefined path only; a custom generator model rides a later phase.
+	// path uses (design §4.2: default builtin gemini-2.5-flash). A user-selectable
+	// generator model was part of the custom rubricGenerationSpec path, which is
+	// not offered (non-viable at the API — see
+	// rubric-generation-mechanics-research.md §3.1).
 	adaptiveGeneratorModel = "gemini-2.5-flash"
 	// maxSampleRefPreview bounds the sample-input preview stored in provenance so
 	// the persisted YAML never carries an unbounded prompt blob (security): the
@@ -108,8 +110,9 @@ func rubricMetaFor(groupName string, rubrics []rubricgen.Rubric) []registry.Rubr
 // BOTH `rubric generate` (CUJ 7) drafts and `eval adaptive --save-as` (CUJ 8)
 // frozen templates. Keeping it in one place is the owner's no-duplication
 // constraint and guarantees the two commands stamp identical provenance for the
-// rubrics actually used. PromptTemplate is left empty here (the custom
-// generation-prompt path is a later phase).
+// rubrics actually used. PromptTemplate is left empty: the custom
+// generation-prompt path is not offered (non-viable at the API — see
+// rubric-generation-mechanics-research.md §3.1), so the field stays reserved.
 func buildRubricProvenance(recipe, groupName, sample string, rubrics []rubricgen.Rubric) *registry.RubricProvenance {
 	return &registry.RubricProvenance{
 		Method:         adaptiveMethod,

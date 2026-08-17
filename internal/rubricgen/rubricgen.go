@@ -99,9 +99,13 @@ func TextContents(sample string) []InstanceContent {
 	return []InstanceContent{{Parts: []Part{{Text: sample}}}}
 }
 
-// Spec selects the generation recipe. Phase 1 supports the predefined-recipe path
-// only (the custom rubricGenerationSpec path is a later phase); PredefinedMetric
-// is required.
+// Spec selects the generation recipe via the predefined-recipe path;
+// PredefinedMetric is required. There is deliberately no custom
+// rubricGenerationSpec (freeform promptTemplate) field: that path is not viable —
+// any freeform template returns a 400 because it must satisfy an undocumented
+// server-side output contract (rubric-generation-mechanics-research.md §3.1). It
+// is not offered and not planned; additional-guidance use cases are served by
+// union-before-freeze (CUJ 9).
 type Spec struct {
 	// PredefinedMetric is the pinned recipe version, e.g. "general_quality_v1".
 	// (Live probe: general_quality_v2 returned 400 in-project; pin a version.)

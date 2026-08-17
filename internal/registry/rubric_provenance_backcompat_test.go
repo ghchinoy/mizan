@@ -50,9 +50,10 @@ func TestHandAuthoredFixtureNoSpuriousProvenanceKey(t *testing.T) {
 
 // TestRubricProvenanceCustomPromptAndEmptyMetaRoundTrip covers the additive
 // object's remaining fields not exercised by provTemplate(): a populated
-// PromptTemplate (the future custom-generation-prompt path persists here) and an
-// EMPTY RubricMeta (omitempty must drop it, not emit `rubricMeta: []`). The record
-// must round-trip losslessly and stay schema-valid.
+// PromptTemplate (a reserved carry-and-reserve field — the custom generation-prompt
+// path is not offered, but the field must still serialize losslessly if ever set)
+// and an EMPTY RubricMeta (omitempty must drop it, not emit `rubricMeta: []`). The
+// record must round-trip losslessly and stay schema-valid.
 func TestRubricProvenanceCustomPromptAndEmptyMetaRoundTrip(t *testing.T) {
 	c := NewYAMLCodec()
 	tmpl := provTemplate()
