@@ -836,7 +836,7 @@ general_quality  The product description is concise.                            
 general_quality  The description highlights key benefits or selling points of a wireless mouse.                                                                              CONTENT_REQUIREMENT:BENEFITS                HIGH
 general_quality  The description mentions relevant technical features or characteristics typical of a wireless mouse (e.g., connectivity, battery life, design, precision).  CONTENT_REQUIREMENT:FEATURES                MEDIUM
 general_quality  The language used is persuasive and engaging, aimed at attracting potential buyers.                                                                         STYLE_REQUIREMENT:PERSUASIVE_TONE           MEDIUM
-mizan: wrote draft template acme/product-copy to drafts/product-copy.yaml — review/edit, then `mizan registry import`/`create` it and `mizan eval run --metric acme/product-copy`
+mizan: wrote draft template acme/product-copy to drafts/product-copy.yaml — review/edit, then wrap it under a pack's templates/ dir and `mizan registry import <pack>` (a loose draft file is not a valid import source), then `mizan eval run --metric acme/product-copy` (or freeze in one step with `mizan eval adaptive --save-as acme/product-copy`)
 ```
 
 The draft is a plain template YAML on disk, not a registry entry. `registry
@@ -970,7 +970,7 @@ sha256:1f3a…                       # before
 # edit packs/acme/templates/product-copy.yaml: reword a criterion, bump metadata.version
 $ mizan registry import packs/acme
 0 inserted, 1 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: packs/acme)
-  updated: acme/product-copy
+  updated: acme/product-copy (updated to newer upstream version)
 
 $ mizan registry get acme/product-copy -o json | jq -r .ContentHash
 sha256:9c72…                       # after — different: the edit is captured in the hash
