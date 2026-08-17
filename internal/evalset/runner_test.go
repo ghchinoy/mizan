@@ -3,6 +3,7 @@ package evalset
 import (
 	"context"
 	"errors"
+	"math"
 	"reflect"
 	"testing"
 
@@ -32,11 +33,16 @@ type fakeRunner struct {
 	errs    map[string]error
 	seen    []eval.Instance
 	seenIDs []string
+	// seenOptCount records how many eval.RunOptions were delivered to each engine
+	// call, so a test can assert --model passthrough (WithModel appended) without
+	// reaching into the unexported runConfig.
+	seenOptCount []int
 }
 
-func (f *fakeRunner) Run(_ context.Context, tmpl registry.MetricTemplate, inst eval.Instance, _ ...eval.RunOption) (eval.Result, error) {
+func (f *fakeRunner) Run(_ context.Context, tmpl registry.MetricTemplate, inst eval.Instance, opts ...eval.RunOption) (eval.Result, error) {
 	f.seen = append(f.seen, inst)
 	f.seenIDs = append(f.seenIDs, tmpl.ID)
+	f.seenOptCount = append(f.seenOptCount, len(opts))
 	if err, ok := f.errs[tmpl.ID]; ok && err != nil {
 		return eval.Result{}, err
 	}
@@ -366,6 +372,243 @@ func TestRun_ThresholdPassAndFail(t *testing.T) {
 		}
 		if res.Aggregate.Passed == nil || *res.Aggregate.Passed {
 			t.Fatalf("Aggregate.Passed = %v, want false", res.Aggregate.Passed)
+		}
+	})
+}
+
+// TestRun_FailFastAbortsOnMissing covers the fail-fast abort triggered by a
+// MISSING template (runner.go), complementing TestRun_FailFast which only
+// exercises the Errored abort. The member after the missing one must be Skipped
+// and never dispatched to the engine, and Aggregate.Failed must count only the
+// real failure (Missing), NOT the Skipped member (design §9).
+func TestRun_FailFastAbortsOnMissing(t *testing.T) {
+	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{
+		"p/a": tmpl("p/a"), "p/c": tmpl("p/c"),
+		// p/missing is intentionally absent.
+	}}
+	runner := &fakeRunner{results: map[string]eval.Result{
+		"p/a": {Score: f32(0.8)}, "p/c": {Score: f32(0.6)},
+	}}
+	r := New(getter, runner)
+
+	set := Set{
+		ID: "p/set",
+		Members: []Member{
+			{MetricID: "p/a", Weight: 1},
+			{MetricID: "p/missing", Weight: 1},
+			{MetricID: "p/c", Weight: 1},
+		},
+		Aggregation: Aggregation{Method: AggMean},
+	}
+
+	res, err := r.Run(context.Background(), set, RunOptions{FailFast: true})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Members[1].Status != Missing {
+		t.Fatalf("member[1] status = %q, want Missing", res.Members[1].Status)
+	}
+	if res.Members[2].Status != Skipped {
+		t.Fatalf("member[2] status = %q, want Skipped (fail-fast aborts after missing)", res.Members[2].Status)
+	}
+	// Only p/a dispatched; p/c never reached the engine.
+	if len(runner.seenIDs) != 1 || runner.seenIDs[0] != "p/a" {
+		t.Fatalf("engine calls = %v, want [p/a]", runner.seenIDs)
+	}
+	// Failed counts the Missing member only; the Skipped member is not a failure.
+	if res.Aggregate.Failed != 1 {
+		t.Fatalf("Aggregate.Failed = %d, want 1 (Missing only, Skipped excluded)", res.Aggregate.Failed)
+	}
+}
+
+// TestRun_FailedExcludesSkipped proves Aggregate.Failed counts only Errored +
+// Missing members and NEVER the Skipped members that fail-fast aborts before
+// reaching (design §9). With 1 errored + 2 skipped, Failed must be 1, not 3.
+func TestRun_FailedExcludesSkipped(t *testing.T) {
+	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{
+		"p/a": tmpl("p/a"), "p/b": tmpl("p/b"), "p/c": tmpl("p/c"), "p/d": tmpl("p/d"),
+	}}
+	runner := &fakeRunner{
+		results: map[string]eval.Result{"p/a": {Score: f32(0.9)}},
+		errs:    map[string]error{"p/b": errors.New("boom")},
+	}
+	r := New(getter, runner)
+
+	set := Set{
+		ID: "p/set",
+		Members: []Member{
+			{MetricID: "p/a", Weight: 1},
+			{MetricID: "p/b", Weight: 1}, // errors -> abort
+			{MetricID: "p/c", Weight: 1}, // skipped
+			{MetricID: "p/d", Weight: 1}, // skipped
+		},
+		Aggregation: Aggregation{Method: AggMean},
+	}
+
+	res, err := r.Run(context.Background(), set, RunOptions{FailFast: true})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Members[2].Status != Skipped || res.Members[3].Status != Skipped {
+		t.Fatalf("members c,d status = %q,%q, want Skipped,Skipped", res.Members[2].Status, res.Members[3].Status)
+	}
+	if res.Aggregate.Failed != 1 {
+		t.Fatalf("Aggregate.Failed = %d, want 1 (Errored only; 2 Skipped excluded)", res.Aggregate.Failed)
+	}
+}
+
+// TestRun_NonFiniteScoreExcluded proves a NaN or +Inf member score is recorded in
+// the row (Status OK) but excluded from the aggregate, exactly like a non-scalar
+// member, so it cannot propagate into the aggregate.
+func TestRun_NonFiniteScoreExcluded(t *testing.T) {
+	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{
+		"p/ok": tmpl("p/ok"), "p/nan": tmpl("p/nan"), "p/inf": tmpl("p/inf"),
+	}}
+	runner := &fakeRunner{results: map[string]eval.Result{
+		"p/ok":  {Score: f32(0.5)},
+		"p/nan": {Score: f32(float32(math.NaN()))},
+		"p/inf": {Score: f32(float32(math.Inf(1)))},
+	}}
+	r := New(getter, runner)
+
+	set := Set{
+		ID: "p/set",
+		Members: []Member{
+			{MetricID: "p/ok", Weight: 1},
+			{MetricID: "p/nan", Weight: 1},
+			{MetricID: "p/inf", Weight: 1},
+		},
+		Aggregation: Aggregation{Method: AggMean},
+	}
+
+	res, err := r.Run(context.Background(), set, RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res.Members) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(res.Members))
+	}
+	// Non-finite members ran OK but carry no scalar Score for aggregation.
+	if res.Members[1].Status != OK || res.Members[1].Score != nil {
+		t.Fatalf("NaN member = {%q, %v}, want {OK, nil score}", res.Members[1].Status, res.Members[1].Score)
+	}
+	if res.Members[2].Status != OK || res.Members[2].Score != nil {
+		t.Fatalf("Inf member = {%q, %v}, want {OK, nil score}", res.Members[2].Status, res.Members[2].Score)
+	}
+	if res.Aggregate.Scored != 1 {
+		t.Fatalf("Scored = %d, want 1 (only the finite member)", res.Aggregate.Scored)
+	}
+	if res.Aggregate.Score == nil || !closef(*res.Aggregate.Score, 0.5) {
+		t.Fatalf("aggregate = %v, want 0.5", res.Aggregate.Score)
+	}
+	if res.Verdict != Passed {
+		t.Fatalf("verdict = %q, want PASSED (no threshold)", res.Verdict)
+	}
+}
+
+// TestRun_NonFiniteAggregateWithThresholdFails proves that when a threshold is
+// set and the only scored member is non-finite (so the aggregate is nil), the
+// verdict is FAILED — never a silent PASS from a NaN comparison.
+func TestRun_NonFiniteAggregateWithThresholdFails(t *testing.T) {
+	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{"p/nan": tmpl("p/nan")}}
+	runner := &fakeRunner{results: map[string]eval.Result{
+		"p/nan": {Score: f32(float32(math.NaN()))},
+	}}
+	r := New(getter, runner)
+
+	set := Set{
+		ID:          "p/set",
+		Members:     []Member{{MetricID: "p/nan", Weight: 1}},
+		Aggregation: Aggregation{Method: AggMean, Threshold: f64(0.8)},
+	}
+
+	res, err := r.Run(context.Background(), set, RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Aggregate.Score != nil {
+		t.Fatalf("aggregate score = %v, want nil (non-finite excluded)", res.Aggregate.Score)
+	}
+	if res.Verdict != Failed {
+		t.Fatalf("verdict = %q, want FAILED (nil aggregate vs threshold, no silent pass)", res.Verdict)
+	}
+	if res.Aggregate.Passed == nil || *res.Aggregate.Passed {
+		t.Fatalf("Aggregate.Passed = %v, want false", res.Aggregate.Passed)
+	}
+}
+
+// TestRun_ThresholdZeroScoredFails covers the reviewer's L2 gap: a threshold set
+// with zero numeric-scored members (all non-scalar) yields a nil aggregate, which
+// must FAIL the threshold end-to-end (not PASS).
+func TestRun_ThresholdZeroScoredFails(t *testing.T) {
+	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{"p/pw": tmpl("p/pw")}}
+	runner := &fakeRunner{results: map[string]eval.Result{"p/pw": {PairwiseChoice: "A"}}}
+	r := New(getter, runner)
+
+	set := Set{
+		ID:          "p/set",
+		Members:     []Member{{MetricID: "p/pw", Weight: 1}},
+		Aggregation: Aggregation{Method: AggMean, Threshold: f64(0.8)},
+	}
+
+	res, err := r.Run(context.Background(), set, RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Aggregate.Score != nil {
+		t.Fatalf("aggregate score = %v, want nil (no numeric members)", res.Aggregate.Score)
+	}
+	if res.Verdict != Failed {
+		t.Fatalf("verdict = %q, want FAILED (nil aggregate vs threshold)", res.Verdict)
+	}
+	if res.Aggregate.Passed == nil || *res.Aggregate.Passed {
+		t.Fatalf("Aggregate.Passed = %v, want false", res.Aggregate.Passed)
+	}
+}
+
+// TestRun_ModelPassthrough covers the reviewer's L2 gap: a RunOptions.Model is
+// wired into every engine call (as an eval.WithModel RunOption), and no option is
+// appended when Model is empty.
+func TestRun_ModelPassthrough(t *testing.T) {
+	newFixture := func() (*Runner, *fakeRunner, Set) {
+		getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{
+			"p/a": tmpl("p/a"), "p/b": tmpl("p/b"),
+		}}
+		runner := &fakeRunner{results: map[string]eval.Result{
+			"p/a": {Score: f32(0.8)}, "p/b": {Score: f32(0.9)},
+		}}
+		set := Set{
+			ID:          "p/set",
+			Members:     []Member{{MetricID: "p/a", Weight: 1}, {MetricID: "p/b", Weight: 1}},
+			Aggregation: Aggregation{Method: AggMean},
+		}
+		return New(getter, runner), runner, set
+	}
+
+	t.Run("model set -> one option per engine call", func(t *testing.T) {
+		r, runner, set := newFixture()
+		if _, err := r.Run(context.Background(), set, RunOptions{Model: "gemini-2.0-flash"}); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		if len(runner.seenOptCount) != 2 {
+			t.Fatalf("engine calls = %d, want 2", len(runner.seenOptCount))
+		}
+		for i, n := range runner.seenOptCount {
+			if n != 1 {
+				t.Fatalf("member %d received %d run options, want 1 (WithModel)", i, n)
+			}
+		}
+	})
+
+	t.Run("model empty -> no options", func(t *testing.T) {
+		r, runner, set := newFixture()
+		if _, err := r.Run(context.Background(), set, RunOptions{}); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		for i, n := range runner.seenOptCount {
+			if n != 0 {
+				t.Fatalf("member %d received %d run options, want 0 (no model)", i, n)
+			}
 		}
 	})
 }

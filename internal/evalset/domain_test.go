@@ -118,6 +118,102 @@ func TestFromDoc_GateThresholdWeight(t *testing.T) {
 	}
 }
 
+// TestFromDoc_EmptyMethodDefaultsToMean covers finding L1: an empty/absent
+// aggregation method is normalized EXPLICITLY to AggMean (design §9), whether the
+// aggregation block is present-but-method-empty or entirely absent.
+func TestFromDoc_EmptyMethodDefaultsToMean(t *testing.T) {
+	thr := 0.8
+	tests := []struct {
+		name string
+		doc  *pack.EvalSetDoc
+	}{
+		{
+			name: "aggregation present, method empty",
+			doc: &pack.EvalSetDoc{
+				Metadata: pack.EvalSetMetadata{ID: "p/s"},
+				Spec: pack.EvalSetSpec{
+					Members:     []pack.EvalSetMember{{Metric: "p/a"}},
+					Aggregation: &pack.EvalSetAggregation{Threshold: &thr}, // method absent
+				},
+			},
+		},
+		{
+			name: "aggregation block absent",
+			doc: &pack.EvalSetDoc{
+				Metadata: pack.EvalSetMetadata{ID: "p/s"},
+				Spec: pack.EvalSetSpec{
+					Members: []pack.EvalSetMember{{Metric: "p/a"}},
+				},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			set, err := FromDoc(tc.doc)
+			if err != nil {
+				t.Fatalf("FromDoc: %v", err)
+			}
+			if set.Aggregation.Method != AggMean {
+				t.Fatalf("method = %q, want %q (empty normalized to mean)", set.Aggregation.Method, AggMean)
+			}
+		})
+	}
+}
+
+// TestFromDoc_NegativeWeightRejected covers finding: a negative member weight is
+// rejected fail-closed, and the error NAMES the offending member (index + metric)
+// so an author can locate it. Zero/absent still normalizes to 1.0 (unchanged).
+func TestFromDoc_NegativeWeightRejected(t *testing.T) {
+	neg := -1.5
+	doc := &pack.EvalSetDoc{
+		Metadata: pack.EvalSetMetadata{ID: "p/s"},
+		Spec: pack.EvalSetSpec{
+			Members: []pack.EvalSetMember{
+				{Metric: "p/good"},
+				{Metric: "p/bad", Weight: &neg},
+			},
+		},
+	}
+	_, err := FromDoc(doc)
+	if err == nil {
+		t.Fatal("FromDoc accepted a negative weight, want error")
+	}
+	if !strings.Contains(err.Error(), "p/bad") {
+		t.Fatalf("error %q does not name the offending member (want p/bad)", err)
+	}
+	if !strings.Contains(err.Error(), "weight") {
+		t.Fatalf("error %q does not mention weight", err)
+	}
+}
+
+// TestFromDoc_MemberCap covers finding: a manifest with more than
+// maxEvalSetMembers is rejected with a clear error; exactly maxEvalSetMembers is
+// accepted.
+func TestFromDoc_MemberCap(t *testing.T) {
+	mk := func(n int) *pack.EvalSetDoc {
+		members := make([]pack.EvalSetMember, n)
+		for i := range members {
+			members[i] = pack.EvalSetMember{Metric: "p/a"}
+		}
+		return &pack.EvalSetDoc{
+			Metadata: pack.EvalSetMetadata{ID: "p/s"},
+			Spec:     pack.EvalSetSpec{Members: members},
+		}
+	}
+
+	if _, err := FromDoc(mk(maxEvalSetMembers)); err != nil {
+		t.Fatalf("FromDoc rejected exactly maxEvalSetMembers (%d): %v", maxEvalSetMembers, err)
+	}
+
+	_, err := FromDoc(mk(maxEvalSetMembers + 1))
+	if err == nil {
+		t.Fatalf("FromDoc accepted %d members, want rejection (max %d)", maxEvalSetMembers+1, maxEvalSetMembers)
+	}
+	if !strings.Contains(err.Error(), "too many members") {
+		t.Fatalf("error %q does not describe the member-count cap", err)
+	}
+}
+
 func TestFromDoc_NonStringInputRejected(t *testing.T) {
 	doc := &pack.EvalSetDoc{
 		Metadata: pack.EvalSetMetadata{ID: "p/s"},
