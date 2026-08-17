@@ -761,6 +761,108 @@ In `-o json`, the same data appears as a `"Stats"` object — always a
 fuller narrative, including how `--stats` pairs with the always-on pre-flight
 target echo.
 
+## Eval results store (`results list` / `results show`)
+
+Every successful `mizan eval run` and `mizan eval pairwise` **persists its result
+to a local store by default** — you get run history for free, no flag required.
+Persistence is deliberately **non-fatal**: if the store cannot be opened or the
+write fails, Mizan prints a `warning:` to stderr and the eval **still renders its
+result and exits 0**. An eval is never failed because the results store hiccuped.
+
+### Opting out (`--no-store`)
+
+Add `--no-store` to a single `eval run`/`eval pairwise` invocation to skip
+persistence for that one-off run:
+
+```bash
+mizan eval run --metric demo/quality --field response="…" --no-store
+```
+
+### Where results are stored (config keys)
+
+Backend selection is config-driven (same shape as the registry store), via the
+usual precedence (`--flag`/env `MIZAN_*` > `.env` > config default):
+
+| Config key | Env var | Default | Meaning |
+|---|---|---|---|
+| `results-backend` | `MIZAN_RESULTS_BACKEND` | `sqlite` | store backend. Phase 1 ships `sqlite`; `firestore` is a later phase and currently returns a clear "not implemented" error (surfaced as a non-fatal persistence warning). |
+| `results-db` | `MIZAN_RESULTS_DB` | `<UserConfigDir>/mizan/results.db` | SQLite database path. |
+| `results-retention` | `MIZAN_RESULTS_RETENTION` | `hybrid` | per-input retention policy: `hybrid` (text inline, media by hash+URI reference), `inline` (everything inline), or `reference` (hash+reference only). The content **hash is stored regardless**. |
+
+The results database is a **separate file** from `registry.db`; it is created on
+first write and needs no migration.
+
+### Listing results (`mizan results list`)
+
+```bash
+mizan results list [--metric <id>] [--namespace <ns>] [--since <t>] [--limit N] [-o table|json]
+```
+
+- `--metric` filters by exact template id (`<namespace>/<slug>`).
+- `--namespace` filters by the id namespace.
+- `--since` accepts an RFC3339 timestamp (`2026-08-17T12:00:00Z`) or a bare
+  `YYYY-MM-DD` date (midnight UTC).
+- `--limit` caps the number of rows (0 = backend default).
+
+Results are returned newest-first. The table shows the run id, run time,
+`metric@version`, the outcome (score or pairwise choice), and the resolved model.
+`-o json` emits the whole `[]Result`; an empty set prints a friendly note on
+stderr (table) or `[]` (json).
+
+```text
+RUN ID                      RUN AT                METRIC              OUTCOME  MODEL
+01M06J2X4HY7TDXBW2TKX0XZRQ  2026-08-17T00:30:44Z  demo/quality@1.0.0  5        gemini-2.5-pro
+```
+
+### Inspecting one result (`mizan results show <run-id>`)
+
+```bash
+mizan results show <run-id> [-o table|json]
+```
+
+`show` renders the full, self-describing provenance of one run:
+
+- **Template ref** — id, version, and **contentHash** (the RFC-0001 exact-version
+  anchor).
+- **Applied autorater** — the **resolved** model actually used, model source,
+  effective host (`regional`/`global`), location, sampling count, and flip flag —
+  not the template's declared value, but what actually ran.
+- **Rubric ref** (rubric templates only) — the rubric method and scale (see the
+  provenance note below).
+- **Inputs** — per field: modality, retention mode, content hash, and the inline
+  value or URI reference.
+- **Outcome** — score/choice, explanation, warnings, duration, and (genai path)
+  token usage.
+
+An unknown run id fails with a crisp `no result with run id "…"` error and a
+non-zero exit. `-o json` emits the whole `Result`.
+
+Judge- and input-derived text is **sanitized** (ANSI escapes and control
+characters stripped) before it is written to a terminal cell, exactly as in the
+`eval` renderer.
+
+### What the store records — and what it faithfully leaves empty
+
+The results store records **the applied template exactly as Mizan has it at run
+time; it never synthesizes missing data.** Two consequences are worth calling out:
+
+- **`contentHash` on locally-authored templates.** The registry computes a
+  template's `contentHash` on **import/fork** (the pack round-trip), not on
+  `registry create`. A template you created locally therefore has an **empty**
+  `contentHash`, and the results store records it as empty — faithfully. Run the
+  same template after an export→import (or import a pack) and the `contentHash` is
+  populated and flows through to `results show` unchanged. Treat an empty
+  `contentHash` on a create-only template as expected, not a defect.
+- **Rubric provenance / scale (known limitation).** The registry SQLite backend
+  does not currently persist rubric provenance (`ratingRubric` / `rubricDetail`
+  scale) for registry-loaded rubric templates. So for a rubric result, `RubricRef`
+  is non-nil with `Method: "authored"` and the scale fields may read **empty**
+  (`Rubric Scale: (not recorded)`). This is a registry-side limitation (an
+  owner-routed fix is pending, and even once landed it only populates
+  **newly-created** templates going forward — older rows stay empty). The results
+  store neither invents a scale nor a non-authored method; it records what the
+  template carries. **Treat an empty rubric scale as valid, permanently.**
+
 ## Per-criterion rubric detail (`--rubric-detail`)
 
 For a `rubric` template, add `--rubric-detail` to `eval run` to get a score and

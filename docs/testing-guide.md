@@ -1098,6 +1098,144 @@ always-on pre-flight target echo.
   live above** as the `Choice:` line in the `eval pairwise` output — expect
   it to vary run to run since it's a live autorater judgment.
 
+## Eval results store (persistence + `results list`/`show`)
+
+Every successful `eval run`/`eval pairwise` **persists its result by default** to
+a local SQLite store; `mizan results list` and `mizan results show <run-id>`
+query it. This recipe was **captured live** (project `ghchinoy-genai-sa`, ADC)
+against an isolated store — set `MIZAN_RESULTS_DB` (and `MIZAN_REGISTRY_DB`) to
+temp paths so the walkthrough doesn't touch your real databases:
+
+```bash
+export MIZAN_PROJECT_ID=ghchinoy-genai-sa
+export MIZAN_REGISTRY_DB=/tmp/e2e-mizan/registry.db
+export MIZAN_RESULTS_DB=/tmp/e2e-mizan/results.db
+```
+
+### 1. Run an eval — persistence is automatic
+
+```bash
+mizan eval run --metric demo/quality-packed \
+  --field response="Water boils at 100 degrees Celsius at sea level, which is correct."
+```
+```text
+mizan: autorater → project=ghchinoy-genai-sa (src=env) location=us-central1 (src=default) model=gemini-2.5-pro (path=native)
+Score:        5
+Explanation:  The response is factually accurate and includes the important context that this boiling point is at sea level.
+```
+
+### 2. `results list` — the run is there
+
+```bash
+mizan results list --metric demo/quality-packed
+```
+```text
+RUN ID                      RUN AT                METRIC                     OUTCOME  MODEL
+01M06J2X4HY7TDXBW2TKX0XZRQ  2026-08-17T00:31:31Z  demo/quality-packed@1.0.0  5        gemini-2.5-pro
+```
+
+### 3. `results show <run-id>` — full provenance
+
+```bash
+mizan results show 01M06J2X4HY7TDXBW2TKX0XZRQ
+```
+```text
+Run ID:                   01M06J2X4HY7TDXBW2TKX0XZRQ
+Run At:                   2026-08-17T00:31:31Z
+Command:                  eval run
+Project:                  ghchinoy-genai-sa
+Host:                     850b649bc20c
+Mizan:                    dev (none)
+Template ID:              demo/quality-packed
+Template Version:         1.0.0
+Template ContentHash:     sha256:96c38b2f2a67aa8e8abc07edfd13677228d09db85062198f63f136d4b6a03aad
+Template Kind:            pointwise
+Template Source:          pack:demo@/tmp/e2e-mizan/src
+Autorater Model:          gemini-2.5-pro
+Autorater ModelSource:    template
+Autorater EffectiveHost:  regional
+Autorater Location:       us-central1
+Autorater SamplingCount:  4
+Autorater FlipEnabled:    false
+Inputs:
+FIELD     MODALITY  MODE    HASH               VALUE
+response  text      inline  48fec5881266c12d…  Water boils at 100 degrees Celsius at sea level, which is correct.
+Score:        5
+Explanation:  The response is factually accurate and includes the important context that this boiling point is at sea level.
+Duration:     15.58s
+```
+
+Note the populated **`Template ContentHash`**: this run used a template that was
+**imported from a pack** (`Template Source: pack:…`), so the registry stamped its
+content hash and it flows through to the stored result unchanged.
+
+### 4. `-o json` round-trips the whole Result
+
+```bash
+mizan results show 01M06J2X4HY7TDXBW2TKX0XZRQ -o json
+```
+```json
+{
+  "RunID": "01M06J2X4HY7TDXBW2TKX0XZRQ",
+  "RunKind": "single",
+  "Invocation": { "Command": "eval run", "ProjectID": "ghchinoy-genai-sa", "HostLabel": "850b649bc20c" },
+  "Template": { "ID": "demo/quality-packed", "Version": "1.0.0", "ContentHash": "sha256:96c38b2f…", "Kind": "pointwise" },
+  "Autorater": { "Model": "gemini-2.5-pro", "SamplingCount": 4, "EffectiveHost": "regional", "Location": "us-central1", "ModelSource": "template" },
+  "Inputs": [ { "Field": "response", "Modality": "text", "ContentHash": "48fec588…", "Mode": "inline", "Inline": "Water boils at 100 degrees Celsius at sea level, which is correct." } ],
+  "Outcome": { "Score": 5, "Explanation": "…", "DurationNS": 15580000000 }
+}
+```
+
+### 5. `--no-store` persists nothing
+
+```bash
+mizan results list -o json | jq length            # -> 2
+mizan eval run --metric demo/quality-packed --no-store --field response="Two plus two equals four."
+mizan results list -o json | jq length            # -> 2 (unchanged)
+```
+The `--no-store` run renders its `Score`/`Explanation` on stdout as usual but
+writes no row.
+
+### 6. A store failure is non-fatal — the eval still renders
+
+Point the store at an unwritable path; persistence fails but the eval **still
+prints its result and exits 0**, with only a `warning:` on stderr:
+
+```bash
+MIZAN_RESULTS_DB=/dev/null/nope/results.db \
+  mizan eval run --metric demo/quality-packed --field response="The Earth orbits the Sun."
+```
+```text
+# stdout
+Score:        5
+Explanation:  The response is a factually accurate and undisputed scientific statement.
+# stderr
+warning: results store unavailable, result not persisted: sqlite: create db dir: mkdir /dev/null: not a directory
+```
+(exit code `0`.)
+
+### Rubric result — the documented provenance limitation
+
+For a **rubric** template loaded from the registry, `results show` renders a
+non-nil rubric ref with `Method: authored`, but the **scale reads empty**:
+
+```bash
+mizan eval run --metric demo/clarity --field response="To reset your password, click Forgot Password and follow the emailed link."
+mizan results show <run-id> | grep -i rubric
+```
+```text
+Rubric Method:            authored
+Rubric Scale:             (not recorded)
+Rubric DetailMode:        false
+```
+
+This is **expected**: the registry SQLite backend does not persist rubric
+provenance / `rubricDetail` scale, so the results store records `Method:
+"authored"` with no scale. The store **records the applied template faithfully
+and never synthesizes missing data** — an empty rubric scale (and an empty
+`contentHash` on a `registry create`-authored template, which is only stamped on
+import/fork) are valid, permanent states, not defects.
+
 ## Dev & CI setup
 
 Contributor-facing quality gates, all runnable locally with no project/ADC. The
