@@ -40,7 +40,7 @@ func TestStoreResultRecordErrorNonFatal(t *testing.T) {
 	score := float32(2)
 	storeResult(cmd, cfg, "eval run",
 		registry.MetricTemplate{ID: "ns/x", Kind: registry.KindPointwise},
-		eval.Instance{}, eval.Result{Score: &score})
+		eval.Instance{}, eval.Result{Score: &score}, storeHookOpts{})
 
 	if !strings.Contains(errBuf.String(), "failed to persist result") {
 		t.Errorf("expected a non-fatal record-error warning, got: %q", errBuf.String())
@@ -83,7 +83,7 @@ func seedResult(t *testing.T, dbPath, id, version string) {
 			Score:       &score,
 			Explanation: "good",
 			Applied:     &eval.AppliedAutorater{Model: "gemini-x", ModelSource: "template"},
-		})
+		}, storeHookOpts{})
 	if errBuf.Len() != 0 {
 		t.Fatalf("seed %q: unexpected warning: %q", id, errBuf.String())
 	}

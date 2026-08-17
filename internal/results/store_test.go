@@ -200,6 +200,103 @@ func TestServiceRecordBuildsResult(t *testing.T) {
 	}
 }
 
+// TestServiceRecordRubricRefFromProvenance proves the RubricRef reads
+// RubricProvenance.Method/GeneratorModel/Recipe (round-trippable as of PR #69)
+// instead of unconditionally defaulting Method to "authored".
+func TestServiceRecordRubricRefFromProvenance(t *testing.T) {
+	fs := &fakeStore{}
+	svc := NewService(fs)
+	got, err := svc.Record(context.Background(), RecordInput{
+		Command: "eval run",
+		Template: registry.MetricTemplate{
+			ID:   "ns/adaptive",
+			Kind: registry.KindRubric,
+			RubricProvenance: &registry.RubricProvenance{
+				Method:         "adaptive-generated",
+				GeneratorModel: "gemini-2.5-pro",
+				Recipe:         "general_quality_v1",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if got.Rubric == nil {
+		t.Fatal("Rubric is nil, want non-nil for KindRubric")
+	}
+	if got.Rubric.Method != "adaptive-generated" {
+		t.Errorf("Rubric.Method = %q, want adaptive-generated (from RubricProvenance, not the authored default)", got.Rubric.Method)
+	}
+	if got.Rubric.GeneratorModel != "gemini-2.5-pro" {
+		t.Errorf("Rubric.GeneratorModel = %q, want gemini-2.5-pro", got.Rubric.GeneratorModel)
+	}
+	if got.Rubric.Recipe != "general_quality_v1" {
+		t.Errorf("Rubric.Recipe = %q, want general_quality_v1", got.Rubric.Recipe)
+	}
+}
+
+// TestServiceRecordRubricRefAuthoredWhenNoProvenance proves a hand-authored rubric
+// (nil RubricProvenance) still records Method="authored" — the existing default
+// semantics are unchanged for templates without provenance.
+func TestServiceRecordRubricRefAuthoredWhenNoProvenance(t *testing.T) {
+	fs := &fakeStore{}
+	svc := NewService(fs)
+	got, err := svc.Record(context.Background(), RecordInput{
+		Command:  "eval run",
+		Template: registry.MetricTemplate{ID: "ns/authored", Kind: registry.KindRubric},
+	})
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if got.Rubric == nil || got.Rubric.Method != "authored" {
+		t.Errorf("Rubric = %+v, want Method=authored for a nil-provenance rubric", got.Rubric)
+	}
+	if len(got.Rubric.Origins) != 0 {
+		t.Errorf("Rubric.Origins = %v, want empty for a nil-provenance rubric", got.Rubric.Origins)
+	}
+}
+
+// TestServiceRecordRubricRefMixedOrigins proves a union-before-freeze draft
+// (mixed per-criterion RubricMeta.Origin — PR #74) surfaces the distinct, sorted
+// origin set on the stored RubricRef, keeping a mixed-origin record honest.
+func TestServiceRecordRubricRefMixedOrigins(t *testing.T) {
+	fs := &fakeStore{}
+	svc := NewService(fs)
+	got, err := svc.Record(context.Background(), RecordInput{
+		Command: "eval run",
+		Template: registry.MetricTemplate{
+			ID:   "ns/union",
+			Kind: registry.KindRubric,
+			RubricProvenance: &registry.RubricProvenance{
+				Method: "adaptive-generated",
+				RubricMeta: []registry.RubricMeta{
+					{Group: "g", Criterion: "c1", Origin: registry.OriginAdaptiveGenerated},
+					{Group: "g", Criterion: "c2", Origin: registry.OriginHandAuthored},
+					// A duplicate origin must be deduplicated.
+					{Group: "g", Criterion: "c3", Origin: registry.OriginAdaptiveGenerated},
+					// An empty origin must be ignored.
+					{Group: "g", Criterion: "c4"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if got.Rubric == nil {
+		t.Fatal("Rubric is nil, want non-nil")
+	}
+	want := []string{registry.OriginAdaptiveGenerated, registry.OriginHandAuthored} // sorted
+	if len(got.Rubric.Origins) != len(want) {
+		t.Fatalf("Rubric.Origins = %v, want %v", got.Rubric.Origins, want)
+	}
+	for i := range want {
+		if got.Rubric.Origins[i] != want[i] {
+			t.Errorf("Rubric.Origins[%d] = %q, want %q (distinct + sorted)", i, got.Rubric.Origins[i], want[i])
+		}
+	}
+}
+
 func TestServiceRecordNonRubricNoRubricRef(t *testing.T) {
 	fs := &fakeStore{}
 	svc := NewService(fs)

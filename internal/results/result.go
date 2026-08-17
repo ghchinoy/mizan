@@ -133,17 +133,19 @@ type AppliedAutorater struct {
 // pinned by Template.ContentHash; these fields are a denormalized, human-legible
 // echo, not a second source of truth.
 //
-// RubricProvenance-derived fields (Method=adaptive-generated, generator, recipe)
-// are wired additively once registry.MetricTemplate.RubricProvenance lands
-// (adaptive PR#52). It is not present on main today, so Phase 1 populates only
-// Method="authored" and the RubricDetail-derived scale fields.
+// RubricProvenance-derived fields (Method=adaptive-generated, generator, recipe,
+// per-criterion origins) are read from registry.MetricTemplate.RubricProvenance,
+// which round-trips through the default sqlite backend as of PR #69. A nil
+// RubricProvenance (hand-authored template) leaves Method="authored" and the
+// provenance-derived fields empty — existing records are unaffected.
 type RubricRef struct {
-	Method         string // "authored" | "adaptive-generated" (from RubricProvenance; "authored" if nil)
-	GeneratorModel string `json:",omitempty"` // when adaptive-generated
-	Recipe         string `json:",omitempty"` // e.g. "general_quality_v1"
-	ScaleMin       *int   `json:",omitempty"` // RubricDetail.Scale as applied
-	ScaleMax       *int   `json:",omitempty"`
-	DetailMode     bool   // whether the per-criterion structured path was used
+	Method         string   // "authored" | "adaptive-generated" (from RubricProvenance.Method; "authored" if nil/empty)
+	GeneratorModel string   `json:",omitempty"` // RubricProvenance.GeneratorModel (adaptive-generated)
+	Recipe         string   `json:",omitempty"` // RubricProvenance.Recipe, e.g. "general_quality_v1"
+	Origins        []string `json:",omitempty"` // distinct per-criterion RubricMeta.Origin values (union-before-freeze audit; nil when none recorded)
+	ScaleMin       *int     `json:",omitempty"` // RubricDetail.Scale as applied
+	ScaleMax       *int     `json:",omitempty"`
+	DetailMode     bool     // whether the per-criterion structured path was used
 }
 
 // StoredInput is one evaluation input field, stored per the retention policy

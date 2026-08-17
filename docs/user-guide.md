@@ -783,10 +783,18 @@ mizan eval run --metric demo/quality --field response="…" --no-store
 Each persisted result records the machine hostname (`os.Hostname()`) inline as a
 coarse, non-PII-intended team-attribution label (design §4.2) — it is captured so
 runs can later be told apart by originating machine, not to identify a person.
-Persistence is on by default and `--no-store` disables it entirely, so opting out
-of the hostname today means opting out of storing the run at all. A field-level
-opt-out that suppresses just the hostname is a planned future enhancement; it
-matters most once the store becomes syncable, whereas Phase 1 is local-only SQLite.
+Persistence is on by default and `--no-store` disables it entirely.
+
+For a narrower opt-out, add `--no-host-label` to a single `eval run`/`eval
+pairwise` invocation to suppress **just** the hostname: the result is still stored
+normally, but its host label is recorded empty.
+
+```bash
+mizan eval run --metric demo/quality --field response="…" --no-host-label
+```
+
+This matters most once the store becomes syncable or shareable; Phase 1 is
+local-only SQLite.
 
 ### Where results are stored (config keys)
 
@@ -863,15 +871,19 @@ time; it never synthesizes missing data.** Two consequences are worth calling ou
   same template after an export→import (or import a pack) and the `contentHash` is
   populated and flows through to `results show` unchanged. Treat an empty
   `contentHash` on a create-only template as expected, not a defect.
-- **Rubric provenance / scale (known limitation).** The registry SQLite backend
-  does not currently persist rubric provenance (`ratingRubric` / `rubricDetail`
-  scale) for registry-loaded rubric templates. So for a rubric result, `RubricRef`
-  is non-nil with `Method: "authored"` and the scale fields may read **empty**
-  (`Rubric Scale: (not recorded)`). This is a registry-side limitation (an
-  owner-routed fix is pending, and even once landed it only populates
-  **newly-created** templates going forward — older rows stay empty). The results
-  store neither invents a scale nor a non-authored method; it records what the
-  template carries. **Treat an empty rubric scale as valid, permanently.**
+- **Rubric provenance / scale.** As of the SQLite v2 migration, the registry
+  round-trips rubric provenance (`rubricProvenance` / `rubricDetail` scale), and the
+  results store reads it: for a rubric result, `RubricRef.Method` reflects the
+  template's recorded method (e.g. `adaptive-generated` for an adaptive-generated
+  template, with `GeneratorModel` / `Recipe` echoed when present), and a
+  mixed-origin union-before-freeze draft additionally surfaces the distinct
+  per-criterion origins under `Rubric Origins`. A **hand-authored** template (no
+  provenance) still shows `Method: authored`, and a template with no declared scale
+  reads `Rubric Scale: (not recorded)` — the store neither invents a scale nor a
+  non-authored method; it records what the template carries. Note that only
+  templates whose provenance/scale was persisted (e.g. an adaptive rubric frozen via
+  `--save-as`, or any pack import) carry these fields; a template with none records
+  them empty. **Treat an empty rubric scale as valid.**
 
 ## Per-criterion rubric detail (`--rubric-detail`)
 

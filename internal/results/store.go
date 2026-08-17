@@ -240,12 +240,16 @@ func (s *Service) buildInputs(inst eval.Instance) []StoredInput {
 }
 
 // buildRubricRef builds the human-legible rubric reference for a rubric template.
-// Only fields available on main today are populated: Method="authored" and the
-// RubricDetail-derived scale. It returns nil for non-rubric kinds.
+// It returns nil for non-rubric kinds.
 //
-// RubricProvenance-derived fields (Method=adaptive-generated, generator, recipe)
-// are wired additively once registry.MetricTemplate.RubricProvenance lands
-// (adaptive PR#52); that field is not on main today.
+// Provenance-derived fields are read from tmpl.RubricProvenance, which round-trips
+// through the default sqlite backend as of PR #69: Method/GeneratorModel/Recipe
+// come from the top-level provenance, and Origins is the distinct set of
+// per-criterion RubricMeta.Origin values (the union-before-freeze audit record —
+// PR #74). A nil RubricProvenance means the rubric was hand-authored, so Method
+// stays "authored" and the provenance-derived fields stay empty. The exact variant
+// is ALREADY pinned by Template.ContentHash; these fields are a denormalized,
+// human-legible echo, not a second source of truth.
 func buildRubricRef(tmpl registry.MetricTemplate, detailMode bool) *RubricRef {
 	if tmpl.Kind != registry.KindRubric {
 		return nil
@@ -254,6 +258,17 @@ func buildRubricRef(tmpl registry.MetricTemplate, detailMode bool) *RubricRef {
 		Method:     "authored",
 		DetailMode: detailMode,
 	}
+	if p := tmpl.RubricProvenance; p != nil {
+		// Do NOT change RubricProvenance.Method's semantics ("adaptive-generated"
+		// etc.) — read it through as-is, falling back to "authored" only when the
+		// provenance carries no method.
+		if p.Method != "" {
+			rr.Method = p.Method
+		}
+		rr.GeneratorModel = p.GeneratorModel
+		rr.Recipe = p.Recipe
+		rr.Origins = distinctOrigins(p.RubricMeta)
+	}
 	if tmpl.RubricDetail != nil && tmpl.RubricDetail.Scale != nil {
 		min := tmpl.RubricDetail.Scale.Min
 		max := tmpl.RubricDetail.Scale.Max
@@ -261,6 +276,34 @@ func buildRubricRef(tmpl registry.MetricTemplate, detailMode bool) *RubricRef {
 		rr.ScaleMax = &max
 	}
 	return rr
+}
+
+// distinctOrigins returns the distinct, sorted set of non-empty per-criterion
+// RubricMeta.Origin values, or nil when none are recorded. A union-before-freeze
+// draft (PR #74) carries a mix of "adaptive-generated" and "hand-authored"
+// criteria; capturing the distinct set keeps a mixed-origin stored result honest
+// without introducing a new top-level Method value (adaptive phase-3 route (i)).
+func distinctOrigins(meta []registry.RubricMeta) []string {
+	if len(meta) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(meta))
+	out := make([]string, 0, len(meta))
+	for _, m := range meta {
+		if m.Origin == "" {
+			continue
+		}
+		if _, ok := seen[m.Origin]; ok {
+			continue
+		}
+		seen[m.Origin] = struct{}{}
+		out = append(out, m.Origin)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
 }
 
 // buildOutcome copies the plain outcome fields off eval.Result (the fields that

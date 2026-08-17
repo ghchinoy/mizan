@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -71,7 +72,7 @@ func TestStoreResultRoundTrip(t *testing.T) {
 		},
 	}
 
-	storeResult(cmd, cfg, "eval run", tmpl, inst, res)
+	storeResult(cmd, cfg, "eval run", tmpl, inst, res, storeHookOpts{})
 	if errBuf.Len() != 0 {
 		t.Fatalf("unexpected warning on a healthy store: %q", errBuf.String())
 	}
@@ -118,7 +119,7 @@ func TestStoreResultAppliedNilZeroValue(t *testing.T) {
 	res := eval.Result{Score: &score, Applied: nil}
 	storeResult(cmd, cfg, "eval run",
 		registry.MetricTemplate{ID: "ns/x", Version: "0.1.0", Kind: registry.KindPointwise},
-		eval.Instance{}, res)
+		eval.Instance{}, res, storeHookOpts{})
 	if errBuf.Len() != 0 {
 		t.Fatalf("unexpected warning: %q", errBuf.String())
 	}
@@ -155,7 +156,7 @@ func TestStoreResultOpenErrorNonFatal(t *testing.T) {
 	cmd, errBuf := newTestCmd()
 	storeResult(cmd, cfg, "eval run",
 		registry.MetricTemplate{ID: "ns/x", Kind: registry.KindPointwise},
-		eval.Instance{}, eval.Result{})
+		eval.Instance{}, eval.Result{}, storeHookOpts{})
 	if !strings.Contains(errBuf.String(), "warning:") {
 		t.Errorf("expected a non-fatal warning on store-open failure, got: %q", errBuf.String())
 	}
@@ -169,7 +170,7 @@ func TestStoreResultUnknownBackendNonFatal(t *testing.T) {
 	cmd, errBuf := newTestCmd()
 	storeResult(cmd, cfg, "eval run",
 		registry.MetricTemplate{ID: "ns/x", Kind: registry.KindPointwise},
-		eval.Instance{}, eval.Result{})
+		eval.Instance{}, eval.Result{}, storeHookOpts{})
 	if !strings.Contains(errBuf.String(), "warning:") {
 		t.Errorf("expected a non-fatal warning on an unimplemented backend, got: %q", errBuf.String())
 	}
@@ -200,4 +201,109 @@ func TestEvalPairwiseNoStoreFlag(t *testing.T) {
 	if cmd.Flags().Lookup("no-store") == nil {
 		t.Fatal("eval pairwise is missing the --no-store flag")
 	}
+}
+
+// TestEvalRunNoHostLabelFlag proves --no-host-label exists on eval run and
+// defaults to false (the hostname is captured unless explicitly opted out).
+func TestEvalRunNoHostLabelFlag(t *testing.T) {
+	cmd := newEvalRunCmd()
+	f := cmd.Flags().Lookup("no-host-label")
+	if f == nil {
+		t.Fatal("eval run is missing the --no-host-label flag")
+	}
+	if f.DefValue != "false" {
+		t.Errorf("--no-host-label default = %q, want false (hostname captured by default)", f.DefValue)
+	}
+}
+
+// TestEvalPairwiseNoHostLabelFlag proves --no-host-label exists on eval pairwise.
+func TestEvalPairwiseNoHostLabelFlag(t *testing.T) {
+	cmd := newEvalPairwiseCmd()
+	if cmd.Flags().Lookup("no-host-label") == nil {
+		t.Fatal("eval pairwise is missing the --no-host-label flag")
+	}
+}
+
+// TestStoreResultNoHostLabelOmitsHostname proves the --no-host-label opt-out still
+// persists a full result row, but with an empty HostLabel (field-level privacy
+// opt-out), while a default (opt-in) store records the real hostname.
+func TestStoreResultNoHostLabelOmitsHostname(t *testing.T) {
+	realHost, _ := os.Hostname()
+	if realHost == "" {
+		t.Skip("hostname unavailable in this environment; cannot compare host-label capture")
+	}
+
+	// Opted-out: HostLabel must be empty, but the row still persists.
+	t.Run("opted-out", func(t *testing.T) {
+		cfg := sqliteConfig(t)
+		cmd, errBuf := newTestCmd()
+		score := float32(2)
+		storeResult(cmd, cfg, "eval run",
+			registry.MetricTemplate{ID: "ns/x", Kind: registry.KindPointwise},
+			eval.Instance{}, eval.Result{Score: &score}, storeHookOpts{NoHostLabel: true})
+		if errBuf.Len() != 0 {
+			t.Fatalf("unexpected warning: %q", errBuf.String())
+		}
+		got := onlyResult(t, cfg)
+		if got.Invocation.HostLabel != "" {
+			t.Errorf("HostLabel = %q, want empty under --no-host-label", got.Invocation.HostLabel)
+		}
+		if got.Outcome.Score == nil || *got.Outcome.Score != 2 {
+			t.Errorf("result not persisted normally: %+v", got.Outcome)
+		}
+	})
+
+	// Default (opt-in): HostLabel records the real hostname.
+	t.Run("default", func(t *testing.T) {
+		cfg := sqliteConfig(t)
+		cmd, _ := newTestCmd()
+		score := float32(2)
+		storeResult(cmd, cfg, "eval run",
+			registry.MetricTemplate{ID: "ns/x", Kind: registry.KindPointwise},
+			eval.Instance{}, eval.Result{Score: &score}, storeHookOpts{})
+		got := onlyResult(t, cfg)
+		if got.Invocation.HostLabel != realHost {
+			t.Errorf("HostLabel = %q, want %q (captured by default)", got.Invocation.HostLabel, realHost)
+		}
+	})
+}
+
+// TestStoreResultRunAtReflectsRunStart proves RunAt is stamped from the run-start
+// time threaded through storeHookOpts, not the later record time.
+func TestStoreResultRunAtReflectsRunStart(t *testing.T) {
+	cfg := sqliteConfig(t)
+	cmd, errBuf := newTestCmd()
+
+	runStart := time.Now().Add(-2 * time.Hour)
+	score := float32(3)
+	storeResult(cmd, cfg, "eval run",
+		registry.MetricTemplate{ID: "ns/x", Kind: registry.KindPointwise},
+		eval.Instance{}, eval.Result{Score: &score}, storeHookOpts{RunAt: runStart})
+	if errBuf.Len() != 0 {
+		t.Fatalf("unexpected warning: %q", errBuf.String())
+	}
+
+	got := onlyResult(t, cfg)
+	if !got.RunAt.Equal(runStart.UTC()) {
+		t.Errorf("RunAt = %v, want the run-start time %v (not the record time)", got.RunAt, runStart.UTC())
+	}
+}
+
+// onlyResult opens the results store at cfg and returns the single persisted
+// result, failing if the store does not contain exactly one row.
+func onlyResult(t *testing.T, cfg *config.Config) results.Result {
+	t.Helper()
+	svc, closeSvc, err := wire.OpenResultService(cfg)
+	if err != nil {
+		t.Fatalf("OpenResultService: %v", err)
+	}
+	defer func() { _ = closeSvc() }()
+	rs, err := svc.List(context.Background(), results.ResultFilter{})
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(rs) != 1 {
+		t.Fatalf("got %d results, want exactly 1", len(rs))
+	}
+	return rs[0]
 }
