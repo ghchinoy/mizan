@@ -1200,6 +1200,13 @@ $ mizan eval run --set …/answer-quality.yaml --field prompt="…" --field resp
 }
 ```
 
+> **Note:** The scores in these examples are illustrative and were captured from
+> **separate live runs**. The judge model is non-deterministic, so exact
+> per-member scores and the aggregate vary run-to-run — the table and JSON blocks
+> above come from different invocations, which is why their conciseness score and
+> aggregate differ. Assert on structure and pass/fail behavior, not the exact
+> numbers.
+
 **Partial failure — continue-on-error (default).** The
 [`answer-quality-badmember.yaml`](examples/evalset-quickstart/evalsets/answer-quality-badmember.yaml)
 set's first member points at a template that does not exist. The run **completes**;

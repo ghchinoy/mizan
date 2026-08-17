@@ -3,8 +3,11 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/ghchinoy/mizan/internal/evalset"
 )
@@ -195,5 +198,76 @@ func TestEvalSetGateError(t *testing.T) {
 				t.Errorf("unexpected gate error text: %v", err)
 			}
 		})
+	}
+}
+
+// TestEvalSetGateErrorSanitizesSetID proves the gate-failure error string routes
+// the untrusted manifest metadata.id (res.SetID) through sanitizeCell, so ANSI /
+// control sequences cannot reach the terminal via stderr (CWE-150). This closes
+// the one manifest-derived path that bypassed renderScorecard's sanitization.
+func TestEvalSetGateErrorSanitizesSetID(t *testing.T) {
+	cases := []struct {
+		name  string
+		setID string
+	}{
+		{"ansi escape", "\x1b[2J\x1b[1;1Hspoofed"},
+		{"control chars", "evil\x07\x08id\x1b]0;title\x07"},
+		{"bare escape byte", "a\x1bb"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := evalSetGateError(evalset.EvalSetResult{SetID: tc.setID, Gate: true, Verdict: evalset.Failed})
+			if err == nil {
+				t.Fatal("want gate error, got nil")
+			}
+			msg := err.Error()
+			for _, r := range msg {
+				if unicode.IsControl(r) {
+					t.Fatalf("gate error contains raw control rune %U: %q", r, msg)
+				}
+			}
+			if strings.Contains(msg, "\x1b") {
+				t.Fatalf("gate error contains raw ESC: %q", msg)
+			}
+			// The sanitized, printable remainder must still be carried through.
+			if !strings.Contains(msg, "spoofed") && !strings.Contains(msg, "evilid") && !strings.Contains(msg, "ab") {
+				t.Errorf("sanitized set id text dropped entirely: %q", msg)
+			}
+		})
+	}
+}
+
+// TestCheckEvalSetManifestSize proves the CLI-boundary read guard: a manifest
+// larger than the 1 MiB bound is rejected with a clean error naming the file and
+// the limit (never a panic/OOM), while an in-bounds file and a missing file pass
+// the size check (the latter is left for os.ReadFile to report).
+func TestCheckEvalSetManifestSize(t *testing.T) {
+	dir := t.TempDir()
+
+	// Oversized: 1 MiB + 1 byte -> rejected.
+	big := filepath.Join(dir, "big.yaml")
+	if err := os.WriteFile(big, bytes.Repeat([]byte("a"), maxEvalSetManifestBytes+1), 0o600); err != nil {
+		t.Fatalf("write big manifest: %v", err)
+	}
+	err := checkEvalSetManifestSize(big)
+	if err == nil {
+		t.Fatal("oversized manifest should be rejected, got nil")
+	}
+	if !strings.Contains(err.Error(), "too large") || !strings.Contains(err.Error(), "big.yaml") {
+		t.Errorf("error should name the file and the limit, got: %v", err)
+	}
+
+	// In-bounds: exactly at the limit -> accepted (matches pack's limit+1 reader).
+	ok := filepath.Join(dir, "ok.yaml")
+	if err := os.WriteFile(ok, bytes.Repeat([]byte("a"), maxEvalSetManifestBytes), 0o600); err != nil {
+		t.Fatalf("write ok manifest: %v", err)
+	}
+	if err := checkEvalSetManifestSize(ok); err != nil {
+		t.Errorf("in-bounds manifest should pass size check, got: %v", err)
+	}
+
+	// Missing file: size check is a no-op; os.ReadFile surfaces the error later.
+	if err := checkEvalSetManifestSize(filepath.Join(dir, "nope.yaml")); err != nil {
+		t.Errorf("missing file should pass size check (deferred to ReadFile), got: %v", err)
 	}
 }

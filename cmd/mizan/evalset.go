@@ -14,6 +14,11 @@ import (
 	"github.com/ghchinoy/mizan/internal/wire"
 )
 
+// maxEvalSetManifestBytes bounds the CLI-side read of an --set manifest, matching
+// pack.ParseEvalSet's internal 1 MiB parse limit so an oversized file is rejected
+// before os.ReadFile loads it whole into memory.
+const maxEvalSetManifestBytes = 1 << 20 // 1 MiB
+
 // runEvalSet is the `eval run --set <path>` branch, kept out of eval.go (shared
 // with other teams) to hold that file's footprint minimal. --set is PATH-BASED
 // in Phase 1: setPath is a filesystem path to a §3.4a EvalSet manifest, parsed
@@ -44,6 +49,13 @@ func runEvalSet(cmd *cobra.Command, setPath, model string, fields, files, gcs []
 	}
 
 	// Read + parse the manifest FILE (path-based), then convert to a runnable Set.
+	// Bound the read at the CLI boundary so the documented 1 MiB manifest limit
+	// (pack.ParseEvalSet's internal LimitReader) is enforced BEFORE the whole
+	// file is slurped into memory — os.ReadFile alone would resident-load a
+	// multi-GB file and OOM before parsing ever caps it.
+	if err := checkEvalSetManifestSize(setPath); err != nil {
+		return err
+	}
 	data, err := os.ReadFile(setPath)
 	if err != nil {
 		return fmt.Errorf("read eval-set manifest: %w", err)
@@ -96,6 +108,18 @@ func runEvalSet(cmd *cobra.Command, setPath, model string, fields, files, gcs []
 	if gateErr := evalSetGateError(res); gateErr != nil {
 		cmd.SilenceUsage = true
 		return gateErr
+	}
+	return nil
+}
+
+// checkEvalSetManifestSize rejects an --set manifest whose on-disk size exceeds
+// the 1 MiB bound BEFORE os.ReadFile loads it whole into memory, so the documented
+// limit (pack.ParseEvalSet's internal LimitReader) is enforced end-to-end and a
+// multi-GB file cannot OOM the process ahead of parsing. A stat error is left for
+// the subsequent os.ReadFile to surface with its own message.
+func checkEvalSetManifestSize(setPath string) error {
+	if fi, err := os.Stat(setPath); err == nil && fi.Size() > maxEvalSetManifestBytes {
+		return fmt.Errorf("eval-set manifest %q too large: %d bytes (max %d)", setPath, fi.Size(), maxEvalSetManifestBytes)
 	}
 	return nil
 }
@@ -197,7 +221,11 @@ func memberStatusLabel(s evalset.MemberStatus) string {
 // stdout regardless.
 func evalSetGateError(res evalset.EvalSetResult) error {
 	if res.Gate && res.Verdict == evalset.Failed {
-		return fmt.Errorf("eval-set gate failed: %s verdict for %s", res.Verdict, res.SetID)
+		// sanitizeCell strips terminal-escape/control sequences: res.SetID is the
+		// manifest's metadata.id, untrusted content that cobra prints raw to stderr
+		// otherwise (CWE-150). Mirrors the sanitization renderScorecard applies to
+		// every other manifest-derived cell.
+		return fmt.Errorf("eval-set gate failed: %s verdict for %s", res.Verdict, sanitizeCell(res.SetID))
 	}
 	return nil
 }
