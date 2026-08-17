@@ -6,6 +6,16 @@ modalities (text, image, audio, video, music). It is designed around one shared 
 core with two thin frontends: a Cobra CLI (the primary deliverable) and a later
 Wails v2 desktop app.
 
+## Contents
+
+- [Status](#status)
+- [Quickstart](#quickstart)
+- [Local development](#local-development)
+- [Releases](#releases)
+- [Contributing](#contributing)
+- [Architecture](#architecture)
+- [Documentation](#documentation)
+
 ## Status
 
 **Mizan is installable today as a working CLI**: the metric registry, config,
@@ -36,6 +46,12 @@ what isn't built — Mizan never claims a capability it hasn't actually shipped.
 - **Multimodal evaluation** (image/audio/video/music) — `eval run`/`eval
   pairwise` accept `--file key=/path` (auto-staged to your configured GCS
   staging bucket) or `--gcs key=gs://...` (pre-staged) for non-text fields.
+- **Template packs & sharing** — `mizan pack init|add|validate` scaffolds and
+  validates a metric-template pack (the `validate` step is a credential-free PR
+  gate), and `mizan registry import|export` moves templates between the local
+  registry and a pack tree or git repo (default
+  `github.com/ghchinoy/mizan-templates`). Share a pack by committing it and
+  opening a PR — Mizan never pushes on your behalf.
 
 See the [user guide](docs/user-guide.md) and
 [testing guide](docs/testing-guide.md) for full walkthroughs with real,
@@ -43,9 +59,9 @@ live-verified command output.
 
 ### Not built yet
 
-Template packs and sharing, batch evaluation, and the desktop app are **not
-built** — do not expect them to work. For what is planned but not yet built,
-see [`docs/roadmap.md`](docs/roadmap.md).
+Batch evaluation and the desktop app are **not built** — do not expect them to
+work. For what is planned but not yet built, see
+[`docs/roadmap.md`](docs/roadmap.md).
 
 ## Quickstart
 
@@ -64,7 +80,7 @@ Install (cgo-free — no C compiler needed, thanks to the pure-Go
 `modernc.org/sqlite` driver):
 
 ```sh
-go install github.com/ghchinoy/mizan/cmd/mizan@main
+go install github.com/ghchinoy/mizan/cmd/mizan@v0.1.0
 ```
 
 Point Mizan at your project:
@@ -95,6 +111,46 @@ Explanation:  The response 'The cat sat on the mat.' is a very short, direct, an
 
 For the full walkthrough (registry lifecycle, interpreting results,
 troubleshooting), see the [user guide](docs/user-guide.md).
+
+## Local development
+
+Building from source needs Go 1.26+ (the `toolchain` directive in `go.mod`
+pins the exact version and `go` fetches it automatically). No C compiler is
+required — the SQLite driver is pure Go.
+
+```sh
+git clone https://github.com/ghchinoy/mizan.git
+cd mizan
+make build          # builds ./bin/mizan (CGO_ENABLED=0)
+make test           # unit tests: go test ./...
+```
+
+Run `make help` for the full target list (`vet`, `fmt`, `install`, `cover`).
+The integration tests hit real Vertex AI, so they need credentials and a
+project:
+
+```sh
+export MIZAN_PROJECT_ID=<your-project-id>
+make integration-test   # go test -tags integration ./...
+```
+
+## Releases
+
+Releases are cut as semantic-version git tags (e.g. `v0.1.0`). Pin an install
+to a specific release by using the tag in the module path:
+
+```sh
+go install github.com/ghchinoy/mizan/cmd/mizan@v0.1.0
+```
+
+## Contributing
+
+Contributions are welcome. For anything beyond a small fix, consider opening an
+issue first to discuss the change. Before opening a PR, run `make fmt-check`, `make vet`,
+and `make test` and keep them green. To share metric templates, author a pack
+with `mizan pack` and open a PR against
+[`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates) —
+Mizan does not push on your behalf.
 
 ## Architecture
 
