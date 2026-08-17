@@ -14,7 +14,7 @@ import (
 
 func float32p(f float32) *float32 { return &f }
 
-func sampleResult() results.Result {
+func sampleStoredResult() results.Result {
 	return results.Result{
 		RunID: "01J000000000000000000RUN01",
 		RunAt: time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC),
@@ -67,7 +67,7 @@ func TestRenderResultListTable(t *testing.T) {
 	defer func() { outputFormat = prev }()
 
 	var out, errb bytes.Buffer
-	if err := renderResultList(&out, &errb, []results.Result{sampleResult()}); err != nil {
+	if err := renderResultList(&out, &errb, []results.Result{sampleStoredResult()}); err != nil {
 		t.Fatalf("renderResultList: %v", err)
 	}
 	s := out.String()
@@ -111,7 +111,7 @@ func TestRenderResultListJSONRoundTrip(t *testing.T) {
 	defer func() { outputFormat = prev }()
 
 	var out, errb bytes.Buffer
-	if err := renderResultList(&out, &errb, []results.Result{sampleResult()}); err != nil {
+	if err := renderResultList(&out, &errb, []results.Result{sampleStoredResult()}); err != nil {
 		t.Fatalf("renderResultList: %v", err)
 	}
 	var got []results.Result
@@ -131,7 +131,7 @@ func TestRenderResultDetailProvenance(t *testing.T) {
 	outputFormat = outputTable
 	defer func() { outputFormat = prev }()
 
-	r := sampleResult()
+	r := sampleStoredResult()
 	var out bytes.Buffer
 	if err := renderResultDetail(&out, &r); err != nil {
 		t.Fatalf("renderResultDetail: %v", err)
@@ -162,7 +162,7 @@ func TestRenderResultDetailRubricScaleEmpty(t *testing.T) {
 	outputFormat = outputTable
 	defer func() { outputFormat = prev }()
 
-	r := sampleResult()
+	r := sampleStoredResult()
 	r.Template.Kind = registry.KindRubric
 	r.Rubric = &results.RubricRef{Method: "authored"}
 	var out bytes.Buffer
@@ -186,7 +186,7 @@ func TestRenderResultDetailSanitizesUntrusted(t *testing.T) {
 	outputFormat = outputTable
 	defer func() { outputFormat = prev }()
 
-	r := sampleResult()
+	r := sampleStoredResult()
 	r.Outcome.Explanation = "evil\x1b[31m\x07danger\nnewline"
 	r.Inputs[0].Inline = "inline\x1b[0mescape"
 	var out bytes.Buffer
@@ -206,7 +206,7 @@ func TestRenderResultListSanitizesUntrusted(t *testing.T) {
 	outputFormat = outputTable
 	defer func() { outputFormat = prev }()
 
-	r := sampleResult()
+	r := sampleStoredResult()
 	r.Autorater.Model = "model\x1b[31mX"
 	var out, errb bytes.Buffer
 	if err := renderResultList(&out, &errb, []results.Result{r}); err != nil {
