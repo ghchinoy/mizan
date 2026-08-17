@@ -7,6 +7,7 @@ const (
 	groupEval     = "eval"
 	groupConfig   = "config"
 	groupRubric   = "rubric"
+	groupResults  = "results"
 )
 
 func newRootCmd() *cobra.Command {
@@ -26,6 +27,7 @@ func newRootCmd() *cobra.Command {
 	root.AddGroup(
 		&cobra.Group{ID: groupRegistry, Title: "Registry commands:"},
 		&cobra.Group{ID: groupEval, Title: "Evaluation commands:"},
+		&cobra.Group{ID: groupResults, Title: "Results commands:"},
 		&cobra.Group{ID: groupRubric, Title: "Rubric authoring commands:"},
 		&cobra.Group{ID: groupConfig, Title: "Config commands:"},
 	)
@@ -36,6 +38,6 @@ func newRootCmd() *cobra.Command {
 		return validOutput(outputFormat)
 	}
 
-	root.AddCommand(newRegistryCmd(), newPackCmd(), newEvalCmd(), newRubricCmd(), newConfigCmd(), newVersionCmd())
+	root.AddCommand(newRegistryCmd(), newPackCmd(), newEvalCmd(), newResultsCmd(), newRubricCmd(), newConfigCmd(), newVersionCmd())
 	return root
 }

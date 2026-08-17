@@ -57,6 +57,7 @@ var forbiddenCmdImports = []string{
 	"internal/registry/sqlite", // concrete Store backend — wire injects it
 	"internal/registry/sync",   // sync backend subpackage (future-proofing)
 	"internal/registry/codec",  // pack codec subpackage (future-proofing)
+	"internal/results/sqlite",  // concrete ResultStore backend — wire injects it
 	"gopkg.in/yaml",            // YAML lib — pack encoding is behind the Service
 	"github.com/go-git",        // git libs — Mizan shells out, never embeds git
 	"gopkg.in/src-d/go-git",

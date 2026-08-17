@@ -16,6 +16,7 @@ import (
 	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
+	"github.com/ghchinoy/mizan/internal/results"
 	"github.com/ghchinoy/mizan/internal/wire"
 )
 
@@ -255,6 +256,7 @@ func newEvalRunCmd() *cobra.Command {
 		fields       []string
 		files        []string
 		gcs          []string
+		noStore      bool
 	)
 	cmd := &cobra.Command{
 		Use: "run --metric <id> [--field key=value] [--file key=/path] [--gcs key=gs://…]",
@@ -357,7 +359,16 @@ func newEvalRunCmd() *cobra.Command {
 			// in --output json mode they also serialize under "warnings". See
 			// emitWarnings for the shared emission behavior.
 			emitWarnings(cmd.ErrOrStderr(), res.Warnings)
-			return renderResult(cmd.OutOrStdout(), res, stats)
+			if err := renderResult(cmd.OutOrStdout(), res, stats); err != nil {
+				return err
+			}
+			// Persist the successful run (default-on, opt out via --no-store).
+			// STRICTLY non-fatal: any store error is a stderr warning and never
+			// changes stdout or the exit code (design §4.8).
+			if !noStore {
+				storeResult(cmd, cfg, "eval run", *tmpl, inst, res)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&metric, "metric", "", "template id to run (required)")
@@ -368,6 +379,7 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "text instance field as key=value (repeatable)")
 	cmd.Flags().StringArrayVar(&files, "file", nil, "local asset field as key=/path; engine stages to GCS (repeatable)")
 	cmd.Flags().StringArrayVar(&gcs, "gcs", nil, "pre-staged asset field as key=gs://… (repeatable)")
+	cmd.Flags().BoolVar(&noStore, "no-store", false, "do not persist this run's result to the eval results store (persistence is on by default)")
 	return cmd
 }
 
@@ -381,6 +393,7 @@ func newEvalPairwiseCmd() *cobra.Command {
 		fields    []string
 		files     []string
 		gcs       []string
+		noStore   bool
 	)
 	cmd := &cobra.Command{
 		Use: "pairwise --metric <id> (--baseline key=… --candidate key=… | --gcs key=gs://… …) [--field/--file/--gcs …]",
@@ -499,7 +512,16 @@ func newEvalPairwiseCmd() *cobra.Command {
 			// stderr (never stdout) in text mode; in --output json mode they also
 			// serialize under "warnings". See emitWarnings for the shared behavior.
 			emitWarnings(cmd.ErrOrStderr(), res.Warnings)
-			return renderResult(cmd.OutOrStdout(), res, stats)
+			if err := renderResult(cmd.OutOrStdout(), res, stats); err != nil {
+				return err
+			}
+			// Persist the successful run (default-on, opt out via --no-store).
+			// STRICTLY non-fatal: any store error is a stderr warning and never
+			// changes stdout or the exit code (design §4.8).
+			if !noStore {
+				storeResult(cmd, cfg, "eval pairwise", *tmpl, inst, res)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&metric, "metric", "", "pairwise template id to run (required)")
@@ -510,6 +532,7 @@ func newEvalPairwiseCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "additional text field as key=value (repeatable)")
 	cmd.Flags().StringArrayVar(&files, "file", nil, "additional local asset field as key=/path (repeatable)")
 	cmd.Flags().StringArrayVar(&gcs, "gcs", nil, "additional pre-staged asset field as key=gs://… (repeatable)")
+	cmd.Flags().BoolVar(&noStore, "no-store", false, "do not persist this run's result to the eval results store (persistence is on by default)")
 	return cmd
 }
 
@@ -768,6 +791,54 @@ func sanitizeCell(s string) string {
 		}
 		return r
 	}, s)
+}
+
+// storeResult persists a SUCCESSFUL eval result to the configured results store
+// (design §4.8 write-hook). It is called only after the run succeeded and the
+// result has already been rendered, and it is STRICTLY non-fatal: any failure
+// opening the store or recording the result is reported as a `warning:` line on
+// stderr and never affects stdout or the command's exit code. cmd/* stays behind
+// the results.Service façade + wire — it never imports internal/results/sqlite.
+func storeResult(cmd *cobra.Command, cfg *config.Config, command string, tmpl registry.MetricTemplate, inst eval.Instance, res eval.Result) {
+	svc, closeSvc, err := wire.OpenResultService(cfg)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: results store unavailable, result not persisted: %v\n", err)
+		return
+	}
+	defer func() { _ = closeSvc() }()
+
+	// Copy the engine's RESOLVED autorater (pointer, nil on any failed run) into
+	// results' own plain-data AppliedAutorater. A nil Applied maps to the zero
+	// value so cmd/* never depends on eval.Result.Applied being non-nil.
+	var applied results.AppliedAutorater
+	if res.Applied != nil {
+		applied = results.AppliedAutorater{
+			Model:         res.Applied.Model,
+			SamplingCount: res.Applied.SamplingCount,
+			FlipEnabled:   res.Applied.FlipEnabled,
+			EffectiveHost: res.Applied.EffectiveHost,
+			Location:      res.Applied.Location,
+			ModelSource:   res.Applied.ModelSource,
+		}
+	}
+
+	// HostLabel is coarse, non-PII machine attribution (§4.2); ignore the error
+	// (empty on failure). Actor is policy-gated and off by default (OQ-3).
+	host, _ := os.Hostname()
+
+	if _, err := svc.Record(cmd.Context(), results.RecordInput{
+		Command:   command,
+		ProjectID: cfg.ProjectID,
+		Location:  cfg.Location,
+		HostLabel: host,
+		Actor:     "",
+		Template:  tmpl,
+		Instance:  inst,
+		Applied:   applied,
+		Outcome:   res,
+	}); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: failed to persist result: %v\n", err)
+	}
 }
 
 // renderResult prints an eval result as JSON or a small table. When showStats is
