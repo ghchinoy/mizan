@@ -919,6 +919,13 @@ $ mizan eval run --set …/answer-quality.yaml --field prompt="…" --field resp
 }
 ```
 
+> **Note:** The scores in the examples above (and elsewhere in this guide) are
+> illustrative and were captured from **separate live runs**. The judge model is
+> non-deterministic, so exact per-member scores and the aggregate vary run-to-run
+> — the table and JSON blocks here come from different invocations, which is why
+> their conciseness score and aggregate differ. Treat the shapes, not the exact
+> numbers, as the contract.
+
 ### 3. Partial failures (continue-on-error vs `--fail-fast`)
 
 By default a member that can't resolve or errors does **not** abort the run — it
