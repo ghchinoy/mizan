@@ -353,6 +353,107 @@ func TestReconcileUnchangedIdempotent(t *testing.T) {
 	}
 }
 
+// TestScanMalformedJSONFailsClosed proves scanTemplate fails closed on a
+// corrupt additive column: a non-JSON value in rating_rubric must make Get
+// return an error (from unmarshalIf), not panic and not silently drop to a zero
+// value. Guards the fail-closed contract for the three new columns (brief probe:
+// malformed JSON on read).
+func TestScanMalformedJSONFailsClosed(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	tmpl := fullTemplate()
+	if err := s.Put(ctx, &tmpl); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	// Corrupt the rating_rubric column with non-JSON (bypasses Put's mustJSON).
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE metric_templates SET rating_rubric = ? WHERE id = ?`,
+		"{not valid json", tmpl.ID,
+	); err != nil {
+		t.Fatalf("corrupt column: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Get panicked on malformed JSON, want a returned error: %v", r)
+		}
+	}()
+	if _, err := s.Get(ctx, tmpl.ID); err == nil {
+		t.Fatal("Get: want error on malformed rating_rubric JSON, got nil (silent data loss)")
+	}
+}
+
+// TestPutGetPartialPopulation proves the three additive fields round-trip
+// independently: with only RubricDetail set (RatingRubric/RubricProvenance nil),
+// each column is read back to its own field with no cross-column bleed from the
+// shared column-order INSERT/SELECT (the design's #1 bug risk). (brief probe:
+// partial-population.)
+func TestPutGetPartialPopulation(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	want := fullTemplate()
+	want.ID = "partial/pointwise"
+	want.RatingRubric = nil
+	want.RubricProvenance = nil
+	want.RubricDetail = &registry.RubricDetail{Scale: &registry.RubricScale{Min: 1, Max: 7}}
+
+	if err := s.Put(ctx, &want); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	got, err := s.Get(ctx, want.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.RatingRubric != nil {
+		t.Errorf("RatingRubric = %#v, want nil", got.RatingRubric)
+	}
+	if got.RubricProvenance != nil {
+		t.Errorf("RubricProvenance = %#v, want nil", got.RubricProvenance)
+	}
+	if !reflect.DeepEqual(got.RubricDetail, want.RubricDetail) {
+		t.Errorf("RubricDetail round-trip: got %#v want %#v", got.RubricDetail, want.RubricDetail)
+	}
+}
+
+// TestEmptyNonNilVsNullDistinction proves DEFAULT 'null' semantics distinguish a
+// non-nil-but-empty value from an absent (nil) one: an empty non-nil RatingRubric
+// map and a non-nil RubricDetail with a nil Scale marshal to "{}" (not "null"),
+// which unmarshalIf must reconstruct as non-nil — distinct from the nil→"null"→nil
+// path locked by TestPutGetRoundTripMinimalNil. (brief probe: empty-vs-null.)
+func TestEmptyNonNilVsNullDistinction(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	want := fullTemplate()
+	want.ID = "empty/pointwise"
+	want.RatingRubric = map[string]map[string]string{} // non-nil, empty
+	want.RubricDetail = &registry.RubricDetail{}        // non-nil, Scale nil
+	want.RubricProvenance = nil                         // nil → must stay nil
+
+	if err := s.Put(ctx, &want); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	got, err := s.Get(ctx, want.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.RatingRubric == nil {
+		t.Error("RatingRubric came back nil, want non-nil empty map (empty≠null)")
+	} else if len(got.RatingRubric) != 0 {
+		t.Errorf("RatingRubric = %#v, want empty map", got.RatingRubric)
+	}
+	if got.RubricDetail == nil {
+		t.Error("RubricDetail came back nil, want non-nil empty struct (empty≠null)")
+	} else if got.RubricDetail.Scale != nil {
+		t.Errorf("RubricDetail.Scale = %#v, want nil", got.RubricDetail.Scale)
+	}
+	if got.RubricProvenance != nil {
+		t.Errorf("RubricProvenance = %#v, want nil (null≠empty)", got.RubricProvenance)
+	}
+}
+
 func TestGetNotFound(t *testing.T) {
 	s := newStore(t)
 	if _, err := s.Get(context.Background(), "nope/x"); !errors.Is(err, registry.ErrNotFound) {
