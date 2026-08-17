@@ -22,7 +22,7 @@ spec:
       weight: 1
   aggregation:
     method: weighted-mean
-    threshold: 0.6
+    threshold: 3.0                       # scores are on the judge's 1-5 scale
     gate: false                         # opt-in gate is OFF: verdict shown, exit stays 0
   display:
     order: as-listed

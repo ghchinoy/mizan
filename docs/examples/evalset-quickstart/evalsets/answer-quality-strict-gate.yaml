@@ -1,0 +1,27 @@
+apiVersion: mizan.dev/v1alpha1
+kind: EvalSet
+metadata:
+  id: quickstart/answer-quality-strict-gate
+  name: Answer Quality Suite (strict gate)
+  description: >
+    Same 2-member suite as answer-quality, but with a STRICT threshold (near
+    perfect) and the opt-in gate ON: a FAILED verdict forces a non-zero process
+    exit. Use this to wire an eval-set into a CI check.
+  version: 1.0.0
+  assetClass: text-answer
+  tags: [quality, text]
+spec:
+  inputs:
+    prompt: prompt
+    response: response
+  members:
+    - metric: quickstart/response-helpfulness
+      weight: 2
+    - metric: quickstart/response-conciseness
+      weight: 1
+  aggregation:
+    method: weighted-mean
+    threshold: 4.9                       # strict: near-perfect required (1-5 scale)
+    gate: true                           # gate ON: FAILED verdict => non-zero exit
+  display:
+    order: as-listed
