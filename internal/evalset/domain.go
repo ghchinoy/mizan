@@ -30,6 +30,15 @@ const (
 	AggMin AggregationMethod = "min"
 )
 
+// maxEvalSetMembers caps how many members FromDoc will accept from one manifest.
+// The pack codec already bounds a manifest to 1 MiB (pack.maxEvalSetFileBytes),
+// but a <=1 MiB manifest can still carry many thousands of members, and the
+// runner makes one (billable) engine call per member — an unbounded
+// cost/quota-amplification vector (CWE-400/CWE-770). Failing closed here mirrors
+// the caps in internal/rubricgen (maxRubrics = 1024) and internal/registry sync
+// (maxImportTemplates). 256 is generous for a hand-authored suite.
+const maxEvalSetMembers = 256
+
 // Member is one ordered member of a runnable set: a reference to a metric
 // template id plus per-member run modifiers.
 type Member struct {
@@ -75,18 +84,25 @@ type Set struct {
 
 // FromDoc converts a parsed pack.EvalSetDoc into a runnable Set. It:
 //   - copies identity/metadata,
+//   - REJECTS a manifest with more than maxEvalSetMembers members (fail closed),
 //   - converts spec.inputs and each member's bind from map[string]any to
 //     map[string]string, erroring (naming the key) on any non-string value,
-//   - defaults each member's Weight to 1.0 when absent or zero,
+//   - defaults each member's Weight to 1.0 when absent or zero, and REJECTS a
+//     NEGATIVE weight (naming the offending member),
 //   - reads aggregation.method/threshold/gate, and
 //   - ERRORS on an unsupported aggregation method (anything other than mean,
 //     weighted-mean, min).
 //
-// A nil aggregation block yields the zero Aggregation with an empty method; the
-// method is only validated when present.
+// An empty or absent aggregation.method (including a nil aggregation block) is
+// normalized EXPLICITLY to AggMean (design §9); a non-empty unsupported method is
+// rejected.
 func FromDoc(doc *pack.EvalSetDoc) (Set, error) {
 	if doc == nil {
 		return Set{}, fmt.Errorf("evalset: nil doc")
+	}
+
+	if len(doc.Spec.Members) > maxEvalSetMembers {
+		return Set{}, fmt.Errorf("evalset: too many members: %d (max %d)", len(doc.Spec.Members), maxEvalSetMembers)
 	}
 
 	set := Set{
@@ -107,9 +123,17 @@ func FromDoc(doc *pack.EvalSetDoc) (Set, error) {
 		if err != nil {
 			return Set{}, err
 		}
+		// Weight defaults to 1.0 when absent or zero. A negative weight distorts
+		// weighted-mean (and thus the gate verdict), so it is rejected fail-closed,
+		// naming the offending member.
 		weight := 1.0
-		if m.Weight != nil && *m.Weight != 0 {
-			weight = *m.Weight
+		if m.Weight != nil {
+			if *m.Weight < 0 {
+				return Set{}, fmt.Errorf("evalset: spec.members[%d] (metric %q): weight must be >= 0, got %v", i, m.Metric, *m.Weight)
+			}
+			if *m.Weight != 0 {
+				weight = *m.Weight
+			}
 		}
 		required := false
 		if m.Required != nil {
@@ -123,16 +147,20 @@ func FromDoc(doc *pack.EvalSetDoc) (Set, error) {
 		})
 	}
 
+	// Default the aggregation method EXPLICITLY to mean; an empty/absent method
+	// (including a nil aggregation block) means "mean" (design §9). A non-empty
+	// unsupported method is rejected.
+	set.Aggregation.Method = AggMean
 	if agg := doc.Spec.Aggregation; agg != nil {
-		method := AggregationMethod(agg.Method)
-		if method != "" && !method.supported() {
-			return Set{}, fmt.Errorf("evalset: unsupported aggregation method %q (supported: %s, %s, %s)",
-				agg.Method, AggMean, AggWeightedMean, AggMin)
+		if agg.Method != "" {
+			method := AggregationMethod(agg.Method)
+			if !method.supported() {
+				return Set{}, fmt.Errorf("evalset: unsupported aggregation method %q (supported: %s, %s, %s)",
+					agg.Method, AggMean, AggWeightedMean, AggMin)
+			}
+			set.Aggregation.Method = method
 		}
-		set.Aggregation = Aggregation{
-			Method:    method,
-			Threshold: agg.Threshold,
-		}
+		set.Aggregation.Threshold = agg.Threshold
 		if agg.Gate != nil {
 			set.Aggregation.Gate = *agg.Gate
 		}

@@ -55,9 +55,11 @@ type Aggregate struct {
 	Threshold *float64
 	// Passed reports whether Score met Threshold; nil when there is no threshold.
 	Passed *bool
-	// Scored is the count of members included in the aggregate (OK + Score!=nil).
+	// Scored is the count of members included in the aggregate (OK + finite
+	// numeric Score).
 	Scored int
-	// Failed is the count of members whose Status != OK.
+	// Failed is the count of members that Errored or are Missing (design §9).
+	// Skipped members (fail-fast never ran them) are NOT counted as failures.
 	Failed int
 }
 

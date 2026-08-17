@@ -114,7 +114,12 @@ func (r *Runner) Run(ctx context.Context, set Set, opt RunOptions) (EvalSetResul
 
 		mr.Status = OK
 		mr.Result = out
-		mr.Score = out.Score
+		// A non-finite score (NaN/Inf) from the engine is treated like a non-scalar
+		// member: recorded in the row (via Result) but its Score is left nil so it
+		// cannot propagate into the aggregate or silently pass a threshold.
+		if s := out.Score; s != nil && isFinite(float64(*s)) {
+			mr.Score = s
+		}
 		res.Members = append(res.Members, mr)
 	}
 
@@ -127,7 +132,8 @@ func (r *Runner) Run(ctx context.Context, set Set, opt RunOptions) (EvalSetResul
 
 // verdict computes the set verdict, ALWAYS (independent of the Gate flag). It is
 // FAILED when any required member did not succeed, or when a threshold is set and
-// the aggregate score is nil or below it; otherwise PASSED.
+// the aggregate score is nil, non-finite, or below it; otherwise PASSED. A nil or
+// non-finite aggregate against a set threshold must never silently PASS.
 func verdict(members []MemberResult, agg Aggregate, threshold *float64) SetVerdict {
 	for _, m := range members {
 		if m.Required && m.Status != OK {
@@ -135,7 +141,7 @@ func verdict(members []MemberResult, agg Aggregate, threshold *float64) SetVerdi
 		}
 	}
 	if threshold != nil {
-		if agg.Score == nil || float64(*agg.Score) < *threshold {
+		if agg.Score == nil || !isFinite(float64(*agg.Score)) || float64(*agg.Score) < *threshold {
 			return Failed
 		}
 	}
