@@ -871,6 +871,43 @@ mizan eval run --metric acme/product-copy --field prompt="…" --field response=
 Saving fails if the id already exists — freezing never silently overwrites an
 existing template.
 
+### Generation provenance (`rubricProvenance`)
+
+Every rubric Mizan drafts — whether written by `rubric generate` or frozen by
+`eval adaptive --save-as` — carries a `rubricProvenance` block that records **that,
+and how, the criteria were AI-drafted**. A hand-authored template simply omits the
+field, so you can always tell the two apart, and the block travels with the
+template through pack export/import.
+
+```yaml
+spec:
+  kind: rubric
+  rubricGroups:
+    general_quality:
+      - Answers the question directly
+      - Is free of jargon
+  rubricProvenance:
+    method: adaptive-generated              # how it was produced
+    generatorModel: gemini-2.5-flash        # the drafting model
+    recipe: general_quality_v1              # the pinned generation recipe
+    sampleInputRef: 'inline:"…" sha256:…'   # bounded ref + SHA-256 of the sample
+    generatedAt: 2026-08-16T12:00:00Z       # RFC3339 timestamp
+    apiVersion: v1beta1:generateInstanceRubrics
+    rubricMeta:                             # per-criterion type/importance (audit)
+      - {group: general_quality, criterion: Answers the question directly, type: CONTENT, importance: HIGH}
+      - {group: general_quality, criterion: Is free of jargon, type: STYLE, importance: MEDIUM}
+```
+
+`sampleInputRef` stores a **bounded** preview plus the SHA-256 of the full sample
+input — never an unbounded prompt blob. `rubricMeta` preserves the API's original
+per-criterion `type`/`importance` for audit while `rubricGroups` stays a plain
+list, so the runnable rubric is unchanged.
+
+`rubricProvenance` **is part of the template's content hash**: editing the criteria
+*or* the provenance changes the hash, which is what makes an AI-drafted rubric
+auditable. The field is optional and purely additive — existing hand-authored
+templates and packs are unaffected.
+
 ## Version and releases
 
 Check which build you're running:

@@ -340,23 +340,47 @@ func decodeError(status int, raw []byte) error {
 	return fmt.Errorf("rubricgen: generation failed (HTTP %d): %s", status, snippet)
 }
 
-// ToRubricGroups converts generated rubrics into a mizan RubricGroups map: a
-// SINGLE group keyed by groupName whose value is the criteria descriptions in
-// DECLARED order. It is pure and deterministic — order is a tested invariant.
-// Empty descriptions are skipped (defensive against a partial response). Returns
-// an empty map when there are no usable criteria; the caller decides whether that
-// is an error.
-func ToRubricGroups(rubrics []Rubric, groupName string) map[string][]string {
-	criteria := make([]string, 0, len(rubrics))
+// UsableRubric is a generated rubric that survived the canonical trim/skip-empty
+// filter, paired with its trimmed criterion description. Callers that need both the
+// criterion string AND the API's per-criterion Type/Importance (e.g. RubricMeta)
+// read them off the same record, so they can never drift from the criteria that
+// ToRubricGroups actually emits.
+type UsableRubric struct {
+	Criterion string // the trimmed Content.Property.Description
+	Rubric    Rubric // the originating rubric (carries Type/Importance)
+}
+
+// UsableRubrics is the SINGLE canonical trim/skip-empty filter shared by
+// ToRubricGroups and the RubricMeta builder: it returns the rubrics whose
+// description is non-empty after trimming, in DECLARED order, each paired with its
+// trimmed criterion. Centralizing the filter here means RubricGroups and
+// RubricMeta stay aligned 1:1 by construction (no re-implemented filter to drift).
+func UsableRubrics(rubrics []Rubric) []UsableRubric {
+	usable := make([]UsableRubric, 0, len(rubrics))
 	for _, r := range rubrics {
 		desc := strings.TrimSpace(r.Content.Property.Description)
 		if desc == "" {
 			continue
 		}
-		criteria = append(criteria, desc)
+		usable = append(usable, UsableRubric{Criterion: desc, Rubric: r})
 	}
-	if len(criteria) == 0 {
+	return usable
+}
+
+// ToRubricGroups converts generated rubrics into a mizan RubricGroups map: a
+// SINGLE group keyed by groupName whose value is the criteria descriptions in
+// DECLARED order. It is pure and deterministic — order is a tested invariant.
+// Empty descriptions are skipped (defensive against a partial response) via the
+// shared UsableRubrics filter. Returns an empty map when there are no usable
+// criteria; the caller decides whether that is an error.
+func ToRubricGroups(rubrics []Rubric, groupName string) map[string][]string {
+	usable := UsableRubrics(rubrics)
+	if len(usable) == 0 {
 		return map[string][]string{}
+	}
+	criteria := make([]string, 0, len(usable))
+	for _, u := range usable {
+		criteria = append(criteria, u.Criterion)
 	}
 	return map[string][]string{groupName: criteria}
 }

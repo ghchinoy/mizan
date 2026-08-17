@@ -162,7 +162,17 @@ func newEvalAdaptiveCmd() *cobra.Command {
 			if tmplID == "" {
 				tmplID = "adaptive/inline"
 			}
-			tmpl := draftRubricTemplate(tmplID, "", groupName, []string{"prompt", "response"}, groups)
+			// Stamp the SAME fully-populated adaptive-generation provenance the draft
+			// path uses (design §4.4) for the rubrics actually used — the sample input
+			// that drove generation is the prompt. NOTE: when --save-as freezes this
+			// template into the sqlite registry, the additive RFC-0001 fields
+			// (rubricProvenance / ratingRubric / rubricDetail) are NOT yet column-mapped
+			// in the sqlite store and so are NOT round-tripped back on read (same
+			// pre-existing limitation as ratingRubric/rubricDetail). The authoritative
+			// provenance-bearing artifact is the pack YAML produced by
+			// `mizan rubric generate --out`, which persists provenance correctly.
+			prov := buildRubricProvenance(recipe, groupName, prompt, rubrics)
+			tmpl := draftRubricTemplate(tmplID, "", groupName, []string{"prompt", "response"}, groups, prov)
 
 			// Build the instance from the SAME buildInstance path as eval run (prompt
 			// + response as guarded text slots).
