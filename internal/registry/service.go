@@ -69,6 +69,23 @@ func NewService(store Store, opts ...Option) *Service {
 
 // Create inserts a new template. It fails if a template with the same ID
 // already exists (use Update to modify an existing one).
+//
+// A directly-authored template — via `registry create` or frozen from an
+// adaptive run via `eval adaptive --save-as` — never travels through a pack, so
+// it bypasses BOTH the codec ingest boundary that every import passes AND
+// `pack validate`'s strict schema gate. Create closes that gap so the authoring
+// path is at full parity with the import/pack path:
+//   - it applies the same ingest guards the codec applies on import
+//     (codec.Unmarshal): a vernacular kind is folded to canonical (NormalizeKind)
+//     and the autorater-model SSRF invariant is enforced — a project-scoped or
+//     ".."-bearing model is rejected and only the cleaned bare id is stored
+//     (design §3.4);
+//   - it runs the SAME strict JSON schema (schema/metrictemplate.json) the
+//     `pack validate` gate uses, rejecting a malformed or invalid-enum template
+//     before it lands in the store; and
+//   - it stamps ContentHash the same way the import path does (stampImported), so
+//     an authored template carries a real content fingerprint for drift
+//     detection and import no-op short-circuiting rather than an empty stamp.
 func (s *Service) Create(ctx context.Context, t MetricTemplate) error {
 	if t.ID == "" {
 		return fmt.Errorf("registry: template ID is required")
@@ -78,11 +95,40 @@ func (s *Service) Create(ctx context.Context, t MetricTemplate) error {
 	} else if err != ErrNotFound {
 		return err
 	}
+	// Ingest guards, mirroring codec.Unmarshal (the import boundary). A non-empty
+	// invalid kind fails here with the enumerated error; an empty kind is left for
+	// the strict-schema pre-check below to reject (spec.kind is a required schema
+	// property).
+	if t.Kind != "" {
+		k, err := NormalizeKind(string(t.Kind))
+		if err != nil {
+			return fmt.Errorf("registry: create %q: %w", t.ID, err)
+		}
+		t.Kind = k
+	}
+	cleanModel, err := validateAutoraterModel(t.ID, t.AutoraterModel)
+	if err != nil {
+		return err
+	}
+	t.AutoraterModel = cleanModel
+	// Strict-schema pre-check (parity with `pack validate`). Marshaling through the
+	// codec yields the canonical pack bytes the schema is defined over; the schema
+	// is the single source of truth already used at the pack gate.
+	data, err := s.codec.Marshal(&t)
+	if err != nil {
+		return fmt.Errorf("registry: create %q: %w", t.ID, err)
+	}
+	if err := ValidateTemplateSchema(data); err != nil {
+		return err
+	}
 	now := time.Now().UTC()
 	if t.CreatedAt.IsZero() {
 		t.CreatedAt = now
 	}
 	t.UpdatedAt = now
+	// Compute the content fingerprint exactly as the import path does
+	// (stampImported) so an authored template is not persisted with an empty hash.
+	t.ContentHash = contentHash(&t)
 	return s.store.Put(ctx, &t)
 }
 

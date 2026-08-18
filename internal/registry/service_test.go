@@ -99,7 +99,8 @@ func TestCreate_Success_SetsTimestamps(t *testing.T) {
 	svc := NewService(store)
 
 	before := time.Now().UTC()
-	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", Name: "A"}); err != nil {
+	// Kind is required by the strict-schema pre-check Create now runs.
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", Name: "A", Kind: KindPointwise}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	after := time.Now().UTC()
@@ -121,7 +122,7 @@ func TestCreate_PreservesSuppliedCreatedAt(t *testing.T) {
 	svc := NewService(store)
 
 	orig := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
-	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", CreatedAt: orig}); err != nil {
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/a", Kind: KindPointwise, CreatedAt: orig}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	got := store.items["ns/a"]
@@ -171,6 +172,206 @@ func TestCreate_StoreGetErrorPropagates(t *testing.T) {
 	}
 	if store.putCalls != 0 {
 		t.Errorf("Put called despite a Get error, want 0")
+	}
+}
+
+// --- Create parity fast-follows (ContentHash + strict schema) -----------------
+
+// TestCreate_ComputesContentHash pins Item 1: a directly-authored template must
+// be persisted with a non-empty ContentHash computed the same way the import path
+// (stampImported) computes it, not left empty.
+func TestCreate_ComputesContentHash(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	in := MetricTemplate{
+		ID:           "ns/hashed",
+		Name:         "Hashed",
+		Version:      "1.0.0",
+		Kind:         KindRubric,
+		RubricGroups: map[string][]string{"quality": {"is good"}},
+	}
+	if err := svc.Create(ctx(), in); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	got := store.items["ns/hashed"]
+	if got == nil {
+		t.Fatal("template not stored")
+	}
+	if got.ContentHash == "" {
+		t.Fatal("ContentHash is empty; Create must stamp it like the import path")
+	}
+	// contentHash excludes lifecycle/provenance fields, so the stored copy hashes
+	// identically to the input content computed independently.
+	if want := contentHash(&in); got.ContentHash != want {
+		t.Errorf("ContentHash = %q, want %q", got.ContentHash, want)
+	}
+}
+
+// TestCreate_RejectsSchemaInvalidEnum pins Item 2: an enum value the strict
+// schema forbids (a modality outside text|image|audio|video|music) is rejected
+// before anything is written, at parity with the pack/import gate.
+func TestCreate_RejectsSchemaInvalidEnum(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	bad := MetricTemplate{
+		ID:         "ns/bad",
+		Kind:       KindPointwise,
+		Modalities: []Modality{"hologram"},
+	}
+	if err := svc.Create(ctx(), bad); err == nil {
+		t.Fatal("Create with an invalid modality: expected a schema error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on a schema-invalid template, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_RejectsSchemaInvalidID confirms an id that violates the
+// "<namespace>/<slug>" pattern (rejected by the import ingest boundary) is now
+// also rejected on the authoring path via the strict-schema pre-check.
+func TestCreate_RejectsSchemaInvalidID(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	bad := MetricTemplate{ID: "Bad_ID", Kind: KindPointwise}
+	if err := svc.Create(ctx(), bad); err == nil {
+		t.Fatal("Create with a malformed id: expected a schema error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on a malformed id, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_MissingKindRejected confirms the strict schema's spec.kind
+// requirement is enforced on the authoring path (spec.kind is required, like the
+// import codec requires it).
+func TestCreate_MissingKindRejected(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/nokind"}); err == nil {
+		t.Fatal("Create without a kind: expected a schema error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times without a kind, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_RejectsInvalidKind confirms a non-empty but unrecognized kind is
+// rejected by the NormalizeKind ingest guard (mirroring codec.Unmarshal), before
+// anything is written.
+func TestCreate_RejectsInvalidKind(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/bogus", Kind: "bogus"}); err == nil {
+		t.Fatal("Create with an unknown kind: expected error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on an unknown kind, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_NormalizesVernacularKind confirms a vernacular kind spelling is
+// folded to its canonical form on the authoring path, exactly as the import codec
+// does — so the stored kind and its ContentHash match an import of the same
+// content (no divergence from an un-normalized "single").
+func TestCreate_NormalizesVernacularKind(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/vern", Kind: "single"}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	got := store.items["ns/vern"]
+	if got.Kind != KindPointwise {
+		t.Errorf("Kind = %q, want canonical %q", got.Kind, KindPointwise)
+	}
+	// The stored (canonical) template must hash identically to a template authored
+	// with the canonical kind directly.
+	canonical := MetricTemplate{ID: "ns/vern", Kind: KindPointwise}
+	if want := contentHash(&canonical); got.ContentHash != want {
+		t.Errorf("ContentHash = %q, want %q (vernacular kind must normalize before hashing)", got.ContentHash, want)
+	}
+}
+
+// TestCreate_CleansAutoraterModel confirms the autorater ingest guard runs on the
+// authoring path: a publisher-relative model with a "publishers/.../" prefix is
+// reduced to the bare id stored at rest, matching codec.Unmarshal on import.
+func TestCreate_CleansAutoraterModel(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	in := MetricTemplate{
+		ID:             "ns/model",
+		Kind:           KindPointwise,
+		AutoraterModel: "publishers/google/models/gemini-2.5-pro",
+	}
+	if err := svc.Create(ctx(), in); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if got := store.items["ns/model"].AutoraterModel; got != "gemini-2.5-pro" {
+		t.Errorf("AutoraterModel = %q, want cleaned bare id %q", got, "gemini-2.5-pro")
+	}
+}
+
+// TestCreate_RejectsProjectScopedAutoraterModel confirms the SSRF invariant is
+// enforced on Create: a project-scoped resource name (which import rejects at
+// ingest) must never land in the store via the authoring path.
+func TestCreate_RejectsProjectScopedAutoraterModel(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	bad := MetricTemplate{
+		ID:             "ns/ssrf",
+		Kind:           KindPointwise,
+		AutoraterModel: "projects/victim/locations/us-central1/publishers/google/models/gemini-2.5-pro",
+	}
+	if err := svc.Create(ctx(), bad); err == nil {
+		t.Fatal("Create with a project-scoped autorater model: expected rejection")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on a project-scoped model, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_ProvenanceBearingSucceeds exercises a freeze-shaped template (the
+// `eval adaptive --save-as` output): a KindRubric with RubricProvenance and
+// rubric groups passes the strict-schema pre-check and is stored with a hash.
+func TestCreate_ProvenanceBearingSucceeds(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	in := MetricTemplate{
+		ID:                   "ns/frozen",
+		Name:                 "Frozen adaptive rubric",
+		Version:              "0.0.0",
+		Kind:                 KindRubric,
+		Modalities:           []Modality{ModalityText},
+		Inputs:               []InputSpec{{Name: "response", Modality: ModalityText, Required: true}},
+		MetricPromptTemplate: "Evaluate: {{response}}",
+		RubricGroups:         map[string][]string{"quality": {"is clear"}},
+		RubricProvenance: &RubricProvenance{
+			Method:         "adaptive-generated",
+			GeneratorModel: "gemini-2.5-pro",
+			GeneratedAt:    time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC),
+			RubricMeta:     []RubricMeta{{Group: "quality", Criterion: "is clear", Origin: OriginAdaptiveGenerated}},
+		},
+	}
+	if err := svc.Create(ctx(), in); err != nil {
+		t.Fatalf("Create provenance-bearing template: %v", err)
+	}
+	got := store.items["ns/frozen"]
+	if got == nil {
+		t.Fatal("template not stored")
+	}
+	if got.ContentHash == "" {
+		t.Error("ContentHash is empty on a provenance-bearing create")
+	}
+	if got.RubricProvenance == nil || got.RubricProvenance.Method != "adaptive-generated" {
+		t.Errorf("RubricProvenance not preserved through Create: %+v", got.RubricProvenance)
 	}
 }
 
