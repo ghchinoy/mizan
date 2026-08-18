@@ -259,6 +259,21 @@ func TestCreate_MissingKindRejected(t *testing.T) {
 	}
 }
 
+// TestCreate_RejectsInvalidKind confirms a non-empty but unrecognized kind is
+// rejected by the NormalizeKind ingest guard (mirroring codec.Unmarshal), before
+// anything is written.
+func TestCreate_RejectsInvalidKind(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/bogus", Kind: "bogus"}); err == nil {
+		t.Fatal("Create with an unknown kind: expected error")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on an unknown kind, want 0", store.putCalls)
+	}
+}
+
 // TestCreate_NormalizesVernacularKind confirms a vernacular kind spelling is
 // folded to its canonical form on the authoring path, exactly as the import codec
 // does — so the stored kind and its ContentHash match an import of the same

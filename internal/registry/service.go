@@ -97,7 +97,8 @@ func (s *Service) Create(ctx context.Context, t MetricTemplate) error {
 	}
 	// Ingest guards, mirroring codec.Unmarshal (the import boundary). A non-empty
 	// invalid kind fails here with the enumerated error; an empty kind is left for
-	// the strict-schema pre-check below to reject as "spec.kind is required".
+	// the strict-schema pre-check below to reject (spec.kind is a required schema
+	// property).
 	if t.Kind != "" {
 		k, err := NormalizeKind(string(t.Kind))
 		if err != nil {
