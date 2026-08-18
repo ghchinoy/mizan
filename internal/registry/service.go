@@ -72,9 +72,14 @@ func NewService(store Store, opts ...Option) *Service {
 //
 // A directly-authored template — via `registry create` or frozen from an
 // adaptive run via `eval adaptive --save-as` — never travels through a pack, so
-// it bypasses both the codec ingest boundary AND `pack validate`'s strict schema
-// gate that every imported template passes. Create therefore closes that gap on
-// two axes so the authoring path is at parity with the import/pack path:
+// it bypasses BOTH the codec ingest boundary that every import passes AND
+// `pack validate`'s strict schema gate. Create closes that gap so the authoring
+// path is at full parity with the import/pack path:
+//   - it applies the same ingest guards the codec applies on import
+//     (codec.Unmarshal): a vernacular kind is folded to canonical (NormalizeKind)
+//     and the autorater-model SSRF invariant is enforced — a project-scoped or
+//     ".."-bearing model is rejected and only the cleaned bare id is stored
+//     (design §3.4);
 //   - it runs the SAME strict JSON schema (schema/metrictemplate.json) the
 //     `pack validate` gate uses, rejecting a malformed or invalid-enum template
 //     before it lands in the store; and
@@ -90,6 +95,21 @@ func (s *Service) Create(ctx context.Context, t MetricTemplate) error {
 	} else if err != ErrNotFound {
 		return err
 	}
+	// Ingest guards, mirroring codec.Unmarshal (the import boundary). A non-empty
+	// invalid kind fails here with the enumerated error; an empty kind is left for
+	// the strict-schema pre-check below to reject as "spec.kind is required".
+	if t.Kind != "" {
+		k, err := NormalizeKind(string(t.Kind))
+		if err != nil {
+			return fmt.Errorf("registry: create %q: %w", t.ID, err)
+		}
+		t.Kind = k
+	}
+	cleanModel, err := validateAutoraterModel(t.ID, t.AutoraterModel)
+	if err != nil {
+		return err
+	}
+	t.AutoraterModel = cleanModel
 	// Strict-schema pre-check (parity with `pack validate`). Marshaling through the
 	// codec yields the canonical pack bytes the schema is defined over; the schema
 	// is the single source of truth already used at the pack gate.

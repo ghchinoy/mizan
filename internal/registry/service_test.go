@@ -259,6 +259,107 @@ func TestCreate_MissingKindRejected(t *testing.T) {
 	}
 }
 
+// TestCreate_NormalizesVernacularKind confirms a vernacular kind spelling is
+// folded to its canonical form on the authoring path, exactly as the import codec
+// does — so the stored kind and its ContentHash match an import of the same
+// content (no divergence from an un-normalized "single").
+func TestCreate_NormalizesVernacularKind(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	if err := svc.Create(ctx(), MetricTemplate{ID: "ns/vern", Kind: "single"}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	got := store.items["ns/vern"]
+	if got.Kind != KindPointwise {
+		t.Errorf("Kind = %q, want canonical %q", got.Kind, KindPointwise)
+	}
+	// The stored (canonical) template must hash identically to a template authored
+	// with the canonical kind directly.
+	canonical := MetricTemplate{ID: "ns/vern", Kind: KindPointwise}
+	if want := contentHash(&canonical); got.ContentHash != want {
+		t.Errorf("ContentHash = %q, want %q (vernacular kind must normalize before hashing)", got.ContentHash, want)
+	}
+}
+
+// TestCreate_CleansAutoraterModel confirms the autorater ingest guard runs on the
+// authoring path: a publisher-relative model with a "publishers/.../" prefix is
+// reduced to the bare id stored at rest, matching codec.Unmarshal on import.
+func TestCreate_CleansAutoraterModel(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	in := MetricTemplate{
+		ID:             "ns/model",
+		Kind:           KindPointwise,
+		AutoraterModel: "publishers/google/models/gemini-2.5-pro",
+	}
+	if err := svc.Create(ctx(), in); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if got := store.items["ns/model"].AutoraterModel; got != "gemini-2.5-pro" {
+		t.Errorf("AutoraterModel = %q, want cleaned bare id %q", got, "gemini-2.5-pro")
+	}
+}
+
+// TestCreate_RejectsProjectScopedAutoraterModel confirms the SSRF invariant is
+// enforced on Create: a project-scoped resource name (which import rejects at
+// ingest) must never land in the store via the authoring path.
+func TestCreate_RejectsProjectScopedAutoraterModel(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	bad := MetricTemplate{
+		ID:             "ns/ssrf",
+		Kind:           KindPointwise,
+		AutoraterModel: "projects/victim/locations/us-central1/publishers/google/models/gemini-2.5-pro",
+	}
+	if err := svc.Create(ctx(), bad); err == nil {
+		t.Fatal("Create with a project-scoped autorater model: expected rejection")
+	}
+	if store.putCalls != 0 {
+		t.Errorf("Put called %d times on a project-scoped model, want 0", store.putCalls)
+	}
+}
+
+// TestCreate_ProvenanceBearingSucceeds exercises a freeze-shaped template (the
+// `eval adaptive --save-as` output): a KindRubric with RubricProvenance and
+// rubric groups passes the strict-schema pre-check and is stored with a hash.
+func TestCreate_ProvenanceBearingSucceeds(t *testing.T) {
+	store := newFakeStore()
+	svc := NewService(store)
+
+	in := MetricTemplate{
+		ID:                   "ns/frozen",
+		Name:                 "Frozen adaptive rubric",
+		Version:              "0.0.0",
+		Kind:                 KindRubric,
+		Modalities:           []Modality{ModalityText},
+		Inputs:               []InputSpec{{Name: "response", Modality: ModalityText, Required: true}},
+		MetricPromptTemplate: "Evaluate: {{response}}",
+		RubricGroups:         map[string][]string{"quality": {"is clear"}},
+		RubricProvenance: &RubricProvenance{
+			Method:         "adaptive-generated",
+			GeneratorModel: "gemini-2.5-pro",
+			GeneratedAt:    time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC),
+			RubricMeta:     []RubricMeta{{Group: "quality", Criterion: "is clear", Origin: OriginAdaptiveGenerated}},
+		},
+	}
+	if err := svc.Create(ctx(), in); err != nil {
+		t.Fatalf("Create provenance-bearing template: %v", err)
+	}
+	got := store.items["ns/frozen"]
+	if got == nil {
+		t.Fatal("template not stored")
+	}
+	if got.ContentHash == "" {
+		t.Error("ContentHash is empty on a provenance-bearing create")
+	}
+	if got.RubricProvenance == nil || got.RubricProvenance.Method != "adaptive-generated" {
+		t.Errorf("RubricProvenance not preserved through Create: %+v", got.RubricProvenance)
+	}
+}
+
 // --- Update -------------------------------------------------------------------
 
 func TestUpdate_Success_PreservesCreatedAt(t *testing.T) {
