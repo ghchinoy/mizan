@@ -1,6 +1,6 @@
 # Mizan — Collaboration / Contribution Design
 
-Status: design for review (pre-implementation)
+Status: design of record (rev 3) — the pack format and Store/codec/sync seam have shipped; the Firestore/GCS backend (model B) remains a non-goal
 Date: 2026-08-09 (rev 3)
 Author: mizan-architect
 Inputs: docs/research.md (ground truth), docs/architecture-final.md (which folded in the retired 2026-08-07 draft), design/plan-v1.md,
