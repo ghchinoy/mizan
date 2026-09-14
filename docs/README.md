@@ -1,10 +1,11 @@
 # Mizan — Documentation Index
 
-**Mizan is installable today as a working CLI.** Registry CRUD, config, and
-all four metric kinds (pointwise, rubric, custom_schema, pairwise) —
-including multimodal (image/audio/video/music) — are built and verified
-end-to-end against real Vertex AI. Template packs/sharing, batch eval, and
-the desktop app remain planned — see [`roadmap.md`](roadmap.md) (or the
+**Mizan is installable today as a working CLI.** Registry CRUD, config, all
+four metric kinds (pointwise, rubric, custom_schema, pairwise) — including
+multimodal (image/audio/video/music) — and template packs/sharing (`mizan
+pack init|add|validate`, `mizan registry import|export`) are built and verified
+end-to-end against real Vertex AI. Batch eval and the desktop app remain
+planned — see [`roadmap.md`](roadmap.md) (or the
 [user guide](user-guide.md#coming-soon--roadmap)) for the current boundary.
 The design documents below remain the architectural record;
 `architecture-final.md` in particular is kept current as the single source of
@@ -33,10 +34,10 @@ truth even as code lands.
 | `user-guide.md` | End-user guide: install, configure, registry walkthrough, running evaluations, troubleshooting, roadmap. | Current — verified against the built CLI. |
 | `llm-as-judge-scenarios.md` | Capability-first use-case guide: the LLM-as-a-Judge scenarios you can achieve (pointwise, pairwise, rubric overall + per-criterion `--rubric-detail`, custom_schema, multimodal, model selection, observability), each mapped to a template/command and grounded in code. | Current — code-grounded against `main`. |
 | `testing-guide.md` | Hands-on, copy-pasteable recipes for exercising every metric kind (pointwise, rubric, custom_schema, pairwise) and multimodal, plus the pairwise placeholder contract and the `--flip-enabled` P1 limitation. | Current — verified against the built CLI. |
-| `roadmap.md` | Planned capabilities that are not built yet: template packs/sharing, batch evaluation, desktop app. | Current — planned scope only. |
+| `roadmap.md` | Planned capabilities that are not built yet: batch evaluation and the desktop app. | Current — planned scope only. |
 | `research.md` | Ground-truth research: eval service, API, modalities, precedents. | Reference (do not re-derive). |
 | `architecture-final.md` | Current, authoritative architecture (rev 3). Module layout, domain model & engine, config, deps, CLI surface (§12), desktop bindings (§13). Now includes embedded architecture/sequence diagrams. | Current, updated as code lands. |
-| `collaboration-design.md` | The contribution layer: template-pack format, versioning, validation, the Store/codec/sync seam, and the authoritative `MetricTemplate` struct (§6). | Design for review (rev 3) — not yet implemented. |
+| `collaboration-design.md` | The contribution layer: template-pack format, versioning, validation, the Store/codec/sync seam, and the authoritative `MetricTemplate` struct (§6). | Design of record (rev 3) — the pack format and Store/codec/sync seam have shipped; the Firestore/GCS backend (model B) remains a non-goal. |
 | `implementation-plan.md` | Phasing (P1→P4) and acceptance criteria. | Design for review — P1 vertical slice landed; P2-P4 not started. |
 | `spikes.md` | De-risking spikes for the unknowns in `research.md` and `architecture-final.md`. | Working notes. |
 | `diagrams/` | Graphviz sources (`.dot`) and rendered WebP images for the component-architecture and eval-sequence diagrams embedded in `architecture-final.md`. | Current. |
