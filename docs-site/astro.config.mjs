@@ -49,7 +49,8 @@ export default defineConfig({
       ],
       sidebar: [
         { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
-        { label: 'Reference & Design', items: [{ autogenerate: { directory: 'reference' } }] },
+        // Phase 2 re-adds the "Reference & Design" group (autogenerate 'reference')
+        // when reference docs are migrated. Omitted in Phase 1 to avoid an empty group.
         // The Blog top-level link is injected by starlight-blog.
       ],
       // Override MarkdownContent to add the "Series" banner on blog posts while
