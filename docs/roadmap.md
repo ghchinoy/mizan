@@ -1,34 +1,15 @@
 # Mizan Roadmap — planned capabilities (not built yet)
 
-Everything on this page is **planned, not shipped**. None of these commands
-exist in the built `mizan` binary; do not expect them to work. For what Mizan
-can actually do today, see [**Works today**](../README.md#works-today) in the
-root README and the [user guide](user-guide.md).
+The capabilities below — batch evaluation and the desktop app — are
+**planned, not shipped**; neither `eval batch` nor a runnable desktop app
+exists in the built `mizan` binary. For what Mizan can actually do today, see
+[**Works today**](../README.md#works-today) in the root README and the
+[user guide](user-guide.md).
 
-## Template packs and sharing
-
-Planned commands: `mizan pack init|validate|add` and `mizan registry
-import|export`. **No `pack` command and no `registry import|export` exist in
-the built `mizan` binary yet.**
-
-The intended model: packs are contributed via pull requests to the dedicated
-[`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates)
-repo (data + CI only, no Mizan application code); its `validate-packs` CI
-workflow is already wired up and runs on every PR there, but it currently
-fails for the same reason — the validation step invokes `mizan pack validate`,
-which doesn't exist yet — so that gate goes green once the command ships.
-Packs are then pulled in with `mizan registry import` (that repo is the
-configured default source) once the command exists.
-
-`mizan-templates` is not just a stub — it already holds a real worked example
-pack (`packs/google-brand/`), its own pack-format docs, and an active CI gate
-— but this repo's binary has no code path that talks to it yet.
-
-The pack format, versioning, validation rules, and the sync seam this would
-build on are specified in the proposed design (§3) of
-[`collaboration-design.md`](collaboration-design.md), with the authoritative
-`MetricTemplate` struct in its §6 — a design document, not a description of
-shipped behavior.
+Template packs & sharing have **shipped** and are no longer on this page:
+`mizan pack init|add|validate` and `mizan registry import|export` are built and
+verified — see [**Works today**](../README.md#works-today) and the
+[user guide](user-guide.md#coming-soon--roadmap).
 
 ## Batch evaluation
 
