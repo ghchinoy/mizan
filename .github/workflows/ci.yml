@@ -2,8 +2,10 @@ name: CI
 
 on:
   pull_request:
+    paths-ignore: ['docs-site/**']
   push:
     branches: [main]
+    paths-ignore: ['docs-site/**']
 
 # Least privilege: CI only needs to read the repository contents.
 permissions:

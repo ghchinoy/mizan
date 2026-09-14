@@ -1,0 +1,66 @@
+---
+// Lightweight "Series: <title> (part N of M)" banner.
+// Reads series/seriesOrder from the current route's frontmatter and computes M
+// by counting non-draft posts sharing the same series. Renders nothing on pages
+// without a `series` (so it is safe to include on every page via MarkdownContent).
+import { getCollection } from 'astro:content';
+
+const data = Astro.locals.starlightRoute?.entry?.data as
+  | { series?: string; seriesOrder?: number }
+  | undefined;
+
+const series = data?.series;
+const seriesOrder = data?.seriesOrder;
+
+let total = 0;
+if (series) {
+  const pieces = await getCollection(
+    'docs',
+    (entry) => entry.data.series === series && entry.data.draft !== true,
+  );
+  total = pieces.length;
+}
+
+const show = Boolean(series) && seriesOrder !== undefined;
+---
+
+{
+  show && (
+    <aside class="series-banner" aria-label="Series navigation">
+      <span class="series-banner__label">Series</span>
+      <span class="series-banner__title">{series}</span>
+      <span class="series-banner__part">
+        (part {seriesOrder}
+        {total > 0 ? ` of ${total}` : ''})
+      </span>
+    </aside>
+  )
+}
+
+<style>
+  .series-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-block: 0 1.5rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-inline-start: 3px solid var(--sl-color-accent);
+    border-radius: 0.5rem;
+    background: var(--sl-color-gray-6, var(--sl-color-bg-nav));
+    font-size: var(--sl-text-sm);
+  }
+  .series-banner__label {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--sl-color-accent-high);
+  }
+  .series-banner__title {
+    font-weight: 600;
+  }
+  .series-banner__part {
+    color: var(--sl-color-gray-3);
+  }
+</style>
