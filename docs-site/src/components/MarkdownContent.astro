@@ -1,0 +1,16 @@
+---
+// Override of Starlight's MarkdownContent.
+//
+// starlight-blog also overrides MarkdownContent to render blog-post chrome
+// (cover, metadata, tags, prev/next). We provide our own override that
+// DELEGATES to starlight-blog's override (the sanctioned pattern) and injects
+// the Series banner into the content slot. The banner renders nothing on pages
+// without a `series`, so non-blog docs are unaffected.
+import StarlightBlogMarkdownContent from 'starlight-blog/overrides/MarkdownContent.astro';
+import SeriesBanner from './SeriesBanner.astro';
+---
+
+<StarlightBlogMarkdownContent>
+  <SeriesBanner />
+  <slot />
+</StarlightBlogMarkdownContent>

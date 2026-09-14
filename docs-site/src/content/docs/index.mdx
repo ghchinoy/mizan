@@ -1,0 +1,61 @@
+---
+title: Mizan
+description: Evaluate generative AI output — text, images, audio, video, and music — with LLM-as-a-judge metrics you can write down, rerun, and share.
+template: splash
+hero:
+  tagline: Turn the judgment you already make by eye into an explicit, repeatable, shareable check. Mizan runs LLM-as-a-judge evals on Google's Vertex AI across text, images, audio, video, and music.
+  actions:
+    - text: Read the user guide
+      link: /mizan/guides/user-guide/
+      icon: right-arrow
+      variant: primary
+    - text: Read the blog
+      link: /mizan/blog/
+      icon: open-book
+      variant: minimal
+    - text: View on GitHub
+      link: https://github.com/ghchinoy/mizan
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## What is Mizan?
+
+Mizan is a command-line tool for **evaluating generative AI output** with an
+LLM-as-a-judge. You state the criteria a response has to meet, hand a response
+and those criteria to a judge model, and get back a score and an explanation you
+can store, rerun, and share. It runs on Google's Vertex AI Gen AI Evaluation
+Service across text, images, audio, video, and music.
+
+<CardGrid stagger>
+  <Card title="Four metric kinds" icon="approve-check">
+    **Pointwise** for one number and a reason, **rubric** for several named
+    criteria at once, **custom_schema** for typed structured output, and
+    **pairwise** to pick the stronger of two candidates.
+  </Card>
+  <Card title="Written down, not by eye" icon="pencil">
+    Your standard lives in a template file you can commit, hand to a teammate, or
+    import — the criteria travel with the work instead of staying in one
+    reviewer's head.
+  </Card>
+  <Card title="Repeatable & stored" icon="list-format">
+    Runs are persisted by default, so `mizan results list` and
+    `mizan results show` let you look back at what you scored and why.
+  </Card>
+  <Card title="Start in ten minutes" icon="rocket">
+    `go install github.com/ghchinoy/mizan/cmd/mizan@v0.1.0`, point it at a Google
+    Cloud project, and run your first eval. See the
+    [user guide](/mizan/guides/user-guide/).
+  </Card>
+</CardGrid>
+
+## Where to go next
+
+- **[User guide](/mizan/guides/user-guide/)** — install, configure, walk the
+  registry, and run evals end to end.
+- **[Blog](/mizan/blog/)** — the *Build Evals with Mizan* series, starting with
+  why evals matter and what an LLM-as-a-judge really is.
+- **[Source on GitHub](https://github.com/ghchinoy/mizan)** — the code, the
+  authoritative docs, and releases.

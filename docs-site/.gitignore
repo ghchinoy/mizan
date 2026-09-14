@@ -1,0 +1,20 @@
+# Build output
+dist/
+.output/
+
+# Astro / Vite caches
+.astro/
+node_modules/
+
+# Generated content trees — produced by scripts/sync-docs.mjs at prebuild/predev
+# from the authoritative `docs/` source. NEVER hand-edit or commit these.
+src/content/docs/guides/
+src/content/docs/reference/
+src/content/docs/diagrams/
+
+# Environment
+.env
+.env.production
+
+# OS / editor
+.DS_Store

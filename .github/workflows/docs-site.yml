@@ -1,0 +1,69 @@
+name: docs-site
+
+# Builds the Astro Starlight docs site. Runs sync-docs.mjs (via npm prebuild),
+# astro build, and the internal link check on every PR/push that touches the
+# docs source or the site tooling. Deploys to GitHub Pages ONLY on push to main.
+#
+# This workflow is disjoint from the Go CI (ci.yml): a docs-site-only change runs
+# only this workflow, and a Go change runs only ci.yml. A docs/** change runs
+# both (intended — the doc-drift guard in ci.yml must keep seeing docs/ changes).
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'docs-site/**', '.github/workflows/docs-site.yml']
+  pull_request:
+    paths: ['docs/**', 'docs-site/**', '.github/workflows/docs-site.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build + link-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Astro 7 requires Node >= 22.12.
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: docs-site
+
+      - name: Build (sync-docs prebuild + astro build + link check)
+        run: npm run build
+        working-directory: docs-site
+
+      - name: Upload Pages artifact
+        # Only needed for the deploy job (main pushes), but cheap to always run.
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs-site/dist
+
+  deploy:
+    name: deploy to GitHub Pages
+    # PRs build + validate only; deployment happens exclusively on main.
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4

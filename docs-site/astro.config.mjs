@@ -1,0 +1,63 @@
+// @ts-check
+import { defineConfig } from 'astro/config';
+import starlight from '@astrojs/starlight';
+import starlightBlog from 'starlight-blog';
+import starlightLinksValidator from 'starlight-links-validator';
+
+// GitHub Pages project site: served at https://ghchinoy.github.io/mizan/
+// `base` MUST be carried by every internal link/asset. sync-docs.mjs emits
+// base-prefixed routes and internal assets go through Astro's pipeline so the
+// prefix is applied automatically.
+export default defineConfig({
+  site: 'https://ghchinoy.github.io',
+  base: '/mizan',
+  integrations: [
+    starlight({
+      title: 'Mizan',
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/ghchinoy/mizan' },
+      ],
+      // Edit links point at the authoritative source in `docs/`, never the
+      // generated copy under src/content/docs/. sync-docs.mjs also injects a
+      // per-page `editUrl` so generated guides resolve to their real source file.
+      editLink: {
+        baseUrl: 'https://github.com/ghchinoy/mizan/edit/main/docs/',
+      },
+      plugins: [
+        starlightBlog({
+          title: 'Blog',
+          authors: {
+            ghchinoy: {
+              name: 'ghchinoy',
+              title: 'Mizan maintainer',
+              url: 'https://github.com/ghchinoy',
+            },
+          },
+        }),
+        // Broken internal links and invalid heading anchors fail `npm run build`.
+        // Defaults: errorOnRelativeLinks/errorOnInvalidHashes/failOnError = true;
+        // external links are ignored.
+        //
+        // `exclude`: the blog index/section is a starlight-blog *injected* route,
+        // which the link-checker sees as an unverifiable "custom page" (it only
+        // introspects markdown-sourced pages, not plugin routes). The pages ARE
+        // built and correct; we exclude only these blog links so that genuine
+        // broken links elsewhere still fail the build.
+        starlightLinksValidator({
+          exclude: ['/mizan/blog', '/mizan/blog/', '/mizan/blog/**'],
+        }),
+      ],
+      sidebar: [
+        { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
+        // Phase 2 re-adds the "Reference & Design" group (autogenerate 'reference')
+        // when reference docs are migrated. Omitted in Phase 1 to avoid an empty group.
+        // The Blog top-level link is injected by starlight-blog.
+      ],
+      // Override MarkdownContent to add the "Series" banner on blog posts while
+      // delegating all blog rendering to starlight-blog's own override.
+      components: {
+        MarkdownContent: './src/components/MarkdownContent.astro',
+      },
+    }),
+  ],
+});
