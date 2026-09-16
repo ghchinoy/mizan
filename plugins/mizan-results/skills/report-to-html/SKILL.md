@@ -69,12 +69,15 @@ Combine filters as needed, then save the array to a file to feed the renderer:
 mizan results list --namespace <ns> --since 2026-08-01 -o json > /tmp/mizan-results.json
 ```
 
-> **Only these flags exist.** `results list` supports `--metric`, `--namespace`,
-> `--since`, and `--limit`. There is **no `--tag`** filter. There is **no
-> `mizan results summary` and no `mizan results trend` command** — do not use or
-> reference them. Filtering is the CLI's job (the flags above); all summary and
-> trend numbers are computed **client-side** by the bundled renderer from the
-> `results list` array. There is no `--format`; the switch is `-o json`.
+> **Use only these flags for this skill.** `report-to-html` filters with
+> `--metric`, `--namespace`, `--since`, and `--limit`. It does **not** use
+> `results list --tag`: that flag exists (registry→results tag join) but
+> tag-filtered discovery is **out of scope** for this skill, which reports over
+> whatever `results list` returns. There is still **no `mizan results summary`
+> and no `mizan results trend` command** — do not use or reference them. Filtering
+> is the CLI's job (the flags above); all summary and trend numbers are computed
+> **client-side** by the bundled renderer from the `results list` array. There is
+> no `--format`; the switch is `-o json`.
 
 For a single run's full provenance (drill-down), use:
 

@@ -183,9 +183,10 @@ is deliberately **not** coupled to the docs-site styling.
 
 The data source is the real, ships-today command `mizan results list -o json` (a
 JSON array of `results.Result`, newest first). There is **no `mizan results
-summary`/`trend` command and no `--tag` filter** — filtering uses the real flags
-below, and all summary/trend numbers are computed **client-side** by the bundled
-renderer:
+summary`/`trend` command**, and this skill deliberately does **not** use
+`results list --tag` (that flag exists but tag-filtered discovery is out of scope
+here) — filtering uses the real flags below, and all summary/trend numbers are
+computed **client-side** by the bundled renderer:
 
 ```bash
 # query + filter with the real flags (metric / namespace / since / limit)
