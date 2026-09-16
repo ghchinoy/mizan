@@ -248,11 +248,11 @@ When reporting to a human, always state the **Verdict** and whether the set is a
 ## Out of scope (do not reference)
 
 - **Per-eval-set persistence / trend.** Eval-set *results* are **not** persisted to
-  the results store, and there is **no** per-eval-set history/trend command
-  (Mizan's `results` ships only `list`/`show`, over single-eval runs). Do not tell
-  the user to `mizan results` for the set's history or reference a `results
-  summary`/`trend` command — those do not exist. Persistence/trend for eval-sets is
-  a documented follow-up, not a shipping capability.
+  the results store, so there is **no** per-eval-set history/trend. The `results
+  summary`/`trend` commands **do exist**, but they aggregate persisted *single-eval*
+  runs (`eval run`/`eval pairwise`) — not eval-sets — so do not point the user at
+  `mizan results` for a set's history. Persistence/trend for eval-sets is a
+  documented follow-up, not a shipping capability.
 
 ## Reporting back to the user
 

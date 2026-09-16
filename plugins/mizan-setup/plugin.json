@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mizan-setup",
+  "version": "0.1.0",
+  "description": "Configure Mizan for first use from an agent: inspect the resolved configuration via the mizan CLI over -o json, persist project/location/default-model/results-store settings with `config set`, verify the CLI build with `version`, and check (never store) Application Default Credentials. Use when you need to set up or verify a Mizan environment before running live evaluations.",
+  "author": {
+    "name": "ghchinoy",
+    "url": "https://github.com/ghchinoy"
+  },
+  "homepage": "https://github.com/ghchinoy/mizan/tree/main/plugins/mizan-setup",
+  "repository": "https://github.com/ghchinoy/mizan",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mizan",
+    "configuration",
+    "setup",
+    "onboarding",
+    "gcp",
+    "adc",
+    "vertex-ai",
+    "results-store",
+    "cli"
+  ]
+}

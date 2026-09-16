@@ -73,8 +73,9 @@ mizan results list --namespace <ns> --since 2026-08-01 -o json > /tmp/mizan-resu
 > `--metric`, `--namespace`, `--since`, and `--limit`. It does **not** use
 > `results list --tag`: that flag exists (registry→results tag join) but
 > tag-filtered discovery is **out of scope** for this skill, which reports over
-> whatever `results list` returns. There is still **no `mizan results summary`
-> and no `mizan results trend` command** — do not use or reference them. Filtering
+> whatever `results list` returns. The `mizan results summary` and `mizan results
+> trend` commands **do exist**, but this skill does **not** use them — their
+> summary/trend enrichment is out of scope here (deferred — B3). Filtering
 > is the CLI's job (the flags above); all summary and trend numbers are computed
 > **client-side** by the bundled renderer from the `results list` array. There is
 > no `--format`; the switch is `-o json`.

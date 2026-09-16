@@ -99,6 +99,8 @@ The primary channel is the **Claude plugin marketplace** (the root
 /plugin marketplace add ghchinoy/mizan
 /plugin install mizan-eval@mizan
 /plugin install mizan-results@mizan
+/plugin install mizan-authoring@mizan
+/plugin install mizan-setup@mizan
 ```
 
 The Claude CLI resolves each `skills` entry in `marketplace.json`
@@ -234,10 +236,11 @@ and let the exit code fail the build. The `evalset.EvalSetResult` `-o json` cont
 and this exit-code table are both covered by hermetic gates (the drift test in
 `internal/skilldocs` and the exit-code test in `cmd/mizan`).
 
-**Out of scope:** eval-set *results* are **not** persisted, and there is **no**
-per-eval-set history/trend command — do not reference `mizan results` for a set's
-history or a `results summary`/`trend` command (those do not exist). Per-eval-set
-persistence/trend is a documented follow-up, not a shipping capability.
+**Out of scope:** eval-set *results* are **not** persisted, so there is **no**
+per-eval-set history/trend. The `results summary`/`trend` commands **do exist**, but
+they aggregate persisted single-eval runs — not eval-sets — so do not point the user
+at `mizan results` for a set's history. Per-eval-set persistence/trend is a
+documented follow-up, not a shipping capability.
 
 See the skill source at
 [`plugins/mizan-eval/skills/run-eval-set/SKILL.md`](../plugins/mizan-eval/skills/run-eval-set/SKILL.md).
@@ -253,11 +256,12 @@ opens directly from the filesystem with **no server and no external request**; i
 is deliberately **not** coupled to the docs-site styling.
 
 The data source is the real, ships-today command `mizan results list -o json` (a
-JSON array of `results.Result`, newest first). There is **no `mizan results
-summary`/`trend` command**, and this skill deliberately does **not** use
-`results list --tag` (that flag exists but tag-filtered discovery is out of scope
-here) — filtering uses the real flags below, and all summary/trend numbers are
-computed **client-side** by the bundled renderer:
+JSON array of `results.Result`, newest first). The `mizan results summary`/`trend`
+commands **do exist**, but this skill deliberately does **not** use them (their
+summary/trend enrichment is out of scope here — deferred, B3), nor `results list
+--tag` (that flag exists but tag-filtered discovery is out of scope here) —
+filtering uses the real flags below, and all summary/trend numbers are computed
+**client-side** by the bundled renderer:
 
 ```bash
 # query + filter with the real flags (metric / namespace / since / limit)
@@ -284,6 +288,37 @@ hermetic drift test in `internal/skilldocs`.
 
 See the skill source at
 [`plugins/mizan-results/skills/report-to-html/SKILL.md`](../plugins/mizan-results/skills/report-to-html/SKILL.md).
+
+#### `triage-a-result`
+
+Explain and triage a **single** past run: retrieve its full record, lay out the
+provenance, explain the verdict, and suggest concrete next steps. It reads the
+**local** results store only — **no network, no credentials** — and re-runs
+nothing on its own.
+
+```bash
+# find a run id (real filter flags only; no --tag), then pull the full record
+mizan results list --metric <ns>/<slug> -o json      # newest-first array; take .[0].RunID
+mizan results show <run-id> -o json                  # one results.Result object
+```
+
+The skill walks the **provenance** — `Template.ID`/`Version`/`ContentHash`/`Kind`,
+`Autorater.Model`/`ModelSource`, `Inputs[]`, `Mizan` build, `Invocation` — then
+**explains the verdict** from `Outcome` (`Score` or `PairwiseChoice`,
+`Explanation`, and the free-form per-criterion `CustomOutput` when
+`RubricDetail` is true), and proposes ranked next steps (revise the asset and
+re-run `run-eval`, pin the autorater via `configure-mizan`, pick a better template
+via `discover-and-import-templates`, or compare peers via `report-to-html`).
+
+It does **not** use `results list --tag` (that flag exists but tag-filtered
+discovery is deferred), nor `results summary`/`trend` (those commands exist, but
+their summary/trend enrichment is out of scope for this skill — deferred, B3). The
+`results.Result` `-o json` contract is documented and hermetically drift-gated
+**once** (under `report-to-html`, in `internal/skilldocs`); triage reads from that
+single shape rather than re-declaring it.
+
+See the skill source at
+[`plugins/mizan-results/skills/triage-a-result/SKILL.md`](../plugins/mizan-results/skills/triage-a-result/SKILL.md).
 
 ### `mizan-authoring` — template authoring
 
@@ -433,6 +468,82 @@ shape reuses the `run-eval` gate.
 See the skill source at
 [`plugins/mizan-authoring/skills/rubric-generate-from-brand-book/SKILL.md`](../plugins/mizan-authoring/skills/rubric-generate-from-brand-book/SKILL.md).
 
+#### `discover-and-import-templates`
+
+Bring ready-made metric templates into the local registry instead of authoring
+from scratch. Import a pack source — a local checkout, a single pack dir, or a
+git URL such as the community `mizan-templates` repo (with **no** `<src>`, the
+configured `templates-repo` default) — **preview first**, reconcile id clashes
+safely, then browse what landed. It touches only the local registry and pack
+cache: **creds-free**, no LLM call.
+
+```bash
+# 1. PREVIEW (write nothing) — default source or an explicit git URL / local dir
+mizan registry import --dry-run -o json
+mizan registry import github.com/ghchinoy/mizan-templates --dry-run -o json
+
+# 2. COMMIT with a reconciliation strategy (newer|skip|overwrite|fork)
+mizan registry import -o json --strategy newer
+
+# 3. BROWSE what landed (narrow by namespace / kind — NOT --tag)
+mizan registry list --namespace <ns> -o json
+mizan registry get <ns>/<slug> -o json
+```
+
+The `registry import -o json` result is a `registry.ImportReport` — per-action
+counts (`Inserted`/`Updated`/`Skipped`/`Conflicted`/`Unchanged`/`Forked`) plus a
+per-template `Entries[]` of `{ID, Action, Reason}`; the default `newer` strategy
+never clobbers a locally edited (dirty) template. That shape is the **same
+`registry.ImportReport` already drift-gated** under `rubric-generate-from-brand-book`
+(freeze step), so it is not re-gated. The discovery **identity fields** read from
+`registry list`/`get -o json` (`ID`, `Name`, `Description`, `Version`, `Kind`,
+`Tags`, `Authors`, `License`, `Source`) are anchored to the real
+`registry.MetricTemplate` encoder by a hermetic gate in `internal/skilldocs`.
+
+**Deferred surface (explicit disclaimer):** `registry list --tag` exists but
+**tag-filtered discovery is deferred / out of scope** — the skill narrows with
+`--namespace`/`--kind` and matches tags **client-side**, and never invokes
+`--tag`. It references no `kind: heuristic` authoring, and does not invoke `results
+summary`/`trend` (those commands exist, but their enrichment is out of scope for
+this skill — deferred, B3).
+
+See the skill source at
+[`plugins/mizan-authoring/skills/discover-and-import-templates/SKILL.md`](../plugins/mizan-authoring/skills/discover-and-import-templates/SKILL.md).
+
+### `mizan-setup` — configuration & onboarding
+
+#### `configure-mizan`
+
+Get a Mizan environment ready to evaluate: read the **resolved** configuration,
+set the handful of values a live eval needs, confirm the build, and verify
+Application Default Credentials — **checking, never storing, any credential
+(N5)**. It reads/writes only the local config file
+(`<UserConfigDir>/mizan/.env`) and reads the resolved config over `-o json`; no
+network.
+
+```bash
+mizan version -o json                            # {version, commit, date}
+mizan config show -o json                        # resolved config + per-key Sources (alias: config list)
+mizan config set project-id my-gcp-project       # required for live eval
+mizan config set location us-central1
+mizan config set default-model gemini-2.5-pro    # optional; else the built-in default
+```
+
+`config show -o json` renders the full `config.Config` — `ProjectID`, `Location`,
+`StagingBucket`, `APIEndpoint`, the registry/results store paths and settings,
+`DefaultTemplatesRepo`, `DefaultModel`, `AuthorName`, `DefaultLicense`, and a
+`Sources` map (each `config set` key → `env`/`env-file`/`default`) — so the skill
+can tell a real setting from a built-in default. Both the `config.Config` and
+`version.Info` `-o json` shapes are covered by hermetic drift gates in
+`internal/skilldocs`. `config set` writes **only non-secret** settings to the
+`0600` config file (its output is a text confirmation line, not JSON) — it is not
+a credential store. ADC presence is verified without capturing the token (e.g.
+`gcloud auth application-default print-access-token >/dev/null`); a missing ADC is
+fixed by the user's own `gcloud auth application-default login`.
+
+See the skill source at
+[`plugins/mizan-setup/skills/configure-mizan/SKILL.md`](../plugins/mizan-setup/skills/configure-mizan/SKILL.md).
+
 ## Non-goals
 
 - **No server / self-contained.** Skills are static instruction files plus
@@ -451,8 +562,14 @@ See the skill source at
 `author-and-validate-a-template-pack` (`mizan-authoring`) covers creds-free pack
 authoring and the export→PR→import loop, and `rubric-generate-from-brand-book`
 extends `mizan-authoring` with suggest-first, agent-side rubric synthesis from a
-brand book plus the generate→union→validate→freeze→import loop. Planned fan-out
-includes Tier-2 onboarding/discovery skills. Capabilities that would need unbuilt CLI commands — a
-`results summary`/`trend` enrichment of `report-to-html`, per-eval-set
-persistence/trend, tag-filtered discovery, heuristic authoring — are deferred, not
-stubbed. See the project roadmap for sequencing.
+brand book plus the generate→union→validate→freeze→import loop. The Tier-2
+onboarding/discovery fan-out then landed: `discover-and-import-templates`
+(`mizan-authoring`) for pulling in community/starter templates,
+`configure-mizan` (`mizan-setup`) for first-run configuration and the ADC check,
+and `triage-a-result` (`mizan-results`) for explaining and debugging a single
+past run. Capabilities that remain out of scope — the `results summary`/`trend`
+enrichment of `report-to-html` (those commands exist, but wiring their
+summary/trend output into the report is deferred — B3), per-eval-set
+persistence/trend, tag-filtered discovery (`registry list`/`results list --tag`),
+heuristic authoring (`kind: heuristic`), and an MCP-server-backed variant
+(`mizan mcp`) — are deferred, not stubbed. See the project roadmap for sequencing.
