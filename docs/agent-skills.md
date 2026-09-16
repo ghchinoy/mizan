@@ -214,6 +214,69 @@ hermetic drift test in `internal/skilldocs`.
 See the skill source at
 [`plugins/mizan-results/skills/report-to-html/SKILL.md`](../plugins/mizan-results/skills/report-to-html/SKILL.md).
 
+### `mizan-authoring` — template authoring
+
+#### `author-and-validate-a-template-pack`
+
+Author a metric template (or a whole pack), **validate it credential-free**, and
+run the export→PR→import collaborator loop. The whole authoring and validation
+loop (steps 1–5) is creds-free — it touches only the local registry and the
+filesystem, never Vertex AI.
+
+```bash
+# 1. scaffold a pack (writes mizan-pack.yaml + empty templates/ and evalsets/)
+mizan pack init <dir> --name <namespace>
+
+# 2. author a template (pick --kind; --tag is folksonomy tagging for curation)
+mizan registry create --id <ns>/<slug> --kind rubric \
+  --prompt 'Evaluate: {{response}}' --input 'response:text:true' \
+  --rubric-group 'clarity=clear;concise' --tag <industry> -o json
+
+# 3. add it to the pack (or: registry export --out <dir> --id <ns>/<slug>)
+mizan pack add <dir> --from <ns>/<slug>
+
+# 4. validate the pack — the creds-free CI PR gate
+mizan pack validate <dir>
+```
+
+`--kind` is one of `single`/`pointwise`, `compare`/`pairwise`, `rubric`, or
+`custom_schema` (fill the kind-specific data with `--rubric-group` /
+`--response-schema` / `--baseline-field`+`--candidate-field`). `-o json` on
+`registry create` prints the created `MetricTemplate` (`ID`, `Kind`, `Tags`,
+`Inputs`, …). This skill does **not** do tag-filtered *discovery* — `--tag` here
+is for *authoring* folksonomy tags only.
+
+**`pack validate` is text/exit-code driven — it ignores `-o json`.** Branch on the
+exit code and parse the text report:
+
+- **Exit `0` = accept.** No ERROR findings (warnings alone never fail). A clean
+  pack prints `OK: no defects found.` and a `0 error(s), 0 warning(s)` summary.
+- **Exit non-zero (`1`) = reject.** At least one ERROR. Findings are grouped by
+  file (`  [ERROR] <message>` / `  [warn ] <message>`) and end with a
+  `N error(s), M warning(s)` summary. Fix each `[ERROR]` and re-run until exit `0`.
+
+```
+templates/bad.yaml:
+  [ERROR] metadata.version is required and must be semver
+
+1 error(s), 0 warning(s)
+```
+
+The optional `--dry-run` adds a **live** step 6 (one materialize+call per template
+to confirm API acceptance) that needs credentials — it is **not** part of the
+creds-free CI gate; do not run it in CI.
+
+The collaborator loop is export→PR→import: a validated pack dir is PR-ready
+(Mizan never pushes), and the receiving side imports it with
+`mizan registry import <src> --strategy newer -o json` (strategies
+`newer`/`skip`/`overwrite`/`fork`; `-o json` reports the reconciliation counts and
+per-template `Entries`). The `pack validate` exit-code + text-report contract is
+covered by the hermetic gate in `internal/skilldocs` (no json shape — `pack
+validate` emits none).
+
+See the skill source at
+[`plugins/mizan-authoring/skills/author-and-validate-a-template-pack/SKILL.md`](../plugins/mizan-authoring/skills/author-and-validate-a-template-pack/SKILL.md).
+
 ## Non-goals
 
 - **No server / self-contained.** Skills are static instruction files plus

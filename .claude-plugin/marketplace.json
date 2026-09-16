@@ -24,6 +24,14 @@
       "skills": [
         "./skills/report-to-html"
       ]
+    },
+    {
+      "name": "mizan-authoring",
+      "source": "./plugins/mizan-authoring",
+      "description": "Author, validate (creds-free), and share Mizan metric-template packs: scaffold a pack, create templates via the mizan CLI, run `pack validate` (the CI PR gate), and the export->PR->import collaborator loop.",
+      "skills": [
+        "./skills/author-and-validate-a-template-pack"
+      ]
     }
   ]
 }
