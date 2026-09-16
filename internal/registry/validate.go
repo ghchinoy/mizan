@@ -221,7 +221,7 @@ var (
 )
 
 func mustCompileSchema(name string, data []byte) *jsonschema.Schema {
-	c := jsonschema.NewCompiler()
+	c := NewInlineOnlyCompiler()
 	if err := c.AddResource(name, bytes.NewReader(data)); err != nil {
 		panic(fmt.Sprintf("registry: add schema %q: %v", name, err))
 	}
@@ -655,14 +655,8 @@ func validateHeuristicSpec(rep *Report, file, id string, kind MetricKind, inputN
 	case HeuristicRegex:
 		if spec.Value == "" {
 			rep.add(file, id, SeverityError, "spec.heuristic.type %q requires a non-empty spec.heuristic.value (the pattern)", spec.Type)
-		} else {
-			pattern := spec.Value
-			if spec.CaseInsensitive {
-				pattern = "(?i)" + pattern
-			}
-			if _, err := regexp.Compile(pattern); err != nil {
-				rep.add(file, id, SeverityError, "spec.heuristic.value is not a valid RE2 regex: %v", err)
-			}
+		} else if _, err := CompileHeuristicRegex(spec); err != nil {
+			rep.add(file, id, SeverityError, "spec.heuristic.value is not a valid RE2 regex: %v", err)
 		}
 	case HeuristicJSONSchemaValid:
 		if strings.TrimSpace(spec.Schema) == "" {
@@ -676,7 +670,7 @@ func validateHeuristicSpec(rep *Report, file, id string, kind MetricKind, inputN
 // validateHeuristicSchema confirms a json-schema-valid check's schema string is
 // itself a compilable JSON Schema, using the same compiler the engine uses.
 func validateHeuristicSchema(schema string) error {
-	c := jsonschema.NewCompiler()
+	c := NewInlineOnlyCompiler()
 	if err := c.AddResource("heuristic-schema.json", bytes.NewReader([]byte(schema))); err != nil {
 		return err
 	}
@@ -693,7 +687,7 @@ func validateResponseSchema(schema map[string]any) error {
 	if err != nil {
 		return err
 	}
-	c := jsonschema.NewCompiler()
+	c := NewInlineOnlyCompiler()
 	if err := c.AddResource("responseSchema.json", bytes.NewReader(jb)); err != nil {
 		return err
 	}

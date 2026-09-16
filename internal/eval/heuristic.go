@@ -125,11 +125,7 @@ func evalHeuristicCheck(spec *registry.HeuristicSpec, text string) (bool, string
 // has no catastrophic backtracking — a deliberate safety property. CaseInsensitive
 // is applied as the RE2 (?i) flag.
 func compileHeuristicRegex(spec *registry.HeuristicSpec) (*regexp.Regexp, error) {
-	pattern := spec.Value
-	if spec.CaseInsensitive {
-		pattern = "(?i)" + pattern
-	}
-	re, err := regexp.Compile(pattern)
+	re, err := registry.CompileHeuristicRegex(spec)
 	if err != nil {
 		return nil, fmt.Errorf("eval: heuristic regex %q is invalid: %w", spec.Value, err)
 	}
@@ -143,7 +139,7 @@ func compileHeuristicSchema(spec *registry.HeuristicSpec) (*jsonschema.Schema, e
 	if strings.TrimSpace(spec.Schema) == "" {
 		return nil, fmt.Errorf("eval: heuristic json-schema-valid check has no schema")
 	}
-	c := jsonschema.NewCompiler()
+	c := registry.NewInlineOnlyCompiler()
 	if err := c.AddResource("heuristic-schema.json", bytes.NewReader([]byte(spec.Schema))); err != nil {
 		return nil, fmt.Errorf("eval: heuristic schema is invalid: %w", err)
 	}

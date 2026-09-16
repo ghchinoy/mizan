@@ -350,6 +350,12 @@ func newEvalRunCmd() *cobra.Command {
 			// need ADC). Build a deliberately client-free engine instead and run it
 			// with NO ADC and NO network — a heuristic works entirely offline.
 			if tmpl.Kind == registry.KindHeuristic {
+				// A heuristic resolves NO autorater, so a supplied --model has no
+				// effect here. Warn (once, on stderr) rather than silently ignoring
+				// it so the user is not left wondering why their override did nothing.
+				if cmd.Flags().Changed("model") {
+					fmt.Fprintln(cmd.ErrOrStderr(), "mizan: warning: --model is ignored for kind:heuristic metrics (deterministic, no autorater)")
+				}
 				return runHeuristicMetric(cmd, cfg, tmpl, inst, stats, noStore, noHostLabel)
 			}
 
