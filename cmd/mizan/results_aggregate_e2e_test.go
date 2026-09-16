@@ -186,6 +186,92 @@ func TestResultsSummaryTagE2E(t *testing.T) {
 	}
 }
 
+// TestResultsTagWindowBeforeLimitE2E is the EM re-review regression (#94): on the
+// --tag path the [since, until] window MUST be applied before --limit, so both
+// `results summary --tag` and `results list --tag` window consistently with the
+// direct --metric path. Seeds four dated results for a tagged template and proves
+// `--until T --limit N` returns the newest-N IN-WINDOW rows (not the newest-N
+// overall then windowed, which would drop the newest in-window rows).
+func TestResultsTagWindowBeforeLimitE2E(t *testing.T) {
+	cleanConfigEnv(t)
+	dir := t.TempDir()
+	registryDB := filepath.Join(dir, "registry.db")
+	resultsDB := filepath.Join(dir, "results.db")
+	t.Setenv("MIZAN_REGISTRY_DB", registryDB)
+	t.Setenv("MIZAN_RESULTS_BACKEND", "sqlite")
+	t.Setenv("MIZAN_RESULTS_DB", resultsDB)
+
+	if out, err := executeRoot(t, "registry", "create", "--id", "brand-a/quality",
+		"--kind", "single", "--prompt", "Judge {{response}}", "--tag", "brand"); err != nil {
+		t.Fatalf("registry create: %v (out=%q)", err, out)
+	}
+
+	d := func(day int) time.Time { return time.Date(2026, 9, day, 10, 0, 0, 0, time.UTC) }
+	// scores by day: 10->1, 14->2, 16->3, 20->4.
+	seedResultAt(t, resultsDB, "brand-a/quality", "1.0.0", fp(1.0), d(10), nil)
+	seedResultAt(t, resultsDB, "brand-a/quality", "1.0.0", fp(2.0), d(14), nil)
+	seedResultAt(t, resultsDB, "brand-a/quality", "1.0.0", fp(3.0), d(16), nil)
+	seedResultAt(t, resultsDB, "brand-a/quality", "1.0.0", fp(4.0), d(20), nil)
+
+	// summary --tag brand --until 2026-09-17 --limit 2 (bare dates parse to UTC
+	// midnight — 09-17 00:00 includes the 09-16 10:00 run, excludes 09-20, exactly
+	// as the --metric store path treats Until):
+	//   window (< 09-17) keeps {1,2,3} -> newest-first 3,2,1 -> limit 2 -> {3,2}.
+	//   N=2, mean 2.5. The buggy limit-before-until path would keep the newest 2
+	//   overall {4,3}, then drop 4 (> until), yielding N=1, mean 3.
+	out, err := executeRoot(t, "--output", "json", "results", "summary",
+		"--tag", "brand", "--until", "2026-09-17", "--limit", "2")
+	if err != nil {
+		t.Fatalf("summary windowed: %v (out=%q)", err, out)
+	}
+	var got []results.TemplateSummary
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 summary, got %d: %s", len(got), out)
+	}
+	if got[0].N != 2 {
+		t.Errorf("N = %d, want 2 (window before limit); got summary %+v", got[0].N, got[0])
+	}
+	if got[0].Mean == nil || math.Abs(*got[0].Mean-2.5) > 1e-9 {
+		t.Errorf("mean = %v, want 2.5 (newest-2 in-window scores {3,2})", got[0].Mean)
+	}
+
+	// summary --tag brand --since 2026-09-14 --until 2026-09-17: window keeps {2,3}.
+	winOut, err := executeRoot(t, "--output", "json", "results", "summary",
+		"--tag", "brand", "--since", "2026-09-14", "--until", "2026-09-17")
+	if err != nil {
+		t.Fatalf("summary since+until: %v (out=%q)", err, winOut)
+	}
+	var win []results.TemplateSummary
+	if err := json.Unmarshal([]byte(winOut), &win); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if win[0].N != 2 || win[0].Mean == nil || math.Abs(*win[0].Mean-2.5) > 1e-9 {
+		t.Errorf("since+until window: N=%d mean=%v, want 2/2.5", win[0].N, win[0].Mean)
+	}
+
+	// list --tag brand --since 2026-09-14 --limit 2 (list has no --until): window
+	// (>= 09-14) keeps {2,3,4} -> newest-first 4,3,2 -> limit 2 -> {4,3}.
+	listOut, err := executeRoot(t, "--output", "json", "results", "list",
+		"--tag", "brand", "--since", "2026-09-14", "--limit", "2")
+	if err != nil {
+		t.Fatalf("list windowed: %v (out=%q)", err, listOut)
+	}
+	var listGot []results.Result
+	if err := json.Unmarshal([]byte(listOut), &listGot); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(listGot) != 2 {
+		t.Fatalf("list --since --limit returned %d rows, want 2: %s", len(listGot), listOut)
+	}
+	// Newest-first within the window: 09-20 (score 4) then 09-16 (score 3).
+	if s0, s1 := *listGot[0].Outcome.Score, *listGot[1].Outcome.Score; s0 != 4.0 || s1 != 3.0 {
+		t.Errorf("list windowed scores = %v,%v, want 4,3 (newest-2 in-window)", s0, s1)
+	}
+}
+
 // TestResultsTrendE2E drives `results trend` end to end (§9 B3): correct per-bucket
 // means for day and week, and --per-criterion means parsed from persisted
 // CustomOutput.

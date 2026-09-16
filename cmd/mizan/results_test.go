@@ -302,7 +302,7 @@ func TestMergeTaggedResultsNewestFirst(t *testing.T) {
 			taggedResult("B0", "ns/b", base.Add(2*time.Hour)),
 		},
 	}
-	got := mergeTaggedResults(perTemplate, time.Time{}, 0)
+	got := mergeTaggedResults(perTemplate, time.Time{}, time.Time{}, 0)
 	wantOrder := []string{"B1", "A2", "B0", "A1"}
 	if len(got) != len(wantOrder) {
 		t.Fatalf("merged len = %d, want %d", len(got), len(wantOrder))
@@ -324,15 +324,49 @@ func TestMergeTaggedResultsSinceLimitAfterMerge(t *testing.T) {
 	}
 
 	// --since drops the oldest (A1 at +1h) across the whole merged set.
-	since := mergeTaggedResults(perTemplate, base.Add(2*time.Hour), 0)
+	since := mergeTaggedResults(perTemplate, base.Add(2*time.Hour), time.Time{}, 0)
 	if got := runIDs(since); strings.Join(got, ",") != "B1,A2,B0" {
 		t.Errorf("since-filtered order = %v, want [B1 A2 B0]", got)
 	}
 
 	// --limit caps the global newest-first set (not per template): 2 => B1, A2.
-	limited := mergeTaggedResults(perTemplate, time.Time{}, 2)
+	limited := mergeTaggedResults(perTemplate, time.Time{}, time.Time{}, 2)
 	if got := runIDs(limited); strings.Join(got, ",") != "B1,A2" {
 		t.Errorf("limited set = %v, want [B1 A2]", got)
+	}
+}
+
+// TestMergeTaggedResultsWindowBeforeLimit proves the [since, until] window is
+// applied BEFORE --limit on the tag path, so the newest-N is selected from the
+// IN-WINDOW rows (matching the direct --metric path where the store applies
+// since/until/limit together). If --limit were applied first, --until would then
+// drop the newest rows and return fewer in-window rows than exist (EM re-review
+// fix for #94).
+func TestMergeTaggedResultsWindowBeforeLimit(t *testing.T) {
+	base := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
+	perTemplate := [][]results.Result{
+		{taggedResult("A4", "ns/a", base.Add(4*time.Hour)), taggedResult("A2", "ns/a", base.Add(2*time.Hour))},
+		{taggedResult("B5", "ns/b", base.Add(5*time.Hour)), taggedResult("B3", "ns/b", base.Add(3*time.Hour)), taggedResult("B1", "ns/b", base.Add(1*time.Hour))},
+	}
+
+	// Window [+2h, +4h] keeps A2, B3, A4 (B5 too new, B1 too old). With --limit 2
+	// the newest-2 IN-WINDOW rows are A4 (+4h) then B3 (+3h) — NOT B5 (which is
+	// outside the window and must never be selected then dropped).
+	got := mergeTaggedResults(perTemplate, base.Add(2*time.Hour), base.Add(4*time.Hour), 2)
+	if ids := runIDs(got); strings.Join(ids, ",") != "A4,B3" {
+		t.Errorf("window-before-limit = %v, want [A4 B3] (B5 out of window must not consume a limit slot)", ids)
+	}
+
+	// Same window, no limit: the full in-window set newest-first is A4, B3, A2.
+	full := mergeTaggedResults(perTemplate, base.Add(2*time.Hour), base.Add(4*time.Hour), 0)
+	if ids := runIDs(full); strings.Join(ids, ",") != "A4,B3,A2" {
+		t.Errorf("windowed set = %v, want [A4 B3 A2]", ids)
+	}
+
+	// --until alone (inclusive upper bound) drops only the newest B5.
+	until := mergeTaggedResults(perTemplate, time.Time{}, base.Add(4*time.Hour), 0)
+	if ids := runIDs(until); strings.Join(ids, ",") != "A4,B3,A2,B1" {
+		t.Errorf("until-only set = %v, want [A4 B3 A2 B1]", ids)
 	}
 }
 
@@ -340,7 +374,7 @@ func TestMergeTaggedResultsSinceLimitAfterMerge(t *testing.T) {
 // template carries the tag set) yields no rows, which renderResultList surfaces
 // as the existing "no results found" note (§9 B1 join: empty resolution).
 func TestMergeTaggedResultsEmptyResolution(t *testing.T) {
-	got := mergeTaggedResults(nil, time.Time{}, 0)
+	got := mergeTaggedResults(nil, time.Time{}, time.Time{}, 0)
 	if len(got) != 0 {
 		t.Fatalf("empty resolution merged len = %d, want 0", len(got))
 	}

@@ -109,7 +109,9 @@ func newResultsListCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				rs = mergeTaggedResults(perTemplate, sinceT, limit)
+				// `results list` has no --until flag (design §4.A), so pass a zero
+				// upper bound; --since then --limit still window-before-cap.
+				rs = mergeTaggedResults(perTemplate, sinceT, time.Time{}, limit)
 			} else {
 				rs, err = resultSvc.List(cmd.Context(), results.ResultFilter{
 					TemplateID: metric,
@@ -170,11 +172,21 @@ func resolveTaggedResults(ctx context.Context, regSvc *registry.Service, resSvc 
 
 // mergeTaggedResults is the pure core of the registry->results tag join (design
 // §4.A step 4). It concatenates the per-template result slices, orders the merged
-// set newest-first, and applies --since/--limit AFTER the merge (a per-template
-// limit would truncate each template independently and miss newer rows from other
-// templates). An empty input (no template resolved the tag set) yields no rows,
-// which renderResultList surfaces as the existing "no results found" note.
-func mergeTaggedResults(perTemplate [][]results.Result, since time.Time, limit int) []results.Result {
+// set newest-first, then applies the [since, until] time window and finally the
+// --limit cap — all AFTER the merge (a per-template limit would truncate each
+// template independently and miss newer rows from other templates).
+//
+// ORDER MATTERS: the [since, until] window is applied BEFORE --limit so the
+// newest-N selection is taken from the in-window rows, exactly as the direct
+// --metric path does (there the store applies since/until/limit together). If
+// --limit were applied first, `--until T --limit N` would truncate to the newest
+// N and THEN drop rows newer than until, returning fewer in-window rows than
+// exist — a window-inconsistent rollup. A zero since/until bound is a no-op, so
+// callers with no --until (e.g. `results list`, which has none) pass time.Time{}.
+//
+// An empty input (no template resolved the tag set) yields no rows, which
+// renderResultList surfaces as the existing "no results found" note.
+func mergeTaggedResults(perTemplate [][]results.Result, since, until time.Time, limit int) []results.Result {
 	var merged []results.Result
 	for _, rs := range perTemplate {
 		merged = append(merged, rs...)
@@ -182,12 +194,16 @@ func mergeTaggedResults(perTemplate [][]results.Result, since time.Time, limit i
 	sort.SliceStable(merged, func(i, j int) bool {
 		return merged[i].RunAt.After(merged[j].RunAt)
 	})
-	if !since.IsZero() {
+	if !since.IsZero() || !until.IsZero() {
 		kept := merged[:0]
 		for _, r := range merged {
-			if !r.RunAt.Before(since) {
-				kept = append(kept, r)
+			if !since.IsZero() && r.RunAt.Before(since) {
+				continue
 			}
+			if !until.IsZero() && r.RunAt.After(until) {
+				continue
+			}
+			kept = append(kept, r)
 		}
 		merged = kept
 	}
@@ -421,8 +437,10 @@ func collectResults(ctx context.Context, cfg *config.Config, q resultsQuery) ([]
 		if err != nil {
 			return nil, err
 		}
-		merged := mergeTaggedResults(perTemplate, q.since, q.limit)
-		return applyUntil(merged, q.until), nil
+		// Window by [since, until] BEFORE the --limit cap so the tag path matches
+		// the --metric path's semantics (the store applies since/until/limit
+		// together); mergeTaggedResults enforces that ordering.
+		return mergeTaggedResults(perTemplate, q.since, q.until, q.limit), nil
 	}
 
 	return resultSvc.List(ctx, results.ResultFilter{
@@ -432,22 +450,6 @@ func collectResults(ctx context.Context, cfg *config.Config, q resultsQuery) ([]
 		Until:      q.until,
 		Limit:      q.limit,
 	})
-}
-
-// applyUntil drops results whose RunAt is after until (the tag-join path applies
-// --since/--limit in mergeTaggedResults but not --until; mirror the store's
-// inclusive upper bound here). A zero until is a no-op.
-func applyUntil(rs []results.Result, until time.Time) []results.Result {
-	if until.IsZero() {
-		return rs
-	}
-	kept := rs[:0]
-	for _, r := range rs {
-		if !r.RunAt.After(until) {
-			kept = append(kept, r)
-		}
-	}
-	return kept
 }
 
 // parseSinceUntil parses the optional --since/--until flags (each RFC3339 or
