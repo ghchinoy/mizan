@@ -69,6 +69,11 @@ const (
 	KindRubric    MetricKind = "rubric"
 	// KindCustomSchema forces the direct genai fallback path (strict schema).
 	KindCustomSchema MetricKind = "custom_schema"
+	// KindHeuristic is a deterministic, credential-free (non-LLM) check
+	// (contains/regex/equals/json-valid/json-schema-valid). It dispatches through
+	// the engine as a PEER of the LLM kinds but calls NO Vertex/genai client and
+	// resolves NO autorater (design §4.B). Its config lives in HeuristicSpec.
+	KindHeuristic MetricKind = "heuristic"
 )
 
 // Vernacular kind aliases (ITEM C). These are plain-English spellings accepted
@@ -97,11 +102,78 @@ func NormalizeKind(s string) (MetricKind, error) {
 		return KindPointwise, nil
 	case KindAliasCompare:
 		return KindPairwise, nil
-	case string(KindPointwise), string(KindPairwise), string(KindRubric), string(KindCustomSchema):
+	case string(KindPointwise), string(KindPairwise), string(KindRubric), string(KindCustomSchema), string(KindHeuristic):
 		return MetricKind(s), nil
 	default:
-		return "", fmt.Errorf("unknown metric kind %q (want one of: single|pointwise, compare|pairwise, rubric, custom_schema)", s)
+		return "", fmt.Errorf("unknown metric kind %q (want one of: single|pointwise, compare|pairwise, rubric, custom_schema, heuristic)", s)
 	}
+}
+
+// HeuristicType is the deterministic check a KindHeuristic template performs on a
+// single text input field (design §4.B). It is validated at the parse/ingest
+// boundary via ParseHeuristicType so a typo fails clearly at authoring time
+// instead of deep in the eval path.
+type HeuristicType string
+
+const (
+	// HeuristicContains passes when the target text contains Value as a substring.
+	HeuristicContains HeuristicType = "contains"
+	// HeuristicRegex passes when the target text matches the Go RE2 pattern Value.
+	HeuristicRegex HeuristicType = "regex"
+	// HeuristicEquals passes when the target text equals Value exactly.
+	HeuristicEquals HeuristicType = "equals"
+	// HeuristicJSONValid passes when the target text is well-formed JSON.
+	HeuristicJSONValid HeuristicType = "json-valid"
+	// HeuristicJSONSchemaValid passes when the target text is JSON that validates
+	// against the JSON Schema in Schema.
+	HeuristicJSONSchemaValid HeuristicType = "json-schema-valid"
+)
+
+// validHeuristicTypes is the accepted heuristic-check set, the single source of
+// truth for both ValidHeuristicType and ParseHeuristicType. It is kept in
+// lockstep with the "type" enum in schema/metrictemplate.json.
+var validHeuristicTypes = map[HeuristicType]bool{
+	HeuristicContains:        true,
+	HeuristicRegex:           true,
+	HeuristicEquals:          true,
+	HeuristicJSONValid:       true,
+	HeuristicJSONSchemaValid: true,
+}
+
+// ValidHeuristicType reports whether t is one of the accepted heuristic types.
+func ValidHeuristicType(t HeuristicType) bool { return validHeuristicTypes[t] }
+
+// ParseHeuristicType validates a user-supplied heuristic-type string and returns
+// it as a HeuristicType, or an error naming the allowed set.
+func ParseHeuristicType(s string) (HeuristicType, error) {
+	t := HeuristicType(s)
+	if !ValidHeuristicType(t) {
+		return "", fmt.Errorf("unknown heuristic type %q (want one of: contains, regex, equals, json-valid, json-schema-valid)", s)
+	}
+	return t, nil
+}
+
+// HeuristicSpec is the deterministic, credential-free check config for a
+// KindHeuristic template (design §4.B). A nil *HeuristicSpec on a MetricTemplate
+// means the template is not a heuristic — existing templates are unaffected (no
+// migration, no behavior change), mirroring how RubricDetail/RubricProvenance are
+// optional pointers. It is persisted, schema-validated, and INCLUDED in the
+// content hash (following the RubricProvenance precedent): editing a rule shifts
+// the hash, which is what the exact-version anchor (TemplateRef.ContentHash)
+// needs for auditable results.
+type HeuristicSpec struct {
+	// Type is the check to perform (contains|regex|equals|json-valid|json-schema-valid).
+	Type HeuristicType `yaml:"type" json:"type"`
+	// Target is the input field name to check; it MUST be declared in Inputs.
+	Target string `yaml:"target" json:"target"`
+	// Value is the operand: the substring (contains), pattern (regex), or expected
+	// value (equals). Unused by json-valid/json-schema-valid.
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
+	// CaseInsensitive folds case for contains/equals (and is applied as the RE2
+	// (?i) flag for regex).
+	CaseInsensitive bool `yaml:"caseInsensitive,omitempty" json:"caseInsensitive,omitempty"`
+	// Schema is a JSON-Schema string used by json-schema-valid only.
+	Schema string `yaml:"schema,omitempty" json:"schema,omitempty"`
 }
 
 // Author is an asserted contributor of a template (corroborated by git blame
@@ -257,6 +329,13 @@ type MetricTemplate struct {
 	// hand-authored — existing templates are unaffected (no migration, no behavior
 	// change). It is persisted, schema-validated, and hashed (Decision 3).
 	RubricProvenance *RubricProvenance `yaml:"rubricProvenance,omitempty" json:"rubricProvenance,omitempty"`
+
+	// Heuristic is the OPTIONAL deterministic, credential-free check config
+	// (KindHeuristic only, design §4.B). A nil pointer means the template is not a
+	// heuristic — existing templates are unaffected (no migration, no behavior
+	// change), mirroring RubricDetail/RubricProvenance. It is persisted,
+	// schema-validated, and INCLUDED in the content hash.
+	Heuristic *HeuristicSpec `yaml:"heuristic,omitempty" json:"heuristic,omitempty"`
 
 	// Provenance / sync (see collaboration-design.md §3.9)
 	Source      string

@@ -27,7 +27,12 @@ import "testing"
 // key (null for this hand-authored fixture), so every template's contentHash moves
 // once. This is the established pattern for additive hashed fields (RatingRubric
 // set the precedent) — the golden value below was regenerated in the same commit.
-const goldenFixtureHash = "sha256:3cb0f1a5e64eb1cef5689ea274c348e7dd87132aab353b09674507c2e50bac49"
+//
+// SHIFTED INTENTIONALLY AGAIN in Phase 3 (B2, kind: heuristic): adding the hashed
+// HeuristicSpec field to the canonical struct emits a `heuristic` key (null for
+// this non-heuristic fixture), so every template's contentHash moves once more —
+// the same additive-hashed-field pattern. Regenerated in the B2 commit.
+const goldenFixtureHash = "sha256:146ca84d6c5d67c14c01b98d57fb4a5bc9209b7552e8d49d1f9f201c59224055"
 
 func TestContentHashGolden(t *testing.T) {
 	c := NewYAMLCodec()
