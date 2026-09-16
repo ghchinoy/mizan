@@ -100,7 +100,11 @@ Real, verified flags (from `cmd/mizan/registry.go`):
   tag-filtered *discovery* (that is a separate, out-of-scope capability).
 
 `-o json` prints the created `MetricTemplate` object to **stdout** (its `ID`,
-`Kind`, `Tags`, `Inputs`, `RubricGroups`, `Version`, …); warnings go to stderr.
+`Kind`, `Tags`, `Inputs`, `RubricGroups`, `Version`, …) — that object is the only
+thing on stdout. `registry create` emits no warnings; on failure (e.g. a
+kind/rubric/schema mismatch) it writes the error to **stderr** and exits non-zero.
+The one optional diagnostic is the `--infer-inputs` summary (how many input
+placeholders were inferred), which also goes to stderr — keeping stdout pure JSON.
 Read `ID` back to confirm the create. A new template starts at version `0.1.0`.
 
 ### Step 3 — Add the template to the pack

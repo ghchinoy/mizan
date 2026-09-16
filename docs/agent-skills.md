@@ -256,12 +256,11 @@ opens directly from the filesystem with **no server and no external request**; i
 is deliberately **not** coupled to the docs-site styling.
 
 The data source is the real, ships-today command `mizan results list -o json` (a
-JSON array of `results.Result`, newest first). The `mizan results summary`/`trend`
-commands **do exist**, but this skill deliberately does **not** use them (their
-summary/trend enrichment is out of scope here — deferred, B3), nor `results list
---tag` (that flag exists but tag-filtered discovery is out of scope here) —
-filtering uses the real flags below, and all summary/trend numbers are computed
-**client-side** by the bundled renderer:
+JSON array of `results.Result`, newest first). Filtering uses the real flags below,
+and all summary/trend numbers are computed **client-side** by the bundled renderer
+— this is the **default** path and always runs. `results list --tag` is **deferred
+/ not used** (that flag exists but tag-filtered discovery is out of scope, and
+`--tag` — including `results summary --tag` — is never invoked):
 
 ```bash
 # query + filter with the real flags (metric / namespace / since / limit)
@@ -285,6 +284,31 @@ and **degrades gracefully on an empty store**, producing a valid report that say
 there are no results yet. The bundled `assets/report.template.html` is the neutral
 template it fills; the `results.Result` `-o json` contract is covered by the
 hermetic drift test in `internal/skilldocs`.
+
+**Optional server-computed enrichment (B3, additive).** On top of the client-side
+default, the renderer can *optionally* consume the CLI's own server-side
+aggregations and render them as **additive** sections — the client-side view stays
+the default and is never replaced:
+
+```bash
+mizan results summary --threshold 3 -o json > summary.json       # []results.TemplateSummary
+mizan results trend --metric <ns>/<slug> --bucket week -o json > trend.json  # []results.TrendPoint
+python3 plugins/mizan-results/skills/report-to-html/scripts/render_report.py \
+  --input results.json --summary-input summary.json --trend-input trend.json \
+  --output report.html --threshold 3
+```
+
+`results summary` takes `--metric`/`--namespace`/`--since`/`--until`/`--limit`/`--threshold`
+(the `threshold` pass/fail/pass_rate object appears only with `--threshold`);
+`results trend` **requires** `--metric` and takes `--bucket day|week`,
+`--per-criterion` (adds `per_criterion`, rubric-detail only), `--since`/`--until`.
+`--tag` (incl. `results summary --tag`) stays **deferred and is never invoked**.
+When `--summary-input`/`--trend-input` are absent, empty, or unreadable the report
+**degrades gracefully** to the client-side view and never fails. Eval-set runs are
+not persisted (no per-eval-set aggregation), and cost/token trend is out of scope
+(`results trend` trends `Outcome.Score` only). The `results.TemplateSummary` and
+`results.TrendPoint` `-o json` shapes are covered by the same hermetic drift gate
+in `internal/skilldocs`.
 
 See the skill source at
 [`plugins/mizan-results/skills/report-to-html/SKILL.md`](../plugins/mizan-results/skills/report-to-html/SKILL.md).
@@ -443,6 +467,14 @@ spec:
       - {group: brand, criterion: "…", type: STICKY, importance: HIGH, origin: adaptive-generated}
 ```
 
+> **Illustrative only.** The YAML above is a hand-written excerpt for reading
+> here; it is **not** the drift-gated source of truth. The authoritative,
+> mechanically drift-gated `rubricProvenance` shape lives in the
+> `rubric-generate-from-brand-book` `SKILL.md` (behind its drift marker, checked
+> against `registry.MarshalTemplate` + `registry.RubricProvenance`/`RubricMeta`
+> by the hermetic gate in `internal/skilldocs`). If the two ever disagree, the
+> SKILL.md block wins — treat this excerpt as documentation, not contract.
+
 **Immediate eval + freeze in one step (CUJ8).** When the user has a prompt *and* a
 response to score now, `mizan eval adaptive --prompt … --response … --save-as
 <ns>/<slug>` generates criteria, scores the response (each one live call), and
@@ -567,9 +599,10 @@ onboarding/discovery fan-out then landed: `discover-and-import-templates`
 (`mizan-authoring`) for pulling in community/starter templates,
 `configure-mizan` (`mizan-setup`) for first-run configuration and the ADC check,
 and `triage-a-result` (`mizan-results`) for explaining and debugging a single
-past run. Capabilities that remain out of scope — the `results summary`/`trend`
-enrichment of `report-to-html` (those commands exist, but wiring their
-summary/trend output into the report is deferred — B3), per-eval-set
-persistence/trend, tag-filtered discovery (`registry list`/`results list --tag`),
+past run. The B3 enrichment then landed: `report-to-html` gained an **optional,
+additive** path consuming `results summary`/`trend -o json` (the client-side
+aggregation stays the default/fallback). Capabilities that remain out of scope —
+per-eval-set persistence/trend, tag-filtered discovery (`registry list`/`results
+list --tag`, incl. `results summary --tag`),
 heuristic authoring (`kind: heuristic`), and an MCP-server-backed variant
 (`mizan mcp`) — are deferred, not stubbed. See the project roadmap for sequencing.
