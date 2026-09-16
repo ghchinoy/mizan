@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Regression tests for scripts/validate-plugins.sh
+#
+# Guards the F2 fix (review of PR #90): marketplace `skills` paths MUST be
+# resolved ROOT-relative (as './plugins/<plugin>/skills/<skill>', the
+# authoritative ghchinoy/agent-skills convention), NOT source-relative. A
+# source-relative path such as './skills/<skill>' must FAIL validation, because
+# it resolves to a nonexistent '<root>/skills/<skill>'. Before the fix the
+# validator joined the skill path onto the plugin source, which silently PASSED
+# the broken manifest and masked the bug.
+#
+# Runs the real validator (via VALIDATE_ROOT) against synthetic fixture trees.
+# Exit 0 if all assertions hold, 1 otherwise.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VALIDATOR="$SCRIPT_DIR/validate-plugins.sh"
+
+FAILURES=0
+pass() { echo "  ✓ $1"; }
+fail() { echo "  ✖ $1"; FAILURES=$((FAILURES + 1)); }
+
+# Build a minimal, conformant fixture repo whose marketplace skill path is given
+# by the first argument (written verbatim into the `skills` array).
+make_fixture() {
+  local skill_path="$1"
+  local root
+  root="$(mktemp -d)"
+  mkdir -p "$root/plugins/demo-plugin/skills/demo-skill"
+  mkdir -p "$root/.claude-plugin"
+
+  cat >"$root/plugins/demo-plugin/plugin.json" <<'JSON'
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "demo-plugin",
+  "version": "0.1.0",
+  "description": "Fixture plugin for validator regression tests.",
+  "license": "Apache-2.0"
+}
+JSON
+
+  cat >"$root/plugins/demo-plugin/skills/demo-skill/SKILL.md" <<'MD'
+---
+name: demo-skill
+description: A fixture skill. Use when regression-testing the plugin validator.
+license: Apache-2.0
+metadata:
+  version: "0.1.0"
+---
+Fixture body.
+MD
+
+  cat >"$root/.claude-plugin/marketplace.json" <<JSON
+{
+  "name": "demo",
+  "owner": { "name": "test", "url": "https://example.invalid" },
+  "plugins": [
+    {
+      "name": "demo-plugin",
+      "source": "./plugins/demo-plugin",
+      "description": "Fixture plugin.",
+      "skills": [ "$skill_path" ]
+    }
+  ]
+}
+JSON
+
+  echo "$root"
+}
+
+echo "==> Regression: source-relative skill path must FAIL"
+root_bad="$(make_fixture "./skills/demo-skill")"
+if VALIDATE_ROOT="$root_bad" "$VALIDATOR" >/tmp/vp_bad.out 2>&1; then
+  fail "source-relative path './skills/demo-skill' unexpectedly PASSED validation"
+  cat /tmp/vp_bad.out
+else
+  if grep -q "marketplace skill path does not exist: skills/demo-skill" /tmp/vp_bad.out; then
+    pass "source-relative path rejected with the expected error"
+  else
+    fail "validator failed but not for the expected reason:"
+    cat /tmp/vp_bad.out
+  fi
+fi
+rm -rf "$root_bad"
+
+echo "==> Regression: root-relative skill path must PASS"
+root_good="$(make_fixture "./plugins/demo-plugin/skills/demo-skill")"
+if VALIDATE_ROOT="$root_good" "$VALIDATOR" >/tmp/vp_good.out 2>&1; then
+  pass "root-relative path './plugins/demo-plugin/skills/demo-skill' passed validation"
+else
+  fail "root-relative path unexpectedly FAILED validation:"
+  cat /tmp/vp_good.out
+fi
+rm -rf "$root_good"
+
+echo
+if [ "$FAILURES" -eq 0 ]; then
+  echo "✓ validate-plugins.sh regression tests passed."
+  exit 0
+else
+  echo "✖ validate-plugins.sh regression tests FAILED ($FAILURES)."
+  exit 1
+fi

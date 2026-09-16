@@ -1,0 +1,21 @@
+{
+  "name": "mizan",
+  "owner": {
+    "name": "ghchinoy",
+    "url": "https://github.com/ghchinoy"
+  },
+  "metadata": {
+    "pluginRoot": "./plugins",
+    "description": "Mizan agent skills — package Mizan's evaluation, authoring, and results workflows as model-invoked skills that drive the mizan CLI over -o json."
+  },
+  "plugins": [
+    {
+      "name": "mizan-eval",
+      "source": "./plugins/mizan-eval",
+      "description": "Run a single or pairwise Mizan evaluation against a metric template and explain the verdict.",
+      "skills": [
+        "./plugins/mizan-eval/skills/run-eval"
+      ]
+    }
+  ]
+}
