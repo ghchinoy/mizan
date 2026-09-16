@@ -89,7 +89,8 @@ mizan registry import --namespace google-brand
 ```
 
 ```
-1 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: github.com/ghchinoy/mizan-templates)
+1 inserted, 0 updated, 0 skipped, 0 conflicted, 0 unchanged, 0 forked (source: https://github.com/ghchinoy/mizan-templates)
+  inserted: google-brand/video-brand-alignment
 ```
 
 The template is now a first-class metric in your registry, addressable by its
@@ -103,22 +104,32 @@ Under the hood it is a pointwise metric: it scores one asset on a 1-to-5 scale
 against a supplied brand guideline. Its prompt asks the judge to weigh tone,
 visual identity, and messaging consistency, and it declares two inputs, the
 `response` (the video under evaluation) and a `brand_guideline` (the reference
-text). Run it by supplying both fields. Multimodal assets are passed as `gs://`
-URIs, because the native Eval Service reads them from Cloud Storage rather than
+text). Run it by supplying both inputs. The video is a media asset, so it is
+passed with `--gcs` rather than `--field`; multimodal assets travel as `gs://`
+URIs because the native Eval Service reads them from Cloud Storage rather than
 inline:
 
 ```sh
 mizan eval run --metric google-brand/video-brand-alignment \
-  --field response=gs://example-bucket/ads/spring-sale-15s.mp4 \
+  --gcs response=gs://ghchinoy-genai-sa-veo/camping_bear.mp4 \
   --field brand_guideline="Our brand voice is warm, concise, and never salesy. \
 Always show the logo in the final 3 seconds. Primary color is #1A73E8; avoid competitor colors."
 ```
 
 The result comes back as a pointwise score in the declared 1-to-5 range with a
-free-text rationale that names what aligned and what did not. That is the whole
-brand end: someone authored the criteria once, shared them as a pack, and now any
-reviewer runs the same standard against their own footage and gets a comparable
-answer. Nobody re-litigated what "on-brand" means for this run.
+free-text rationale that names what aligned and what did not:
+
+```
+Score:        2
+Explanation:  The ad's warm, concise, and non-salesy tone is perfect, but it completely fails on the visual identity rules by omitting the logo and not using the primary brand color.
+```
+
+Here a generic clip pulled from Cloud Storage scores a 2: the judge credits the
+tone the guideline asks for and marks it down for the missing logo and the wrong
+palette. That is the whole brand end: someone authored the criteria once, shared
+them as a pack, and now any reviewer runs the same standard against their own
+footage and gets a comparable answer. Nobody re-litigated what "on-brand" means
+for this run.
 
 ## Technical end: a typed verdict a pipeline can gate on
 
