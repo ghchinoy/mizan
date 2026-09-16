@@ -14,7 +14,7 @@
       "source": "./plugins/mizan-eval",
       "description": "Run a single or pairwise Mizan evaluation against a metric template and explain the verdict.",
       "skills": [
-        "./plugins/mizan-eval/skills/run-eval"
+        "./skills/run-eval"
       ]
     }
   ]

@@ -89,6 +89,11 @@ The primary channel is the **Claude plugin marketplace** (the root
 /plugin install mizan-eval@mizan
 ```
 
+The Claude CLI resolves each `skills` entry in `marketplace.json`
+**relative to the plugin's `source` directory**, so those paths are written
+source-relative (e.g. `./skills/run-eval` under `source: ./plugins/mizan-eval`),
+not repository-root-relative.
+
 Because the repository also follows the `agent-skills` marketplace schema, the
 same skills install through the other standard channels:
 

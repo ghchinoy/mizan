@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Regression tests for scripts/validate-plugins.sh
 #
-# Guards the F2 fix (review of PR #90): marketplace `skills` paths MUST be
-# resolved ROOT-relative (as './plugins/<plugin>/skills/<skill>', the
-# authoritative ghchinoy/agent-skills convention), NOT source-relative. A
-# source-relative path such as './skills/<skill>' must FAIL validation, because
-# it resolves to a nonexistent '<root>/skills/<skill>'. Before the fix the
-# validator joined the skill path onto the plugin source, which silently PASSED
-# the broken manifest and masked the bug.
+# Encodes the REAL Claude Code loader model (hotfix skills/p1fix-loader-path,
+# verified first-hand on claude 2.1.270): marketplace `skills` paths are
+# resolved SOURCE-relative — joined onto the plugin's `source` dir. So a
+# source-relative './skills/<skill>' under source './plugins/<plugin>' resolves
+# to the real './plugins/<plugin>/skills/<skill>' and MUST PASS, while a
+# root-relative './plugins/<plugin>/skills/<skill>' gets DOUBLED onto the source
+# (-> './plugins/<plugin>/plugins/<plugin>/skills/<skill>'), does not exist, and
+# MUST FAIL. This test now fails if anyone reintroduces the root-relative
+# convention (which the shipping CLI rejects with Status: failed to load).
 #
 # Runs the real validator (via VALIDATE_ROOT) against synthetic fixture trees.
 # Exit 0 if all assertions hold, 1 otherwise.
@@ -69,14 +71,16 @@ JSON
   echo "$root"
 }
 
-echo "==> Regression: source-relative skill path must FAIL"
-root_bad="$(make_fixture "./skills/demo-skill")"
+echo "==> Regression: root-relative (doubled) skill path must FAIL"
+# Root-relative under source './plugins/demo-plugin' doubles to
+# 'plugins/demo-plugin/plugins/demo-plugin/skills/demo-skill', which does not exist.
+root_bad="$(make_fixture "./plugins/demo-plugin/skills/demo-skill")"
 if VALIDATE_ROOT="$root_bad" "$VALIDATOR" >/tmp/vp_bad.out 2>&1; then
-  fail "source-relative path './skills/demo-skill' unexpectedly PASSED validation"
+  fail "root-relative path './plugins/demo-plugin/skills/demo-skill' unexpectedly PASSED validation"
   cat /tmp/vp_bad.out
 else
-  if grep -q "marketplace skill path does not exist: skills/demo-skill" /tmp/vp_bad.out; then
-    pass "source-relative path rejected with the expected error"
+  if grep -q "marketplace skill path does not exist: plugins/demo-plugin/plugins/demo-plugin/skills/demo-skill" /tmp/vp_bad.out; then
+    pass "root-relative (doubled) path rejected with the expected error"
   else
     fail "validator failed but not for the expected reason:"
     cat /tmp/vp_bad.out
@@ -84,12 +88,12 @@ else
 fi
 rm -rf "$root_bad"
 
-echo "==> Regression: root-relative skill path must PASS"
-root_good="$(make_fixture "./plugins/demo-plugin/skills/demo-skill")"
+echo "==> Regression: source-relative skill path must PASS"
+root_good="$(make_fixture "./skills/demo-skill")"
 if VALIDATE_ROOT="$root_good" "$VALIDATOR" >/tmp/vp_good.out 2>&1; then
-  pass "root-relative path './plugins/demo-plugin/skills/demo-skill' passed validation"
+  pass "source-relative path './skills/demo-skill' passed validation"
 else
-  fail "root-relative path unexpectedly FAILED validation:"
+  fail "source-relative path unexpectedly FAILED validation:"
   cat /tmp/vp_good.out
 fi
 rm -rf "$root_good"

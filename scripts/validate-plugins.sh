@@ -270,15 +270,20 @@ mp=".claude-plugin/marketplace.json"
 if [ -f "$mp" ]; then
   if python3 -m json.tool "$mp" >/dev/null 2>&1; then
     ok "$mp is valid JSON"
-    # Every listed plugin `source`, and each `skills` entry, is resolved
-    # ROOT-RELATIVE — i.e. relative to the repository root, NOT joined onto the
-    # plugin's `source` dir. This matches the authoritative ghchinoy/agent-skills
-    # convention, where every skill path is written in full as
-    # './plugins/<plugin>/skills/<skill>', and matches how Claude Code's
-    # marketplace loader resolves the `skills` array (verified via
-    # `claude plugin install`). A source-relative path such as './skills/<skill>'
-    # therefore resolves to '<root>/skills/<skill>', which does not exist and is
-    # correctly rejected (see scripts/test-validate-plugins.sh regression).
+    # Each plugin `source` is resolved relative to the repository root. Each
+    # `skills` entry is resolved SOURCE-RELATIVE — i.e. joined onto the plugin's
+    # `source` dir — because that is how the shipping Claude Code CLI's
+    # marketplace loader resolves the `skills` array (verified first-hand via
+    # `claude plugin install` on claude 2.1.270: a source-relative './skills/<s>'
+    # under source './plugins/<plugin>' loads with Status: enabled, while a
+    # root-relative './plugins/<plugin>/skills/<s>' gets DOUBLED onto the source
+    # and fails to load). So './skills/run-eval' under source
+    # './plugins/mizan-eval' correctly resolves to
+    # './plugins/mizan-eval/skills/run-eval' and must EXIST; a root-relative
+    # entry that would double must NOT exist under source and is rejected (see
+    # scripts/test-validate-plugins.sh regression). The earlier root-relative
+    # convention came from the ghchinoy/agent-skills DOCS, which have diverged
+    # from the shipping CLI.
     # Path passed as argv to avoid injection via a crafted manifest path.
     mapfile -t mp_paths < <(python3 -c "
 import json, os, sys
@@ -288,8 +293,9 @@ for p in d.get('plugins', []):
     if src:
         print('source\t' + os.path.normpath(src))
     for s in p.get('skills', []):
-        # Root-relative: normalize the path as written, do NOT join onto src.
-        print('skill\t' + os.path.normpath(s))
+        # Source-relative: join the skill path onto the plugin source, mirroring
+        # the Claude CLI marketplace loader.
+        print('skill\t' + os.path.normpath(os.path.join(src, s)))
 " "$mp" 2>/dev/null || true)
     for line in "${mp_paths[@]}"; do
       [ -n "$line" ] || continue
