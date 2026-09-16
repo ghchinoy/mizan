@@ -72,13 +72,14 @@ mizan results list --namespace <ns> --since 2026-08-01 -o json > /tmp/mizan-resu
 > **Use only these flags for this skill.** `report-to-html` filters with
 > `--metric`, `--namespace`, `--since`, and `--limit`. It does **not** use
 > `results list --tag`: that flag exists (registry→results tag join) but
-> tag-filtered discovery is **out of scope** for this skill, which reports over
-> whatever `results list` returns. The `mizan results summary` and `mizan results
-> trend` commands **do exist**, but this skill does **not** use them — their
-> summary/trend enrichment is out of scope here (deferred — B3). Filtering
-> is the CLI's job (the flags above); all summary and trend numbers are computed
-> **client-side** by the bundled renderer from the `results list` array. There is
-> no `--format`; the switch is `-o json`.
+> tag-filtered discovery is **deferred / out of scope** for this skill, which
+> reports over whatever `results list` returns — **never invoke `--tag`** on any
+> results command (nor `results summary --tag`). The `results list` array drives
+> the **default** client-side aggregation, which always runs. The `mizan results
+> summary`/`trend` commands can be consumed **optionally** for server-computed
+> enrichment (see *Optional server-computed enrichment* below) — but that path is
+> purely additive and never replaces the client-side default. There is no
+> `--format`; the switch is `-o json`.
 
 For a single run's full provenance (drill-down), use:
 
@@ -116,6 +117,11 @@ Flags:
 - `--threshold <number>` / `-t <number>` — the pass/fail cutoff for the pass-rate
   (a result **passes** when its numeric `Score >= threshold`). Default `3`.
 - `--title <string>` — optional report heading override.
+- `--summary-input <path>` — **optional**; path to `mizan results summary -o json`
+  output (see *Optional server-computed enrichment*). Absent/empty/unreadable ⇒
+  client-side view only.
+- `--trend-input <path>` — **optional**; path to `mizan results trend --metric
+  <id> -o json` output. Absent/empty/unreadable ⇒ client-side view only.
 
 The renderer emits **one** `report.html` with everything inline. Report the
 output path back to the user; the file opens directly in a browser with no server.
@@ -138,6 +144,149 @@ provide these:
   `Outcome.RubricDetail == true`, its `Outcome.CustomOutput` holds the free-form
   per-criterion breakdown; the renderer surfaces it in the drill-down without
   assuming a fixed schema (it is free-form data, not part of the contract).
+
+## Optional server-computed enrichment (additive; client-side stays the default)
+
+The client-side aggregation above is the **default** and **always runs** — it is
+never removed and needs nothing but `results list`. On top of it, the renderer can
+**optionally** consume the statistics the CLI computes *server-side* (in Go, over
+the same stored results) and render them as **additive** enrichment sections. This
+path is opt-in via `--summary-input` / `--trend-input`; when those inputs are
+absent, empty, or unreadable the report **degrades gracefully** to the client-side
+view alone and never fails.
+
+Produce the server-computed JSON with the **real** flags only:
+
+```bash
+# per-template rollup (JSON array of results.TemplateSummary)
+mizan results summary -o json > /tmp/mizan-summary.json
+mizan results summary --metric <ns>/<slug> --namespace <ns> \
+  --since 2026-08-01 --until 2026-09-01 --limit 500 --threshold 3 -o json > /tmp/mizan-summary.json
+
+# time-bucketed trend for ONE metric (JSON array of results.TrendPoint)
+mizan results trend --metric <ns>/<slug> -o json > /tmp/mizan-trend.json
+mizan results trend --metric <ns>/<slug> --bucket week --per-criterion \
+  --since 2026-08-01 --until 2026-09-01 -o json > /tmp/mizan-trend.json
+```
+
+Then pass either or both to the renderer as **argv** paths (never interpolated):
+
+```bash
+python3 scripts/render_report.py --input /tmp/mizan-results.json \
+  --summary-input /tmp/mizan-summary.json \
+  --trend-input /tmp/mizan-trend.json \
+  --output report.html --threshold 3
+```
+
+Real flags only (verified against `cmd/mizan/results.go`):
+
+- **`results summary`** — `--metric <id>`, `--namespace <ns>`, `--since <t>`,
+  `--until <t>`, `--limit N`, `--threshold X`. The `threshold` object appears in
+  the output **only** when `--threshold X` is given.
+- **`results trend`** — `--metric <id>` is **required**; plus `--bucket day|week`
+  (default `day`), `--per-criterion` (adds `per_criterion`, rubric-detail results
+  only), `--since <t>`, `--until <t>`.
+- **`--tag` is deferred and MUST NOT be invoked** — neither `results summary --tag`
+  nor any other tag path. The tag surface exists in the CLI but tag-filtered
+  discovery/aggregation is out of scope for this skill.
+
+**How the renderer consumes them (additively):** each input is a JSON array; the
+renderer projects the real snake_case keys onto extra "Server-computed summary" /
+"Server-computed trend" sections rendered **after** the client-side sections. It
+re-implements **no** CLI logic — it only transforms JSON the CLI already produced.
+An empty array (`[]`) or a missing/malformed file yields **no** enrichment section
+(a one-line note to stderr) and leaves the client-side view intact.
+
+> **Scope note.** *Eval-set runs are not persisted*, so there is no
+> per-eval-set aggregation, and cost/token trend is **out of scope** — `results
+> trend` trends `Outcome.Score` only.
+
+### The `results summary` shape (`-o json`)
+
+`mizan results summary -o json` prints a JSON **array** of `TemplateSummary`
+objects (ordered by template id then version). Keys are the struct's `json` tags
+(snake_case). Fields marked *omitempty* below (`template_version`, the pointer
+statistics `mean`/`min`/`max`/`stddev`, the `threshold` object — present only with
+`--threshold X` — and `buckets`) may be **absent**; the **maximal** shape is shown
+so the contract is complete. This is the shape the drift test in
+`internal/skilldocs` keys off — keep it in lockstep with the CLI.
+
+<!-- drift:results.TemplateSummary -->
+```json
+[
+  {
+    "template_id": "brand/tone",
+    "template_version": "1.0.0",
+    "n": 12,
+    "n_unscored": 1,
+    "mean": 4.1,
+    "min": 2,
+    "max": 5,
+    "stddev": 0.8,
+    "threshold": {
+      "value": 3,
+      "pass": 9,
+      "fail": 3,
+      "pass_rate": 0.75
+    },
+    "buckets": [
+      {
+        "lo": 2,
+        "hi": 2.6,
+        "count": 3
+      }
+    ]
+  }
+]
+```
+
+Field semantics (from `internal/results/aggregate.go`):
+
+- **`template_id`** / **`template_version`** — the grouping key (version is
+  *omitempty*). **`n`** — scored results feeding the statistics; **`n_unscored`** —
+  results excluded (nil or non-finite score).
+- **`mean`/`min`/`max`/`stddev`** — population statistics over the `n` scored
+  results; each is *omitempty* and absent when `n == 0` (all unscored).
+- **`threshold`** — pass/fail breakdown, present **only** with `--threshold X`:
+  `value` (the cutoff), `pass`, `fail`, `pass_rate` (= `pass/(pass+fail)`).
+- **`buckets[]`** — score-distribution histogram (*omitempty*): each bar is
+  `{lo, hi, count}` (`[lo,hi)`, final bucket inclusive).
+
+### The `results trend` shape (`-o json`)
+
+`mizan results trend --metric <id> -o json` prints a JSON **array** of
+`TrendPoint` objects (chronological). Keys are the struct's `json` tags
+(snake_case). `mean` (*omitempty*, absent when a bucket has only unscored results)
+and `per_criterion` (*omitempty*, present only with `--per-criterion` on
+rubric-detail results) may be **absent**; the **maximal** shape is shown.
+
+<!-- drift:results.TrendPoint -->
+```json
+[
+  {
+    "bucket": "2026-09-16",
+    "n": 5,
+    "n_unscored": 1,
+    "mean": 4.2,
+    "per_criterion": [
+      {
+        "group": "brand",
+        "criterion": "tone match",
+        "n": 5,
+        "mean": 4.2
+      }
+    ]
+  }
+]
+```
+
+Field semantics (from `internal/results/aggregate.go`):
+
+- **`bucket`** — `"YYYY-MM-DD"` (day) or the week's UTC-Monday (week).
+- **`n`** / **`n_unscored`** — scored / excluded result counts in the bucket.
+- **`mean`** — mean score over the bucket's scored results; *omitempty*.
+- **`per_criterion[]`** — per-criterion means (*omitempty*, `--per-criterion`
+  only): each entry is `{group, criterion, n, mean}`.
 
 ## Graceful degradation on an empty store
 

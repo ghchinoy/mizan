@@ -289,6 +289,101 @@
     return t;
   }
 
+  // ---- Optional, additive server-computed enrichment ------------------------
+  // These render `mizan results summary/trend -o json` (results.TemplateSummary
+  // / results.TrendPoint) when the renderer was given --summary-input /
+  // --trend-input. They are ADDITIVE: the client-side sections above always
+  // render; when no server stats are supplied these sections are simply omitted
+  // and the report falls back to the client-side view.
+  function serverSummaryTable(rows) {
+    var hasThreshold = rows.some(function (r) { return r.threshold != null; });
+    var t = el("table");
+    var head = [
+      el("th", null, "Metric"),
+      el("th", { class: "num" }, "N"),
+      el("th", { class: "num" }, "Unscored"),
+      el("th", { class: "num" }, "Mean"),
+      el("th", { class: "num" }, "Min"),
+      el("th", { class: "num" }, "Max"),
+      el("th", { class: "num" }, "Stddev"),
+    ];
+    if (hasThreshold) {
+      head.push(el("th", { class: "num" }, "Pass"));
+      head.push(el("th", { class: "num" }, "Fail"));
+      head.push(el("th", { class: "num" }, "Pass-rate"));
+    }
+    t.appendChild(el("thead", null, el("tr", null, head)));
+    var body = el("tbody");
+    rows.forEach(function (r) {
+      var ref = r.template_id || "(unknown)";
+      if (r.template_version) ref = ref + "@" + r.template_version;
+      var cells = [
+        el("td", null, ref),
+        el("td", { class: "num" }, r.n == null ? "—" : String(r.n)),
+        el("td", { class: "num" }, r.n_unscored == null ? "—" : String(r.n_unscored)),
+        el("td", { class: "num" }, fmt(r.mean)),
+        el("td", { class: "num" }, fmt(r.min)),
+        el("td", { class: "num" }, fmt(r.max)),
+        el("td", { class: "num" }, fmt(r.stddev)),
+      ];
+      if (hasThreshold) {
+        var thr = r.threshold;
+        cells.push(el("td", { class: "num" }, thr ? String(thr.pass) : "—"));
+        cells.push(el("td", { class: "num" }, thr ? String(thr.fail) : "—"));
+        cells.push(el("td", { class: "num" }, thr ? pct(thr.pass_rate) : "—"));
+      }
+      body.appendChild(el("tr", null, cells));
+    });
+    t.appendChild(body);
+    return t;
+  }
+
+  function serverTrendTable(points) {
+    var t = el("table");
+    t.appendChild(el("thead", null, el("tr", null, [
+      el("th", null, "Bucket"),
+      el("th", { class: "num" }, "N"),
+      el("th", { class: "num" }, "Unscored"),
+      el("th", { class: "num" }, "Mean"),
+    ])));
+    var body = el("tbody");
+    points.forEach(function (p) {
+      body.appendChild(el("tr", null, [
+        el("td", null, p.bucket || "—"),
+        el("td", { class: "num" }, p.n == null ? "—" : String(p.n)),
+        el("td", { class: "num" }, p.n_unscored == null ? "—" : String(p.n_unscored)),
+        el("td", { class: "num" }, fmt(p.mean)),
+      ]));
+      var per = p.per_criterion || [];
+      if (per.length) {
+        var det = el("details");
+        det.appendChild(el("summary", null, "per-criterion (" + per.length + ")"));
+        var pt = el("table");
+        pt.appendChild(el("thead", null, el("tr", null, [
+          el("th", null, "Group"),
+          el("th", null, "Criterion"),
+          el("th", { class: "num" }, "N"),
+          el("th", { class: "num" }, "Mean"),
+        ])));
+        var pbody = el("tbody");
+        per.forEach(function (c) {
+          pbody.appendChild(el("tr", null, [
+            el("td", null, c.group || "—"),
+            el("td", null, c.criterion || "—"),
+            el("td", { class: "num" }, c.n == null ? "—" : String(c.n)),
+            el("td", { class: "num" }, fmt(c.mean)),
+          ]));
+        });
+        pt.appendChild(pbody);
+        det.appendChild(pt);
+        var wrap = el("td", { colspan: "4" }, det);
+        body.appendChild(el("tr", null, wrap));
+      }
+    });
+    t.appendChild(body);
+    return t;
+  }
+
   function render() {
     var data = readData();
     var content = document.getElementById("content");
@@ -327,6 +422,23 @@
 
     content.appendChild(el("h2", null, "Per-metric trend"));
     content.appendChild(trendChart(data.trend, data.summary.threshold));
+
+    // Optional server-computed enrichment, rendered additively after the
+    // client-side view. Absent/empty => these sections are simply omitted.
+    var srvSummary = data.server_summary;
+    if (srvSummary && srvSummary.length) {
+      content.appendChild(el("h2", null, "Server-computed summary"));
+      content.appendChild(el("p", { class: "kv" },
+        "From mizan results summary -o json (results.TemplateSummary). Computed by the CLI over the stored results."));
+      content.appendChild(serverSummaryTable(srvSummary));
+    }
+    var srvTrend = data.server_trend;
+    if (srvTrend && srvTrend.length) {
+      content.appendChild(el("h2", null, "Server-computed trend"));
+      content.appendChild(el("p", { class: "kv" },
+        "From mizan results trend --metric <id> -o json (results.TrendPoint). Computed by the CLI over the stored results."));
+      content.appendChild(serverTrendTable(srvTrend));
+    }
 
     content.appendChild(el("h2", null, "Results"));
     content.appendChild(resultsTable(data.results || []));

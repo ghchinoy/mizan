@@ -22,10 +22,21 @@ threshold, per-Template.ID grouping, score distribution, per-metric trend over
 RunAt), and fills assets/report.template.html to emit ONE offline report.html
 with inline CSS/JS and embedded JSON.
 
-It re-implements NO CLI logic: querying and filtering are the CLI's job (the
-`mizan results list` flags); this script only performs the terminal HTML
-transform the CLI does not do. It makes no network request and needs no
-credentials. Paths come from argv (argparse), never string-interpolated.
+This client-side aggregation from `results list` is the DEFAULT and always runs.
+Optionally, the renderer also accepts the SERVER-computed statistics the CLI can
+emit — `mizan results summary -o json` (an array of results.TemplateSummary) and
+`mizan results trend --metric <id> -o json` (an array of results.TrendPoint) —
+via --summary-input / --trend-input. When supplied and non-empty these are
+rendered as ADDITIVE enrichment sections alongside (never replacing) the
+client-side view; when absent, empty, or unreadable the renderer DEGRADES
+gracefully to the client-side view alone and never fails.
+
+It re-implements NO CLI logic: querying, filtering, and the summary/trend
+aggregations are the CLI's job (the `mizan results list`/`summary`/`trend`
+flags); this script only performs the terminal HTML transform the CLI does not
+do — it transforms JSON the CLI already produced. It makes no network request,
+starts no server, and needs no credentials. Paths come from argv (argparse),
+never string-interpolated.
 """
 
 import argparse
@@ -61,6 +72,108 @@ def _load_results(input_path):
     if isinstance(data, list):
         return data
     raise ValueError("expected a JSON array of results or a single result object")
+
+
+def _load_optional_array(input_path, label):
+    """Read an OPTIONAL server-computed stats JSON array from a file path.
+
+    Returns None when no path is given, or when the file is unreadable or does
+    not hold a JSON array — the caller then falls back to the client-side view.
+    Returns a (possibly empty) list otherwise. This never raises: a bad or empty
+    server-stats input degrades gracefully rather than failing the whole report.
+    """
+    if input_path in (None, "", "-"):
+        return None
+    try:
+        with open(input_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+    except OSError as e:
+        print("note: ignoring --%s-input %r (%s); using client-side view"
+              % (label, input_path, e), file=sys.stderr)
+        return None
+    raw = raw.strip()
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (ValueError, json.JSONDecodeError) as e:
+        print("note: ignoring --%s-input %r (invalid JSON: %s); using client-side view"
+              % (label, input_path, e), file=sys.stderr)
+        return None
+    if not isinstance(data, list):
+        print("note: ignoring --%s-input %r (expected a JSON array); using client-side view"
+              % (label, input_path), file=sys.stderr)
+        return None
+    return data
+
+
+def _normalize_server_summary(rows):
+    """Project results.TemplateSummary objects onto the render model, reading the
+    real snake_case json keys only (template_id, n, mean, threshold{...},
+    buckets[...]). Unknown keys are ignored; missing omitempty keys stay None.
+    Returns None when rows is None (no --summary-input) so the template can fall
+    back to the client-side per-metric view."""
+    if not rows:
+        return None if rows is None else []
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        thr = r.get("threshold")
+        threshold = None
+        if isinstance(thr, dict):
+            threshold = {
+                "value": thr.get("value"),
+                "pass": thr.get("pass"),
+                "fail": thr.get("fail"),
+                "pass_rate": thr.get("pass_rate"),
+            }
+        buckets = []
+        for b in (r.get("buckets") or []):
+            if isinstance(b, dict):
+                buckets.append({"lo": b.get("lo"), "hi": b.get("hi"), "count": b.get("count")})
+        out.append({
+            "template_id": r.get("template_id"),
+            "template_version": r.get("template_version"),
+            "n": r.get("n"),
+            "n_unscored": r.get("n_unscored"),
+            "mean": r.get("mean"),
+            "min": r.get("min"),
+            "max": r.get("max"),
+            "stddev": r.get("stddev"),
+            "threshold": threshold,
+            "buckets": buckets,
+        })
+    return out
+
+
+def _normalize_server_trend(rows):
+    """Project results.TrendPoint objects onto the render model, reading the real
+    snake_case json keys only (bucket, n, mean, per_criterion[...]). Returns None
+    when rows is None (no --trend-input) so the template can fall back."""
+    if not rows:
+        return None if rows is None else []
+    out = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        per = []
+        for c in (r.get("per_criterion") or []):
+            if isinstance(c, dict):
+                per.append({
+                    "group": c.get("group"),
+                    "criterion": c.get("criterion"),
+                    "n": c.get("n"),
+                    "mean": c.get("mean"),
+                })
+        out.append({
+            "bucket": r.get("bucket"),
+            "n": r.get("n"),
+            "n_unscored": r.get("n_unscored"),
+            "mean": r.get("mean"),
+            "per_criterion": per,
+        })
+    return out
 
 
 def _score(rec):
@@ -136,8 +249,15 @@ def _pass_rate(scores, threshold):
     return _round(passed / len(scores)), passed
 
 
-def build_model(results, threshold, title=None, filters_note=None):
-    """Aggregate results into the report model the template renders."""
+def build_model(results, threshold, title=None, filters_note=None,
+                server_summary=None, server_trend=None):
+    """Aggregate results into the report model the template renders.
+
+    The client-side aggregation over `results` is the DEFAULT and always runs.
+    server_summary / server_trend, when provided, are the CLI's own
+    results.TemplateSummary / results.TrendPoint arrays; they are attached to the
+    model additively so the template can present them as extra enrichment
+    sections without disturbing the client-side view."""
     all_scores = []
     pairwise_count = 0
     by_metric = {}
@@ -222,6 +342,8 @@ def build_model(results, threshold, title=None, filters_note=None):
             "custom_output": out.get("CustomOutput") if out.get("RubricDetail") else None,
         })
 
+    srv_summary = _normalize_server_summary(server_summary)
+    srv_trend = _normalize_server_trend(server_trend)
     return {
         "title": title or "Mizan Results Report",
         "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
@@ -231,6 +353,12 @@ def build_model(results, threshold, title=None, filters_note=None):
         "distribution": _distribution(all_scores),
         "trend": trend,
         "results": rows,
+        # Optional, additive server-computed enrichment (None when not supplied);
+        # the template renders these as extra sections and falls back to the
+        # client-side view above when they are absent or empty.
+        "server_summary": srv_summary,
+        "server_trend": srv_trend,
+        "has_server_stats": bool(srv_summary) or bool(srv_trend),
     }
 
 
@@ -262,6 +390,10 @@ def main(argv=None):
     p.add_argument("--title", default=None, help="optional report heading")
     p.add_argument("--filters-note", default=None,
                    help="optional note describing the filters applied to `results list` (e.g. \"namespace=brand since=2026-08-01\"); recorded in the report meta line")
+    p.add_argument("--summary-input", default=None,
+                   help="OPTIONAL path to `mizan results summary -o json` output (array of results.TemplateSummary); rendered as an additive server-computed section. Absent/empty/unreadable => client-side view only.")
+    p.add_argument("--trend-input", default=None,
+                   help="OPTIONAL path to `mizan results trend --metric <id> -o json` output (array of results.TrendPoint); rendered as an additive server-computed section. Absent/empty/unreadable => client-side view only.")
     p.add_argument("--template", default=None,
                    help="override the HTML template path (default: bundled assets/report.template.html)")
     args = p.parse_args(argv)
@@ -272,7 +404,13 @@ def main(argv=None):
         print("error reading results JSON: %s" % e, file=sys.stderr)
         return 1
 
-    model = build_model(results, args.threshold, title=args.title, filters_note=args.filters_note)
+    # Optional server-computed enrichment. These NEVER fail the run: a missing,
+    # empty, or malformed input degrades to the client-side view.
+    server_summary = _load_optional_array(args.summary_input, "summary")
+    server_trend = _load_optional_array(args.trend_input, "trend")
+
+    model = build_model(results, args.threshold, title=args.title, filters_note=args.filters_note,
+                        server_summary=server_summary, server_trend=server_trend)
     template_path = args.template or _template_path()
     try:
         html = render(model, template_path)
