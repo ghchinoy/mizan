@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mizan-authoring",
+  "version": "0.1.0",
+  "description": "Author metric-template packs for Mizan from an agent: scaffold a pack, create rubric/pointwise/pairwise/custom_schema templates via the mizan CLI, validate the pack creds-free (the CI PR gate), and run the export->PR->import collaborator loop. Use when you need to author, package, validate, or share a Mizan metric template or template pack.",
+  "author": {
+    "name": "ghchinoy",
+    "url": "https://github.com/ghchinoy"
+  },
+  "homepage": "https://github.com/ghchinoy/mizan/tree/main/plugins/mizan-authoring",
+  "repository": "https://github.com/ghchinoy/mizan",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mizan",
+    "template-pack",
+    "authoring",
+    "registry",
+    "pack-validate",
+    "metric-template",
+    "rubric",
+    "folksonomy",
+    "cli"
+  ]
+}
