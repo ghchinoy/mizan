@@ -260,6 +260,8 @@ def main(argv=None):
     p.add_argument("-t", "--threshold", type=float, default=3.0,
                    help="pass/fail score threshold; a result passes when Score >= threshold (default: 3)")
     p.add_argument("--title", default=None, help="optional report heading")
+    p.add_argument("--filters-note", default=None,
+                   help="optional note describing the filters applied to `results list` (e.g. \"namespace=brand since=2026-08-01\"); recorded in the report meta line")
     p.add_argument("--template", default=None,
                    help="override the HTML template path (default: bundled assets/report.template.html)")
     args = p.parse_args(argv)
@@ -270,8 +272,7 @@ def main(argv=None):
         print("error reading results JSON: %s" % e, file=sys.stderr)
         return 1
 
-    filters_note = None
-    model = build_model(results, args.threshold, title=args.title, filters_note=filters_note)
+    model = build_model(results, args.threshold, title=args.title, filters_note=args.filters_note)
     template_path = args.template or _template_path()
     try:
         html = render(model, template_path)
