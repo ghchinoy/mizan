@@ -842,6 +842,10 @@ mizan results list [--metric <id>] [--namespace <ns>] [--tag <tag>]... [--since 
   `YYYY-MM-DD` date (midnight UTC).
 - `--limit` caps the number of rows (0 = backend default).
 
+`--metric` and `--tag` select templates by two different mechanisms (an exact id
+vs a current-tags registry join) and **cannot be combined** — doing so is an
+explicit error (`--metric and --tag cannot be combined`).
+
 Results are returned newest-first. The table shows the run id, run time,
 `metric@version`, the outcome (score or pairwise choice), and the resolved model.
 `-o json` emits the whole `[]Result`; an empty set prints a friendly note on

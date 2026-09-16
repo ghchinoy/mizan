@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -65,6 +66,13 @@ func newResultsListCmd() *cobra.Command {
 				return err
 			}
 
+			// --metric and --tag select templates by two different mechanisms (exact
+			// id vs a current-tags registry join); combining them is ambiguous in v1,
+			// so reject it explicitly rather than silently ignoring one.
+			if metric != "" && len(tags) > 0 {
+				return fmt.Errorf("--metric and --tag cannot be combined")
+			}
+
 			var sinceT time.Time
 			if since != "" {
 				sinceT, err = parseSince(since)
@@ -93,17 +101,10 @@ func newResultsListCmd() *cobra.Command {
 				}
 				defer func() { _ = closeReg() }()
 
-				tmpls, err := regSvc.List(cmd.Context(), registry.ListFilter{Tags: tags, Namespace: namespace})
+				perTemplate, err := resolveTaggedResults(cmd.Context(), regSvc, resultSvc,
+					TaggedResultsQuery{Tags: tags, Namespace: namespace})
 				if err != nil {
 					return err
-				}
-				perTemplate := make([][]results.Result, 0, len(tmpls))
-				for _, t := range tmpls {
-					sub, err := resultSvc.List(cmd.Context(), results.ResultFilter{TemplateID: t.ID})
-					if err != nil {
-						return err
-					}
-					perTemplate = append(perTemplate, sub)
 				}
 				rs = mergeTaggedResults(perTemplate, sinceT, limit)
 			} else {
@@ -126,6 +127,42 @@ func newResultsListCmd() *cobra.Command {
 	cmd.Flags().StringVar(&since, "since", "", "only results at or after this time (RFC3339 or YYYY-MM-DD)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results to return (0 = backend default)")
 	return cmd
+}
+
+// TaggedResultsQuery selects which templates a tag join gathers results for. It
+// mirrors the registry-side filter that resolves a tag set to template ids:
+// AND-narrowing, case-sensitive tags (identical to `registry list --tag`) plus an
+// optional id-namespace narrowing applied at the registry layer. It is the input
+// to resolveTaggedResults.
+type TaggedResultsQuery struct {
+	Tags      []string
+	Namespace string
+}
+
+// resolveTaggedResults performs the FULL registry->results tag-join resolution and
+// fetch (design §4.A step 4), the reusable half of the join shared by
+// `results list --tag` and B3's `results summary`/`trend --tag` (design §4.C).
+// It resolves q.Tags to template ids against the registry's CURRENT tags, then
+// fetches every stored result for each matching template, returning one slice per
+// matching template (each ordered newest-first, as the store returns it). Callers
+// combine the slices themselves — `results list` via mergeTaggedResults, B3 via
+// its aggregation. An empty resolution (no template carries the tag set) returns
+// an empty, non-nil slice and a nil error, which mergeTaggedResults then renders
+// as the existing "no results found" note.
+func resolveTaggedResults(ctx context.Context, regSvc *registry.Service, resSvc *results.Service, q TaggedResultsQuery) ([][]results.Result, error) {
+	tmpls, err := regSvc.List(ctx, registry.ListFilter{Tags: q.Tags, Namespace: q.Namespace})
+	if err != nil {
+		return nil, err
+	}
+	perTemplate := make([][]results.Result, 0, len(tmpls))
+	for _, t := range tmpls {
+		sub, err := resSvc.List(ctx, results.ResultFilter{TemplateID: t.ID})
+		if err != nil {
+			return nil, err
+		}
+		perTemplate = append(perTemplate, sub)
+	}
+	return perTemplate, nil
 }
 
 // mergeTaggedResults is the pure core of the registry->results tag join (design
