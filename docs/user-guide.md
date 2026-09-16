@@ -1434,6 +1434,11 @@ $ echo $?
 0
 ```
 
+> **From an agent.** The `run-eval-set` agent skill drives this exact command —
+> locating or scaffolding the manifest, parsing the `evalset.EvalSetResult`
+> scorecard, and honoring the gate exit code for CI. See
+> [Mizan Agent Skills](agent-skills.md).
+
 ## Version and releases
 
 Check which build you're running:

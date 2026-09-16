@@ -171,6 +171,77 @@ mizan results show <run-id> -o json
 See the skill source at
 [`plugins/mizan-eval/skills/run-eval/SKILL.md`](../plugins/mizan-eval/skills/run-eval/SKILL.md).
 
+#### `run-eval-set`
+
+Run a **curated multi-concern eval-set** — several weighted metric templates —
+against one shared asset/response, then interpret the **weighted scorecard**:
+per-member verdicts, the aggregate, the overall PASS/FAIL, and (for CI) the gate
+exit code. Use this instead of `run-eval` when the question is "how does this asset
+do across *all* our concerns at once, and does it pass the bar?"
+
+In this phase `--set` is a **filesystem path** to an `EvalSet` manifest (a
+`kind: EvalSet` YAML), not a registry id. Locate an existing manifest (commonly
+under a pack's `evalsets/`, e.g. the shipped
+[`docs/examples/evalset-quickstart/evalsets/answer-quality.yaml`](examples/evalset-quickstart/evalsets/answer-quality.yaml))
+or scaffold one from the concerns the user describes, then run it:
+
+```bash
+# discover / confirm member metrics resolve
+mizan registry get <namespace>/<slug> -o json
+
+# run the set against shared inputs (same modality flags as run-eval)
+mizan eval run --set ./evalsets/answer-quality.yaml \
+  --field prompt="$PROMPT" --field response="$RESPONSE" -o json
+```
+
+Fill the manifest's shared `spec.inputs` with `--field key=value` (text),
+`--file key=/path` (local media, staged to GCS), or `--gcs key=gs://…`
+(pre-staged); the same `guardTextSlot` protection applies, so use `--file`/`--gcs`
+for media. `--fail-fast` aborts at the first errored/missing member; `--model`
+overrides the autorater for every member. `--set` and `--metric` are mutually
+exclusive — exactly one is required.
+
+`-o json` returns the `evalset.EvalSetResult` object. These structs carry **no json
+tags**, so top-level and nested `evalset` fields serialize in **PascalCase**; only
+the embedded `eval.Result` (the `Result` field) keeps the `run-eval` snake_case
+tags (`rubric_detail`, `warnings`, `duration_ns`, `token_usage`):
+
+- `SetID`/`SetName`/`Version`/`AssetClass` — the manifest metadata.
+- `Members[]` — one row per member: `MetricID`, `Status` (`OK`/`Errored`/`Missing`/
+  `Skipped`), `Weight`, `Required`, `Score` (mirrored; `null` for non-scalar/non-OK
+  members), the full embedded `Result` (`eval.Result`), and `Error`.
+- `Aggregate` — `Method` (`mean`/`weighted-mean`/`min`), `Score`, `Threshold`,
+  `Passed`, `Scored`, `Failed`.
+- `Verdict` — the overall `PASSED`/`FAILED`, **always computed** regardless of the
+  gate. `Gate` — the manifest's opt-in gate flag. `StartedAt` (RFC3339) and
+  `Duration` (nanoseconds).
+
+**Gate exit code (for CI).** The `Verdict` is always shown on stdout; whether a
+`FAILED` verdict also fails the process is the opt-in gate (`aggregation.gate`). A
+non-zero exit happens **only** when the set is a gate **and** the verdict is
+`FAILED`; every other combination exits `0`:
+
+| gate | verdict | exit |
+|------|---------|------|
+| false | PASSED | 0 |
+| false | FAILED | 0 |
+| true  | PASSED | 0 |
+| true  | FAILED | 1 (fails the CI step) |
+
+Wire an eval-set into CI with a gated manifest (e.g.
+[`answer-quality-strict-gate.yaml`](examples/evalset-quickstart/evalsets/answer-quality-strict-gate.yaml))
+and let the exit code fail the build. The `evalset.EvalSetResult` `-o json` contract
+and this exit-code table are both covered by hermetic gates (the drift test in
+`internal/skilldocs` and the exit-code test in `cmd/mizan`).
+
+**Out of scope:** eval-set *results* are **not** persisted, and there is **no**
+per-eval-set history/trend command — do not reference `mizan results` for a set's
+history or a `results summary`/`trend` command (those do not exist). Per-eval-set
+persistence/trend is a documented follow-up, not a shipping capability.
+
+See the skill source at
+[`plugins/mizan-eval/skills/run-eval-set/SKILL.md`](../plugins/mizan-eval/skills/run-eval-set/SKILL.md).
+
 ### `mizan-results` — results reporting
 
 #### `report-to-html` (flagship)
@@ -290,8 +361,11 @@ See the skill source at
 ## Roadmap
 
 `run-eval` was the first vertical slice; the flagship `report-to-html`
-(`mizan-results`) results skill has shipped on top of it. Planned fan-out includes
-`run-eval-set`, template-authoring skills, and Tier-2 onboarding/discovery skills.
-Capabilities that would need unbuilt CLI commands — a `results summary`/`trend`
-enrichment of `report-to-html`, tag-filtered discovery, heuristic authoring — are
-deferred, not stubbed. See the project roadmap for sequencing.
+(`mizan-results`) results skill shipped on top of it, `run-eval-set` extends the
+`mizan-eval` plugin with multi-concern scorecards and CI gating, and
+`author-and-validate-a-template-pack` (`mizan-authoring`) covers creds-free pack
+authoring and the export→PR→import loop. Planned fan-out includes Tier-2
+onboarding/discovery skills. Capabilities that would need unbuilt CLI commands — a
+`results summary`/`trend` enrichment of `report-to-html`, per-eval-set
+persistence/trend, tag-filtered discovery, heuristic authoring — are deferred, not
+stubbed. See the project roadmap for sequencing.
