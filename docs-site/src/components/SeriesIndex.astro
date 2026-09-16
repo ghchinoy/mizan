@@ -1,0 +1,115 @@
+---
+// SeriesIndex — lists the pieces of a blog series IN seriesOrder so a reader can
+// walk the arc. starlight-blog's own blog index is DATE-ordered; this fills the
+// gap with a stable, series-ordered table of contents.
+//
+// PRODUCTION SAFETY: only NON-draft pieces are listed (draft !== true), so
+// `draft: true` stubs never appear in the built site. Pieces are grouped by
+// `series` and sorted by numeric `seriesOrder` (decimals like 3.1/4.5 sort
+// correctly). Links point at each post's real on-site route so the internal
+// link-check validates them.
+import { getCollection } from 'astro:content';
+
+interface Props {
+  /** Optional: restrict to a single series title. Omit to list every series. */
+  series?: string;
+}
+
+const { series } = Astro.props;
+
+// base without a trailing slash, e.g. "/mizan".
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+const posts = await getCollection('docs', (entry) => {
+  const data = entry.data as { series?: string; seriesOrder?: number; draft?: boolean };
+  if (!data.series || data.seriesOrder === undefined) return false;
+  if (data.draft === true) return false; // never list unpublished stubs
+  if (series && data.series !== series) return false;
+  return true;
+});
+
+// Group by series title, then sort each group by seriesOrder.
+const groups = new Map<string, typeof posts>();
+for (const post of posts) {
+  const key = (post.data as { series: string }).series;
+  if (!groups.has(key)) groups.set(key, []);
+  groups.get(key)!.push(post);
+}
+for (const list of groups.values()) {
+  list.sort(
+    (a, b) =>
+      ((a.data as { seriesOrder: number }).seriesOrder) -
+      ((b.data as { seriesOrder: number }).seriesOrder),
+  );
+}
+
+const seriesList = [...groups.entries()];
+
+// Build each post's on-site URL from its collection id (e.g.
+// "blog/01-why-evals" -> "/mizan/blog/01-why-evals/").
+const href = (id: string) => `${base}/${id}/`;
+---
+
+{
+  seriesList.length === 0 ? (
+    <p>No published series pieces yet.</p>
+  ) : (
+    seriesList.map(([title, list]) => (
+      <section class="series-index" aria-label={`Series: ${title}`}>
+        <ol class="series-index__list">
+          {list.map((post) => {
+            const data = post.data as {
+              title: string;
+              seriesOrder: number;
+              excerpt?: string;
+            };
+            return (
+              <li class="series-index__item">
+                <span class="series-index__order">Part {data.seriesOrder}</span>
+                <a class="series-index__link" href={href(post.id)}>
+                  {data.title}
+                </a>
+                {data.excerpt && <p class="series-index__excerpt">{data.excerpt}</p>}
+              </li>
+            );
+          })}
+        </ol>
+      </section>
+    ))
+  )
+}
+
+<style>
+  .series-index__list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .series-index__item {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-inline-start: 3px solid var(--sl-color-accent);
+    border-radius: 0.5rem;
+    background: var(--sl-color-gray-6, var(--sl-color-bg-nav));
+  }
+  .series-index__order {
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: var(--sl-text-xs);
+    font-weight: 600;
+    color: var(--sl-color-accent-high);
+    margin-inline-end: 0.5rem;
+  }
+  .series-index__link {
+    font-weight: 600;
+  }
+  .series-index__excerpt {
+    margin: 0.35rem 0 0;
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+  }
+</style>
