@@ -273,6 +273,98 @@ func TestRenderResultListSanitizesUntrusted(t *testing.T) {
 	}
 }
 
+// taggedResult is a small helper building a result at a given run time for the
+// join tests below.
+func taggedResult(runID, templateID string, runAt time.Time) results.Result {
+	return results.Result{
+		RunID: runID,
+		RunAt: runAt,
+		Template: results.TemplateRef{
+			ID:   templateID,
+			Kind: registry.KindPointwise,
+		},
+		Outcome: results.Outcome{Score: float32p(1)},
+	}
+}
+
+// TestMergeTaggedResultsNewestFirst proves the join merges results from ALL
+// templates carrying a tag and orders the merged set newest-first (design §4.A
+// step 4; §9 B1 join criterion).
+func TestMergeTaggedResultsNewestFirst(t *testing.T) {
+	base := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
+	perTemplate := [][]results.Result{
+		{ // template A (store already returns newest-first per template)
+			taggedResult("A2", "ns/a", base.Add(3*time.Hour)),
+			taggedResult("A1", "ns/a", base.Add(1*time.Hour)),
+		},
+		{ // template B
+			taggedResult("B1", "ns/b", base.Add(4*time.Hour)),
+			taggedResult("B0", "ns/b", base.Add(2*time.Hour)),
+		},
+	}
+	got := mergeTaggedResults(perTemplate, time.Time{}, 0)
+	wantOrder := []string{"B1", "A2", "B0", "A1"}
+	if len(got) != len(wantOrder) {
+		t.Fatalf("merged len = %d, want %d", len(got), len(wantOrder))
+	}
+	for i, want := range wantOrder {
+		if got[i].RunID != want {
+			t.Errorf("merged[%d].RunID = %q, want %q (order: %v)", i, got[i].RunID, want, runIDs(got))
+		}
+	}
+}
+
+// TestMergeTaggedResultsSinceLimitAfterMerge proves --since and --limit are
+// applied AFTER the cross-template merge, not per template (§9 B1 join).
+func TestMergeTaggedResultsSinceLimitAfterMerge(t *testing.T) {
+	base := time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC)
+	perTemplate := [][]results.Result{
+		{taggedResult("A2", "ns/a", base.Add(3*time.Hour)), taggedResult("A1", "ns/a", base.Add(1*time.Hour))},
+		{taggedResult("B1", "ns/b", base.Add(4*time.Hour)), taggedResult("B0", "ns/b", base.Add(2*time.Hour))},
+	}
+
+	// --since drops the oldest (A1 at +1h) across the whole merged set.
+	since := mergeTaggedResults(perTemplate, base.Add(2*time.Hour), 0)
+	if got := runIDs(since); strings.Join(got, ",") != "B1,A2,B0" {
+		t.Errorf("since-filtered order = %v, want [B1 A2 B0]", got)
+	}
+
+	// --limit caps the global newest-first set (not per template): 2 => B1, A2.
+	limited := mergeTaggedResults(perTemplate, time.Time{}, 2)
+	if got := runIDs(limited); strings.Join(got, ",") != "B1,A2" {
+		t.Errorf("limited set = %v, want [B1 A2]", got)
+	}
+}
+
+// TestMergeTaggedResultsEmptyResolution proves an empty tag->id resolution (no
+// template carries the tag set) yields no rows, which renderResultList surfaces
+// as the existing "no results found" note (§9 B1 join: empty resolution).
+func TestMergeTaggedResultsEmptyResolution(t *testing.T) {
+	got := mergeTaggedResults(nil, time.Time{}, 0)
+	if len(got) != 0 {
+		t.Fatalf("empty resolution merged len = %d, want 0", len(got))
+	}
+
+	prev := outputFormat
+	outputFormat = outputTable
+	defer func() { outputFormat = prev }()
+	var out, errb bytes.Buffer
+	if err := renderResultList(&out, &errb, got); err != nil {
+		t.Fatalf("renderResultList: %v", err)
+	}
+	if !strings.Contains(errb.String(), "no results found") {
+		t.Errorf("empty join resolution should print the no-results note, got: %q", errb.String())
+	}
+}
+
+func runIDs(rs []results.Result) []string {
+	ids := make([]string, len(rs))
+	for i, r := range rs {
+		ids[i] = r.RunID
+	}
+	return ids
+}
+
 // TestResultsShowNotFound proves `results show` on an unknown run id maps
 // results.ErrNotFound to a crisp, non-nil error (non-zero exit).
 func TestResultsShowNotFound(t *testing.T) {

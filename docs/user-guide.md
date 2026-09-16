@@ -828,19 +828,52 @@ first write and needs no migration.
 ### Listing results (`mizan results list`)
 
 ```bash
-mizan results list [--metric <id>] [--namespace <ns>] [--since <t>] [--limit N] [-o table|json]
+mizan results list [--metric <id>] [--namespace <ns>] [--tag <tag>]... [--since <t>] [--limit N] [-o table|json]
 ```
 
 - `--metric` filters by exact template id (`<namespace>/<slug>`).
 - `--namespace` filters by the id namespace.
+- `--tag` filters to results whose template **currently** carries the given
+  tag(s). It is **repeatable**, **AND-narrowing**, and **case-sensitive** exact
+  match — identical semantics to `registry list --tag` (`--tag quality --tag
+  safety` matches only templates carrying *both* tags; `--tag Quality` does not
+  match a `quality` tag).
 - `--since` accepts an RFC3339 timestamp (`2026-08-17T12:00:00Z`) or a bare
   `YYYY-MM-DD` date (midnight UTC).
 - `--limit` caps the number of rows (0 = backend default).
+
+`--metric` and `--tag` select templates by two different mechanisms (an exact id
+vs a current-tags registry join) and **cannot be combined** — doing so is an
+explicit error (`--metric and --tag cannot be combined`).
 
 Results are returned newest-first. The table shows the run id, run time,
 `metric@version`, the outcome (score or pairwise choice), and the resolved model.
 `-o json` emits the whole `[]Result`; an empty set prints a friendly note on
 stderr (table) or `[]` (json).
+
+#### How `--tag` works: a registry→results join
+
+The results store does **not** persist tags — each stored result is an immutable,
+point-in-time provenance record, and a template's tags change over time, so a tag
+copied onto an old row would be stale and misleading. `--tag` is therefore a
+**registry→results join**, not a store filter:
+
+1. The tag set is resolved to template ids against the **registry's current
+   tags** (the same filter as `registry list --tag`).
+2. Results are queried per matching template id and merged.
+3. `--since`/`--limit` are applied **after** the merge, newest-first (so `--limit`
+   caps the combined set, not each template independently).
+
+Because resolution uses current tags, `results list --tag X` returns runs for
+**all** templates that carry `X` today — even results recorded before the tag was
+added, and never results for a template from which `X` has since been removed.
+If no template currently carries the tag set, the join resolves to nothing and
+the usual "no results found" note is printed.
+
+```bash
+# every stored run for any template currently tagged "brand" (newest first)
+$ mizan results list --tag brand
+```
 
 ```text
 RUN ID                      RUN AT                METRIC              OUTCOME  MODEL
