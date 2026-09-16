@@ -1,6 +1,6 @@
 ---
 title: "One spectrum, four users: from brand alignment to technical metrics"
-date: 2026-10-12
+date: 2026-09-16
 authors:
   - ghchinoy
 excerpt: >
