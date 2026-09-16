@@ -194,6 +194,42 @@ func TestCLIHeuristicRunPersistsAndShows(t *testing.T) {
 	}
 }
 
+// TestCLIHeuristicRunWarnsOnModelFlag proves the friendliness fold-in: passing
+// --model to a kind:heuristic run (which ignores it via the early return) emits a
+// one-line warning that the model flag is ignored, and the run still succeeds.
+func TestCLIHeuristicRunWarnsOnModelFlag(t *testing.T) {
+	setupHeuristicCLIEnv(t)
+	id := "checks/warn-model"
+
+	if out, err := executeRoot(t,
+		"registry", "create",
+		"--id", id,
+		"--name", "Warn model heuristic",
+		"--kind", "heuristic",
+		"--modality", "text",
+		"--input", "response:text:true",
+		"--heuristic-type", "contains",
+		"--heuristic-target", "response",
+		"--heuristic-value", "OK",
+	); err != nil {
+		t.Fatalf("registry create: %v (out=%q)", err, out)
+	}
+
+	runOut, err := executeRoot(t,
+		"--output", "json",
+		"eval", "run",
+		"--metric", id,
+		"--field", "response=all OK here",
+		"--model", "gemini-2.5-pro",
+	)
+	if err != nil {
+		t.Fatalf("eval run: %v (out=%q)", err, runOut)
+	}
+	if !strings.Contains(runOut, "--model is ignored for kind:heuristic") {
+		t.Errorf("expected a --model-ignored warning, got:\n%s", runOut)
+	}
+}
+
 // decodeResultJSON extracts and decodes the eval.Result JSON object from combined
 // stdout+stderr output (the pre-flight line is plain text on stderr).
 func decodeResultJSON(t *testing.T, out string) eval.Result {

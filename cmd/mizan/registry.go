@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -392,11 +391,7 @@ func validateHeuristicTemplate(t *registry.MetricTemplate) error {
 		if spec.Value == "" {
 			return fmt.Errorf("--heuristic-type %q requires --heuristic-value (the pattern)", spec.Type)
 		}
-		pattern := spec.Value
-		if spec.CaseInsensitive {
-			pattern = "(?i)" + pattern
-		}
-		if _, err := regexp.Compile(pattern); err != nil {
+		if _, err := registry.CompileHeuristicRegex(spec); err != nil {
 			return fmt.Errorf("--heuristic-value is not a valid RE2 regex: %w", err)
 		}
 	case registry.HeuristicJSONSchemaValid:

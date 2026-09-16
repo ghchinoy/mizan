@@ -294,7 +294,10 @@ Authoring flags on `registry create` / `registry update`:
 - **`--heuristic-case-insensitive`** — fold case for `contains` / `equals`
   (applied as the RE2 `(?i)` flag for `regex`).
 - **`--heuristic-schema` / `--heuristic-schema-file`** — the JSON Schema (inline
-  or from a file) for `json-schema-valid`.
+  or from a file) for `json-schema-valid`. A schema `$ref` is restricted to
+  inline same-document references (`#/...`); external refs (`file://`,
+  `http(s)://`, or a relative path) are refused at both `pack validate` and
+  `eval run`. The same restriction applies to a `custom_schema` `responseSchema`.
 
 `create` validates the check immediately — an unknown type, a target that isn't
 in `--input`, a missing operand, or a regex/schema that won't compile is

@@ -127,6 +127,9 @@ func TestContentHashSensitivePerField(t *testing.T) {
 		"RubricDetail":       func(t *MetricTemplate) { t.RubricDetail = &RubricDetail{Scale: &RubricScale{Min: 1, Max: 9}} },
 		"AutoraterModel":     func(t *MetricTemplate) { t.AutoraterModel = "gemini-2.5-flash" },
 		"SamplingCount":      func(t *MetricTemplate) { t.SamplingCount = 8 },
+		"Heuristic": func(t *MetricTemplate) {
+			t.Heuristic = &HeuristicSpec{Type: HeuristicContains, Target: "candidate", Value: "x"}
+		},
 	}
 	for name, fn := range mutate {
 		t.Run(name, func(t *testing.T) {
