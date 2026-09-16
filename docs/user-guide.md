@@ -748,10 +748,12 @@ $ mizan export stax --metric acme/helpfulness --model-id gemini-2.5-pro
 **`--model-id` (Stax requires it; Mizan never migrates it).** Stax marks
 `model_id` `@NotNull`, but Mizan does not migrate model or credential bindings (a
 template's `AutoraterModel` is a Vertex/ADC binding, not a Stax model id). Supply
-the Stax-side model id yourself with `--model-id <id>`. If you omit it, `model_id`
-is emitted as `""` and the command prints a `warning: model_id is empty …` line to
-stderr so the gap is explicit — the JSON is still emitted but is not ingestible by
-Stax until you fill it in.
+the Stax-side model id yourself with `--model-id <id>`. If you omit it, the
+`model_id` field is **left out of the output entirely** (fail-closed) and the
+command prints a `warning: model_id is unset …` line to stderr. A missing required
+field makes Stax reject the import cleanly — safer than emitting an empty `""` that
+would create an evaluator bound to a nonsense model. Pass `--model-id` so the field
+is populated.
 
 **Mapping (Mizan → Stax DTO):**
 

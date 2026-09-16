@@ -111,11 +111,18 @@ type Variable struct {
 // emitted. Slices are inherently ordered, so no custom marshaler is needed:
 // prompts are SYSTEM-then-USER, output_categories ascending by value, variables
 // sorted by name.
+//
+// model_id is omitempty (fail-closed, owner ruling): the real DTO marks model_id
+// @NotNull, and Mizan never migrates model/credential bindings (invariant N3), so
+// when the user supplies no --model-id the field is DROPPED entirely rather than
+// emitted as "". A dropped required field yields a clean Stax @NotNull rejection
+// at import, which is safer than shipping a nonsense empty model_id that passes
+// @NotNull. Export still emits a warning in this case.
 type Evaluator struct {
 	Name             string           `json:"name"`
 	OutputFormatType string           `json:"output_format_type"`
 	Variables        []Variable       `json:"variables,omitempty"`
-	ModelID          string           `json:"model_id"`
+	ModelID          string           `json:"model_id,omitempty"`
 	Prompts          []Prompt         `json:"prompts"`
 	OutputCategories []OutputCategory `json:"output_categories"`
 }
@@ -131,8 +138,9 @@ type Options struct {
 	// ModelID is the Stax model id to bind each emitted evaluator to (the real DTO
 	// requires model_id). It is user-supplied (the --model-id flag): Mizan never
 	// derives it from a template's AutoraterModel and never migrates model or key
-	// bindings (invariant N3). When empty, model_id is emitted as "" and Export
-	// adds a warning that the importer must set it before POSTing to Stax.
+	// bindings (invariant N3). When empty, model_id is OMITTED from the output
+	// (fail-closed) and Export adds a warning that the importer must set it before
+	// POSTing to Stax.
 	ModelID string
 
 	// PlaceholderOverride is the configurable rename table (spec §4 rule 3): it
@@ -214,7 +222,7 @@ func Export(t registry.MetricTemplate, opts Options) (Result, error) {
 	}
 	if strings.TrimSpace(opts.ModelID) == "" {
 		res.Warnings = append(res.Warnings,
-			`model_id is empty: Stax requires a model_id and Mizan does not migrate model/credential bindings (invariant N3) — set --model-id <stax-model-id> or edit "model_id" before importing into Stax`)
+			`model_id is unset: it is omitted from the output (Stax requires model_id @NotNull, and Mizan does not migrate model/credential bindings, invariant N3) — set --model-id <stax-model-id> before importing into Stax, or the import will be rejected`)
 	}
 	return res, nil
 }

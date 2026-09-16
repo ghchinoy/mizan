@@ -15,6 +15,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/ghchinoy/mizan/internal/registry"
@@ -47,6 +48,55 @@ const wantPointwiseGolden = `{
     }
   ],
   "model_id": "model-123",
+  "prompts": [
+    {
+      "role": "SYSTEM",
+      "text": "Be strict."
+    },
+    {
+      "role": "USER",
+      "text": "Rate the response: {{output}}"
+    }
+  ],
+  "output_categories": [
+    {
+      "name": "1-poor",
+      "value": "1"
+    },
+    {
+      "name": "score-2",
+      "value": "2"
+    },
+    {
+      "name": "score-3",
+      "value": "3"
+    },
+    {
+      "name": "score-4",
+      "value": "4"
+    },
+    {
+      "name": "5-great",
+      "value": "5"
+    }
+  ]
+}
+`
+
+// wantPointwiseUnsetModelGolden is the SAME pointwise export with NO --model-id:
+// per the owner ruling, model_id is OMITTED entirely (fail-closed) — the field is
+// absent, not emitted as "". This is byte-identical to wantPointwiseGolden minus
+// the "model_id" line, and is byte-locked so a regression that re-adds
+// "model_id": "" (dropping omitempty) is caught.
+const wantPointwiseUnsetModelGolden = `{
+  "name": "acme/pointwise-quality",
+  "output_format_type": "Choices",
+  "variables": [
+    {
+      "name": "output",
+      "required": true
+    }
+  ],
   "prompts": [
     {
       "role": "SYSTEM",
@@ -244,6 +294,44 @@ func TestGoldenPointwiseWireBytes(t *testing.T) {
 	}
 	if string(got) != wantPointwiseGolden {
 		t.Errorf("pointwise wire bytes drifted from spec §6.2.\n--- got ---\n%s\n--- want ---\n%s", got, wantPointwiseGolden)
+	}
+}
+
+// TestGoldenPointwiseOmitsModelIDWhenUnset locks BOTH directions of the
+// omit-when-unset rule (owner ruling, fail-closed): with no ModelID the field is
+// ABSENT (byte-exact), and with a ModelID it is PRESENT.
+func TestGoldenPointwiseOmitsModelIDWhenUnset(t *testing.T) {
+	// Unset: model_id must be omitted entirely.
+	res, err := staxexport.Export(pointwiseQualityTemplate(), staxexport.Options{})
+	if err != nil {
+		t.Fatalf("Export (unset model): %v", err)
+	}
+	got, err := marshalEvaluators(res.Evaluators)
+	if err != nil {
+		t.Fatalf("marshalEvaluators: %v", err)
+	}
+	if string(got) != wantPointwiseUnsetModelGolden {
+		t.Errorf("unset-model wire bytes drifted (model_id must be OMITTED, not \"\").\n--- got ---\n%s\n--- want ---\n%s", got, wantPointwiseUnsetModelGolden)
+	}
+	if strings.Contains(string(got), "model_id") {
+		t.Errorf("model_id must be ABSENT when unset, but it appears in output:\n%s", got)
+	}
+	// Export must still warn when model_id is unset.
+	if len(res.Warnings) == 0 {
+		t.Errorf("expected a warning when model_id is unset, got none")
+	}
+
+	// Set: model_id must be present.
+	res2, err := staxexport.Export(pointwiseQualityTemplate(), staxexport.Options{ModelID: "model-123"})
+	if err != nil {
+		t.Fatalf("Export (set model): %v", err)
+	}
+	got2, err := marshalEvaluators(res2.Evaluators)
+	if err != nil {
+		t.Fatalf("marshalEvaluators: %v", err)
+	}
+	if !strings.Contains(string(got2), `"model_id": "model-123"`) {
+		t.Errorf("model_id must be PRESENT when --model-id is supplied, but it is missing:\n%s", got2)
 	}
 }
 

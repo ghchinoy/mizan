@@ -15,6 +15,7 @@
 package staxexport
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -197,9 +198,10 @@ func TestPointwiseDirectMap(t *testing.T) {
 	}
 }
 
-// TestEmptyModelIDWarns verifies that omitting the model id still exports (the
-// field is emitted as "") but surfaces a warning, since Stax requires model_id
-// and Mizan never migrates model bindings (N3).
+// TestEmptyModelIDWarns verifies that omitting the model id still exports but
+// surfaces a warning (Stax requires model_id and Mizan never migrates model
+// bindings, N3). The value stays empty on the struct; serialization omits the
+// field entirely (fail-closed) — see TestEmptyModelIDIsOmittedFromJSON.
 func TestEmptyModelIDWarns(t *testing.T) {
 	tmpl := registry.MetricTemplate{
 		ID:                   "acme/helpfulness",
@@ -214,8 +216,44 @@ func TestEmptyModelIDWarns(t *testing.T) {
 	if res.Evaluators[0].ModelID != "" {
 		t.Errorf("model_id = %q, want empty", res.Evaluators[0].ModelID)
 	}
-	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "model_id is empty") {
-		t.Errorf("warnings = %v, want one 'model_id is empty' warning", res.Warnings)
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "model_id is unset") {
+		t.Errorf("warnings = %v, want one 'model_id is unset' warning", res.Warnings)
+	}
+}
+
+// TestEmptyModelIDIsOmittedFromJSON locks the owner ruling: an unset model_id is
+// DROPPED from the wire bytes (json:"model_id,omitempty"), not emitted as "".
+// A dropped @NotNull field yields a clean Stax rejection at import.
+func TestEmptyModelIDIsOmittedFromJSON(t *testing.T) {
+	tmpl := registry.MetricTemplate{
+		ID:                   "acme/helpfulness",
+		Kind:                 registry.KindPointwise,
+		Modalities:           []registry.Modality{registry.ModalityText},
+		MetricPromptTemplate: "Rate {{response}}.",
+	}
+	res, err := Export(tmpl, Options{})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	b, err := json.Marshal(res.Evaluators[0])
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if strings.Contains(string(b), "model_id") {
+		t.Errorf("unset model_id must be omitted from JSON, got: %s", b)
+	}
+
+	// And when set, it IS present.
+	res2, err := Export(tmpl, Options{ModelID: "model-123"})
+	if err != nil {
+		t.Fatalf("Export (set): %v", err)
+	}
+	b2, err := json.Marshal(res2.Evaluators[0])
+	if err != nil {
+		t.Fatalf("marshal (set): %v", err)
+	}
+	if !strings.Contains(string(b2), `"model_id":"model-123"`) {
+		t.Errorf("set model_id must be present in JSON, got: %s", b2)
 	}
 }
 

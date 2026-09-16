@@ -133,7 +133,7 @@ func newExportStaxCmd() *cobra.Command {
 	cmd.Flags().StringVar(&metric, "metric", "", "template id to export (required)")
 	cmd.Flags().BoolVar(&flatten, "flatten", false, "rubric Option A: emit ONE aggregate evaluator instead of fan-out (LOSSY — drops per-criterion granularity)")
 	cmd.Flags().StringVar(&out, "out", "", "write to this file instead of stdout")
-	cmd.Flags().StringVar(&modelID, "model-id", "", "Stax model_id to bind each evaluator to (required by Stax; user-supplied — Mizan never migrates model/key bindings). If empty, model_id is emitted as \"\" and a warning is printed.")
+	cmd.Flags().StringVar(&modelID, "model-id", "", "Stax model_id to bind each evaluator to (required by Stax; user-supplied — Mizan never migrates model/key bindings). If unset, model_id is OMITTED (fail-closed) and a warning is printed; the import is rejected until you set it.")
 	cmd.Flags().StringArrayVar(&mapArgs, "placeholder-map", nil, `override the placeholder rename map, "mizan_field=stax_var" (repeatable; stax_var one of output|prompt|expected_output|history)`)
 	return cmd
 }

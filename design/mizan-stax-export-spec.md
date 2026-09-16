@@ -422,8 +422,15 @@ lossless within the mapping.
 Stax's `model_id` is `@NotNull`, but design invariant N3 forbids Mizan from migrating model or credential
 bindings. The exporter resolves this by treating `model_id` as a **user-supplied deployment binding**, not
 a fidelity field: it never derives `model_id` from a template's `AutoraterModel`. Supply it with
-`--model-id <stax-model-id>`. If omitted, `model_id` is emitted as `""` and the exporter prints a warning
-so the gap is explicit and the output is not silently un-ingestible.
+`--model-id <stax-model-id>`.
+
+**When unset, `model_id` is OMITTED entirely (fail-closed, owner ruling)** — the field is dropped
+(`json:"model_id,omitempty"`), **not** emitted as `""`, and the exporter prints a warning. Dropping a
+`@NotNull` field produces a clean Stax validation rejection at import time, which is safer than shipping an
+empty-string `model_id` that would satisfy `@NotNull` (only `@NotBlank` rejects `""`) and silently create
+an evaluator bound to a nonsense model. So the golden bytes above (§6.1/§6.2) — which include
+`"model_id": "model-123"` — are the `--model-id`-supplied shape; with no `--model-id` the `model_id` line
+is simply absent. Both directions are byte-locked by `cmd/mizan/export_golden_test.go`.
 
 ---
 
