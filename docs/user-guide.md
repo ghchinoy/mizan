@@ -680,6 +680,67 @@ Round-trips are stable by construction: the codec canonicalizes the pack file
 Every registry (and config) command supports `-o/--output json|table`
 (default `table`) for scripting.
 
+## Export to Stax (`export stax`)
+
+`export stax` converts **one** local metric template into the
+[Stax](https://github.com/google-labs-code/stax) `LLMEvaluator` interchange
+format — a one-directional export that lets a Mizan-authored, PR-reviewed,
+credential-free-validated metric feed a Stax-style evaluator library. The mapping
+is specified in `design/mizan-stax-export-spec.md`. Output is JSON, written to
+stdout by default or to a file with `--out`.
+
+```sh
+# Fan out a rubric metric to one Stax evaluator per criterion (the default).
+$ mizan export stax --metric acme/rubric-brand --out evaluators.json
+
+# Or print to stdout.
+$ mizan export stax --metric acme/helpfulness
+```
+
+**Supported kinds (text modality only):**
+
+- **`rubric` → Option B (fan-out), the default.** Mizan scores *each*
+  `(group, criterion)` pair, but a Stax evaluator emits a single verdict, so the
+  exporter emits **one Stax evaluator per criterion**, preserving per-criterion
+  scores and rationales. Each evaluator is named with the
+  `"{template-id}::{group}::{criterion}"` convention so the set stays traceable
+  back to the one Mizan template. A template with M criterion-pairs produces M
+  evaluators (emitted as a JSON array).
+- **`rubric --flatten` → Option A (opt-in).** Emits a **single** aggregate
+  evaluator instead. This is **lossy**: per-criterion scores and rationales and
+  per-group band descriptions are dropped, so the command prints a
+  `warning: flatten (Option A) dropped per-criterion granularity: …` line to
+  stderr listing exactly what was collapsed.
+- **`pointwise` → direct map.** One evaluator whose `output_categories` come from
+  the template's `RatingRubric` bands over its Likert scale.
+
+When exactly one evaluator is produced (pointwise, or rubric `--flatten`) the
+output is a single JSON object; a rubric fan-out is a JSON array.
+
+**Category names** follow an explicit rule: an *anchored* band — one with a
+`RatingRubric` description — is named `"{band}-{desc}"` (e.g. `1-poor`,
+`5-great`); every other band is `"score-{band}"` (e.g. `score-2`, `score-3`).
+
+**Placeholder rename.** Mizan authors name their own input fields; Stax uses a
+fixed set of reserved variables, so the exporter rewrites `{{mizan_field}}` →
+`{{stax_var}}` in the prompt/system body (`response`/`answer` → `{{output}}`,
+`question`/`input` → `{{prompt}}`, `reference`/`gold` → `{{expected_output}}`,
+`context`/`history` → `{{history}}`). Two rules **fail the export** (nothing is
+written):
+
+- a placeholder that maps to **no** reserved var — rename the field, or override
+  it with `--placeholder-map mizan_field=stax_var`;
+- two distinct fields that map to the **same** reserved var (an alias collision).
+
+**Unsupported in v1 (fails closed).** `pairwise`, `custom_schema`, and non-text
+modalities have no faithful Stax target, so the export fails with a clear
+`unsupported in v1` error rather than emitting a lossy guess.
+
+**No credentials.** `export stax` reads only the local registry — it never calls
+Vertex/Gemini, opens no network connection, and never reads, emits, or migrates
+any API key (Mizan is Vertex/ADC; Stax's Google path uses the Gemini Dev API
+key). Key migration is out of scope by design.
+
 ## Scoring a single text response end-to-end
 
 Create the metric (as above), then score one response with
