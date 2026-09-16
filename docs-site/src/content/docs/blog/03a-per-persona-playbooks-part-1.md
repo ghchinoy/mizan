@@ -1,6 +1,6 @@
 ---
 title: "Using Mizan in your role: per-persona playbooks, part 1 (Asset creator, Asset manager)"
-date: 2026-10-26
+date: 2026-09-16
 authors:
   - ghchinoy
 excerpt: >
