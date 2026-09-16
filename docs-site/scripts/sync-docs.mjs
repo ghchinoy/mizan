@@ -3,10 +3,15 @@
  * sync-docs.mjs — build-time sync of the authoritative `docs/` source into the
  * Starlight `docs` collection. Runs as npm `prebuild` AND `predev`.
  *
- * PHASE 1 SCOPE: exactly one doc (`docs/user-guide.md`) plus the one diagram it
- * embeds (`docs/diagrams/eval-sequence.webp`). Extending to the full doc set in
- * Phase 2 is a matter of adding entries to DOC_MAP / MIGRATED — all transform
- * logic (frontmatter, links, assets) already lives here, in one place.
+ * SCOPE (Phase 2): the full doc set — guides (user-guide, testing-guide,
+ * llm-as-judge-scenarios, roadmap) and reference/design (architecture-final,
+ * collaboration-design, research, implementation-plan, spikes, and the nested
+ * rfcs/0001-metric-format, flattened into reference/). All routing lives in
+ * DOC_MAP; all transform logic (frontmatter, links, assets) lives here.
+ *
+ * Cross-doc anchor links are resolved TWO-PASS: pass 1 computes every migrated
+ * doc's heading slugs, pass 2 rewrites bodies resolving each `foo.md#bar` anchor
+ * against the TARGET doc's slugs (not the current page's).
  *
  * INVARIANT: this script only READS from `docs/`; it never edits it. Everything
  * it writes lands under generated (gitignored) trees:
@@ -50,10 +55,61 @@ const GH_EDIT = 'https://github.com/ghchinoy/mizan/edit/main';
  * key = path relative to `docs/`; value = where + at what route it lands.
  */
 const DOC_MAP = {
+  // ---- Guides ----
   'user-guide.md': {
     outDir: GUIDES_DIR,
     outFile: 'user-guide.md',
     route: `${BASE}/guides/user-guide/`,
+  },
+  'testing-guide.md': {
+    outDir: GUIDES_DIR,
+    outFile: 'testing-guide.md',
+    route: `${BASE}/guides/testing-guide/`,
+  },
+  'llm-as-judge-scenarios.md': {
+    outDir: GUIDES_DIR,
+    outFile: 'llm-as-judge-scenarios.md',
+    route: `${BASE}/guides/llm-as-judge-scenarios/`,
+  },
+  'roadmap.md': {
+    outDir: GUIDES_DIR,
+    outFile: 'roadmap.md',
+    route: `${BASE}/guides/roadmap/`,
+  },
+  // ---- Reference & Design ----
+  'architecture-final.md': {
+    outDir: REFERENCE_DIR,
+    outFile: 'architecture-final.md',
+    route: `${BASE}/reference/architecture-final/`,
+  },
+  'collaboration-design.md': {
+    outDir: REFERENCE_DIR,
+    outFile: 'collaboration-design.md',
+    route: `${BASE}/reference/collaboration-design/`,
+  },
+  'research.md': {
+    outDir: REFERENCE_DIR,
+    outFile: 'research.md',
+    route: `${BASE}/reference/research/`,
+  },
+  'implementation-plan.md': {
+    outDir: REFERENCE_DIR,
+    outFile: 'implementation-plan.md',
+    route: `${BASE}/reference/implementation-plan/`,
+  },
+  'spikes.md': {
+    outDir: REFERENCE_DIR,
+    outFile: 'spikes.md',
+    route: `${BASE}/reference/spikes/`,
+  },
+  // Nested under docs/rfcs/. Flattened into reference/ (flat route) so the
+  // `reference` autogenerate sidebar picks it up and its relative diagram/link
+  // resolution (../diagrams, ../<doc>) works exactly like the other reference
+  // pages. Cross-links use the docs-relative key `rfcs/0001-metric-format.md`.
+  'rfcs/0001-metric-format.md': {
+    outDir: REFERENCE_DIR,
+    outFile: '0001-metric-format.md',
+    route: `${BASE}/reference/0001-metric-format/`,
   },
 };
 
@@ -73,7 +129,12 @@ function headingText(raw) {
   return raw
     .replace(/`([^`]*)`/g, '$1') // inline code -> its text
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1') // links/images -> their text
-    .replace(/[*_~]/g, '') // emphasis markers
+    .replace(/\*+/g, '') // bold/italic asterisk markers
+    .replace(/~~/g, '') // strikethrough markers
+    // NOTE: do NOT strip `_`. rehype-slug (what Starlight uses) keeps intraword
+    // and code underscores (e.g. `custom_schema`), and github-slugger preserves
+    // them too. Stripping them here would compute a slug that DIVERGES from the
+    // real page anchor, causing valid cross-doc anchors to be silently dropped.
     .replace(/\s+#*\s*$/, '') // trailing closing hashes
     .trim();
 }
@@ -139,9 +200,16 @@ function resolveAnchor(anchor, slugs, ctx) {
 
 /**
  * Rewrite a single link/image target.
+ *
+ * TWO-PASS anchor resolution: `slugs` is the CURRENT page's heading slugs (used
+ * for pure in-page anchors); `slugsByDoc` maps every migrated doc's rel path to
+ * ITS OWN heading slugs, so a cross-doc link `foo.md#bar` resolves `#bar`
+ * against the TARGET doc `foo.md` — not the page the link lives on. This is what
+ * keeps `starlight-links-validator` (errorOnInvalidHashes) green across the set.
+ *
  * @returns {{ target: string, copyDiagram?: string }}
  */
-function rewriteTarget(rawTarget, isImage, docRelPath, slugs, diagramsToCopy) {
+function rewriteTarget(rawTarget, isImage, docRelPath, slugs, slugsByDoc, diagramsToCopy) {
   const [pathPart, ...anchorParts] = rawTarget.split('#');
   const anchor = anchorParts.length ? anchorParts.join('#') : '';
   const currentRoute = MIGRATED[docRelPath];
@@ -172,9 +240,13 @@ function rewriteTarget(rawTarget, isImage, docRelPath, slugs, diagramsToCopy) {
   // Link to a MIGRATED doc -> internal Starlight route (base-prefixed).
   if (MIGRATED[docsRel]) {
     const route = MIGRATED[docsRel];
-    // Phase 1: the only migrated doc is user-guide itself; anchors resolve
-    // against the current page's slugs.
-    const resolved = anchor ? resolveAnchor(anchor, slugs, `${docRelPath} -> ${docsRel}`) : '';
+    // TWO-PASS: resolve the anchor against the TARGET doc's slugs, not this
+    // page's. (When docsRel === docRelPath this is the current page's slugs, so
+    // same-file anchors keep working.)
+    const targetSlugs = slugsByDoc[docsRel] || [];
+    const resolved = anchor
+      ? resolveAnchor(anchor, targetSlugs, `${docRelPath} -> ${docsRel}`)
+      : '';
     return { target: anchor ? (resolved ? `${route}#${resolved}` : route) : route };
   }
 
@@ -192,7 +264,7 @@ function rewriteTarget(rawTarget, isImage, docRelPath, slugs, diagramsToCopy) {
  * wraps across a line break are still matched. The `[^\]]*` text class matches
  * newlines, so a segment-wide replace is correct.
  */
-function rewriteBody(body, docRelPath, slugs, diagramsToCopy) {
+function rewriteBody(body, docRelPath, slugs, slugsByDoc, diagramsToCopy) {
   // NOTE: text class allows newlines so wrapped link text is matched.
   const linkRe = /(!?)\[([^\]]*)\]\(\s*(<[^>]+>|[^)\s]+)((?:\s+"[^"]*")?)\s*\)/g;
   const lines = body.split('\n');
@@ -241,6 +313,7 @@ function rewriteBody(body, docRelPath, slugs, diagramsToCopy) {
         isImage,
         docRelPath,
         slugs,
+        slugsByDoc,
         diagramsToCopy,
       );
       return `${bang}[${linkText}](${newTarget}${title})`;
@@ -271,21 +344,22 @@ async function main() {
 
   const diagramsToCopy = new Set();
 
-  for (const [docRelPath, cfg] of Object.entries(DOC_MAP)) {
+  // ---- PASS 1: read + parse every doc, compute each doc's heading slugs. ----
+  // Cross-doc anchor links must resolve against the TARGET doc's slugs, so we
+  // need every doc's slugs known BEFORE rewriting any body.
+  const parsedDocs = {}; // docRelPath -> { title, bodyLines, slugs }
+  const slugsByDoc = {}; // docRelPath -> ordered heading slugs
+  for (const [docRelPath] of Object.entries(DOC_MAP)) {
     const srcAbs = join(DOCS_DIR, docRelPath);
     if (!existsSync(srcAbs)) {
       throw new Error(`Source doc missing: ${srcAbs}`);
     }
-    console.log(`[sync-docs] ${docRelPath} -> ${posix.join('guides', cfg.outFile)}`);
-
     const raw = await readFile(srcAbs, 'utf8');
     const lines = raw.split('\n');
     const { h1, slugs } = parseHeadings(lines);
-
     if (!h1) {
       throw new Error(`No H1 found in ${docRelPath}; cannot derive Starlight title.`);
     }
-    const title = h1.title;
 
     // Strip the H1 line (and a single following blank line if present).
     const bodyLines = lines.slice();
@@ -294,7 +368,23 @@ async function main() {
       bodyLines.splice(h1.line, 1);
     }
 
-    const rewritten = rewriteBody(bodyLines.join('\n'), docRelPath, slugs, diagramsToCopy);
+    parsedDocs[docRelPath] = { title: h1.title, bodyLines, slugs };
+    slugsByDoc[docRelPath] = slugs;
+  }
+
+  // ---- PASS 2: rewrite links/assets (with two-pass anchors) + write. ----
+  for (const [docRelPath, cfg] of Object.entries(DOC_MAP)) {
+    const { title, bodyLines, slugs } = parsedDocs[docRelPath];
+    const outRel = posix.relative(CONTENT_DIR, join(cfg.outDir, cfg.outFile));
+    console.log(`[sync-docs] ${docRelPath} -> ${outRel}`);
+
+    const rewritten = rewriteBody(
+      bodyLines.join('\n'),
+      docRelPath,
+      slugs,
+      slugsByDoc,
+      diagramsToCopy,
+    );
 
     const frontmatter = [
       '---',

@@ -1,6 +1,6 @@
 ---
 title: "Why evals, and what is an LLM-as-a-judge, really?"
-date: 2026-09-28
+date: 2026-09-15
 authors:
   - ghchinoy
 excerpt: >
@@ -131,7 +131,7 @@ have authored a second metric. The mechanics hold steady as the criteria change.
 Everything above runs against shipped commands today. The README's
 [Works today](https://github.com/ghchinoy/mizan/blob/main/README.md#works-today)
 section is the honest inventory of what the CLI does now, and the
-[LLM-as-a-Judge scenarios](https://github.com/ghchinoy/mizan/blob/main/docs/llm-as-judge-scenarios.md)
+[LLM-as-a-Judge scenarios](/mizan/guides/llm-as-judge-scenarios/)
 guide maps each kind of question you might ask onto the command that answers it.
 Batch evaluation and the desktop app are not built yet, and the docs say so
 rather than implying otherwise.
