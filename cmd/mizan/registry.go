@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -66,6 +67,13 @@ type templateFlags struct {
 	// custom_schema (KindCustomSchema) authoring
 	responseSchema     string // inline JSON-Schema string
 	responseSchemaFile string // path to a JSON-Schema file
+	// heuristic (KindHeuristic) authoring — non-LLM deterministic checks (§4.B)
+	heuristicType            string // contains|regex|equals|json-valid|json-schema-valid
+	heuristicTarget          string // input field to check (must be declared in inputs)
+	heuristicValue           string // operand for contains/regex/equals
+	heuristicCaseInsensitive bool   // fold case (contains/equals; (?i) for regex)
+	heuristicSchema          string // inline JSON-Schema string (json-schema-valid)
+	heuristicSchemaFile      string // path to a JSON-Schema file (json-schema-valid)
 }
 
 func (f *templateFlags) bind(cmd *cobra.Command) {
@@ -73,7 +81,7 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	fl.StringVar(&f.id, "id", "", "stable template id, <namespace>/<slug> (required)")
 	fl.StringVar(&f.name, "name", "", "human-readable name")
 	fl.StringVar(&f.description, "description", "", "description")
-	fl.StringVar(&f.kind, "kind", string(registry.KindPointwise), "metric kind: single (a.k.a. pointwise) — score one response | compare (a.k.a. pairwise) — compare two | rubric | custom_schema")
+	fl.StringVar(&f.kind, "kind", string(registry.KindPointwise), "metric kind: single (a.k.a. pointwise) — score one response | compare (a.k.a. pairwise) — compare two | rubric | custom_schema | heuristic (non-LLM deterministic check)")
 	fl.StringVar(&f.prompt, "prompt", "", "metric prompt template ({{var}} placeholders)")
 	fl.StringVar(&f.system, "system", "", "system instruction")
 	// Default is empty (WI-F3): an unset --model leaves the template's
@@ -94,6 +102,13 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	fl.StringVar(&f.rubricGroupsFile, "rubric-groups-file", "", `rubric: path to a JSON object file {"group": ["crit1","crit2"], ...}`)
 	fl.StringVar(&f.responseSchema, "response-schema", "", "custom_schema: inline JSON-Schema string")
 	fl.StringVar(&f.responseSchemaFile, "response-schema-file", "", "custom_schema: path to a JSON-Schema file")
+	// heuristic (KindHeuristic): non-LLM, credential-free deterministic checks (§4.B)
+	fl.StringVar(&f.heuristicType, "heuristic-type", "", "heuristic: check type — contains | regex | equals | json-valid | json-schema-valid")
+	fl.StringVar(&f.heuristicTarget, "heuristic-target", "", "heuristic: input field to check (must be declared via --input)")
+	fl.StringVar(&f.heuristicValue, "heuristic-value", "", "heuristic: operand — substring (contains), pattern (regex), or expected text (equals)")
+	fl.BoolVar(&f.heuristicCaseInsensitive, "heuristic-case-insensitive", false, "heuristic: fold case for contains/equals (applied as the (?i) flag for regex)")
+	fl.StringVar(&f.heuristicSchema, "heuristic-schema", "", "heuristic: inline JSON-Schema string (json-schema-valid)")
+	fl.StringVar(&f.heuristicSchemaFile, "heuristic-schema-file", "", "heuristic: path to a JSON-Schema file (json-schema-valid)")
 	// Authoring metadata (exposes MetricTemplate fields the model+codec already
 	// carry). --version defaults to createDefaultVersion at create time; --author
 	// and --license fall back to config (author-name / default-license) when
@@ -281,6 +296,47 @@ func (f *templateFlags) buildResponseSchema(cmd *cobra.Command) (*registry.Schem
 	return &registry.Schema{JSON: raw}, nil
 }
 
+// buildHeuristic constructs the KindHeuristic HeuristicSpec from the authoring
+// flags. Precedence for the schema operand: --heuristic-schema-file over the
+// inline --heuristic-schema when both are given. The check type is validated
+// against the allowed set. Returns (nil, nil) when no heuristic flag was set.
+func (f *templateFlags) buildHeuristic(cmd *cobra.Command) (*registry.HeuristicSpec, error) {
+	changed := func(name string) bool { return cmd.Flags().Changed(name) }
+	anySet := changed("heuristic-type") || changed("heuristic-target") ||
+		changed("heuristic-value") || changed("heuristic-case-insensitive") ||
+		changed("heuristic-schema") || changed("heuristic-schema-file")
+	if !anySet {
+		return nil, nil
+	}
+
+	spec := &registry.HeuristicSpec{
+		Target:          strings.TrimSpace(f.heuristicTarget),
+		Value:           f.heuristicValue,
+		CaseInsensitive: f.heuristicCaseInsensitive,
+	}
+	if strings.TrimSpace(f.heuristicType) != "" {
+		ht, err := registry.ParseHeuristicType(strings.TrimSpace(f.heuristicType))
+		if err != nil {
+			return nil, fmt.Errorf("--heuristic-type: %w", err)
+		}
+		spec.Type = ht
+	}
+	switch {
+	case changed("heuristic-schema-file") && f.heuristicSchemaFile != "":
+		b, err := readTemplateFile(f.heuristicSchemaFile)
+		if err != nil {
+			return nil, fmt.Errorf("--heuristic-schema-file: %w", err)
+		}
+		spec.Schema = string(b)
+	case changed("heuristic-schema") && f.heuristicSchema != "":
+		spec.Schema = f.heuristicSchema
+	}
+	if strings.TrimSpace(spec.Schema) != "" && !json.Valid([]byte(spec.Schema)) {
+		return nil, fmt.Errorf("heuristic schema is not well-formed JSON")
+	}
+	return spec, nil
+}
+
 // validateTemplate enforces that kind-specific required data is present, so the
 // failure surfaces at create/update rather than later at eval run.
 func validateTemplate(t *registry.MetricTemplate) error {
@@ -292,6 +348,60 @@ func validateTemplate(t *registry.MetricTemplate) error {
 	case registry.KindCustomSchema:
 		if t.ResponseSchema == nil || strings.TrimSpace(t.ResponseSchema.JSON) == "" {
 			return fmt.Errorf("kind %q requires a response schema; pass --response-schema '<json>' or --response-schema-file <path>", t.Kind)
+		}
+	case registry.KindHeuristic:
+		if err := validateHeuristicTemplate(t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateHeuristicTemplate enforces the kind:heuristic authoring contract at
+// create/update time so a broken check fails here, not at eval run. It mirrors
+// the pack-validate rules (design §4.B): a spec with a known type, a target
+// declared in inputs, the operand required by the chosen check, and — for
+// json-schema-valid — a schema that COMPILES.
+func validateHeuristicTemplate(t *registry.MetricTemplate) error {
+	spec := t.Heuristic
+	if spec == nil {
+		return fmt.Errorf("kind %q requires a heuristic check; pass --heuristic-type and --heuristic-target", t.Kind)
+	}
+	if !registry.ValidHeuristicType(spec.Type) {
+		return fmt.Errorf("--heuristic-type is required and must be one of contains|regex|equals|json-valid|json-schema-valid")
+	}
+	if spec.Target == "" {
+		return fmt.Errorf("kind %q requires --heuristic-target", t.Kind)
+	}
+	declared := false
+	for _, in := range t.Inputs {
+		if in.Name == spec.Target {
+			declared = true
+			break
+		}
+	}
+	if !declared {
+		return fmt.Errorf("--heuristic-target %q is not declared in --input", spec.Target)
+	}
+	switch spec.Type {
+	case registry.HeuristicContains, registry.HeuristicEquals:
+		if spec.Value == "" {
+			return fmt.Errorf("--heuristic-type %q requires --heuristic-value", spec.Type)
+		}
+	case registry.HeuristicRegex:
+		if spec.Value == "" {
+			return fmt.Errorf("--heuristic-type %q requires --heuristic-value (the pattern)", spec.Type)
+		}
+		pattern := spec.Value
+		if spec.CaseInsensitive {
+			pattern = "(?i)" + pattern
+		}
+		if _, err := regexp.Compile(pattern); err != nil {
+			return fmt.Errorf("--heuristic-value is not a valid RE2 regex: %w", err)
+		}
+	case registry.HeuristicJSONSchemaValid:
+		if strings.TrimSpace(spec.Schema) == "" {
+			return fmt.Errorf("--heuristic-type %q requires --heuristic-schema or --heuristic-schema-file", spec.Type)
 		}
 	}
 	return nil
@@ -401,6 +511,21 @@ func (f *templateFlags) apply(cmd *cobra.Command, t *registry.MetricTemplate, up
 		}
 		if schema != nil {
 			t.ResponseSchema = schema
+		}
+	}
+
+	// Heuristic spec (KindHeuristic). Same update-safe gating: on update, left
+	// untouched unless a heuristic flag was explicitly set; on create, built from
+	// whatever flags were given.
+	if !update || changed("heuristic-type") || changed("heuristic-target") ||
+		changed("heuristic-value") || changed("heuristic-case-insensitive") ||
+		changed("heuristic-schema") || changed("heuristic-schema-file") {
+		spec, err := f.buildHeuristic(cmd)
+		if err != nil {
+			return err
+		}
+		if spec != nil {
+			t.Heuristic = spec
 		}
 	}
 

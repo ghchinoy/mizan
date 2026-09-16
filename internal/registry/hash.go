@@ -91,6 +91,7 @@ func contentHash(t *MetricTemplate) string {
 		RatingRubric         map[string]map[string]string `json:"ratingRubric"`
 		RubricDetail         *RubricDetail                `json:"rubricDetail"`
 		RubricProvenance     *RubricProvenance            `json:"rubricProvenance"`
+		Heuristic            *HeuristicSpec               `json:"heuristic"`
 		AutoraterModel       string                       `json:"autoraterModel"`
 		SamplingCount        int32                        `json:"samplingCount"`
 		FlipEnabled          bool                         `json:"flipEnabled"`
@@ -111,6 +112,7 @@ func contentHash(t *MetricTemplate) string {
 		RatingRubric:         t.RatingRubric,
 		RubricDetail:         t.RubricDetail,
 		RubricProvenance:     t.RubricProvenance,
+		Heuristic:            t.Heuristic,
 		AutoraterModel:       t.AutoraterModel,
 		SamplingCount:        t.SamplingCount,
 		FlipEnabled:          t.FlipEnabled,

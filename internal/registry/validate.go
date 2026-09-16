@@ -609,7 +609,81 @@ func validateKindSpecific(rep *Report, file, id string, kind MetricKind, pf pack
 		if hasSchema {
 			rep.add(file, id, SeverityError, "kind %q must not set spec.responseSchema (that is custom_schema-only)", kind)
 		}
+	case KindHeuristic:
+		validateHeuristicSpec(rep, file, id, kind, inputNames, hasRubric, hasSchema, hasPair, pf)
 	}
+}
+
+// validateHeuristicSpec enforces the kind:heuristic contract (design §4.B): a
+// spec.heuristic block with a known type, a target declared in spec.inputs, the
+// operand required by the chosen check (value for contains/regex/equals, schema
+// for json-schema-valid), and NONE of the LLM-kind fields. Regex and JSON-Schema
+// operands are COMPILED here so a broken rule fails at `pack validate` (the
+// creds-free PR gate) rather than at run time.
+func validateHeuristicSpec(rep *Report, file, id string, kind MetricKind, inputNames map[string]bool, hasRubric, hasSchema, hasPair bool, pf packFile) {
+	// A heuristic resolves NO autorater and reuses none of the LLM-kind data.
+	if hasPair {
+		rep.add(file, id, SeverityError, "kind %q must not set candidateFieldName/baselineFieldName (those are pairwise-only)", kind)
+	}
+	if hasRubric {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.rubricGroups (that is rubric-only)", kind)
+	}
+	if hasSchema {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.responseSchema (that is custom_schema-only; use spec.heuristic.schema for json-schema-valid)", kind)
+	}
+
+	spec := pf.Spec.Heuristic
+	if spec == nil {
+		rep.add(file, id, SeverityError, "kind %q requires spec.heuristic", kind)
+		return
+	}
+	if _, err := ParseHeuristicType(string(spec.Type)); err != nil {
+		rep.add(file, id, SeverityError, "spec.heuristic.type is invalid: %v", err)
+		return
+	}
+	if spec.Target == "" {
+		rep.add(file, id, SeverityError, "kind %q requires spec.heuristic.target", kind)
+	} else if !inputNames[spec.Target] {
+		rep.add(file, id, SeverityError, "spec.heuristic.target %q is not declared in spec.inputs", spec.Target)
+	}
+
+	switch spec.Type {
+	case HeuristicContains, HeuristicEquals:
+		if spec.Value == "" {
+			rep.add(file, id, SeverityError, "spec.heuristic.type %q requires a non-empty spec.heuristic.value", spec.Type)
+		}
+	case HeuristicRegex:
+		if spec.Value == "" {
+			rep.add(file, id, SeverityError, "spec.heuristic.type %q requires a non-empty spec.heuristic.value (the pattern)", spec.Type)
+		} else {
+			pattern := spec.Value
+			if spec.CaseInsensitive {
+				pattern = "(?i)" + pattern
+			}
+			if _, err := regexp.Compile(pattern); err != nil {
+				rep.add(file, id, SeverityError, "spec.heuristic.value is not a valid RE2 regex: %v", err)
+			}
+		}
+	case HeuristicJSONSchemaValid:
+		if strings.TrimSpace(spec.Schema) == "" {
+			rep.add(file, id, SeverityError, "spec.heuristic.type %q requires a non-empty spec.heuristic.schema", spec.Type)
+		} else if err := validateHeuristicSchema(spec.Schema); err != nil {
+			rep.add(file, id, SeverityError, "spec.heuristic.schema is not a valid JSON Schema: %v", err)
+		}
+	}
+}
+
+// validateHeuristicSchema confirms a json-schema-valid check's schema string is
+// itself a compilable JSON Schema, using the same compiler the engine uses.
+func validateHeuristicSchema(schema string) error {
+	c := jsonschema.NewCompiler()
+	if err := c.AddResource("heuristic-schema.json", bytes.NewReader([]byte(schema))); err != nil {
+		return err
+	}
+	if _, err := c.Compile("heuristic-schema.json"); err != nil {
+		return err
+	}
+	return nil
 }
 
 // validateResponseSchema confirms a custom_schema's responseSchema is itself a
@@ -651,6 +725,12 @@ func validatePlaceholders(rep *Report, file, id string, kind MetricKind, pf pack
 	}
 
 	referenced := map[string]bool{}
+	// A heuristic has no prompt; it references its input via spec.heuristic.target,
+	// which is a legitimate reference — treat it as one so a required target input
+	// is not flagged as "never referenced".
+	if kind == KindHeuristic && pf.Spec.Heuristic != nil && pf.Spec.Heuristic.Target != "" {
+		referenced[pf.Spec.Heuristic.Target] = true
+	}
 	for _, text := range []string{pf.Spec.MetricPromptTemplate, pf.Spec.SystemInstruction} {
 		for _, m := range placeholderPattern.FindAllStringSubmatch(text, -1) {
 			name := m[1]

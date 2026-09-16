@@ -230,6 +230,185 @@ spec:
 `),
 			wantError: "responseSchema is not a valid JSON Schema",
 		},
+		// --- kind: heuristic (B2, design §4.B) -------------------------------
+		{
+			name: "heuristic-contains-valid",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/contains, version: 1.0.0, description: ok}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text, required: true}
+  heuristic:
+    type: contains
+    target: response
+    value: "OK"
+`),
+		},
+		{
+			name: "heuristic-regex-valid",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/regex, version: 1.0.0, description: ok}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text, required: true}
+  heuristic:
+    type: regex
+    target: response
+    value: "^[0-9]{3}$"
+`),
+		},
+		{
+			name: "heuristic-json-schema-valid",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/schema, version: 1.0.0, description: ok}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text, required: true}
+  heuristic:
+    type: json-schema-valid
+    target: response
+    schema: "{\"type\":\"object\",\"required\":[\"a\"]}"
+`),
+		},
+		{
+			name: "heuristic-missing-spec",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+`),
+			wantError: "requires spec.heuristic",
+		},
+		{
+			name: "heuristic-bad-type",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+  heuristic:
+    type: bogus
+    target: response
+`),
+			wantError: "spec.heuristic.type is invalid",
+		},
+		{
+			name: "heuristic-missing-target",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+  heuristic:
+    type: contains
+    value: "OK"
+`),
+			wantError: "requires spec.heuristic.target",
+		},
+		{
+			name: "heuristic-target-not-in-inputs",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+  heuristic:
+    type: contains
+    target: missing
+    value: "OK"
+`),
+			wantError: "is not declared in spec.inputs",
+		},
+		{
+			name: "heuristic-contains-missing-value",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+  heuristic:
+    type: contains
+    target: response
+`),
+			wantError: "requires a non-empty spec.heuristic.value",
+		},
+		{
+			name: "heuristic-bad-regex",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+  heuristic:
+    type: regex
+    target: response
+    value: "("
+`),
+			wantError: "not a valid RE2 regex",
+		},
+		{
+			name: "heuristic-json-schema-missing-schema",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+  heuristic:
+    type: json-schema-valid
+    target: response
+`),
+			wantError: "requires a non-empty spec.heuristic.schema",
+		},
+		{
+			name: "heuristic-forbids-rubric",
+			files: tmpl(`apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/x, version: 1.0.0}
+spec:
+  kind: heuristic
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text}
+  heuristic:
+    type: contains
+    target: response
+    value: "OK"
+  rubricGroups:
+    quality: ["clear"]
+`),
+			wantError: "rubric-only",
+		},
 	}
 
 	for _, tc := range cases {

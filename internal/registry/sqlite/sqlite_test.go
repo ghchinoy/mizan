@@ -224,6 +224,54 @@ func TestPutGetRoundTripMinimalNil(t *testing.T) {
 	if got.RatingRubric != nil || got.RubricDetail != nil || got.RubricProvenance != nil {
 		t.Errorf("expected nil rating_rubric/rubric_detail/rubric_provenance, got: %#v", *got)
 	}
+	// The additive B2 heuristic field must also round-trip nil→nil.
+	if got.Heuristic != nil {
+		t.Errorf("expected nil heuristic, got: %#v", *got.Heuristic)
+	}
+}
+
+// TestPutGetRoundTripHeuristic proves a kind:heuristic template's HeuristicSpec
+// round-trips through the additive JSON TEXT heuristic column (B2, design §4.B):
+// a non-heuristic template leaves it nil (JSON "null" → nil), and a heuristic
+// template's full spec (type/target/value/caseInsensitive/schema) comes back
+// byte-identical.
+func TestPutGetRoundTripHeuristic(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	ts := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+
+	want := registry.MetricTemplate{
+		ID:         "checks/schema-valid",
+		Name:       "JSON schema valid",
+		Version:    "1.0.0",
+		Kind:       registry.KindHeuristic,
+		Modalities: []registry.Modality{registry.ModalityText},
+		Inputs:     []registry.InputSpec{{Name: "response", Modality: registry.ModalityText, Required: true}},
+		Heuristic: &registry.HeuristicSpec{
+			Type:            registry.HeuristicJSONSchemaValid,
+			Target:          "response",
+			CaseInsensitive: false,
+			Schema:          `{"type":"object","required":["a"],"properties":{"a":{"type":"integer"}}}`,
+		},
+		CreatedAt: ts,
+		UpdatedAt: ts,
+	}
+	if err := s.Put(ctx, &want); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	got, err := s.Get(ctx, want.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Heuristic == nil {
+		t.Fatal("heuristic spec dropped on round-trip")
+	}
+	if !reflect.DeepEqual(got.Heuristic, want.Heuristic) {
+		t.Errorf("heuristic round-trip mismatch:\n got: %#v\nwant: %#v", *got.Heuristic, *want.Heuristic)
+	}
+	if got.Kind != registry.KindHeuristic {
+		t.Errorf("Kind = %q, want %q", got.Kind, registry.KindHeuristic)
+	}
 }
 
 // userVersion reads the SQLite PRAGMA user_version from a Store's DB.
@@ -273,8 +321,9 @@ CREATE TABLE IF NOT EXISTS metric_templates (
 
 // TestMigrateV1ToV2 opens a DB created at user_version=1 with the pre-v2 table
 // (no new columns), then reopens it via Open (which runs migrate) and asserts:
-// the version becomes 2, the pre-existing row survives with the three new fields
-// nil, a subsequent populated Put/Get round-trips, and a second Open is a no-op.
+// the version becomes the latest (3, after B2 added the heuristic column), the
+// pre-existing row survives with the added fields nil, a subsequent populated
+// Put/Get round-trips, and a second Open is a no-op.
 func TestMigrateV1ToV2(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "registry.db")
@@ -307,16 +356,16 @@ func TestMigrateV1ToV2(t *testing.T) {
 		}
 	}
 
-	// Open triggers migrate(): v1 → v2.
+	// Open triggers migrate(): v1 → latest (v3).
 	s, err := Open(path)
 	if err != nil {
-		t.Fatalf("Open (migrate v1→v2): %v", err)
+		t.Fatalf("Open (migrate v1→v3): %v", err)
 	}
-	if uv := userVersion(t, s.db); uv != 2 {
-		t.Errorf("after migrate: user_version = %d, want 2", uv)
+	if uv := userVersion(t, s.db); uv != 3 {
+		t.Errorf("after migrate: user_version = %d, want 3", uv)
 	}
 
-	// The pre-existing row survives and reads back with the three new fields nil.
+	// The pre-existing row survives and reads back with the added fields nil.
 	legacy, err := s.Get(ctx, "legacy/pointwise")
 	if err != nil {
 		t.Fatalf("Get legacy row after migrate: %v", err)
@@ -324,7 +373,7 @@ func TestMigrateV1ToV2(t *testing.T) {
 	if legacy.Name != "Legacy" || !legacy.CreatedAt.Equal(seedTS) {
 		t.Errorf("legacy row not intact: %#v", *legacy)
 	}
-	if legacy.RatingRubric != nil || legacy.RubricDetail != nil || legacy.RubricProvenance != nil {
+	if legacy.RatingRubric != nil || legacy.RubricDetail != nil || legacy.RubricProvenance != nil || legacy.Heuristic != nil {
 		t.Errorf("migrated legacy row: expected nil additive fields, got %#v", *legacy)
 	}
 
@@ -344,14 +393,14 @@ func TestMigrateV1ToV2(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	// A second Open must be a no-op: version stays 2, data is intact.
+	// A second Open must be a no-op: version stays 3, data is intact.
 	s2, err := Open(path)
 	if err != nil {
 		t.Fatalf("second Open: %v", err)
 	}
 	t.Cleanup(func() { _ = s2.Close() })
-	if uv := userVersion(t, s2.db); uv != 2 {
-		t.Errorf("second Open: user_version = %d, want 2", uv)
+	if uv := userVersion(t, s2.db); uv != 3 {
+		t.Errorf("second Open: user_version = %d, want 3", uv)
 	}
 	if _, err := s2.Get(ctx, "legacy/pointwise"); err != nil {
 		t.Errorf("legacy row missing after second Open: %v", err)

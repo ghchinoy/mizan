@@ -295,13 +295,22 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	for _, opt := range opts {
 		opt(&rc)
 	}
-	model := e.resolveModel(tmpl, rc.modelOverride)
-	// Reject a clearly-malformed model id (from the flag, template, or config
-	// default) here, uniformly for the native and genai paths, so it fails with a
-	// crisp LOCAL error before being composed into a Vertex resource name or sent
-	// to the genai SDK, rather than being bounced by the remote API.
-	if err := ValidateModel(model); err != nil {
-		return Result{}, err
+	// MODEL-BYPASS (design §4.B): a heuristic is a deterministic, credential-free
+	// check — it resolves NO autorater, validates no model, and stamps no
+	// AppliedAutorater. Guard the whole model-resolution/validation path (and the
+	// autorater-stamping path below) so res.Applied stays nil for a heuristic run
+	// and runHeuristic never receives a resolved model. This is the single most
+	// important interface detail in B2.
+	var model string
+	if tmpl.Kind != registry.KindHeuristic {
+		model = e.resolveModel(tmpl, rc.modelOverride)
+		// Reject a clearly-malformed model id (from the flag, template, or config
+		// default) here, uniformly for the native and genai paths, so it fails with a
+		// crisp LOCAL error before being composed into a Vertex resource name or sent
+		// to the genai SDK, rather than being bounced by the remote API.
+		if err := ValidateModel(model); err != nil {
+			return Result{}, err
+		}
 	}
 	// The rubric-detail lever only applies to rubric templates — reject it on any
 	// other kind with a crisp local error before dispatch.
@@ -345,6 +354,12 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		// error path (dispatch errors here, and the validation errors that returned
 		// early above) so "the run did not happen" is represented uniformly.
 		return res, err
+	}
+	// MODEL-BYPASS (design §4.B): a heuristic has no autorater, so leave
+	// res.Applied nil (the results store records an empty AppliedAutorater for it).
+	// Duration is still recorded above (cheap, useful for B3).
+	if tmpl.Kind == registry.KindHeuristic {
+		return res, nil
 	}
 	// Record the RESOLVED autorater-as-applied on EVERY kind/path uniformly, right
 	// where Run already stamps the shared telemetry (§4.3). EffectiveHost/Location
@@ -391,6 +406,11 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 		return e.runCustomSchema(ctx, tmpl, inst, model)
 	case registry.KindPairwise:
 		return e.runPairwise(ctx, tmpl, inst, model)
+	case registry.KindHeuristic:
+		// Deterministic, credential-free: a FREE function (not a method), so it
+		// structurally cannot reach e.client/e.globalClient/e.genai — NO client, NO
+		// model, NO network (design §4.B invariant).
+		return runHeuristic(tmpl, inst)
 	default:
 		return Result{}, fmt.Errorf("eval: unknown metric kind %q", tmpl.Kind)
 	}

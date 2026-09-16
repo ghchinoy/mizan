@@ -4,8 +4,9 @@ This guide covers what Mizan can actually do today: manage a local metric
 registry, configure credentials/project settings, and run evaluations —
 single (pointwise), compare (pairwise), rubric, and custom_schema, including
 multimodal (image/audio/video/music) assets — against the live Vertex AI Gen AI
-Evaluation Service. All four metric kinds and multimodal are implemented and
-CLI-runnable end-to-end. Every command and output shown below was run against
+Evaluation Service, plus `heuristic` non-LLM checks that run deterministically
+with no credentials and no network. All five metric kinds and multimodal are
+implemented and CLI-runnable end-to-end. Every command and output shown below was run against
 the built CLI; where a capability isn't implemented yet, this guide says so
 explicitly rather than implying it works. For deeper, copy-pasteable recipes
 for every metric kind (including live error output for the compare/pairwise
@@ -220,7 +221,10 @@ score:
   `{var}` is **not** recognized — use `{{var}}`).
 
 `--kind` accepts `single` (or `pointwise`), `compare` (or `pairwise`),
-`rubric`, or `custom_schema`, and all four are runnable end-to-end today.
+`rubric`, `custom_schema`, or `heuristic`, and all five are runnable end-to-end
+today. The first four call an LLM autorater; `heuristic` is a **non-LLM,
+credential-free** deterministic check (see
+[Heuristic (non-LLM) checks](#heuristic-non-llm-checks) below).
 
 > **single = pointwise, compare = pairwise.** *Pointwise* and *pairwise* are
 > the Vertex AI Gen AI Evaluation Service's own terms — non-standard jargon —
@@ -254,9 +258,67 @@ requirement on its prompt:
   baseline/candidate roles explicit (generic `eval run --field` also
   technically works, since the compare fields are ordinary placeholders, but
   the dedicated command is the documented, less error-prone path).
+- **`heuristic`** — a non-LLM deterministic check; requires
+  `--heuristic-type` and `--heuristic-target` (plus an operand for most types).
+  See [Heuristic (non-LLM) checks](#heuristic-non-llm-checks) below.
 
 See [`docs/testing-guide.md`](testing-guide.md) for full recipes and live
 output for every kind.
+
+#### Heuristic (non-LLM) checks
+
+A **`heuristic`** template runs a deterministic check on a single text field. It
+calls **no LLM autorater**, needs **no project, no credentials (ADC), and no
+network**, and always scores **`1.0` (pass)** or **`0.0` (fail)** — the same
+numeric score shape the LLM kinds use, so heuristic results flow through the
+results store, filters, and aggregation unchanged. Use them for cheap, exact,
+reproducible gates (does the output contain a required token? is it valid JSON?
+does it match a schema?) alongside — or before — the more expensive LLM metrics.
+
+Supported check types (v1 is **text-only**):
+
+| `--heuristic-type`  | Passes when the target text…                       | Operand |
+|---------------------|----------------------------------------------------|---------|
+| `contains`          | contains the value as a substring                  | `--heuristic-value` |
+| `equals`            | equals the value exactly                           | `--heuristic-value` |
+| `regex`             | matches the RE2 pattern (no catastrophic backtracking) | `--heuristic-value` |
+| `json-valid`        | is well-formed JSON                                | *(none)* |
+| `json-schema-valid` | is JSON that validates against the schema          | `--heuristic-schema` / `--heuristic-schema-file` |
+
+Authoring flags on `registry create` / `registry update`:
+
+- **`--heuristic-type`** — one of the types above (**required**).
+- **`--heuristic-target`** — the input field to check; it **must** be declared
+  with `--input` (**required**).
+- **`--heuristic-value`** — the operand for `contains` / `equals` / `regex`.
+- **`--heuristic-case-insensitive`** — fold case for `contains` / `equals`
+  (applied as the RE2 `(?i)` flag for `regex`).
+- **`--heuristic-schema` / `--heuristic-schema-file`** — the JSON Schema (inline
+  or from a file) for `json-schema-valid`.
+
+`create` validates the check immediately — an unknown type, a target that isn't
+in `--input`, a missing operand, or a regex/schema that won't compile is
+rejected at authoring time, not deferred to the run. `pack validate` enforces the
+same rules for a packaged heuristic template.
+
+Create and run one — note there is **no** `--model` and **no** project required:
+
+```console
+$ mizan registry create --id demo/has-citation --name "Has citation" \
+    --kind heuristic --modality text --input source:text:true \
+    --heuristic-type contains --heuristic-target source --heuristic-value "[1]"
+
+$ mizan eval run --metric demo/has-citation --field source="See the study [1]."
+mizan: heuristic: no autorater (deterministic contains check, no network)
+Score: 1
+Explanation: matched: text contains "[1]"
+```
+
+The pre-flight line reports **`heuristic: no autorater`** in place of the
+resolved project/location/model echo the LLM kinds print, making it obvious no
+autorater was resolved and no call was made. The run still persists to the
+results store (kind `heuristic`, empty applied-autorater), and `results show`
+renders it like any other result.
 
 Other useful create flags: `--system` (system instruction), `--sampling-count`
 (autorater sampling count, default 4 — lowering it trades self-consistency for
@@ -572,7 +634,9 @@ It validates two manifest kinds:
   error), identity (`<namespace>/<slug>` id, semver `version`, unique-in-pack),
   kind-specific rules (pairwise needs `candidateFieldName`/`baselineFieldName`
   declared in `inputs`; `rubric` needs `rubricGroups`; `custom_schema` needs a
-  valid `responseSchema`; `pointwise` forbids all three), placeholder
+  valid `responseSchema`; `heuristic` needs a `spec.heuristic` block with a
+  known `type`, a `target` declared in `inputs`, the required operand, and a
+  compilable regex/schema; `pointwise` forbids all of these), placeholder
   consistency (every `{{x}}` is declared in `inputs`, every required input is
   referenced, each input's modality is listed in `spec.modalities`), and lint
   **warnings** (missing description/license/model, out-of-range

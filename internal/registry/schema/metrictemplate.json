@@ -50,8 +50,8 @@
       "properties": {
         "kind": {
           "type": "string",
-          "description": "Accepts vernacular single/compare and canonical pointwise/pairwise/rubric/custom_schema (design §3.2); the codec canonicalizes via NormalizeKind.",
-          "enum": ["single", "pointwise", "compare", "pairwise", "rubric", "custom_schema"]
+          "description": "Accepts vernacular single/compare and canonical pointwise/pairwise/rubric/custom_schema/heuristic (design §3.2, §4.B); the codec canonicalizes via NormalizeKind.",
+          "enum": ["single", "pointwise", "compare", "pairwise", "rubric", "custom_schema", "heuristic"]
         },
         "modalities": {
           "type": "array",
@@ -135,6 +135,22 @@
             "model": { "type": "string" },
             "samplingCount": { "type": "integer" },
             "flipEnabled": { "type": "boolean" }
+          }
+        },
+        "heuristic": {
+          "type": "object",
+          "description": "OPTIONAL non-LLM check spec (design §4.B). Present ONLY for kind:heuristic. Deterministic, credential-free checks on a single text field.",
+          "additionalProperties": false,
+          "required": ["type", "target"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["contains", "regex", "equals", "json-valid", "json-schema-valid"]
+            },
+            "target": { "type": "string" },
+            "value": { "type": "string" },
+            "caseInsensitive": { "type": "boolean" },
+            "schema": { "type": "string" }
           }
         }
       }
