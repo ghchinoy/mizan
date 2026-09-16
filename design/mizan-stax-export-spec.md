@@ -33,9 +33,9 @@ official Google project — keep provenance clear but neither blocks reuse.
 
 ## 2. The two eval models, side by side
 
-**Stax `LLMEvaluator` (target).** A Stax evaluator is a **prompt template** — one or more `ModelInput`s
-carrying `{{variable}}` substitutions — plus a set of named **`output_categories`** mapped to numeric
-values. At run time the judge emits **one** category name plus reasoning; a regex extracts the category,
+**Stax `LLMEvaluator` (target).** A Stax evaluator is a **prompt template** — one or more `Prompt`s
+(`llmproviders/dto/Prompt` = `{role, text}`) carrying `{{variable}}` substitutions — plus a set of named
+**`output_categories`** mapped to numeric values. At run time the judge emits **one** category name plus reasoning; a regex extracts the category,
 which maps to its numeric score (no match → `NaN`) (`stax-analysis.md` §1.2,
 `EvaluationServiceImpl.runPointwiseLLMEval:354-397`). This is **categorical / choice-based scoring — a
 single verdict per evaluator**, not per-criterion decomposition. Multiple evaluators can live under one
@@ -64,23 +64,59 @@ pair**, plus an overall rollup.
 
 ---
 
-## 3. Mapping table (Mizan → Stax `LLMEvaluator`)
+## 3. Mapping table (Mizan → Stax `LLMEvaluatorRequestDTO`)
 
-| Mizan | Stax `LLMEvaluator` | Fidelity |
+The exporter emits the **real Stax create-evaluator request DTO** — the exact JSON body a Stax consumer
+`POST`s to `LLMEvaluatorController.createLLMEvaluator` (`google-labs-code/stax`,
+`domain/evaluator/llm/LLMEvaluatorController.java`). The target types are
+`LLMEvaluatorRequestDTO extends BaseLLMEvaluatorRequestDTO` plus `llmproviders/dto/Prompt`,
+`evaluator/dto/OutputCategoryDTO`, and `evaluator/dto/EvaluatorVariableDTO`. Confirmed field shapes are
+in §3.1 below.
+
+| Mizan | Stax DTO field | Fidelity |
 |---|---|---|
-| `MetricPromptTemplate` | prompt `ModelInput` (role `user`) template | **direct** — subject to the placeholder rename map (§4) |
-| `SystemInstruction` | `system` `ModelInput` (role `system`; same `{role,content}` shape as `prompt`) | **direct** — see §6.2 wire-shape note |
-| input placeholders (`{{response}}`, …) | `{{output}}` / `{{prompt}}` / `{{expected_output}}` | **rename map required** (§4) — Mizan field names ≠ Stax reserved vars |
-| `pointwise` + `RatingRubric` (band→description) | `output_categories` (name→numeric) | **direct-ish** — Likert bands become categories, one evaluator |
-| `rubric` (`RubricGroups`, per-criterion Likert) | `output_categories` (single categorical) | **LOSSY — see §5 options A/B** |
-| `pairwise` (`CandidateFieldName`/`BaselineFieldName`, flip/sampling) | `PairwiseLLMEvaluator` / SXS (`.a`/`.b`) | **out of L1 v1** — different entity shape; Mizan's flip+sampling bias controls have no Stax equivalent |
+| template `ID` (+ `::group::criterion` on fan-out) | `name` (String) | **direct** |
+| — (fixed) | `output_format_type` = `"Choices"` (`ScoreType` enum, by name) | **synthesized** — categorical scoring is the only v1 target |
+| declared `{{var}}`s used in prompts | `variables` (`List<EvaluatorVariableDTO>` = `{name, required}`) | **derived** — distinct post-rename vars, each `required:true` |
+| `AutoraterModel` (Vertex/Gemini) | `model_id` (String, `@NotNull`) | **NOT auto-mapped** — user supplies via `--model-id`; Mizan never migrates model/key bindings (design N3). See §6.3 |
+| `MetricPromptTemplate` | a `Prompt` with `role: "USER"`, `text` (String) | **direct** — subject to the placeholder rename map (§4) |
+| `SystemInstruction` | a `Prompt` with `role: "SYSTEM"`, `text` (String) | **direct** — omitted when empty |
+| input placeholders (`{{response}}`, …) | `{{output}}` / `{{prompt}}` / `{{expected_output}}` inside `Prompt.text` | **rename map required** (§4) — Mizan field names ≠ Stax reserved vars |
+| `pointwise` + `RatingRubric` (band→description) | `output_categories` (`List<OutputCategoryDTO>` = `{name, value:String}`) | **direct-ish** — Likert bands become categories, one evaluator |
+| `rubric` (`RubricGroups`, per-criterion Likert) | `output_categories` (single categorical per evaluator) | **LOSSY — see §5 options A/B** |
+| `pairwise` (`CandidateFieldName`/`BaselineFieldName`, flip/sampling) | (pairwise SxS) | **out of L1 v1** — different entity shape; Mizan's flip+sampling bias controls have no Stax equivalent |
 | `custom_schema` (`ResponseSchema`) | — | **out of L1 v1** — no Stax categorical analogue for arbitrary JSON schema |
-| `AutoraterModel` (Vertex/Gemini) | provider/model (Stax Google = Gemini **Dev API**, apiKey) | **note, do not auto-map** — Mizan is Vertex/ADC; never emit or migrate keys (design N3) |
 | `Modalities` (text/image/audio/video/music) | text/chat (Stax is text-centric) | **note** — non-text modalities have no faithful Stax target; export text-modality templates in v1 |
 
 **In v1 the exporter handles `pointwise` and `rubric` (text modality).** `pairwise`, `custom_schema`, and
 non-text modalities are explicitly deferred and must fail the export with a clear "unsupported kind /
 modality" message rather than emit a lossy guess.
+
+### 3.1 Confirmed real Stax DTO schema (ground truth)
+
+Established from `google-labs-code/stax` (package `com.planck.planck`) before writing emit code. Jackson
+serializes enums **by name** and fields in **declaration order**; `@JsonInclude(NON_NULL)` drops null
+optionals.
+
+- **`BaseLLMEvaluatorRequestDTO`** (`domain/evaluator/dto/`): `name` (String), `output_format_type`
+  (`ScoreType`), `description` (String, optional), `variables` (`List<EvaluatorVariableDTO>`, optional),
+  `model_id` (String, `@NotNull`), `prompts` (`List<Prompt>`, `@NotEmpty`).
+- **`LLMEvaluatorRequestDTO`** (`domain/evaluator/llm/dto/`): adds `output_categories`
+  (`List<OutputCategoryDTO>`).
+- **`Prompt`** (`llmproviders/dto/`): `role` (`InputRole`), `text` (String) — the body field is **`text`**,
+  not `content`.
+- **`OutputCategoryDTO`** (`domain/evaluator/dto/`): `name` (String), `color` (optional), `color_name`
+  (optional), `value` (**String**, `@NumberRange`), `start_range`/`end_range` (optional). The exporter
+  emits only `name` + `value` (others are `NON_NULL`-omitted).
+- **`EvaluatorVariableDTO`** (`domain/evaluator/dto/`): `name` (String), `required` (boolean).
+- **`InputRole`** enum: `USER, ASSISTANT, SYSTEM, DEVELOPER, TOOL, FUNCTION` — **UPPERCASE**, no
+  `@JsonValue` (serialized by name).
+- **`ScoreType`** enum: `Json, String, Double, Integer, Choices, Boolean, HUMAN_BINARY` — serialized by
+  name; the exporter uses `Choices`.
+
+**No batch-create endpoint exists**: `POST /` creates one evaluator from one `LLMEvaluatorRequestDTO`. The
+exporter's array output (rubric fan-out) is a Mizan bundling convention in which **each array element is a
+valid standalone create body** — a consumer POSTs each element.
 
 ---
 
@@ -104,7 +140,7 @@ prompt body and drops the field from any category/prompt that Stax supplies impl
    (`ground_truth` before `truth`).
 2. A Mizan field that matches **no** reserved var is a **hard error** in v1 (the export cannot promise
    the judge will receive it) — the exporter lists the unmapped field and the allowed targets. A future
-   version may pass unknown fields through as literal `{{var}}` if Stax accepts arbitrary `ModelInput`
+   version may pass unknown fields through as literal `{{var}}` if Stax accepts arbitrary `Prompt`
    variables, but v1 does not guess.
 3. **Alias collision is a hard error** (symmetric with rule 2). If two or more declared Mizan inputs
    used in the template would map to the **same** Stax reserved var — e.g. both `output` and `answer`
@@ -210,39 +246,96 @@ spec:
 This template yields **3 per-criterion scoring units**: `(clarity, clear)`, `(clarity, concise)`,
 `(tone, on-brand)`, each scored on `[1,5]`.
 
+Exported with `--model-id model-123`. All examples below are the **real Stax
+`LLMEvaluatorRequestDTO`** wire bytes (§3.1), byte-locked by `cmd/mizan/export_golden_test.go`.
+
 ### Option A output (flatten) — 1 evaluator
 
 ```json
 {
   "name": "acme/rubric-brand (flattened)",
-  "prompt": {
-    "role": "user",
-    "content": "Evaluate {{output}} against the following rubric and return ONE overall category.\n- [clarity] clear\n- [clarity] concise\n- [tone] on-brand\n"
-  },
-  "output_categories": { "score-1": 1, "score-2": 2, "score-3": 3, "score-4": 4, "score-5": 5 }
+  "output_format_type": "Choices",
+  "variables": [
+    { "name": "output", "required": true }
+  ],
+  "model_id": "model-123",
+  "prompts": [
+    {
+      "role": "USER",
+      "text": "Evaluate {{output}} against the following rubric and return ONE overall category.\n- [clarity] clear\n- [clarity] concise\n- [tone] on-brand\n"
+    }
+  ],
+  "output_categories": [
+    { "name": "score-1", "value": "1" },
+    { "name": "score-2", "value": "2" },
+    { "name": "score-3", "value": "3" },
+    { "name": "score-4", "value": "4" },
+    { "name": "score-5", "value": "5" }
+  ]
 }
 ```
 
-Per-criterion detail and the `1:poor / 5:great` band descriptions are **lost**.
+Per-criterion detail and the `1:poor / 5:great` band descriptions are **lost** (a warning is printed).
 
-### Option B output (fan-out) — 3 evaluators
+### Option B output (fan-out) — 3 evaluators — **DEFAULT**
+
+Each array element is a valid standalone `LLMEvaluatorRequestDTO` (no batch endpoint exists — POST each):
 
 ```json
 [
   {
     "name": "acme/rubric-brand::clarity::clear",
-    "prompt": { "role": "user", "content": "Evaluate {{output}} on the criterion \"clear\" (rubric group: clarity). Return ONE category." },
-    "output_categories": { "1-poor": 1, "score-2": 2, "score-3": 3, "score-4": 4, "5-great": 5 }
+    "output_format_type": "Choices",
+    "variables": [
+      { "name": "output", "required": true }
+    ],
+    "model_id": "model-123",
+    "prompts": [
+      { "role": "USER", "text": "Evaluate {{output}} on the criterion \"clear\" (rubric group: clarity). Return ONE category." }
+    ],
+    "output_categories": [
+      { "name": "1-poor", "value": "1" },
+      { "name": "score-2", "value": "2" },
+      { "name": "score-3", "value": "3" },
+      { "name": "score-4", "value": "4" },
+      { "name": "5-great", "value": "5" }
+    ]
   },
   {
     "name": "acme/rubric-brand::clarity::concise",
-    "prompt": { "role": "user", "content": "Evaluate {{output}} on the criterion \"concise\" (rubric group: clarity). Return ONE category." },
-    "output_categories": { "1-poor": 1, "score-2": 2, "score-3": 3, "score-4": 4, "5-great": 5 }
+    "output_format_type": "Choices",
+    "variables": [
+      { "name": "output", "required": true }
+    ],
+    "model_id": "model-123",
+    "prompts": [
+      { "role": "USER", "text": "Evaluate {{output}} on the criterion \"concise\" (rubric group: clarity). Return ONE category." }
+    ],
+    "output_categories": [
+      { "name": "1-poor", "value": "1" },
+      { "name": "score-2", "value": "2" },
+      { "name": "score-3", "value": "3" },
+      { "name": "score-4", "value": "4" },
+      { "name": "5-great", "value": "5" }
+    ]
   },
   {
     "name": "acme/rubric-brand::tone::on-brand",
-    "prompt": { "role": "user", "content": "Evaluate {{output}} on the criterion \"on-brand\" (rubric group: tone). Return ONE category." },
-    "output_categories": { "score-1": 1, "score-2": 2, "score-3": 3, "score-4": 4, "score-5": 5 }
+    "output_format_type": "Choices",
+    "variables": [
+      { "name": "output", "required": true }
+    ],
+    "model_id": "model-123",
+    "prompts": [
+      { "role": "USER", "text": "Evaluate {{output}} on the criterion \"on-brand\" (rubric group: tone). Return ONE category." }
+    ],
+    "output_categories": [
+      { "name": "score-1", "value": "1" },
+      { "name": "score-2", "value": "2" },
+      { "name": "score-3", "value": "3" },
+      { "name": "score-4", "value": "4" },
+      { "name": "score-5", "value": "5" }
+    ]
   }
 ]
 ```
@@ -255,7 +348,7 @@ template with its two groups.
 ### 6.2 Pointwise (`kind: pointwise`)
 
 `pointwise` is the **direct map** (§3): one Mizan template → one Stax evaluator, no flatten/fan-out
-choice. The `MetricPromptTemplate` becomes the prompt `ModelInput` (placeholders renamed per §4), and the
+choice. The `MetricPromptTemplate` becomes a `USER` `Prompt` (placeholders renamed per §4), and the
 `RatingRubric` band→description map becomes `output_categories` via the §5 category-name derivation rule.
 When a template declares no `RatingRubric`, the bands fall back to `score-{band}` across the
 `rubricDetail.scale` range (default `[1,5]`).
@@ -284,32 +377,53 @@ spec:
     scale: { min: 1, max: 5 }
 ```
 
-Export (1 evaluator): `{{response}}` renames to `{{output}}` (§4); `systemInstruction` becomes a
-`system` `ModelInput` with role `system` (see the wire-shape note below); the `default` band anchors 1/5
-name the anchored categories, interior bands use `score-{band}`:
+Export (1 evaluator): `{{response}}` renames to `{{output}}` (§4); `systemInstruction` becomes a `SYSTEM`
+`Prompt` (emitted first, before the `USER` prompt); the `default` band anchors 1/5 name the anchored
+categories, interior bands use `score-{band}`:
 
 ```json
 {
   "name": "acme/pointwise-quality",
-  "system": { "role": "system", "content": "Be strict." },
-  "prompt": { "role": "user", "content": "Rate the response: {{output}}" },
-  "output_categories": { "1-poor": 1, "score-2": 2, "score-3": 3, "score-4": 4, "5-great": 5 }
+  "output_format_type": "Choices",
+  "variables": [
+    { "name": "output", "required": true }
+  ],
+  "model_id": "model-123",
+  "prompts": [
+    { "role": "SYSTEM", "text": "Be strict." },
+    { "role": "USER", "text": "Rate the response: {{output}}" }
+  ],
+  "output_categories": [
+    { "name": "1-poor", "value": "1" },
+    { "name": "score-2", "value": "2" },
+    { "name": "score-3", "value": "3" },
+    { "name": "score-4", "value": "4" },
+    { "name": "5-great", "value": "5" }
+  ]
 }
 ```
 
-**System-instruction wire shape (resolved against Stax ground truth).** The `system` value is a
-`ModelInput` — the same `{ "role", "content" }` shape as `prompt` — with role `system`, **not** a bespoke
-`{ "instruction": … }` object. This matches Stax's own model: a `ModelInput`
-(`google-labs-code/stax` → `server/.../entitities/ModelInput.java`) carries a `role`
-(`InputRole` enum: `USER`, `ASSISTANT`, `SYSTEM`, `DEVELOPER`, `TOOL`, `FUNCTION`) plus body text, and an
-`LLMEvaluator` holds a `List<ModelInput> inputs` — there is no `instruction` field anywhere. Fields are
-emitted in the order `name`, `system` (omitted when the template has no `systemInstruction`), `prompt`,
-`output_categories`; `output_categories` are ordered by ascending numeric value (Stax's
-`output_categories` is an ordered `List<OutputCategoryDTO>`). These bytes are locked by golden tests in
-`cmd/mizan/export_golden_test.go`.
+**System-instruction wire shape (resolved against Stax ground truth).** The `systemInstruction` is emitted
+as a `Prompt` in the `prompts` list with `role: "SYSTEM"` and body field **`text`** — the same shape as
+the `USER` prompt — **not** a bespoke `{ "instruction": … }` object and **not** a `content` field. This
+matches Stax's `llmproviders/dto/Prompt` (`role` is the `InputRole` enum, UPPERCASE by name; body is
+`text`), gathered into `BaseLLMEvaluatorRequestDTO.prompts` (`List<Prompt>`, `@NotEmpty`). The SYSTEM
+prompt is omitted entirely when the template has no `systemInstruction`. Fields are emitted in DTO
+declaration order — `name`, `output_format_type`, `variables`, `model_id`, `prompts`,
+`output_categories` — and `output_categories` (a `List<OutputCategoryDTO>`) is ordered by ascending
+numeric value. These bytes are locked by golden tests in `cmd/mizan/export_golden_test.go`.
 
-If the template omitted `ratingRubric`, the categories would be `{ "score-1":1, …, "score-5":5 }`. No
-per-criterion decomposition is involved, so pointwise export is lossless within the mapping.
+If the template omitted `ratingRubric`, the categories would be `[{"name":"score-1","value":"1"}, …,
+{"name":"score-5","value":"5"}]`. No per-criterion decomposition is involved, so pointwise export is
+lossless within the mapping.
+
+### 6.3 model_id and the N3 no-migration invariant
+
+Stax's `model_id` is `@NotNull`, but design invariant N3 forbids Mizan from migrating model or credential
+bindings. The exporter resolves this by treating `model_id` as a **user-supplied deployment binding**, not
+a fidelity field: it never derives `model_id` from a template's `AutoraterModel`. Supply it with
+`--model-id <stax-model-id>`. If omitted, `model_id` is emitted as `""` and the exporter prints a warning
+so the gap is explicit and the output is not silently un-ingestible.
 
 ---
 

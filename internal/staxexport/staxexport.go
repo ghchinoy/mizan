@@ -13,19 +13,33 @@
 // limitations under the License.
 
 // Package staxexport converts a Mizan MetricTemplate into one or more Stax
-// LLMEvaluator definitions, per the interchange spec
+// LLMEvaluator create requests, per the interchange spec
 // (design/mizan-stax-export-spec.md) and the L1 fidelity finding
 // (state/l1-fidelity-spike-finding.md, OQ-C = GO).
 //
-// It is a PURE, local, credential-free transform: it reads a registry template
-// (already loaded from the local registry) and returns Stax evaluator values.
-// It never calls Vertex/genai, never opens a network connection, and never
-// reads, emits, or migrates credentials (design invariants N3, ADC-only). The
-// caller (cmd/mizan) is responsible for loading the template and writing the
-// JSON output.
+// The output is a GENUINE interop artifact: the exact JSON a real Stax consumer
+// POSTs to create an LLM evaluator. It is byte-shaped to the real Stax DTO
+// (google-labs-code/stax):
 //
-// Fidelity decisions implemented here (from the finding + spec §5, and the two
-// authoritative PR-#87 review clarifications):
+//	POST /  ->  LLMEvaluatorController.createLLMEvaluator(@RequestBody LLMEvaluatorRequestDTO)
+//	LLMEvaluatorRequestDTO extends BaseLLMEvaluatorRequestDTO (@JsonInclude NON_NULL):
+//	  name               String                    (required)
+//	  output_format_type ScoreType enum name        ("Choices" for categorical)
+//	  variables          List<{name, required}>     (EvaluatorVariableDTO)
+//	  model_id           String                    (required @NotNull — user's Stax model)
+//	  prompts            List<{role, text}>         (Prompt; role is InputRole, UPPERCASE)
+//	  output_categories  List<{name, value}>        (OutputCategoryDTO; value is a String)
+//
+// It is a PURE, local, credential-free transform: it reads a registry template
+// (already loaded from the local registry) and returns Stax evaluator values. It
+// never calls Vertex/genai, never opens a network connection, and never reads,
+// emits, or migrates credentials or model bindings (design invariants N3,
+// ADC-only). model_id is NOT derived from Mizan's AutoraterModel; it is left to
+// the importing user (via Options.ModelID / the --model-id flag). The caller
+// (cmd/mizan) loads the template and writes the JSON output.
+//
+// Fidelity decisions implemented here (from the finding + spec §5, and the
+// authoritative PR-review clarifications) — unchanged by the real-DTO reshape:
 //
 //   - rubric  -> Option B (fan-out) by DEFAULT: one evaluator per (group,
 //     criterion) pair, grouped via the "{id}::{group}::{criterion}" name
@@ -40,12 +54,10 @@
 //     the SAME Stax reserved var (an alias collision) is a HARD ERROR.
 //   - Category names use the EXPLICIT derivation rule: an anchored band (one with
 //     a RatingRubric description) is "{band}-{desc}"; an interior/un-anchored band
-//     is "score-{band}".
+//     is "score-{band}". output_categories are ordered by ascending numeric value.
 package staxexport
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -56,100 +68,56 @@ import (
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
-// ModelInput is a Stax evaluator prompt/system input: a role plus a template
-// body carrying {{stax_var}} substitutions. It mirrors Stax's ModelInput entity
-// (google-labs-code/stax server/.../entitities/ModelInput.java), whose message
-// content is a role (InputRole enum: USER, ASSISTANT, SYSTEM, …) plus body text.
-type ModelInput struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+// outputFormatChoices is the Stax ScoreType (output_format_type) for categorical
+// choice-based scoring — the only mode a Mizan Likert/rubric export produces.
+// It is the exact enum name Jackson serializes (enums/ScoreType.java: Choices).
+const outputFormatChoices = "Choices"
+
+// roleSystem and roleUser are the Stax InputRole enum names (UPPERCASE) Jackson
+// serializes for a Prompt's role (enums/InputRole.java).
+const (
+	roleSystem = "SYSTEM"
+	roleUser   = "USER"
+)
+
+// Prompt is one Stax Prompt (llmproviders/dto/Prompt.java): a role
+// (InputRole enum name, UPPERCASE) and the body Text carrying {{stax_var}}
+// substitutions. Note the field is "text" (not "content").
+type Prompt struct {
+	Role string `json:"role"`
+	Text string `json:"text"`
 }
 
-// Evaluator is a single Stax LLMEvaluator: a prompt template, an optional system
-// instruction (a ModelInput with role "system" — spec §3, matching Stax's
-// InputRole.SYSTEM), and the named output_categories mapped to their numeric
-// scores. It has a custom MarshalJSON (see below).
+// OutputCategory is one Stax OutputCategoryDTO (evaluator/dto/OutputCategoryDTO.java).
+// Only name and value are emitted; color/range fields are optional (NON_NULL) and
+// have no Mizan source. Value is a STRING in the real DTO (the numeric band is
+// stringified).
+type OutputCategory struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// Variable is one Stax EvaluatorVariableDTO (evaluator/dto/EvaluatorVariableDTO.java):
+// a substitution variable the evaluator prompt uses. Required is a primitive
+// boolean in the DTO, so it is always emitted (no omitempty).
+type Variable struct {
+	Name     string `json:"name"`
+	Required bool   `json:"required"`
+}
+
+// Evaluator is a single Stax LLMEvaluatorRequestDTO — the create-evaluator
+// request body. Field order and names/casing mirror the real DTO's declaration
+// (Base fields first, then output_categories). description is optional and not
+// emitted. Slices are inherently ordered, so no custom marshaler is needed:
+// prompts are SYSTEM-then-USER, output_categories ascending by value, variables
+// sorted by name.
 type Evaluator struct {
-	Name             string         `json:"name"`
-	System           *ModelInput    `json:"system,omitempty"`
-	Prompt           ModelInput     `json:"prompt"`
-	OutputCategories map[string]int `json:"output_categories"`
-}
-
-// MarshalJSON renders the evaluator with output_categories in ascending
-// numeric-value order (ties broken by category name), not the lexical key order
-// a plain map[string]int would emit. A map would serialize "5-great" before
-// "score-2" (because '5' < 's'), which neither matches Stax's ordered category
-// list (google-labs-code/stax LLMEvaluator DTO: output_categories is a
-// List<OutputCategoryDTO>, an ORDERED list) nor the interchange spec's §6 worked
-// examples. Emitting in value order keeps the wire bytes deterministic and makes
-// the JSON self-consistent (1→N). Field order is fixed: name, system (omitted
-// when absent), prompt, output_categories. HTML escaping is disabled so template
-// braces stay literal ({{output}}), independent of the caller's encoder settings.
-func (e Evaluator) MarshalJSON() ([]byte, error) {
-	var b bytes.Buffer
-	name, err := marshalCompact(e.Name)
-	if err != nil {
-		return nil, err
-	}
-	b.WriteString(`{"name":`)
-	b.Write(name)
-	if e.System != nil {
-		sys, err := marshalCompact(e.System)
-		if err != nil {
-			return nil, err
-		}
-		b.WriteString(`,"system":`)
-		b.Write(sys)
-	}
-	prompt, err := marshalCompact(e.Prompt)
-	if err != nil {
-		return nil, err
-	}
-	b.WriteString(`,"prompt":`)
-	b.Write(prompt)
-
-	type cat struct {
-		name  string
-		value int
-	}
-	ordered := make([]cat, 0, len(e.OutputCategories))
-	for k, v := range e.OutputCategories {
-		ordered = append(ordered, cat{k, v})
-	}
-	sort.Slice(ordered, func(i, j int) bool {
-		if ordered[i].value != ordered[j].value {
-			return ordered[i].value < ordered[j].value
-		}
-		return ordered[i].name < ordered[j].name
-	})
-	b.WriteString(`,"output_categories":{`)
-	for i, o := range ordered {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		key, err := marshalCompact(o.name)
-		if err != nil {
-			return nil, err
-		}
-		b.Write(key)
-		fmt.Fprintf(&b, ":%d", o.value)
-	}
-	b.WriteString("}}")
-	return b.Bytes(), nil
-}
-
-// marshalCompact encodes v as compact JSON with HTML escaping disabled, so a
-// prompt body's {{output}} braces (and any <, >, & in user text) survive
-// verbatim. The caller's encoder re-indents this output uniformly.
-func marshalCompact(v any) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
-		return nil, err
-	}
-	return bytes.TrimRight(buf.Bytes(), "\n"), nil
+	Name             string           `json:"name"`
+	OutputFormatType string           `json:"output_format_type"`
+	Variables        []Variable       `json:"variables,omitempty"`
+	ModelID          string           `json:"model_id"`
+	Prompts          []Prompt         `json:"prompts"`
+	OutputCategories []OutputCategory `json:"output_categories"`
 }
 
 // Options controls the export.
@@ -160,6 +128,13 @@ type Options struct {
 	// dropped-per-criterion-granularity warning.
 	Flatten bool
 
+	// ModelID is the Stax model id to bind each emitted evaluator to (the real DTO
+	// requires model_id). It is user-supplied (the --model-id flag): Mizan never
+	// derives it from a template's AutoraterModel and never migrates model or key
+	// bindings (invariant N3). When empty, model_id is emitted as "" and Export
+	// adds a warning that the importer must set it before POSTing to Stax.
+	ModelID string
+
 	// PlaceholderOverride is the configurable rename table (spec §4 rule 3): it
 	// maps a Mizan input field name (matched case-insensitively) to a Stax reserved
 	// var, letting a template with a non-conventional field name export without
@@ -169,15 +144,15 @@ type Options struct {
 
 // Result is the outcome of a successful export: the evaluators to write and any
 // non-fatal warnings the caller should surface (e.g. the flatten granularity
-// loss).
+// loss or an empty model_id).
 type Result struct {
 	Evaluators []Evaluator
 	Warnings   []string
 }
 
 // staxReservedVars is the fixed set of Stax reserved template variables a Mizan
-// field may be renamed to (spec §2, §4). system.instruction is mapped from the
-// SystemInstruction field, not from a body placeholder.
+// field may be renamed to (spec §2, §4). The system instruction is mapped to a
+// SYSTEM Prompt, not to a body placeholder.
 var staxReservedVars = []string{"output", "prompt", "expected_output", "history"}
 
 // defaultAliases maps a lowercased Mizan input field name to its Stax reserved
@@ -209,9 +184,9 @@ var defaultAliases = map[string]string{
 // mirroring the registry's own grammar (internal/registry/validate.go).
 var placeholderPattern = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_]+)\s*\}\}`)
 
-// Export converts a Mizan template into Stax evaluators per the spec. It fails
-// closed (returns an error, emits nothing) on unsupported kinds/modalities, an
-// unmapped placeholder, or a placeholder alias collision.
+// Export converts a Mizan template into Stax evaluator create requests per the
+// spec. It fails closed (returns an error, emits nothing) on unsupported
+// kinds/modalities, an unmapped placeholder, or a placeholder alias collision.
 func Export(t registry.MetricTemplate, opts Options) (Result, error) {
 	if err := checkSupported(t); err != nil {
 		return Result{}, err
@@ -219,18 +194,29 @@ func Export(t registry.MetricTemplate, opts Options) (Result, error) {
 
 	r := newRenamer(opts.PlaceholderOverride)
 
+	var res Result
+	var err error
 	switch t.Kind {
 	case registry.KindPointwise:
-		return exportPointwise(t, r)
+		res, err = exportPointwise(t, r, opts)
 	case registry.KindRubric:
 		if opts.Flatten {
-			return exportRubricFlatten(t, r)
+			res, err = exportRubricFlatten(t, r, opts)
+		} else {
+			res, err = exportRubricFanout(t, r, opts)
 		}
-		return exportRubricFanout(t, r)
 	default:
 		// Defensive: checkSupported already rejected the other kinds.
 		return Result{}, fmt.Errorf("staxexport: metric kind %q is unsupported in v1", t.Kind)
 	}
+	if err != nil {
+		return Result{}, err
+	}
+	if strings.TrimSpace(opts.ModelID) == "" {
+		res.Warnings = append(res.Warnings,
+			`model_id is empty: Stax requires a model_id and Mizan does not migrate model/credential bindings (invariant N3) — set --model-id <stax-model-id> or edit "model_id" before importing into Stax`)
+	}
+	return res, nil
 }
 
 // checkSupported fails closed on the kinds and modalities L1 v1 does not export.
@@ -259,7 +245,7 @@ func checkSupported(t registry.MetricTemplate) error {
 // exportPointwise maps a pointwise template to a single Stax evaluator: the
 // (renamed) prompt body plus output_categories derived from the resolved Likert
 // scale and RatingRubric band descriptions (spec §3, decision 3).
-func exportPointwise(t registry.MetricTemplate, r renamer) (Result, error) {
+func exportPointwise(t registry.MetricTemplate, r renamer, opts Options) (Result, error) {
 	sys, prompt, err := r.rewriteBodies2(t.SystemInstruction, t.MetricPromptTemplate)
 	if err != nil {
 		return Result{}, err
@@ -268,13 +254,14 @@ func exportPointwise(t registry.MetricTemplate, r renamer) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	prompts := buildPrompts(sys, prompt)
 	ev := Evaluator{
 		Name:             t.ID,
-		Prompt:           ModelInput{Role: "user", Content: prompt},
+		OutputFormatType: outputFormatChoices,
+		Variables:        deriveVariables(prompts),
+		ModelID:          opts.ModelID,
+		Prompts:          prompts,
 		OutputCategories: categoriesForScale(min, max, mergeBands(t.RatingRubric)),
-	}
-	if sys != "" {
-		ev.System = &ModelInput{Role: "system", Content: sys}
 	}
 	return Result{Evaluators: []Evaluator{ev}}, nil
 }
@@ -282,7 +269,7 @@ func exportPointwise(t registry.MetricTemplate, r renamer) (Result, error) {
 // exportRubricFanout implements Option B (the default): one evaluator per
 // (group, criterion) pair, grouped via the "{id}::{group}::{criterion}" name
 // convention (finding decision 1+4, spec §5 Option B).
-func exportRubricFanout(t registry.MetricTemplate, r renamer) (Result, error) {
+func exportRubricFanout(t registry.MetricTemplate, r renamer, opts Options) (Result, error) {
 	if len(t.RubricGroups) == 0 {
 		return Result{}, fmt.Errorf("staxexport: rubric template %q has no rubric groups to export", t.ID)
 	}
@@ -299,19 +286,19 @@ func exportRubricFanout(t registry.MetricTemplate, r renamer) (Result, error) {
 	for _, group := range sortedGroups(t.RubricGroups) {
 		bands := t.RatingRubric[group] // nil when the group has no RatingRubric
 		for _, criterion := range t.RubricGroups[group] {
-			content := fmt.Sprintf("Evaluate {{output}} on the criterion %q (rubric group: %s). Return ONE category.", criterion, group)
+			text := fmt.Sprintf("Evaluate {{output}} on the criterion %q (rubric group: %s). Return ONE category.", criterion, group)
 			if base != "" {
-				content = base + "\n\n" + content
+				text = base + "\n\n" + text
 			}
-			ev := Evaluator{
+			prompts := buildPrompts(sys, text)
+			evs = append(evs, Evaluator{
 				Name:             fmt.Sprintf("%s::%s::%s", t.ID, group, criterion),
-				Prompt:           ModelInput{Role: "user", Content: content},
+				OutputFormatType: outputFormatChoices,
+				Variables:        deriveVariables(prompts),
+				ModelID:          opts.ModelID,
+				Prompts:          prompts,
 				OutputCategories: categoriesForScale(min, max, bands),
-			}
-			if sys != "" {
-				ev.System = &ModelInput{Role: "system", Content: sys}
-			}
-			evs = append(evs, ev)
+			})
 		}
 	}
 	return Result{Evaluators: evs}, nil
@@ -321,7 +308,7 @@ func exportRubricFanout(t registry.MetricTemplate, r renamer) (Result, error) {
 // embeds every criterion and whose categories are the aggregate generic Likert
 // bands. It emits the required dropped-per-criterion-granularity warning (spec §5
 // Option A, decision 2).
-func exportRubricFlatten(t registry.MetricTemplate, r renamer) (Result, error) {
+func exportRubricFlatten(t registry.MetricTemplate, r renamer, opts Options) (Result, error) {
 	if len(t.RubricGroups) == 0 {
 		return Result{}, fmt.Errorf("staxexport: rubric template %q has no rubric groups to export", t.ID)
 	}
@@ -348,18 +335,59 @@ func exportRubricFlatten(t registry.MetricTemplate, r renamer) (Result, error) {
 		}
 	}
 
+	prompts := buildPrompts(sys, b.String())
 	ev := Evaluator{
 		Name:             t.ID + " (flattened)",
-		Prompt:           ModelInput{Role: "user", Content: b.String()},
+		OutputFormatType: outputFormatChoices,
+		Variables:        deriveVariables(prompts),
+		ModelID:          opts.ModelID,
+		Prompts:          prompts,
 		OutputCategories: categoriesForScale(min, max, nil), // aggregate: generic score-N
-	}
-	if sys != "" {
-		ev.System = &ModelInput{Role: "system", Content: sys}
 	}
 	warning := fmt.Sprintf(
 		"flatten (Option A) dropped per-criterion granularity: %d criteria collapsed into ONE overall score, and per-criterion scores/rationales and per-group band descriptions are lost (%s)",
 		len(dropped), strings.Join(dropped, ", "))
 	return Result{Evaluators: []Evaluator{ev}, Warnings: []string{warning}}, nil
+}
+
+// buildPrompts assembles the Stax prompts list: an optional SYSTEM prompt (from
+// the template's SystemInstruction) followed by the USER prompt. The list is
+// never empty (the real DTO requires @NotEmpty prompts).
+func buildPrompts(system, user string) []Prompt {
+	var prompts []Prompt
+	if system != "" {
+		prompts = append(prompts, Prompt{Role: roleSystem, Text: system})
+	}
+	prompts = append(prompts, Prompt{Role: roleUser, Text: user})
+	return prompts
+}
+
+// deriveVariables lists the distinct Stax reserved vars actually referenced in
+// the prompt bodies (the {{var}} placeholders that survived the rename), sorted
+// by name for determinism, each marked required (the judge needs every variable
+// its prompt interpolates). Returns nil when no placeholders are present so the
+// optional field is omitted.
+func deriveVariables(prompts []Prompt) []Variable {
+	seen := map[string]bool{}
+	var names []string
+	for _, p := range prompts {
+		for _, m := range placeholderPattern.FindAllStringSubmatch(p.Text, -1) {
+			name := m[1]
+			if !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	sort.Strings(names)
+	vars := make([]Variable, 0, len(names))
+	for _, n := range names {
+		vars = append(vars, Variable{Name: n, Required: true})
+	}
+	return vars
 }
 
 // resolveScale returns the inclusive Likert range for a template: the template's
@@ -377,13 +405,14 @@ func resolveScale(t registry.MetricTemplate) (int, int, error) {
 	return min, max, nil
 }
 
-// categoriesForScale builds the output_categories map for one Likert range using
-// the EXPLICIT category-name rule (PR-#87 review decision 2): a band with a
-// non-empty description is "{band}-{slug(desc)}" (anchored, e.g. "1-poor");
-// every other band is "score-{band}" (interior/un-anchored, e.g. "score-2").
-// bands may be nil (all generic).
-func categoriesForScale(min, max int, bands map[string]string) map[string]int {
-	out := make(map[string]int, max-min+1)
+// categoriesForScale builds the output_categories list for one Likert range using
+// the EXPLICIT category-name rule (review decision 2): a band with a non-empty
+// description is "{band}-{slug(desc)}" (anchored, e.g. "1-poor"); every other
+// band is "score-{band}" (interior/un-anchored, e.g. "score-2"). The list is in
+// ascending numeric-value order; each value is the band number as a String (the
+// real OutputCategoryDTO.value is a String). bands may be nil (all generic).
+func categoriesForScale(min, max int, bands map[string]string) []OutputCategory {
+	out := make([]OutputCategory, 0, max-min+1)
 	for n := min; n <= max; n++ {
 		name := fmt.Sprintf("score-%d", n)
 		if bands != nil {
@@ -393,7 +422,7 @@ func categoriesForScale(min, max int, bands map[string]string) map[string]int {
 				}
 			}
 		}
-		out[name] = n
+		out = append(out, OutputCategory{Name: name, Value: strconv.Itoa(n)})
 	}
 	return out
 }
@@ -490,7 +519,7 @@ func (r renamer) resolve(field string) (string, bool) {
 //   - unmapped field: a placeholder whose field maps to no Stax reserved var
 //     (spec §4 rule 2);
 //   - alias collision: two DISTINCT Mizan fields that map to the SAME Stax
-//     reserved var (PR-#87 review decision 1).
+//     reserved var (review decision 1).
 //
 // Returned bodies are in the same order as the arguments.
 func (r renamer) rewriteBodies(bodies ...string) ([]string, error) {

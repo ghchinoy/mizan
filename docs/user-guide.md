@@ -697,20 +697,72 @@ Every registry (and config) command supports `-o/--output json|table`
 
 ## Export to Stax (`export stax`)
 
-`export stax` converts **one** local metric template into the
-[Stax](https://github.com/google-labs-code/stax) `LLMEvaluator` interchange
-format — a one-directional export that lets a Mizan-authored, PR-reviewed,
-credential-free-validated metric feed a Stax-style evaluator library. The mapping
-is specified in `design/mizan-stax-export-spec.md`. Output is JSON, written to
-stdout by default or to a file with `--out`.
+`export stax` converts **one** local metric template into the **real
+[Stax](https://github.com/google-labs-code/stax) create-evaluator request** — the
+exact JSON body a Stax consumer `POST`s to create an `LLMEvaluator`
+(`LLMEvaluatorRequestDTO`). It is a one-directional export that lets a
+Mizan-authored, PR-reviewed, credential-free-validated metric feed a real Stax
+evaluator library. The mapping is specified in
+`design/mizan-stax-export-spec.md`. Output is JSON, written to stdout by default
+or to a file with `--out`.
 
 ```sh
 # Fan out a rubric metric to one Stax evaluator per criterion (the default).
-$ mizan export stax --metric acme/rubric-brand --out evaluators.json
+$ mizan export stax --metric acme/rubric-brand --model-id gemini-2.5-pro --out evaluators.json
 
 # Or print to stdout.
-$ mizan export stax --metric acme/helpfulness
+$ mizan export stax --metric acme/helpfulness --model-id gemini-2.5-pro
 ```
+
+**Output shape (real Stax `LLMEvaluatorRequestDTO`).** Each evaluator object has:
+
+| Field | Value |
+|---|---|
+| `name` | template id (fan-out appends `::group::criterion`) |
+| `output_format_type` | `"Choices"` (Stax categorical scoring) |
+| `variables` | `[{name, required}]` — the `{{vars}}` the prompts use, each `required:true` |
+| `model_id` | the `--model-id` you pass (see below) |
+| `prompts` | `[{role, text}]` — `role` is **UPPERCASE** (`SYSTEM`, `USER`); body field is **`text`** |
+| `output_categories` | `[{name, value}]` — `value` is a **string**, ascending numeric order |
+
+```json
+{
+  "name": "acme/helpfulness",
+  "output_format_type": "Choices",
+  "variables": [{ "name": "output", "required": true }],
+  "model_id": "gemini-2.5-pro",
+  "prompts": [
+    { "role": "SYSTEM", "text": "Be strict." },
+    { "role": "USER", "text": "Rate the response: {{output}}" }
+  ],
+  "output_categories": [
+    { "name": "1-poor", "value": "1" },
+    { "name": "score-2", "value": "2" },
+    { "name": "score-3", "value": "3" },
+    { "name": "score-4", "value": "4" },
+    { "name": "5-great", "value": "5" }
+  ]
+}
+```
+
+**`--model-id` (Stax requires it; Mizan never migrates it).** Stax marks
+`model_id` `@NotNull`, but Mizan does not migrate model or credential bindings (a
+template's `AutoraterModel` is a Vertex/ADC binding, not a Stax model id). Supply
+the Stax-side model id yourself with `--model-id <id>`. If you omit it, `model_id`
+is emitted as `""` and the command prints a `warning: model_id is empty …` line to
+stderr so the gap is explicit — the JSON is still emitted but is not ingestible by
+Stax until you fill it in.
+
+**Mapping (Mizan → Stax DTO):**
+
+| Mizan | Stax DTO field |
+|---|---|
+| template `ID` (+ `::group::criterion` on fan-out) | `name` |
+| `MetricPromptTemplate` | a `USER` prompt's `text` |
+| `SystemInstruction` | a `SYSTEM` prompt's `text` (first; omitted when empty) |
+| input placeholders (`{{response}}`, …) | renamed `{{output}}`/`{{prompt}}`/… inside `text` |
+| `RatingRubric` bands over the Likert scale | `output_categories` `[{name, value}]` |
+| `AutoraterModel` | **not mapped** — supply `model_id` via `--model-id` |
 
 **Supported kinds (text modality only):**
 
@@ -730,7 +782,9 @@ $ mizan export stax --metric acme/helpfulness
   the template's `RatingRubric` bands over its Likert scale.
 
 When exactly one evaluator is produced (pointwise, or rubric `--flatten`) the
-output is a single JSON object; a rubric fan-out is a JSON array.
+output is a single JSON object; a rubric fan-out is a JSON array. Stax has no
+batch-create endpoint, so each array element is a **standalone create body** —
+POST each element to create its evaluator.
 
 **Category names** follow an explicit rule: an *anchored* band — one with a
 `RatingRubric` description — is named `"{band}-{desc}"` (e.g. `1-poor`,

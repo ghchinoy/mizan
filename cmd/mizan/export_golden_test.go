@@ -22,80 +22,185 @@ import (
 )
 
 // These golden tests lock the EXACT wire bytes the exporter emits against the
-// interchange spec's §6 worked examples (design/mizan-stax-export-spec.md). They
-// marshal through the real CLI path (staxexport.Export -> marshalEvaluators), so
-// they catch a serialization regression the struct-level tests cannot: a changed
-// JSON struct tag (output_categories -> outputCategories), a dropped omitempty, a
-// re-ordered field, or output_categories reverting to lexical map order would all
-// keep the round-trip tests green yet break Stax importers. If the spec §6
-// examples and these strings ever diverge, the code and the spec have drifted and
-// one of them must be fixed — do not "fix" the test by pasting the new output.
+// interchange spec's §6 worked examples (design/mizan-stax-export-spec.md), which
+// are byte-shaped to the REAL Stax LLMEvaluatorRequestDTO (google-labs-code/stax:
+// domain/evaluator/llm/dto/LLMEvaluatorRequestDTO + BaseLLMEvaluatorRequestDTO,
+// llmproviders/dto/Prompt, evaluator/dto/OutputCategoryDTO, EvaluatorVariableDTO).
+// They marshal through the real CLI path (staxexport.Export -> marshalEvaluators),
+// so they catch serialization regressions the struct-level tests cannot: a changed
+// JSON tag (output_categories -> outputCategories), a body field renamed from
+// "text" back to "content", a lowercased role, output_categories reverting to a
+// map/object or losing value-string typing, or a re-ordered field would all keep
+// the round-trip tests green yet break Stax ingestion. If the spec §6 examples and
+// these strings ever diverge, code and spec have drifted and one must be fixed —
+// do not "fix" the test by pasting the new output.
 
-// wantPointwiseGolden is spec §6.2's pointwise worked example, byte-for-byte.
+// wantPointwiseGolden is spec §6.2's pointwise worked example, byte-for-byte
+// (real Stax create-evaluator request DTO), with a bound model_id.
 const wantPointwiseGolden = `{
   "name": "acme/pointwise-quality",
-  "system": {
-    "role": "system",
-    "content": "Be strict."
-  },
-  "prompt": {
-    "role": "user",
-    "content": "Rate the response: {{output}}"
-  },
-  "output_categories": {
-    "1-poor": 1,
-    "score-2": 2,
-    "score-3": 3,
-    "score-4": 4,
-    "5-great": 5
-  }
+  "output_format_type": "Choices",
+  "variables": [
+    {
+      "name": "output",
+      "required": true
+    }
+  ],
+  "model_id": "model-123",
+  "prompts": [
+    {
+      "role": "SYSTEM",
+      "text": "Be strict."
+    },
+    {
+      "role": "USER",
+      "text": "Rate the response: {{output}}"
+    }
+  ],
+  "output_categories": [
+    {
+      "name": "1-poor",
+      "value": "1"
+    },
+    {
+      "name": "score-2",
+      "value": "2"
+    },
+    {
+      "name": "score-3",
+      "value": "3"
+    },
+    {
+      "name": "score-4",
+      "value": "4"
+    },
+    {
+      "name": "5-great",
+      "value": "5"
+    }
+  ]
 }
 `
 
 // wantRubricFanoutGolden is spec §6.1's Option B (fan-out) worked example,
-// byte-for-byte: a JSON array of one evaluator per (group, criterion) pair.
+// byte-for-byte: a JSON array of one real-DTO evaluator per (group, criterion).
 const wantRubricFanoutGolden = `[
   {
     "name": "acme/rubric-brand::clarity::clear",
-    "prompt": {
-      "role": "user",
-      "content": "Evaluate {{output}} on the criterion \"clear\" (rubric group: clarity). Return ONE category."
-    },
-    "output_categories": {
-      "1-poor": 1,
-      "score-2": 2,
-      "score-3": 3,
-      "score-4": 4,
-      "5-great": 5
-    }
+    "output_format_type": "Choices",
+    "variables": [
+      {
+        "name": "output",
+        "required": true
+      }
+    ],
+    "model_id": "model-123",
+    "prompts": [
+      {
+        "role": "USER",
+        "text": "Evaluate {{output}} on the criterion \"clear\" (rubric group: clarity). Return ONE category."
+      }
+    ],
+    "output_categories": [
+      {
+        "name": "1-poor",
+        "value": "1"
+      },
+      {
+        "name": "score-2",
+        "value": "2"
+      },
+      {
+        "name": "score-3",
+        "value": "3"
+      },
+      {
+        "name": "score-4",
+        "value": "4"
+      },
+      {
+        "name": "5-great",
+        "value": "5"
+      }
+    ]
   },
   {
     "name": "acme/rubric-brand::clarity::concise",
-    "prompt": {
-      "role": "user",
-      "content": "Evaluate {{output}} on the criterion \"concise\" (rubric group: clarity). Return ONE category."
-    },
-    "output_categories": {
-      "1-poor": 1,
-      "score-2": 2,
-      "score-3": 3,
-      "score-4": 4,
-      "5-great": 5
-    }
+    "output_format_type": "Choices",
+    "variables": [
+      {
+        "name": "output",
+        "required": true
+      }
+    ],
+    "model_id": "model-123",
+    "prompts": [
+      {
+        "role": "USER",
+        "text": "Evaluate {{output}} on the criterion \"concise\" (rubric group: clarity). Return ONE category."
+      }
+    ],
+    "output_categories": [
+      {
+        "name": "1-poor",
+        "value": "1"
+      },
+      {
+        "name": "score-2",
+        "value": "2"
+      },
+      {
+        "name": "score-3",
+        "value": "3"
+      },
+      {
+        "name": "score-4",
+        "value": "4"
+      },
+      {
+        "name": "5-great",
+        "value": "5"
+      }
+    ]
   },
   {
     "name": "acme/rubric-brand::tone::on-brand",
-    "prompt": {
-      "role": "user",
-      "content": "Evaluate {{output}} on the criterion \"on-brand\" (rubric group: tone). Return ONE category."
-    },
-    "output_categories": {
-      "score-1": 1,
-      "score-2": 2,
-      "score-3": 3,
-      "score-4": 4,
-      "score-5": 5
-    }
+    "output_format_type": "Choices",
+    "variables": [
+      {
+        "name": "output",
+        "required": true
+      }
+    ],
+    "model_id": "model-123",
+    "prompts": [
+      {
+        "role": "USER",
+        "text": "Evaluate {{output}} on the criterion \"on-brand\" (rubric group: tone). Return ONE category."
+      }
+    ],
+    "output_categories": [
+      {
+        "name": "score-1",
+        "value": "1"
+      },
+      {
+        "name": "score-2",
+        "value": "2"
+      },
+      {
+        "name": "score-3",
+        "value": "3"
+      },
+      {
+        "name": "score-4",
+        "value": "4"
+      },
+      {
+        "name": "score-5",
+        "value": "5"
+      }
+    ]
   }
 ]
 `
@@ -129,7 +234,7 @@ func rubricBrandTemplate() registry.MetricTemplate {
 }
 
 func TestGoldenPointwiseWireBytes(t *testing.T) {
-	res, err := staxexport.Export(pointwiseQualityTemplate(), staxexport.Options{})
+	res, err := staxexport.Export(pointwiseQualityTemplate(), staxexport.Options{ModelID: "model-123"})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -143,7 +248,7 @@ func TestGoldenPointwiseWireBytes(t *testing.T) {
 }
 
 func TestGoldenRubricFanoutWireBytes(t *testing.T) {
-	res, err := staxexport.Export(rubricBrandTemplate(), staxexport.Options{})
+	res, err := staxexport.Export(rubricBrandTemplate(), staxexport.Options{ModelID: "model-123"})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}

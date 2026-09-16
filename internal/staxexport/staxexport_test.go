@@ -43,6 +43,20 @@ func rubricBrandFixture(t *testing.T) registry.MetricTemplate {
 	return *tmpl
 }
 
+// userText returns the USER prompt body of an evaluator (the last prompt; the
+// SYSTEM prompt, when present, is first).
+func userText(ev Evaluator) string {
+	return ev.Prompts[len(ev.Prompts)-1].Text
+}
+
+// systemText returns the SYSTEM prompt body, or "" when the evaluator has none.
+func systemText(ev Evaluator) string {
+	if len(ev.Prompts) > 0 && ev.Prompts[0].Role == roleSystem {
+		return ev.Prompts[0].Text
+	}
+	return ""
+}
+
 // TestRubricFanoutOptionB is the load-bearing case: the default Option B fans a
 // rubric template out to one evaluator per (group, criterion) pair, names them
 // via the id::group::criterion convention, and preserves per-criterion
@@ -50,12 +64,12 @@ func rubricBrandFixture(t *testing.T) registry.MetricTemplate {
 func TestRubricFanoutOptionB(t *testing.T) {
 	tmpl := rubricBrandFixture(t)
 
-	res, err := Export(tmpl, Options{})
+	res, err := Export(tmpl, Options{ModelID: "model-123"})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
 	if len(res.Warnings) != 0 {
-		t.Errorf("Option B should emit no warnings, got %v", res.Warnings)
+		t.Errorf("Option B with a model id should emit no warnings, got %v", res.Warnings)
 	}
 	if len(res.Evaluators) != 3 {
 		t.Fatalf("got %d evaluators, want 3 (one per criterion-pair)", len(res.Evaluators))
@@ -73,23 +87,33 @@ func TestRubricFanoutOptionB(t *testing.T) {
 		t.Errorf("evaluator names = %v, want %v", gotNames, wantNames)
 	}
 
-	// Per-criterion prompt embeds {{output}} and names the criterion + group.
-	if got, want := res.Evaluators[0].Prompt.Content,
+	// Real-DTO invariants: choices output, a bound model id, a single USER prompt.
+	ev0 := res.Evaluators[0]
+	if ev0.OutputFormatType != "Choices" {
+		t.Errorf("output_format_type = %q, want Choices", ev0.OutputFormatType)
+	}
+	if ev0.ModelID != "model-123" {
+		t.Errorf("model_id = %q, want model-123", ev0.ModelID)
+	}
+	if len(ev0.Prompts) != 1 || ev0.Prompts[0].Role != roleUser {
+		t.Errorf("prompts = %+v, want a single USER prompt", ev0.Prompts)
+	}
+	if got, want := userText(ev0),
 		`Evaluate {{output}} on the criterion "clear" (rubric group: clarity). Return ONE category.`; got != want {
 		t.Errorf("clear prompt = %q, want %q", got, want)
 	}
 
 	// clarity group carries the 1:poor / 5:great anchors into BOTH clarity
 	// criteria; interior bands are generic score-N (per-criterion categories
-	// preserved).
-	wantClarity := map[string]int{"1-poor": 1, "score-2": 2, "score-3": 3, "score-4": 4, "5-great": 5}
+	// preserved), and value is a String in the real DTO.
+	wantClarity := []OutputCategory{{"1-poor", "1"}, {"score-2", "2"}, {"score-3", "3"}, {"score-4", "4"}, {"5-great", "5"}}
 	for _, i := range []int{0, 1} {
 		if !reflect.DeepEqual(res.Evaluators[i].OutputCategories, wantClarity) {
 			t.Errorf("%s categories = %v, want %v", res.Evaluators[i].Name, res.Evaluators[i].OutputCategories, wantClarity)
 		}
 	}
 	// tone has no RatingRubric -> all generic.
-	wantTone := map[string]int{"score-1": 1, "score-2": 2, "score-3": 3, "score-4": 4, "score-5": 5}
+	wantTone := []OutputCategory{{"score-1", "1"}, {"score-2", "2"}, {"score-3", "3"}, {"score-4", "4"}, {"score-5", "5"}}
 	if !reflect.DeepEqual(res.Evaluators[2].OutputCategories, wantTone) {
 		t.Errorf("on-brand categories = %v, want %v", res.Evaluators[2].OutputCategories, wantTone)
 	}
@@ -101,7 +125,7 @@ func TestRubricFanoutOptionB(t *testing.T) {
 func TestRubricFlattenOptionA(t *testing.T) {
 	tmpl := rubricBrandFixture(t)
 
-	res, err := Export(tmpl, Options{Flatten: true})
+	res, err := Export(tmpl, Options{Flatten: true, ModelID: "model-123"})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -112,12 +136,12 @@ func TestRubricFlattenOptionA(t *testing.T) {
 	if ev.Name != "acme/rubric-brand (flattened)" {
 		t.Errorf("flatten name = %q, want %q", ev.Name, "acme/rubric-brand (flattened)")
 	}
-	wantContent := "Evaluate {{output}} against the following rubric and return ONE overall category.\n" +
+	wantText := "Evaluate {{output}} against the following rubric and return ONE overall category.\n" +
 		"- [clarity] clear\n- [clarity] concise\n- [tone] on-brand\n"
-	if ev.Prompt.Content != wantContent {
-		t.Errorf("flatten content = %q, want %q", ev.Prompt.Content, wantContent)
+	if userText(ev) != wantText {
+		t.Errorf("flatten text = %q, want %q", userText(ev), wantText)
 	}
-	wantCats := map[string]int{"score-1": 1, "score-2": 2, "score-3": 3, "score-4": 4, "score-5": 5}
+	wantCats := []OutputCategory{{"score-1", "1"}, {"score-2", "2"}, {"score-3", "3"}, {"score-4", "4"}, {"score-5", "5"}}
 	if !reflect.DeepEqual(ev.OutputCategories, wantCats) {
 		t.Errorf("flatten categories = %v, want %v (aggregate generic, anchors dropped)", ev.OutputCategories, wantCats)
 	}
@@ -128,7 +152,8 @@ func TestRubricFlattenOptionA(t *testing.T) {
 
 // TestPointwiseDirectMap verifies pointwise maps to a single evaluator whose
 // output_categories come from the RatingRubric bands over the resolved scale
-// (decision 3), with the body placeholders renamed.
+// (decision 3), with the body placeholders renamed and the system instruction
+// carried as a SYSTEM prompt.
 func TestPointwiseDirectMap(t *testing.T) {
 	tmpl := registry.MetricTemplate{
 		ID:                   "acme/helpfulness",
@@ -139,7 +164,7 @@ func TestPointwiseDirectMap(t *testing.T) {
 		RatingRubric:         map[string]map[string]string{"default": {"1": "poor", "3": "ok", "5": "excellent"}},
 	}
 
-	res, err := Export(tmpl, Options{})
+	res, err := Export(tmpl, Options{ModelID: "model-123"})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -151,39 +176,71 @@ func TestPointwiseDirectMap(t *testing.T) {
 		t.Errorf("name = %q, want acme/helpfulness", ev.Name)
 	}
 	// response -> output, question -> prompt.
-	if got, want := ev.Prompt.Content, "Rate {{output}} for the task {{prompt}}."; got != want {
-		t.Errorf("prompt = %q, want %q", got, want)
+	if got, want := userText(ev), "Rate {{output}} for the task {{prompt}}."; got != want {
+		t.Errorf("USER prompt = %q, want %q", got, want)
 	}
-	if ev.System == nil || ev.System.Content != "You are a careful judge." {
-		t.Errorf("system = %+v, want the system instruction carried through", ev.System)
+	// system instruction becomes a SYSTEM prompt (first in the list).
+	if got := systemText(ev); got != "You are a careful judge." {
+		t.Errorf("SYSTEM prompt = %q, want the system instruction carried through", got)
 	}
-	want := map[string]int{"1-poor": 1, "score-2": 2, "3-ok": 3, "score-4": 4, "5-excellent": 5}
+	if len(ev.Prompts) != 2 || ev.Prompts[0].Role != roleSystem || ev.Prompts[1].Role != roleUser {
+		t.Errorf("prompts = %+v, want [SYSTEM, USER]", ev.Prompts)
+	}
+	// variables list the reserved vars the prompt uses, sorted, required.
+	wantVars := []Variable{{"output", true}, {"prompt", true}}
+	if !reflect.DeepEqual(ev.Variables, wantVars) {
+		t.Errorf("variables = %v, want %v", ev.Variables, wantVars)
+	}
+	want := []OutputCategory{{"1-poor", "1"}, {"score-2", "2"}, {"3-ok", "3"}, {"score-4", "4"}, {"5-excellent", "5"}}
 	if !reflect.DeepEqual(ev.OutputCategories, want) {
 		t.Errorf("categories = %v, want %v", ev.OutputCategories, want)
 	}
 }
 
-// TestCategoryDerivationRule pins the EXPLICIT rule (PR-#87 decision 2): anchored
-// bands use {band}-{desc}; interior/un-anchored bands use score-{band}.
+// TestEmptyModelIDWarns verifies that omitting the model id still exports (the
+// field is emitted as "") but surfaces a warning, since Stax requires model_id
+// and Mizan never migrates model bindings (N3).
+func TestEmptyModelIDWarns(t *testing.T) {
+	tmpl := registry.MetricTemplate{
+		ID:                   "acme/helpfulness",
+		Kind:                 registry.KindPointwise,
+		Modalities:           []registry.Modality{registry.ModalityText},
+		MetricPromptTemplate: "Rate {{response}}.",
+	}
+	res, err := Export(tmpl, Options{})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if res.Evaluators[0].ModelID != "" {
+		t.Errorf("model_id = %q, want empty", res.Evaluators[0].ModelID)
+	}
+	if len(res.Warnings) != 1 || !strings.Contains(res.Warnings[0], "model_id is empty") {
+		t.Errorf("warnings = %v, want one 'model_id is empty' warning", res.Warnings)
+	}
+}
+
+// TestCategoryDerivationRule pins the EXPLICIT rule (review decision 2): anchored
+// bands use {band}-{desc}; interior/un-anchored bands use score-{band}; value is
+// the stringified band; order is ascending.
 func TestCategoryDerivationRule(t *testing.T) {
 	// Anchored 1 and 5; interior 2,3,4 fall back to generic.
 	got := categoriesForScale(1, 5, map[string]string{"1": "poor", "5": "great"})
-	want := map[string]int{"1-poor": 1, "score-2": 2, "score-3": 3, "score-4": 4, "5-great": 5}
+	want := []OutputCategory{{"1-poor", "1"}, {"score-2", "2"}, {"score-3", "3"}, {"score-4", "4"}, {"5-great", "5"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("anchored+interior derivation = %v, want %v", got, want)
 	}
 
 	// No band descriptions -> every band generic.
 	got = categoriesForScale(1, 3, nil)
-	want = map[string]int{"score-1": 1, "score-2": 2, "score-3": 3}
+	want = []OutputCategory{{"score-1", "1"}, {"score-2", "2"}, {"score-3", "3"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("all-generic derivation = %v, want %v", got, want)
 	}
 
 	// Multi-word descriptions slugify.
 	got = categoriesForScale(1, 2, map[string]string{"2": "Very Good!"})
-	if got["2-very-good"] != 2 {
-		t.Errorf("slugified category missing: %v", got)
+	if len(got) != 2 || got[1].Name != "2-very-good" || got[1].Value != "2" {
+		t.Errorf("slugified category wrong: %v", got)
 	}
 }
 
@@ -233,17 +290,17 @@ func TestUnmappedPlaceholderHardError(t *testing.T) {
 	}
 
 	// The override table (spec §4 rule 3) lets it export.
-	res, err := Export(tmpl, Options{PlaceholderOverride: map[string]string{"unmappable_field": "expected_output"}})
+	res, err := Export(tmpl, Options{PlaceholderOverride: map[string]string{"unmappable_field": "expected_output"}, ModelID: "m"})
 	if err != nil {
 		t.Fatalf("override should allow export: %v", err)
 	}
-	if got := res.Evaluators[0].Prompt.Content; !strings.Contains(got, "{{expected_output}}") {
+	if got := userText(res.Evaluators[0]); !strings.Contains(got, "{{expected_output}}") {
 		t.Errorf("override not applied: %q", got)
 	}
 }
 
 // TestAliasCollisionHardError verifies two distinct Mizan fields mapping to the
-// same Stax reserved var fail closed (PR-#87 decision 1).
+// same Stax reserved var fail closed (review decision 1).
 func TestAliasCollisionHardError(t *testing.T) {
 	tmpl := registry.MetricTemplate{
 		ID:                   "acme/collide",
@@ -270,7 +327,7 @@ func TestScaleFromRubricDetail(t *testing.T) {
 		RubricGroups: map[string][]string{"q": {"c1"}},
 		RubricDetail: &registry.RubricDetail{Scale: &registry.RubricScale{Min: 1, Max: 3}},
 	}
-	res, err := Export(tmpl, Options{})
+	res, err := Export(tmpl, Options{ModelID: "m"})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
@@ -289,26 +346,31 @@ func TestScaleFromRubricDetail(t *testing.T) {
 // git-reviewable artifact.
 func TestExportDeterministic(t *testing.T) {
 	tmpl := rubricBrandFixture(t)
-	first, err := Export(tmpl, Options{})
+	first, err := Export(tmpl, Options{ModelID: "m"})
 	if err != nil {
 		t.Fatalf("Export: %v", err)
 	}
 	for i := 0; i < 5; i++ {
-		next, err := Export(tmpl, Options{})
+		next, err := Export(tmpl, Options{ModelID: "m"})
 		if err != nil {
 			t.Fatalf("Export: %v", err)
 		}
-		var a, b []string
-		for _, e := range first.Evaluators {
-			a = append(a, e.Name)
+		if !reflect.DeepEqual(first.Evaluators, next.Evaluators) {
+			t.Fatalf("non-deterministic export at iter %d", i)
 		}
-		for _, e := range next.Evaluators {
-			b = append(b, e.Name)
-		}
-		sort.Strings(a)
-		sort.Strings(b)
-		if !reflect.DeepEqual(a, b) {
-			t.Fatalf("non-deterministic evaluator set: %v vs %v", a, b)
-		}
+	}
+	// sanity: names are the sorted fan-out set.
+	var names []string
+	for _, e := range first.Evaluators {
+		names = append(names, e.Name)
+	}
+	sort.Strings(names)
+	want := []string{
+		"acme/rubric-brand::clarity::clear",
+		"acme/rubric-brand::clarity::concise",
+		"acme/rubric-brand::tone::on-brand",
+	}
+	if !reflect.DeepEqual(names, want) {
+		t.Errorf("names = %v, want %v", names, want)
 	}
 }

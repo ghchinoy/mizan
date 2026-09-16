@@ -52,13 +52,17 @@ func newExportStaxCmd() *cobra.Command {
 		metric  string
 		flatten bool
 		out     string
+		modelID string
 		mapArgs []string
 	)
 	cmd := &cobra.Command{
 		Use:   "stax --metric <id> [--flatten] [--out <file>]",
 		Short: "Export a metric template as Stax LLMEvaluator JSON",
-		Long: "Export a local Mizan metric template into the Stax LLMEvaluator interchange\n" +
-			"format (design/mizan-stax-export-spec.md).\n\n" +
+		Long: "Export a local Mizan metric template as a Stax LLM evaluator create request\n" +
+			"— the exact JSON a Stax consumer POSTs to create an evaluator (real Stax\n" +
+			"LLMEvaluatorRequestDTO: name, output_format_type \"Choices\", variables,\n" +
+			"model_id, prompts [{role,text}], output_categories [{name,value}]). See\n" +
+			"design/mizan-stax-export-spec.md.\n\n" +
 			"Supported kinds (text modality): pointwise and rubric.\n\n" +
 			"  rubric     defaults to Option B (fan-out): ONE Stax evaluator per\n" +
 			"             (group, criterion) pair, named {id}::{group}::{criterion}, so\n" +
@@ -67,13 +71,16 @@ func newExportStaxCmd() *cobra.Command {
 			"             per-criterion granularity is dropped and a warning is printed.\n" +
 			"  pointwise  direct map: RatingRubric bands become output_categories in ONE\n" +
 			"             evaluator.\n\n" +
-			"pairwise, custom_schema, and non-text modalities are unsupported in v1 and\n" +
-			"fail closed (no lossy guess). A prompt placeholder that maps to no Stax\n" +
-			"reserved var — or two fields that map to the SAME one — is a hard error;\n" +
-			"use --placeholder-map to override a non-conventional field name.\n\n" +
-			"Output is a single JSON object when one evaluator is produced, or a JSON\n" +
-			"array when several are (rubric fan-out). No credentials are read or emitted:\n" +
-			"the exporter never calls Vertex/genai and never migrates keys.",
+			"The template's systemInstruction becomes a SYSTEM prompt; the metric prompt\n" +
+			"becomes a USER prompt. pairwise, custom_schema, and non-text modalities are\n" +
+			"unsupported in v1 and fail closed (no lossy guess). A prompt placeholder that\n" +
+			"maps to no Stax reserved var — or two fields that map to the SAME one — is a\n" +
+			"hard error; use --placeholder-map to override a non-conventional field name.\n\n" +
+			"Stax requires model_id; supply it with --model-id (user-chosen). Mizan never\n" +
+			"derives it from a template's AutoraterModel and never migrates model/key\n" +
+			"bindings. Output is a single JSON object when one evaluator is produced, or a\n" +
+			"JSON array when several are (rubric fan-out; POST each element). No credentials\n" +
+			"are read or emitted: the exporter never calls Vertex/genai and never migrates keys.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if metric == "" {
@@ -103,6 +110,7 @@ func newExportStaxCmd() *cobra.Command {
 			// nothing (design decision 5).
 			res, err := staxexport.Export(*tmpl, staxexport.Options{
 				Flatten:             flatten,
+				ModelID:             modelID,
 				PlaceholderOverride: overrides,
 			})
 			if err != nil {
@@ -125,6 +133,7 @@ func newExportStaxCmd() *cobra.Command {
 	cmd.Flags().StringVar(&metric, "metric", "", "template id to export (required)")
 	cmd.Flags().BoolVar(&flatten, "flatten", false, "rubric Option A: emit ONE aggregate evaluator instead of fan-out (LOSSY — drops per-criterion granularity)")
 	cmd.Flags().StringVar(&out, "out", "", "write to this file instead of stdout")
+	cmd.Flags().StringVar(&modelID, "model-id", "", "Stax model_id to bind each evaluator to (required by Stax; user-supplied — Mizan never migrates model/key bindings). If empty, model_id is emitted as \"\" and a warning is printed.")
 	cmd.Flags().StringArrayVar(&mapArgs, "placeholder-map", nil, `override the placeholder rename map, "mizan_field=stax_var" (repeatable; stax_var one of output|prompt|expected_output|history)`)
 	return cmd
 }

@@ -57,7 +57,7 @@ func TestExportStaxRubricFanoutOptionB(t *testing.T) {
 	exportTempDB(t)
 	createRubricBrand(t)
 
-	out, err := executeRoot(t, "export", "stax", "--metric", "acme/rubric-brand")
+	out, err := executeRoot(t, "export", "stax", "--metric", "acme/rubric-brand", "--model-id", "model-x")
 	if err != nil {
 		t.Fatalf("export stax: %v (out=%q)", err, out)
 	}
@@ -80,9 +80,15 @@ func TestExportStaxRubricFanoutOptionB(t *testing.T) {
 			t.Errorf("evaluator[%d] name = %q, want %q", i, names[i], want[i])
 		}
 	}
-	// Each fan-out evaluator carries a full 1-5 category set.
+	// Each fan-out evaluator carries a full 1-5 category set and a bound model_id.
 	if n := len(evs[0].OutputCategories); n != 5 {
 		t.Errorf("clarity::clear has %d categories, want 5", n)
+	}
+	if evs[0].ModelID != "model-x" {
+		t.Errorf("model_id = %q, want model-x", evs[0].ModelID)
+	}
+	if evs[0].OutputFormatType != "Choices" {
+		t.Errorf("output_format_type = %q, want Choices", evs[0].OutputFormatType)
 	}
 }
 
@@ -90,7 +96,7 @@ func TestExportStaxFlattenWarns(t *testing.T) {
 	exportTempDB(t)
 	createRubricBrand(t)
 
-	out, err := executeRoot(t, "export", "stax", "--metric", "acme/rubric-brand", "--flatten")
+	out, err := executeRoot(t, "export", "stax", "--metric", "acme/rubric-brand", "--flatten", "--model-id", "model-x")
 	if err != nil {
 		t.Fatalf("export stax --flatten: %v (out=%q)", err, out)
 	}
@@ -124,7 +130,7 @@ func TestExportStaxPointwise(t *testing.T) {
 		t.Fatalf("registry create pointwise: %v (out=%q)", err, out)
 	}
 
-	out, err := executeRoot(t, "export", "stax", "--metric", "acme/helpfulness")
+	out, err := executeRoot(t, "export", "stax", "--metric", "acme/helpfulness", "--model-id", "model-x")
 	if err != nil {
 		t.Fatalf("export stax: %v (out=%q)", err, out)
 	}
@@ -135,8 +141,19 @@ func TestExportStaxPointwise(t *testing.T) {
 	if ev.Name != "acme/helpfulness" {
 		t.Errorf("name = %q, want acme/helpfulness", ev.Name)
 	}
-	if ev.Prompt.Content != "Rate {{output}}." {
-		t.Errorf("prompt = %q, want %q (response -> output)", ev.Prompt.Content, "Rate {{output}}.")
+	if ev.ModelID != "model-x" {
+		t.Errorf("model_id = %q, want model-x", ev.ModelID)
+	}
+	// The USER prompt (last prompt) carries the renamed placeholder (response -> output).
+	if n := len(ev.Prompts); n == 0 {
+		t.Fatalf("pointwise evaluator has no prompts")
+	}
+	last := ev.Prompts[len(ev.Prompts)-1]
+	if last.Role != "USER" {
+		t.Errorf("last prompt role = %q, want USER", last.Role)
+	}
+	if last.Text != "Rate {{output}}." {
+		t.Errorf("prompt text = %q, want %q (response -> output)", last.Text, "Rate {{output}}.")
 	}
 }
 
