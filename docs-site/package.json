@@ -11,6 +11,7 @@
     "prebuild": "node scripts/sync-docs.mjs",
     "build": "astro build",
     "preview": "astro preview",
+    "test:schema": "node scripts/test-schema.mjs",
     "astro": "astro"
   },
   "dependencies": {
@@ -19,5 +20,9 @@
     "github-slugger": "2.0.0",
     "starlight-blog": "0.29.0",
     "starlight-links-validator": "0.26.0"
+  },
+  "devDependencies": {
+    "yaml": "2.9.1",
+    "zod": "4.6.5"
   }
 }

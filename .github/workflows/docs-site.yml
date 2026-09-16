@@ -41,6 +41,14 @@ jobs:
         run: npm ci
         working-directory: docs-site
 
+      - name: Schema negative-test (blog/series frontmatter contract)
+        # Asserts malformed blog frontmatter is REJECTED and valid frontmatter
+        # passes, using the SAME schema/refinement the build enforces
+        # (src/schema/blog-frontmatter.mjs). Fixtures live outside the content
+        # collection, so this proves the guard without touching the real build.
+        run: npm run test:schema
+        working-directory: docs-site
+
       - name: Build (sync-docs prebuild + astro build + link check)
         run: npm run build
         working-directory: docs-site
