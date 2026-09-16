@@ -348,6 +348,91 @@ validate` emits none).
 See the skill source at
 [`plugins/mizan-authoring/skills/author-and-validate-a-template-pack/SKILL.md`](../plugins/mizan-authoring/skills/author-and-validate-a-template-pack/SKILL.md).
 
+#### `rubric-generate-from-brand-book`
+
+Turn a **brand book or guidance document** into a reviewed, **frozen** Mizan
+rubric. The decomposition is **agent-side and suggest-first** (the owner's CUJ4
+decision): the agent reads the guidance doc, suggests existing templates to reuse,
+drafts sample prompts and candidate criteria, then drives the real `mizan`
+generation and freeze commands. There is **no** Mizan "brand-book" command and the
+skill presupposes none — Mizan supplies the generation and freeze plumbing; the
+LLM decomposition/synthesis is the agent's.
+
+The loop is **suggest-first → generate → union → validate → freeze → import**:
+
+```bash
+# 1. SUGGEST FIRST — find existing templates to reuse (no --tag filter; match client-side)
+mizan registry list -o json
+
+# 2. GENERATE a draft rubric from a representative sample prompt (one live call; uses ADC).
+#    Writes a draft YAML with a rubricProvenance block; writes NOTHING to the registry.
+mizan rubric generate \
+  --sample '<a representative prompt for the asset being scored>' \
+  --id <ns>/<slug> --out <draft.yaml> \
+  --recipe general_quality_v1 --group-name brand \
+  --add-criterion 'The response never uses the competitor names listed in the brand book.'
+
+# 3. VALIDATE + FREEZE (creds-free): wrap the reviewed draft in a pack, validate, import.
+mizan pack init packs/<ns> --name <ns>
+cp <draft.yaml> packs/<ns>/templates/<slug>.yaml
+mizan pack validate packs/<ns>                              # text + exit code (ignores -o json)
+mizan registry import packs/<ns> --strategy newer -o json   # the freeze; reconciliation report
+```
+
+`--recipe` is one of `general_quality_v1` (default; prompt-aligned),
+`instruction_following_v1` (most prompt-alignment-focused), or `text_quality_v1`
+(more holistic). `--group-name` is independent of `--recipe` — it only labels the
+output `RubricGroups` key. `--add-criterion` is repeatable and **unions**
+hand-authored criteria *after* the generated ones (CUJ9, union-before-freeze); each
+criterion's origin (`adaptive-generated` vs `hand-authored`) is recorded in
+provenance so a reviewer can always tell them apart. **The draft file is not a
+valid import source on its own** — wrap it in a pack (`registry create` has no
+whole-file input), then import the pack to freeze.
+
+The draft carries a `spec.rubricProvenance` block recording **how** the rubric was
+drafted (`method: adaptive-generated`, `generatorModel`, `recipe`, a bounded
+`sampleInputRef` — a capped preview + SHA-256 of the full sample, never the sample
+verbatim — `generatedAt`, `apiVersion`, and per-criterion `rubricMeta` with
+`origin`):
+
+```yaml
+spec:
+  rubricProvenance:
+    method: adaptive-generated
+    generatorModel: gemini-2.5-flash
+    recipe: general_quality_v1
+    sampleInputRef: 'inline:"…" sha256:…'
+    generatedAt: 2026-01-01T00:00:00Z
+    apiVersion: v1beta1:generateInstanceRubrics
+    rubricMeta:
+      - {group: brand, criterion: "…", type: STICKY, importance: HIGH, origin: adaptive-generated}
+```
+
+**Immediate eval + freeze in one step (CUJ8).** When the user has a prompt *and* a
+response to score now, `mizan eval adaptive --prompt … --response … --save-as
+<ns>/<slug>` generates criteria, scores the response (each one live call), and
+freezes the generated rubric into the registry. `-o json` emits the standard
+`eval.Result` object (same shape as `run-eval`, covered by the existing
+`eval.Result` drift gate). `eval adaptive --save-as` cannot union hand-authored
+criteria — use the `rubric generate --add-criterion` path for union-before-freeze.
+
+**N5 — no credential custody.** The suggest step and the whole freeze loop
+(`registry list`, `pack init`, `pack validate`, `registry import`) are
+credential-free. Only `rubric generate` and `eval adaptive` issue live Vertex AI
+calls, and they use the user's existing ADC exactly as the CLI does; the skill
+never takes or stores keys.
+
+Two hermetic gates in `internal/skilldocs` anchor this skill's documented shapes to
+real code: the draft **`rubricProvenance`** YAML structure (against
+`registry.MarshalTemplate` + `registry.RubricProvenance`/`RubricMeta`) and the
+**`registry import -o json`** reconciliation report (against
+`registry.ImportReport`). The `pack validate` text/exit-code contract reuses the
+`author-and-validate-a-template-pack` gate, and the `eval adaptive` `eval.Result`
+shape reuses the `run-eval` gate.
+
+See the skill source at
+[`plugins/mizan-authoring/skills/rubric-generate-from-brand-book/SKILL.md`](../plugins/mizan-authoring/skills/rubric-generate-from-brand-book/SKILL.md).
+
 ## Non-goals
 
 - **No server / self-contained.** Skills are static instruction files plus
@@ -364,8 +449,10 @@ See the skill source at
 (`mizan-results`) results skill shipped on top of it, `run-eval-set` extends the
 `mizan-eval` plugin with multi-concern scorecards and CI gating, and
 `author-and-validate-a-template-pack` (`mizan-authoring`) covers creds-free pack
-authoring and the export→PR→import loop. Planned fan-out includes Tier-2
-onboarding/discovery skills. Capabilities that would need unbuilt CLI commands — a
+authoring and the export→PR→import loop, and `rubric-generate-from-brand-book`
+extends `mizan-authoring` with suggest-first, agent-side rubric synthesis from a
+brand book plus the generate→union→validate→freeze→import loop. Planned fan-out
+includes Tier-2 onboarding/discovery skills. Capabilities that would need unbuilt CLI commands — a
 `results summary`/`trend` enrichment of `report-to-html`, per-eval-set
 persistence/trend, tag-filtered discovery, heuristic authoring — are deferred, not
 stubbed. See the project roadmap for sequencing.

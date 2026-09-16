@@ -29,9 +29,10 @@
     {
       "name": "mizan-authoring",
       "source": "./plugins/mizan-authoring",
-      "description": "Author, validate (creds-free), and share Mizan metric-template packs: scaffold a pack, create templates via the mizan CLI, run `pack validate` (the CI PR gate), and the export->PR->import collaborator loop.",
+      "description": "Author, validate (creds-free), and share Mizan metric-template packs: scaffold a pack, create templates via the mizan CLI, run `pack validate` (the CI PR gate), and the export->PR->import collaborator loop; plus generate a rubric from a brand book (suggest-first, agent-side synthesis) and freeze it into the registry.",
       "skills": [
-        "./skills/author-and-validate-a-template-pack"
+        "./skills/author-and-validate-a-template-pack",
+        "./skills/rubric-generate-from-brand-book"
       ]
     }
   ]
