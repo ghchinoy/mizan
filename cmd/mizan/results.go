@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/results"
 	"github.com/ghchinoy/mizan/internal/wire"
@@ -31,6 +32,8 @@ func newResultsCmd() *cobra.Command {
 	cmd.AddCommand(
 		newResultsListCmd(),
 		newResultsShowCmd(),
+		newResultsSummaryCmd(),
+		newResultsTrendCmd(),
 	)
 	return cmd
 }
@@ -227,6 +230,331 @@ func newResultsShowCmd() *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+// newResultsSummaryCmd wires `mizan results summary` — a READ-ONLY per-template
+// rollup over stored results (design §4.C). It resolves the same filters as
+// `results list` (--metric | --tag, --namespace, --since/--until, --limit),
+// calls Service.List (or the registry->results tag join for --tag), then computes
+// n/mean/min/max/stddev per template via results.Summarize. With --threshold it
+// also reports pass/fail/passRate. It depends ONLY on the results.Service façade
+// (+ registry service for --tag), never on internal/results/sqlite, preserving
+// the Firestore-swap seam.
+//
+// Scope (design §4.C): B3 v1 aggregates `eval run`/`eval pairwise` results grouped
+// by template and by tag. Per-eval-set (scorecard) aggregation is out of scope
+// because eval-set runs are never persisted; cost/token trend is out of scope
+// because cost is not persisted. No fake rows are ever synthesized.
+func newResultsSummaryCmd() *cobra.Command {
+	var (
+		metric    string
+		namespace string
+		since     string
+		until     string
+		limit     int
+		threshold float64
+		tags      []string
+	)
+	cmd := &cobra.Command{
+		Use:   "summary [--metric <id> | --tag <T>...] [--namespace <ns>] [--since t] [--until t] [--limit N] [--threshold X]",
+		Short: "Summarize stored eval results per template (n/mean/min/max/stddev)",
+		Long: "Summarize eval results persisted by `eval run` / `eval pairwise`, grouped\n" +
+			"by template (id + version). Reports n, mean, min, max and stddev of the\n" +
+			"score per template; unscored results (a genai error left no score) are\n" +
+			"EXCLUDED from the statistics and counted separately as n_unscored.\n\n" +
+			"--threshold X additionally reports pass/fail/passRate (a result passes when\n" +
+			"its score >= X).\n\n" +
+			"Filter by exact template id (--metric), id namespace (--namespace), run\n" +
+			"time (--since/--until, RFC3339 or YYYY-MM-DD), and row cap (--limit).\n" +
+			"--tag aggregates over ALL templates currently carrying the given tags\n" +
+			"(repeatable, AND-narrowing, case-sensitive) via the registry->results join.\n\n" +
+			"NOTE: eval-set (scorecard) runs are not persisted, so there is no per\n" +
+			"eval-set aggregation; cost/token trend is not reported (cost is not\n" +
+			"persisted). Use -o json for the full rollup incl. score-distribution buckets.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			if metric != "" && len(tags) > 0 {
+				return fmt.Errorf("--metric and --tag cannot be combined")
+			}
+			sinceT, untilT, err := parseSinceUntil(since, until)
+			if err != nil {
+				return err
+			}
+
+			rs, err := collectResults(cmd.Context(), cfg, resultsQuery{
+				metric:    metric,
+				namespace: namespace,
+				tags:      tags,
+				since:     sinceT,
+				until:     untilT,
+				limit:     limit,
+			})
+			if err != nil {
+				return err
+			}
+
+			var thr *float64
+			if cmd.Flags().Changed("threshold") {
+				thr = &threshold
+			}
+			summaries := results.Summarize(rs, thr)
+			return renderResultSummary(cmd.OutOrStdout(), cmd.ErrOrStderr(), summaries, thr)
+		},
+	}
+	cmd.Flags().StringVar(&metric, "metric", "", "filter by exact template id (<namespace>/<slug>)")
+	cmd.Flags().StringVar(&namespace, "namespace", "", "filter by template id namespace")
+	cmd.Flags().StringSliceVar(&tags, "tag", nil, "aggregate over templates currently carrying ALL given tags (repeatable)")
+	cmd.Flags().StringVar(&since, "since", "", "only results at or after this time (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().StringVar(&until, "until", "", "only results at or before this time (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results to aggregate (0 = backend default)")
+	cmd.Flags().Float64Var(&threshold, "threshold", 0, "report pass/fail/passRate against this score threshold")
+	return cmd
+}
+
+// newResultsTrendCmd wires `mizan results trend --metric <id>` — a READ-ONLY,
+// time-bucketed mean-score view over one template's stored results (design §4.C).
+// It calls Service.List then results.Trend, emitting one row per day/week bucket.
+// With --per-criterion it also emits the per-criterion means parsed from the
+// persisted CustomOutput.per_criterion blob (rubric-detail results). It depends
+// only on the results.Service façade, never on internal/results/sqlite.
+//
+// Scope (design §4.C): score trend only. Cost/token trend is out of scope (cost is
+// not persisted; native EvaluateInstances returns no token usage). No fake data.
+func newResultsTrendCmd() *cobra.Command {
+	var (
+		metric       string
+		since        string
+		until        string
+		bucket       string
+		perCriterion bool
+	)
+	cmd := &cobra.Command{
+		Use:   "trend --metric <id> [--bucket day|week] [--per-criterion] [--since t] [--until t]",
+		Short: "Show a time-bucketed mean-score trend for one template",
+		Long: "Show the mean score of one template's eval results bucketed by day or\n" +
+			"week (design §4.C). --metric is required. Unscored results are EXCLUDED\n" +
+			"from each bucket's mean and counted as n_unscored.\n\n" +
+			"--bucket selects day (default) or week granularity (weeks keyed by their\n" +
+			"UTC Monday). --per-criterion additionally reports the per-criterion mean\n" +
+			"per bucket, parsed from the persisted rubric-detail CustomOutput.\n\n" +
+			"NOTE: score trend only. Cost/token trend is not reported (cost is not\n" +
+			"persisted; the native Vertex path returns no token usage).",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := mustConfig()
+			if err != nil {
+				return err
+			}
+			if metric == "" {
+				return fmt.Errorf("--metric is required for results trend")
+			}
+			tb, err := parseTrendBucket(bucket)
+			if err != nil {
+				return err
+			}
+			sinceT, untilT, err := parseSinceUntil(since, until)
+			if err != nil {
+				return err
+			}
+
+			svc, closeSvc, err := wire.OpenResultService(cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeSvc() }()
+
+			rs, err := svc.List(cmd.Context(), results.ResultFilter{
+				TemplateID: metric,
+				Since:      sinceT,
+				Until:      untilT,
+			})
+			if err != nil {
+				return err
+			}
+			points := results.Trend(rs, tb)
+			return renderResultTrend(cmd.OutOrStdout(), cmd.ErrOrStderr(), points, perCriterion)
+		},
+	}
+	cmd.Flags().StringVar(&metric, "metric", "", "template id to trend (<namespace>/<slug>) — required")
+	cmd.Flags().StringVar(&since, "since", "", "only results at or after this time (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().StringVar(&until, "until", "", "only results at or before this time (RFC3339 or YYYY-MM-DD)")
+	cmd.Flags().StringVar(&bucket, "bucket", "day", "time bucket granularity: day|week")
+	cmd.Flags().BoolVar(&perCriterion, "per-criterion", false, "also report per-criterion means (rubric-detail results)")
+	return cmd
+}
+
+// resultsQuery carries the resolved filters collectResults turns into stored
+// results — either a direct Service.List (TemplateID/Namespace/Since/Until/Limit)
+// or, when Tags is set, the registry->results tag join.
+type resultsQuery struct {
+	metric    string
+	namespace string
+	tags      []string
+	since     time.Time
+	until     time.Time
+	limit     int
+}
+
+// collectResults fetches the stored results a summary/list aggregates over,
+// honoring the two mutually-exclusive template-selection mechanisms: an exact
+// --metric (plain Service.List) or a --tag set (the registry->results join,
+// reusing resolveTaggedResults — design §4.C). It depends only on the results and
+// registry Service façades, never on a concrete backend.
+func collectResults(ctx context.Context, cfg *config.Config, q resultsQuery) ([]results.Result, error) {
+	resultSvc, closeResults, err := wire.OpenResultService(cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = closeResults() }()
+
+	if len(q.tags) > 0 {
+		regSvc, closeReg, err := wire.OpenService(cfg)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = closeReg() }()
+
+		perTemplate, err := resolveTaggedResults(ctx, regSvc, resultSvc,
+			TaggedResultsQuery{Tags: q.tags, Namespace: q.namespace})
+		if err != nil {
+			return nil, err
+		}
+		merged := mergeTaggedResults(perTemplate, q.since, q.limit)
+		return applyUntil(merged, q.until), nil
+	}
+
+	return resultSvc.List(ctx, results.ResultFilter{
+		TemplateID: q.metric,
+		Namespace:  q.namespace,
+		Since:      q.since,
+		Until:      q.until,
+		Limit:      q.limit,
+	})
+}
+
+// applyUntil drops results whose RunAt is after until (the tag-join path applies
+// --since/--limit in mergeTaggedResults but not --until; mirror the store's
+// inclusive upper bound here). A zero until is a no-op.
+func applyUntil(rs []results.Result, until time.Time) []results.Result {
+	if until.IsZero() {
+		return rs
+	}
+	kept := rs[:0]
+	for _, r := range rs {
+		if !r.RunAt.After(until) {
+			kept = append(kept, r)
+		}
+	}
+	return kept
+}
+
+// parseSinceUntil parses the optional --since/--until flags (each RFC3339 or
+// YYYY-MM-DD), returning zero times for empty flags.
+func parseSinceUntil(since, until string) (time.Time, time.Time, error) {
+	var sinceT, untilT time.Time
+	var err error
+	if since != "" {
+		if sinceT, err = parseSince(since); err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+	}
+	if until != "" {
+		if untilT, err = parseSince(until); err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid --until %q (want RFC3339 or YYYY-MM-DD)", until)
+		}
+	}
+	return sinceT, untilT, nil
+}
+
+// parseTrendBucket validates the --bucket flag into a results.TrendBucket.
+func parseTrendBucket(s string) (results.TrendBucket, error) {
+	switch s {
+	case "", "day":
+		return results.TrendDay, nil
+	case "week":
+		return results.TrendWeek, nil
+	default:
+		return "", fmt.Errorf("invalid --bucket %q (want day|week)", s)
+	}
+}
+
+// fmtFloatPtr renders an optional statistic: the value to 4 significant digits, or
+// "-" when nil (no scored results fed it).
+func fmtFloatPtr(f *float64) string {
+	if f == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%.4g", *f)
+}
+
+// renderResultSummary prints the per-template rollup as an aligned table (or the
+// full []TemplateSummary as JSON with -o json). The threshold columns appear only
+// when a threshold was given. All template ids pass through sanitizeCell.
+func renderResultSummary(w, errw io.Writer, summaries []results.TemplateSummary, threshold *float64) error {
+	if outputFormat == outputJSON {
+		if summaries == nil {
+			summaries = []results.TemplateSummary{}
+		}
+		return printJSON(w, summaries)
+	}
+	if len(summaries) == 0 {
+		fmt.Fprintln(errw, "no results found")
+	}
+	tw := newTabWriter(w)
+	header := "METRIC\tN\tUNSCORED\tMEAN\tMIN\tMAX\tSTDDEV"
+	if threshold != nil {
+		header += "\tPASS\tFAIL\tPASS%"
+	}
+	fmt.Fprintln(tw, header)
+	for _, s := range summaries {
+		ref := s.TemplateID
+		if s.TemplateVersion != "" {
+			ref = s.TemplateID + "@" + s.TemplateVersion
+		}
+		row := fmt.Sprintf("%s\t%d\t%d\t%s\t%s\t%s\t%s",
+			sanitizeCell(ref), s.N, s.NUnscored,
+			fmtFloatPtr(s.Mean), fmtFloatPtr(s.Min), fmtFloatPtr(s.Max), fmtFloatPtr(s.Stddev))
+		if threshold != nil {
+			if s.Threshold != nil {
+				row += fmt.Sprintf("\t%d\t%d\t%.1f%%", s.Threshold.Pass, s.Threshold.Fail, s.Threshold.PassRate*100)
+			} else {
+				row += "\t-\t-\t-"
+			}
+		}
+		fmt.Fprintln(tw, row)
+	}
+	return tw.Flush()
+}
+
+// renderResultTrend prints the time-bucketed trend as an aligned table (or the
+// full []TrendPoint as JSON with -o json). With perCriterion, per-criterion means
+// are printed as indented rows under each bucket. Criterion labels pass through
+// sanitizeCell (judge/author-derived text).
+func renderResultTrend(w, errw io.Writer, points []results.TrendPoint, perCriterion bool) error {
+	if outputFormat == outputJSON {
+		if points == nil {
+			points = []results.TrendPoint{}
+		}
+		return printJSON(w, points)
+	}
+	if len(points) == 0 {
+		fmt.Fprintln(errw, "no results found")
+	}
+	tw := newTabWriter(w)
+	fmt.Fprintln(tw, "BUCKET\tN\tUNSCORED\tMEAN")
+	for _, p := range points {
+		fmt.Fprintf(tw, "%s\t%d\t%d\t%s\n", sanitizeCell(p.Bucket), p.N, p.NUnscored, fmtFloatPtr(p.Mean))
+		if perCriterion {
+			for _, c := range p.PerCriterion {
+				label := c.Group + "/" + c.Criterion
+				mean := c.Mean
+				fmt.Fprintf(tw, "  %s\t%d\t\t%s\n", sanitizeCell(label), c.N, fmtFloatPtr(&mean))
+			}
+		}
+	}
+	return tw.Flush()
 }
 
 // parseSince accepts either a full RFC3339 timestamp or a bare YYYY-MM-DD date
