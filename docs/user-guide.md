@@ -997,6 +997,104 @@ time; it never synthesizes missing data.** Two consequences are worth calling ou
   `--save-as`, or any pack import) carry these fields; a template with none records
   them empty. **Treat an empty rubric scale as valid.**
 
+## Aggregating results (`results summary` / `results trend`)
+
+Once you have a history of runs in the store, two **read-only** verbs roll them
+up. Both compute their statistics in Go over `results` the store returns — they
+never write, add columns, or migrate anything, and they depend only on the
+results service façade (plus the registry service for `--tag`), so they behave
+identically the day a non-SQLite backend lands.
+
+Both aggregate over `eval run` / `eval pairwise` results (the runs the store
+persists today). See **Scope and honest gaps** below for what is deliberately
+*not* aggregated.
+
+### `results summary` — per-template rollup
+
+```bash
+mizan results summary [--metric <id> | --tag <T>...] [--namespace <ns>] \
+                      [--since <t>] [--until <t>] [--limit N] [--threshold X] [-o table|json]
+```
+
+Groups results by template (id + version) and reports, per template:
+
+- **n** — the number of **scored** results feeding the statistics.
+- **n_unscored** — results with **no score** (a genai error left `Score` empty, or
+  a pairwise result carries a choice, not a score). These are **excluded** from
+  every statistic and counted here separately — they never skew a mean.
+- **mean / min / max / stddev** — over the scored results (`stddev` is the
+  population standard deviation). A template whose results are *all* unscored
+  reports `-` for these (no synthesized zero).
+
+Flags:
+
+| Flag | Meaning |
+|---|---|
+| `--metric <id>` | aggregate one exact template id (`<ns>/<slug>`). |
+| `--tag <T>...` | aggregate over **all** templates currently carrying **all** the given tags (repeatable, **AND-narrowing**, case-sensitive) via the registry→results join (see `results list --tag`). Mutually exclusive with `--metric`. |
+| `--namespace <ns>` | narrow to a template-id namespace. |
+| `--since` / `--until` | bound the run time (RFC3339 or `YYYY-MM-DD`; `--until` is inclusive). |
+| `--limit N` | cap how many results are aggregated (0 = backend default). |
+| `--threshold X` | additionally report **pass / fail / passRate**. A result **passes** when its score is **≥ X**. |
+
+```console
+$ mizan results summary --tag brand --threshold 0.8
+METRIC                    N   UNSCORED  MEAN   MIN   MAX   STDDEV  PASS  FAIL  PASS%
+brand-a/quality@1.0.0     12  1         0.86   0.60  1.00  0.11    9     3     75.0%
+brand-b/tone@1.0.0        8   0         0.79   0.55  0.95  0.13    5     3     62.5%
+```
+
+`-o json` emits the full `[]TemplateSummary`, including an optional
+score-distribution histogram (`buckets`) not shown in the table.
+
+### `results trend` — score over time
+
+```bash
+mizan results trend --metric <id> [--bucket day|week] [--per-criterion] \
+                    [--since <t>] [--until <t>] [-o table|json]
+```
+
+Buckets one template's results by time and reports the **mean score per bucket**
+(chronological order). `--metric` is required. Unscored results are excluded from
+each bucket's mean and counted as `n_unscored`.
+
+| Flag | Meaning |
+|---|---|
+| `--bucket day\|week` | bucket granularity (default `day`). Weeks are keyed by the UTC **Monday** that starts the ISO week. |
+| `--per-criterion` | additionally report the **per-criterion mean** per bucket, parsed from the persisted `--rubric-detail` `CustomOutput` (see below). |
+| `--since` / `--until` | bound the run time (RFC3339 or `YYYY-MM-DD`). |
+
+```console
+$ mizan results trend --metric brand-a/quality --bucket week --per-criterion
+BUCKET       N   UNSCORED  MEAN
+2026-09-07   5   0         0.81
+  tone/warmth        5             0.78
+  tone/clarity       5             0.84
+2026-09-14   7   1         0.88
+  tone/warmth        7             0.90
+  tone/clarity       7             0.86
+```
+
+Per-criterion means are available only for **rubric-detail** results — those a
+`eval … --rubric-detail` run persisted with a `per_criterion` block in
+`CustomOutput`. Buckets without that data simply omit the per-criterion rows.
+
+### Scope and honest gaps
+
+These are **deliberate** boundaries of v1 (per the approved design), not defects —
+the commands never fabricate data to fill them:
+
+- **No per-eval-set (scorecard) aggregation.** Eval-set runs (`eval run --set`)
+  are **not persisted** to the results store today, so there are no scorecard rows
+  to aggregate. Per-eval-set pass/fail rate is blocked on eval-set result
+  persistence and is out of scope here. `summary`/`trend` aggregate single
+  `eval run` / `eval pairwise` results only.
+- **No cost or token trend.** Cost is not persisted, and the native Vertex
+  `EvaluateInstances` path returns no token usage, so trend reports **score only**.
+  Token usage exists only on the genai/custom-schema path and is not trended in v1.
+- **No static HTML report.** `summary`/`trend` are CLI verbs (`-o table|json`);
+  there is no `--html` report in v1.
+
 ## Per-criterion rubric detail (`--rubric-detail`)
 
 For a `rubric` template, add `--rubric-detail` to `eval run` to get a score and
