@@ -23,16 +23,24 @@ mizan/
 ├── .claude-plugin/
 │   └── marketplace.json          # discovery index (Claude plugin marketplace)
 ├── plugins/
-│   └── mizan-eval/
-│       ├── plugin.json           # Agent Plugins v1.0.0 manifest
+│   ├── mizan-eval/
+│   │   ├── plugin.json           # Agent Plugins v1.0.0 manifest
+│   │   └── skills/
+│   │       └── run-eval/
+│   │           └── SKILL.md      # the skill
+│   └── mizan-results/
+│       ├── plugin.json
 │       └── skills/
-│           └── run-eval/
-│               └── SKILL.md      # the skill
+│           └── report-to-html/
+│               ├── SKILL.md      # the skill
+│               ├── scripts/      # render_report.py (HTML renderer)
+│               └── assets/       # report.template.html (neutral template)
 ├── scripts/
 │   └── validate-plugins.sh       # structural + frontmatter conformance gate
 └── internal/
     └── skilldocs/
-        └── drift_test.go         # -o json contract drift gate (make check)
+        ├── drift_test.go         # eval.Result -o json contract drift gate
+        └── drift_results_test.go # results.Result -o json contract drift gate
 ```
 
 The plugin manifest (`plugin.json`) uses the closed Agent Plugins schema — its
@@ -66,14 +74,17 @@ silently rot as the CLI moves.
   closed frontmatter vocabulary, `metadata` string values, executable `scripts/`,
   and every `marketplace.json` path resolving in-tree. Runs in CI and under
   `make check`.
-- **`internal/skilldocs/drift_test.go`** — a binder-style, **hermetic** drift
-  test. For `run-eval` it constructs a representative `eval.Result`, renders it
-  through the same `encoding/json` path the CLI's `-o json` uses, and asserts
-  **key-set equality** (path-anchored) against the `eval.Result` JSON block
-  documented in `SKILL.md`, plus a reflection pass proving every declared field
-  is documented. It makes **no network or ADC calls**, so it passes in CI without
-  credentials, and it fails the moment a field is added, renamed, or retagged on
-  `eval.Result` until the skill is updated.
+- **`internal/skilldocs/`** — binder-style, **hermetic** drift tests, one per
+  documented `-o json` contract. For `run-eval`, `drift_test.go` constructs a
+  representative `eval.Result`; for `report-to-html`, `drift_results_test.go`
+  constructs a representative `results.Result`. Each renders it through the same
+  `encoding/json` path the CLI's `-o json` uses and asserts **key-set equality**
+  (path-anchored) against the JSON block documented in the corresponding
+  `SKILL.md`, plus a reflection pass proving every declared field — including
+  omitempty and slice-element fields — is documented. They make **no network or
+  ADC calls**, so they pass in CI without credentials, and they fail the moment a
+  field is added, renamed, or retagged on the underlying struct until the skill
+  is updated.
 
 Both are aggregated by `make check` (which also runs build/vet/fmt/lint/vuln and
 the full `go test ./...`).
@@ -87,6 +98,7 @@ The primary channel is the **Claude plugin marketplace** (the root
 # In Claude Code:
 /plugin marketplace add ghchinoy/mizan
 /plugin install mizan-eval@mizan
+/plugin install mizan-results@mizan
 ```
 
 The Claude CLI resolves each `skills` entry in `marketplace.json`
@@ -103,9 +115,11 @@ npx skills add ghchinoy/mizan --skill run-eval
 
 # Gemini CLI
 gemini skills install ghchinoy/mizan --path plugins/mizan-eval/skills/run-eval
+gemini skills install ghchinoy/mizan --path plugins/mizan-results/skills/report-to-html
 
 # Or copy the skill directory into your agent's skills dir
 cp -r plugins/mizan-eval/skills/run-eval ~/.claude/skills/
+cp -r plugins/mizan-results/skills/report-to-html ~/.claude/skills/
 ```
 
 All channels require the `mizan` CLI on PATH; live evaluations additionally need
@@ -157,6 +171,49 @@ mizan results show <run-id> -o json
 See the skill source at
 [`plugins/mizan-eval/skills/run-eval/SKILL.md`](../plugins/mizan-eval/skills/run-eval/SKILL.md).
 
+### `mizan-results` — results reporting
+
+#### `report-to-html` (flagship)
+
+Turn eval results already persisted in the local store into **one self-contained,
+standalone HTML report** — a summary table, a score distribution, and a per-metric
+trend over time. The report embeds its CSS, JavaScript, and data inline, so it
+opens directly from the filesystem with **no server and no external request**; it
+is deliberately **not** coupled to the docs-site styling.
+
+The data source is the real, ships-today command `mizan results list -o json` (a
+JSON array of `results.Result`, newest first). There is **no `mizan results
+summary`/`trend` command**, and this skill deliberately does **not** use
+`results list --tag` (that flag exists but tag-filtered discovery is out of scope
+here) — filtering uses the real flags below, and all summary/trend numbers are
+computed **client-side** by the bundled renderer:
+
+```bash
+# query + filter with the real flags (metric / namespace / since / limit)
+mizan results list --namespace <ns> --since 2026-08-01 -o json > results.json
+
+# render one self-contained report.html (paths passed as argv, not interpolated)
+python3 plugins/mizan-results/skills/report-to-html/scripts/render_report.py \
+  --input results.json --output report.html --threshold 3
+
+# or stream straight from the CLI over stdin
+mizan results list -o json | \
+  python3 plugins/mizan-results/skills/report-to-html/scripts/render_report.py \
+  --output report.html --threshold 3
+```
+
+The renderer aggregates over `Outcome.Score` (mean/min/max, pass-rate at
+`--threshold`, distribution), groups by `Template.ID`, and buckets by `RunAt` for
+the trend; pairwise results (a `PairwiseChoice`, no `Score`) are tallied
+separately. It reads the **local** store only — **no network, no credentials** —
+and **degrades gracefully on an empty store**, producing a valid report that says
+there are no results yet. The bundled `assets/report.template.html` is the neutral
+template it fills; the `results.Result` `-o json` contract is covered by the
+hermetic drift test in `internal/skilldocs`.
+
+See the skill source at
+[`plugins/mizan-results/skills/report-to-html/SKILL.md`](../plugins/mizan-results/skills/report-to-html/SKILL.md).
+
 ## Non-goals
 
 - **No server / self-contained.** Skills are static instruction files plus
@@ -169,6 +226,9 @@ See the skill source at
 
 ## Roadmap
 
-`run-eval` is the first vertical slice. Planned fan-out (each conditional on this
-slice) includes a flagship `report-to-html` results skill, `run-eval-set`, and
-template-authoring skills. See the project roadmap for sequencing.
+`run-eval` was the first vertical slice; the flagship `report-to-html`
+(`mizan-results`) results skill has shipped on top of it. Planned fan-out includes
+`run-eval-set`, template-authoring skills, and Tier-2 onboarding/discovery skills.
+Capabilities that would need unbuilt CLI commands — a `results summary`/`trend`
+enrichment of `report-to-html`, tag-filtered discovery, heuristic authoring — are
+deferred, not stubbed. See the project roadmap for sequencing.

@@ -16,6 +16,14 @@
       "skills": [
         "./skills/run-eval"
       ]
+    },
+    {
+      "name": "mizan-results",
+      "source": "./plugins/mizan-results",
+      "description": "Turn stored Mizan eval results into a single self-contained, standalone HTML report (summary, score distribution, per-metric trend) from `results list -o json`.",
+      "skills": [
+        "./skills/report-to-html"
+      ]
     }
   ]
 }
