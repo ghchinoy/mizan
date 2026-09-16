@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -363,8 +364,8 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// matchesInMemory applies the slice-valued filters (Modalities, Kinds) that are
-// stored as JSON and therefore not expressible in the SQL WHERE clause.
+// matchesInMemory applies the slice-valued filters (Modalities, Kinds, Tags)
+// that are stored as JSON and therefore not expressible in the SQL WHERE clause.
 func matchesInMemory(t *registry.MetricTemplate, f registry.ListFilter) bool {
 	if len(f.Kinds) > 0 {
 		ok := false
@@ -389,6 +390,13 @@ func matchesInMemory(t *registry.MetricTemplate, f registry.ListFilter) bool {
 			}
 		}
 		if !ok {
+			return false
+		}
+	}
+	// AND-narrowing: every requested tag must be present on the template
+	// (case-sensitive exact match). An empty f.Tags imposes no constraint.
+	for _, want := range f.Tags {
+		if !slices.Contains(t.Tags, want) {
 			return false
 		}
 	}
