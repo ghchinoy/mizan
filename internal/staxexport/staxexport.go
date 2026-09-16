@@ -44,6 +44,8 @@
 package staxexport
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -55,19 +57,99 @@ import (
 )
 
 // ModelInput is a Stax evaluator prompt/system input: a role plus a template
-// body carrying {{stax_var}} substitutions.
+// body carrying {{stax_var}} substitutions. It mirrors Stax's ModelInput entity
+// (google-labs-code/stax server/.../entitities/ModelInput.java), whose message
+// content is a role (InputRole enum: USER, ASSISTANT, SYSTEM, …) plus body text.
 type ModelInput struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
 }
 
 // Evaluator is a single Stax LLMEvaluator: a prompt template, an optional system
-// instruction, and the named output_categories mapped to their numeric scores.
+// instruction (a ModelInput with role "system" — spec §3, matching Stax's
+// InputRole.SYSTEM), and the named output_categories mapped to their numeric
+// scores. It has a custom MarshalJSON (see below).
 type Evaluator struct {
 	Name             string         `json:"name"`
 	System           *ModelInput    `json:"system,omitempty"`
 	Prompt           ModelInput     `json:"prompt"`
 	OutputCategories map[string]int `json:"output_categories"`
+}
+
+// MarshalJSON renders the evaluator with output_categories in ascending
+// numeric-value order (ties broken by category name), not the lexical key order
+// a plain map[string]int would emit. A map would serialize "5-great" before
+// "score-2" (because '5' < 's'), which neither matches Stax's ordered category
+// list (google-labs-code/stax LLMEvaluator DTO: output_categories is a
+// List<OutputCategoryDTO>, an ORDERED list) nor the interchange spec's §6 worked
+// examples. Emitting in value order keeps the wire bytes deterministic and makes
+// the JSON self-consistent (1→N). Field order is fixed: name, system (omitted
+// when absent), prompt, output_categories. HTML escaping is disabled so template
+// braces stay literal ({{output}}), independent of the caller's encoder settings.
+func (e Evaluator) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	name, err := marshalCompact(e.Name)
+	if err != nil {
+		return nil, err
+	}
+	b.WriteString(`{"name":`)
+	b.Write(name)
+	if e.System != nil {
+		sys, err := marshalCompact(e.System)
+		if err != nil {
+			return nil, err
+		}
+		b.WriteString(`,"system":`)
+		b.Write(sys)
+	}
+	prompt, err := marshalCompact(e.Prompt)
+	if err != nil {
+		return nil, err
+	}
+	b.WriteString(`,"prompt":`)
+	b.Write(prompt)
+
+	type cat struct {
+		name  string
+		value int
+	}
+	ordered := make([]cat, 0, len(e.OutputCategories))
+	for k, v := range e.OutputCategories {
+		ordered = append(ordered, cat{k, v})
+	}
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].value != ordered[j].value {
+			return ordered[i].value < ordered[j].value
+		}
+		return ordered[i].name < ordered[j].name
+	})
+	b.WriteString(`,"output_categories":{`)
+	for i, o := range ordered {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		key, err := marshalCompact(o.name)
+		if err != nil {
+			return nil, err
+		}
+		b.Write(key)
+		fmt.Fprintf(&b, ":%d", o.value)
+	}
+	b.WriteString("}}")
+	return b.Bytes(), nil
+}
+
+// marshalCompact encodes v as compact JSON with HTML escaping disabled, so a
+// prompt body's {{output}} braces (and any <, >, & in user text) survive
+// verbatim. The caller's encoder re-indents this output uniformly.
+func marshalCompact(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimRight(buf.Bytes(), "\n"), nil
 }
 
 // Options controls the export.
@@ -163,6 +245,9 @@ func checkSupported(t registry.MetricTemplate) error {
 	default:
 		return fmt.Errorf("staxexport: metric kind %q is unsupported in v1", t.Kind)
 	}
+	// An empty Modalities set (none declared) is treated as supported: it carries
+	// no non-text modality, and text is the default/only faithful Stax target. Only
+	// an explicitly-declared non-text modality fails closed.
 	for _, m := range t.Modalities {
 		if m != registry.ModalityText {
 			return fmt.Errorf("staxexport: modality %q is unsupported in v1: Stax evaluators are text-centric and non-text modalities have no faithful target; export a text-modality template instead", m)

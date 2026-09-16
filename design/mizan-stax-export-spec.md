@@ -69,7 +69,7 @@ pair**, plus an overall rollup.
 | Mizan | Stax `LLMEvaluator` | Fidelity |
 |---|---|---|
 | `MetricPromptTemplate` | prompt `ModelInput` (role `user`) template | **direct** — subject to the placeholder rename map (§4) |
-| `SystemInstruction` | `system.instruction` `ModelInput` | **direct** |
+| `SystemInstruction` | `system` `ModelInput` (role `system`; same `{role,content}` shape as `prompt`) | **direct** — see §6.2 wire-shape note |
 | input placeholders (`{{response}}`, …) | `{{output}}` / `{{prompt}}` / `{{expected_output}}` | **rename map required** (§4) — Mizan field names ≠ Stax reserved vars |
 | `pointwise` + `RatingRubric` (band→description) | `output_categories` (name→numeric) | **direct-ish** — Likert bands become categories, one evaluator |
 | `rubric` (`RubricGroups`, per-criterion Likert) | `output_categories` (single categorical) | **LOSSY — see §5 options A/B** |
@@ -116,6 +116,9 @@ prompt body and drops the field from any category/prompt that Stax supplies impl
    be exported without renaming the source template.
 5. Exact placeholder set is validated against the template's declared `Inputs` (`model.go` `InputSpec`)
    — every `{{var}}` in the body must be a declared input, mirroring Mizan's own `validatePlaceholders`.
+   (Implementation note: the exporter reads templates that the registry already validated on write, so it
+   relies on that upstream `validatePlaceholders` guarantee rather than re-deriving it — the exporter's own
+   hard errors are the *rename* concerns of rules 2–3, which the registry does not check.)
 
 ---
 
@@ -282,17 +285,28 @@ spec:
 ```
 
 Export (1 evaluator): `{{response}}` renames to `{{output}}` (§4); `systemInstruction` becomes a
-`system.instruction` `ModelInput`; the `default` band anchors 1/5 name the anchored categories, interior
-bands use `score-{band}`:
+`system` `ModelInput` with role `system` (see the wire-shape note below); the `default` band anchors 1/5
+name the anchored categories, interior bands use `score-{band}`:
 
 ```json
 {
   "name": "acme/pointwise-quality",
+  "system": { "role": "system", "content": "Be strict." },
   "prompt": { "role": "user", "content": "Rate the response: {{output}}" },
-  "system": { "instruction": "Be strict." },
   "output_categories": { "1-poor": 1, "score-2": 2, "score-3": 3, "score-4": 4, "5-great": 5 }
 }
 ```
+
+**System-instruction wire shape (resolved against Stax ground truth).** The `system` value is a
+`ModelInput` — the same `{ "role", "content" }` shape as `prompt` — with role `system`, **not** a bespoke
+`{ "instruction": … }` object. This matches Stax's own model: a `ModelInput`
+(`google-labs-code/stax` → `server/.../entitities/ModelInput.java`) carries a `role`
+(`InputRole` enum: `USER`, `ASSISTANT`, `SYSTEM`, `DEVELOPER`, `TOOL`, `FUNCTION`) plus body text, and an
+`LLMEvaluator` holds a `List<ModelInput> inputs` — there is no `instruction` field anywhere. Fields are
+emitted in the order `name`, `system` (omitted when the template has no `systemInstruction`), `prompt`,
+`output_categories`; `output_categories` are ordered by ascending numeric value (Stax's
+`output_categories` is an ordered `List<OutputCategoryDTO>`). These bytes are locked by golden tests in
+`cmd/mizan/export_golden_test.go`.
 
 If the template omitted `ratingRubric`, the categories would be `{ "score-1":1, …, "score-5":5 }`. No
 per-criterion decomposition is involved, so pointwise export is lossless within the mapping.
