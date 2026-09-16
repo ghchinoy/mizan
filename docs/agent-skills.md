@@ -145,7 +145,7 @@ A successful run is persisted by default (opt out with `--no-store`), but the ru
 JSON does not carry the RunID; retrieve it afterward:
 
 ```bash
-mizan results list --metric <namespace>/<slug> --limit 1 -o json   # read .RunID
+mizan results list --metric <namespace>/<slug> --limit 1 -o json   # array, newest first; RunID is .[0].RunID
 mizan results show <run-id> -o json
 ```
 
