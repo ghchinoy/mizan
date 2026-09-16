@@ -21,9 +21,18 @@
     {
       "name": "mizan-results",
       "source": "./plugins/mizan-results",
-      "description": "Turn stored Mizan eval results into a single self-contained, standalone HTML report (summary, score distribution, per-metric trend) from `results list -o json`.",
+      "description": "Turn stored Mizan eval results into a single self-contained, standalone HTML report (summary, score distribution, per-metric trend) from `results list -o json`, and triage a single past run (provenance, verdict explanation, next steps) from `results show`/`results list -o json`.",
       "skills": [
-        "./skills/report-to-html"
+        "./skills/report-to-html",
+        "./skills/triage-a-result"
+      ]
+    },
+    {
+      "name": "mizan-setup",
+      "source": "./plugins/mizan-setup",
+      "description": "Configure Mizan for first use: inspect the resolved configuration via `config show -o json`, persist project/location/default-model/results-store settings with `config set`, confirm the build with `version`, and check (never store) Application Default Credentials.",
+      "skills": [
+        "./skills/configure-mizan"
       ]
     },
     {
@@ -32,7 +41,8 @@
       "description": "Author, validate (creds-free), and share Mizan metric-template packs: scaffold a pack, create templates via the mizan CLI, run `pack validate` (the CI PR gate), and the export->PR->import collaborator loop; plus generate a rubric from a brand book (suggest-first, agent-side synthesis) and freeze it into the registry.",
       "skills": [
         "./skills/author-and-validate-a-template-pack",
-        "./skills/rubric-generate-from-brand-book"
+        "./skills/rubric-generate-from-brand-book",
+        "./skills/discover-and-import-templates"
       ]
     }
   ]
