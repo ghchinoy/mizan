@@ -361,10 +361,11 @@ See the skill source at
 ## Roadmap
 
 `run-eval` was the first vertical slice; the flagship `report-to-html`
-(`mizan-results`) results skill shipped on top of it, and `run-eval-set` extends
-the `mizan-eval` plugin with multi-concern scorecards and CI gating. Planned
-fan-out includes template-authoring skills and Tier-2 onboarding/discovery skills.
-Capabilities that would need unbuilt CLI commands — a `results summary`/`trend`
-enrichment of `report-to-html`, per-eval-set persistence/trend, tag-filtered
-discovery, heuristic authoring — are deferred, not stubbed. See the project roadmap
-for sequencing.
+(`mizan-results`) results skill shipped on top of it, `run-eval-set` extends the
+`mizan-eval` plugin with multi-concern scorecards and CI gating, and
+`author-and-validate-a-template-pack` (`mizan-authoring`) covers creds-free pack
+authoring and the export→PR→import loop. Planned fan-out includes Tier-2
+onboarding/discovery skills. Capabilities that would need unbuilt CLI commands — a
+`results summary`/`trend` enrichment of `report-to-html`, per-eval-set
+persistence/trend, tag-filtered discovery, heuristic authoring — are deferred, not
+stubbed. See the project roadmap for sequencing.
