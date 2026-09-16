@@ -1,0 +1,23 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mizan-eval",
+  "version": "0.1.0",
+  "description": "Run Mizan evaluations from an agent: score a single response or compare two responses against a metric template via the mizan CLI, reasoning over the -o json result. Use when you need to evaluate an asset/response against guidance and explain the verdict.",
+  "author": {
+    "name": "ghchinoy",
+    "url": "https://github.com/ghchinoy"
+  },
+  "homepage": "https://github.com/ghchinoy/mizan/tree/main/plugins/mizan-eval",
+  "repository": "https://github.com/ghchinoy/mizan",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mizan",
+    "evaluation",
+    "llm-as-judge",
+    "pairwise",
+    "rubric",
+    "vertex-ai",
+    "gen-ai-evaluation",
+    "cli"
+  ]
+}

@@ -190,3 +190,28 @@ jobs:
           fi
 
           echo "doc-drift guard passed (code changed: ${CODE_CHANGED}, docs changed: ${DOC_CHANGED})."
+
+  plugins:
+    name: agent plugins / skills validate
+    # Structural + frontmatter conformance for the agent plugins under plugins/
+    # (Agent Plugins v1.0.0 + Agent Skills spec). The COMPLEMENTARY -o json
+    # contract check (internal/skilldocs drift test) already runs in the
+    # build-test job under `go test ./...`; this job gates the PACKAGING.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate plugins & skills
+        run: |
+          chmod +x scripts/validate-plugins.sh
+          ./scripts/validate-plugins.sh

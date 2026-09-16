@@ -76,6 +76,11 @@ const DOC_MAP = {
     outFile: 'roadmap.md',
     route: `${BASE}/guides/roadmap/`,
   },
+  'agent-skills.md': {
+    outDir: GUIDES_DIR,
+    outFile: 'agent-skills.md',
+    route: `${BASE}/guides/agent-skills/`,
+  },
   // ---- Reference & Design ----
   'architecture-final.md': {
     outDir: REFERENCE_DIR,

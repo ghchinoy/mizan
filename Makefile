@@ -31,7 +31,7 @@ LDFLAGS        := -X $(VERSION_PKG).version=$(VERSION) \
 
 .DEFAULT_GOAL := help
 
-.PHONY: help build install desktop test integration-test cover vet fmt fmt-check lint vuln clean
+.PHONY: help build install desktop test integration-test cover vet fmt fmt-check lint vuln clean validate-plugins check
 
 # COVER_PROFILE is the coverage output file; override to relocate it.
 COVER_PROFILE  ?= coverage.out
@@ -92,3 +92,19 @@ vuln: ## Run govulncheck ./...
 
 clean: ## Remove the bin/ directory
 	rm -rf $(BIN_DIR)
+
+# validate-plugins: structural + frontmatter conformance for the agent plugins
+# under plugins/ (Agent Plugins v1.0.0 + Agent Skills spec). Needs python3 with
+# PyYAML. This is the sibling gate to the in-process skill-doc drift test
+# (internal/skilldocs, run under `test`): the script checks the plugin/skill
+# PACKAGING, the drift test checks the -o json CONTRACT the skills document.
+validate-plugins: ## Validate agent plugins/skills packaging (plugins/, marketplace.json)
+	./scripts/validate-plugins.sh
+
+# check: the CI-equivalent aggregate gate. Runs the same build/vet/fmt/lint/vuln/
+# test gates CI runs (test includes internal/skilldocs' skill-doc drift test via
+# `go test ./...`) AND the plugin/skill packaging validator. The CI doc-drift
+# guard is intentionally NOT part of `check`: it diffs a PR against its base ref
+# and is only meaningful in the pull_request CI context, not a local aggregate.
+check: build vet fmt-check lint vuln test validate-plugins ## Run all quality gates (CI-equivalent) + plugin validation
+	@echo "make check: all gates passed."
