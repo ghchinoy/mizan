@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/results"
 	"github.com/ghchinoy/mizan/internal/wire"
 )
@@ -42,51 +44,117 @@ func newResultsListCmd() *cobra.Command {
 		namespace string
 		since     string
 		limit     int
+		tags      []string
 	)
 	cmd := &cobra.Command{
-		Use:   "list [--metric <id>] [--namespace <ns>] [--since <RFC3339-or-date>] [--limit N]",
+		Use:   "list [--metric <id>] [--namespace <ns>] [--tag <T>]... [--since <RFC3339-or-date>] [--limit N]",
 		Short: "List stored eval results (newest first)",
 		Long: "List eval results persisted by `eval run` / `eval pairwise`.\n\n" +
 			"Filter by template id (--metric), id namespace (--namespace), and run\n" +
 			"time (--since, an RFC3339 timestamp or a YYYY-MM-DD date). --limit caps\n" +
-			"the number of rows (0 = backend default).",
+			"the number of rows (0 = backend default).\n\n" +
+			"--tag filters to results whose template currently carries ALL given tags\n" +
+			"(repeatable, AND-narrowing, case-sensitive exact match). Because the\n" +
+			"results store does not persist tags, --tag is a registry->results join:\n" +
+			"tags are resolved to template ids against the registry's CURRENT tags,\n" +
+			"then results for those templates are merged newest-first. --since/--limit\n" +
+			"are applied AFTER the merge.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := mustConfig()
 			if err != nil {
 				return err
 			}
 
-			filter := results.ResultFilter{
-				TemplateID: metric,
-				Namespace:  namespace,
-				Limit:      limit,
-			}
+			var sinceT time.Time
 			if since != "" {
-				t, err := parseSince(since)
+				sinceT, err = parseSince(since)
 				if err != nil {
 					return err
 				}
-				filter.Since = t
 			}
 
-			svc, closeSvc, err := wire.OpenResultService(cfg)
+			resultSvc, closeResults, err := wire.OpenResultService(cfg)
 			if err != nil {
 				return err
 			}
-			defer func() { _ = closeSvc() }()
+			defer func() { _ = closeResults() }()
 
-			rs, err := svc.List(cmd.Context(), filter)
-			if err != nil {
-				return err
+			var rs []results.Result
+			if len(tags) > 0 {
+				// Registry->results tag join (design §4.A step 4). The results store
+				// does not persist tags, so --tag cannot be a store filter: resolve
+				// the tag set to template ids via the registry's CURRENT tags, query
+				// results per id, then merge. This reflects each template's current
+				// tags by design (immutable results carry point-in-time provenance,
+				// not a stale copy of a tag that has since moved).
+				regSvc, closeReg, err := wire.OpenService(cfg)
+				if err != nil {
+					return err
+				}
+				defer func() { _ = closeReg() }()
+
+				tmpls, err := regSvc.List(cmd.Context(), registry.ListFilter{Tags: tags, Namespace: namespace})
+				if err != nil {
+					return err
+				}
+				perTemplate := make([][]results.Result, 0, len(tmpls))
+				for _, t := range tmpls {
+					sub, err := resultSvc.List(cmd.Context(), results.ResultFilter{TemplateID: t.ID})
+					if err != nil {
+						return err
+					}
+					perTemplate = append(perTemplate, sub)
+				}
+				rs = mergeTaggedResults(perTemplate, sinceT, limit)
+			} else {
+				rs, err = resultSvc.List(cmd.Context(), results.ResultFilter{
+					TemplateID: metric,
+					Namespace:  namespace,
+					Since:      sinceT,
+					Limit:      limit,
+				})
+				if err != nil {
+					return err
+				}
 			}
 			return renderResultList(cmd.OutOrStdout(), cmd.ErrOrStderr(), rs)
 		},
 	}
 	cmd.Flags().StringVar(&metric, "metric", "", "filter by exact template id (<namespace>/<slug>)")
 	cmd.Flags().StringVar(&namespace, "namespace", "", "filter by template id namespace")
+	cmd.Flags().StringSliceVar(&tags, "tag", nil, "filter to results whose template currently carries ALL given tags (repeatable)")
 	cmd.Flags().StringVar(&since, "since", "", "only results at or after this time (RFC3339 or YYYY-MM-DD)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results to return (0 = backend default)")
 	return cmd
+}
+
+// mergeTaggedResults is the pure core of the registry->results tag join (design
+// §4.A step 4). It concatenates the per-template result slices, orders the merged
+// set newest-first, and applies --since/--limit AFTER the merge (a per-template
+// limit would truncate each template independently and miss newer rows from other
+// templates). An empty input (no template resolved the tag set) yields no rows,
+// which renderResultList surfaces as the existing "no results found" note.
+func mergeTaggedResults(perTemplate [][]results.Result, since time.Time, limit int) []results.Result {
+	var merged []results.Result
+	for _, rs := range perTemplate {
+		merged = append(merged, rs...)
+	}
+	sort.SliceStable(merged, func(i, j int) bool {
+		return merged[i].RunAt.After(merged[j].RunAt)
+	})
+	if !since.IsZero() {
+		kept := merged[:0]
+		for _, r := range merged {
+			if !r.RunAt.Before(since) {
+				kept = append(kept, r)
+			}
+		}
+		merged = kept
+	}
+	if limit > 0 && len(merged) > limit {
+		merged = merged[:limit]
+	}
+	return merged
 }
 
 // newResultsShowCmd wires `mizan results show <run-id>`. It fetches one result by
