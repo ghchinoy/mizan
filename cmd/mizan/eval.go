@@ -344,6 +344,15 @@ func newEvalRunCmd() *cobra.Command {
 				return err
 			}
 
+			// kind:heuristic is a non-LLM, credential-free path (design §4.B): it
+			// resolves NO autorater and makes NO Vertex/genai call, so it must NOT
+			// go through openEngine (wire.NewEngine builds genai/native clients that
+			// need ADC). Build a deliberately client-free engine instead and run it
+			// with NO ADC and NO network — a heuristic works entirely offline.
+			if tmpl.Kind == registry.KindHeuristic {
+				return runHeuristicMetric(cmd, cfg, tmpl, inst, stats, noStore, noHostLabel)
+			}
+
 			// Validate the user-supplied --model BEFORE it is echoed to stderr or
 			// composed into a Vertex resource name, so a malformed value fails
 			// locally instead of injecting into the pre-flight line / remote call.
@@ -420,6 +429,45 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&noStore, "no-store", false, "do not persist this run's result to the eval results store (persistence is on by default)")
 	cmd.Flags().BoolVar(&noHostLabel, "no-host-label", false, "omit the machine hostname (HostLabel) from the stored result while still persisting the rest (field-level privacy opt-out)")
 	return cmd
+}
+
+// runHeuristicMetric executes a kind:heuristic template WITHOUT any credential,
+// client, or network access (design §4.B). It deliberately does NOT use
+// openEngine (wire.NewEngine constructs genai/native clients that need ADC):
+// instead it builds a client-free engine (all client seams nil) so the run works
+// entirely offline. A heuristic resolves NO autorater, so the pre-flight echoes
+// "heuristic: no autorater" instead of the resolved project/location/model line.
+func runHeuristicMetric(cmd *cobra.Command, cfg *config.Config, tmpl *registry.MetricTemplate, inst eval.Instance, stats, noStore, noHostLabel bool) error {
+	// A client-free engine: no native client, no genai, no global — a heuristic
+	// run never reaches any of them (runHeuristic is a free function by design).
+	eng := eval.NewEngine(nil, cfg.ProjectID, cfg.Location)
+
+	// Pre-flight: a heuristic makes no model call, so state that plainly (parallels
+	// printPreflight's default-on echo, on stderr so it never pollutes stdout).
+	fmt.Fprintf(cmd.ErrOrStderr(), "mizan: heuristic: no autorater (deterministic %s check, no network)\n", sanitizeEchoValue(heuristicTypeLabel(tmpl)))
+
+	runStart := time.Now()
+	res, err := eng.Run(cmd.Context(), *tmpl, inst)
+	if err != nil {
+		return err
+	}
+	emitWarnings(cmd.ErrOrStderr(), res.Warnings)
+	if err := renderResult(cmd.OutOrStdout(), res, stats); err != nil {
+		return err
+	}
+	if !noStore {
+		storeResult(cmd, cfg, "eval run", *tmpl, inst, res, storeHookOpts{RunAt: runStart, NoHostLabel: noHostLabel})
+	}
+	return nil
+}
+
+// heuristicTypeLabel returns the heuristic check type for the pre-flight echo, or
+// a neutral placeholder when the spec is absent (a defect the engine reports).
+func heuristicTypeLabel(tmpl *registry.MetricTemplate) string {
+	if tmpl.Heuristic != nil && tmpl.Heuristic.Type != "" {
+		return string(tmpl.Heuristic.Type)
+	}
+	return "unknown"
 }
 
 func newEvalPairwiseCmd() *cobra.Command {
