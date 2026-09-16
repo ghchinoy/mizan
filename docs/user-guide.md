@@ -362,7 +362,22 @@ ID                NAME         KIND       MODEL
 demo/conciseness  Conciseness  pointwise  gemini-2.5-flash
 ```
 
-Filter with `--namespace <prefix>` or `--kind <kind>`.
+Filter with `--namespace <prefix>`, `--kind <kind>`, or `--tag <tag>`.
+
+The `--tag` flag is **repeatable** and **AND-narrowing**: a template is listed
+only if it carries **every** tag you pass. Matching is **case-sensitive exact**
+(`--tag Quality` does not match a `quality` tag). Omitting `--tag` lists every
+template, unchanged.
+
+```sh
+# templates tagged BOTH "quality" AND "safety"
+$ mizan registry list --tag quality --tag safety
+ID                NAME         KIND       MODEL
+demo/conciseness  Conciseness  pointwise  gemini-2.5-flash
+```
+
+Tags are authored with `registry create --tag` (also repeatable); use
+`registry list --tag` to discover templates across the folksonomy.
 
 ### Get
 

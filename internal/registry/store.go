@@ -30,9 +30,10 @@ var ErrNotFound = errors.New("registry: template not found")
 type ListFilter struct {
 	Modalities []Modality
 	Kinds      []MetricKind
-	Namespace  string // e.g. "google-brand" (id prefix)
-	Source     string // provenance filter (which pack/url it came from)
-	DirtyOnly  bool   // locally-modified-since-import only
+	Tags       []string // AND-narrowing set: a template must carry every tag; empty = no tag filter
+	Namespace  string   // e.g. "google-brand" (id prefix)
+	Source     string   // provenance filter (which pack/url it came from)
+	DirtyOnly  bool     // locally-modified-since-import only
 }
 
 // Store is the local persistence interface over stored metric templates. The
