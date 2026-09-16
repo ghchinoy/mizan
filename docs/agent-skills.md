@@ -236,10 +236,11 @@ and let the exit code fail the build. The `evalset.EvalSetResult` `-o json` cont
 and this exit-code table are both covered by hermetic gates (the drift test in
 `internal/skilldocs` and the exit-code test in `cmd/mizan`).
 
-**Out of scope:** eval-set *results* are **not** persisted, and there is **no**
-per-eval-set history/trend command — do not reference `mizan results` for a set's
-history or a `results summary`/`trend` command (those do not exist). Per-eval-set
-persistence/trend is a documented follow-up, not a shipping capability.
+**Out of scope:** eval-set *results* are **not** persisted, so there is **no**
+per-eval-set history/trend. The `results summary`/`trend` commands **do exist**, but
+they aggregate persisted single-eval runs — not eval-sets — so do not point the user
+at `mizan results` for a set's history. Per-eval-set persistence/trend is a
+documented follow-up, not a shipping capability.
 
 See the skill source at
 [`plugins/mizan-eval/skills/run-eval-set/SKILL.md`](../plugins/mizan-eval/skills/run-eval-set/SKILL.md).
@@ -255,11 +256,12 @@ opens directly from the filesystem with **no server and no external request**; i
 is deliberately **not** coupled to the docs-site styling.
 
 The data source is the real, ships-today command `mizan results list -o json` (a
-JSON array of `results.Result`, newest first). There is **no `mizan results
-summary`/`trend` command**, and this skill deliberately does **not** use
-`results list --tag` (that flag exists but tag-filtered discovery is out of scope
-here) — filtering uses the real flags below, and all summary/trend numbers are
-computed **client-side** by the bundled renderer:
+JSON array of `results.Result`, newest first). The `mizan results summary`/`trend`
+commands **do exist**, but this skill deliberately does **not** use them (their
+summary/trend enrichment is out of scope here — deferred, B3), nor `results list
+--tag` (that flag exists but tag-filtered discovery is out of scope here) —
+filtering uses the real flags below, and all summary/trend numbers are computed
+**client-side** by the bundled renderer:
 
 ```bash
 # query + filter with the real flags (metric / namespace / since / limit)
@@ -309,10 +311,11 @@ re-run `run-eval`, pin the autorater via `configure-mizan`, pick a better templa
 via `discover-and-import-templates`, or compare peers via `report-to-html`).
 
 It does **not** use `results list --tag` (that flag exists but tag-filtered
-discovery is deferred) and references no `results summary`/`trend` command (none
-exists). The `results.Result` `-o json` contract is documented and hermetically
-drift-gated **once** (under `report-to-html`, in `internal/skilldocs`); triage
-reads from that single shape rather than re-declaring it.
+discovery is deferred), nor `results summary`/`trend` (those commands exist, but
+their summary/trend enrichment is out of scope for this skill — deferred, B3). The
+`results.Result` `-o json` contract is documented and hermetically drift-gated
+**once** (under `report-to-html`, in `internal/skilldocs`); triage reads from that
+single shape rather than re-declaring it.
 
 See the skill source at
 [`plugins/mizan-results/skills/triage-a-result/SKILL.md`](../plugins/mizan-results/skills/triage-a-result/SKILL.md).
@@ -500,8 +503,9 @@ never clobbers a locally edited (dirty) template. That shape is the **same
 **Deferred surface (explicit disclaimer):** `registry list --tag` exists but
 **tag-filtered discovery is deferred / out of scope** — the skill narrows with
 `--namespace`/`--kind` and matches tags **client-side**, and never invokes
-`--tag`. It references no `kind: heuristic` authoring and no `results
-summary`/`trend` command (none exist).
+`--tag`. It references no `kind: heuristic` authoring, and does not invoke `results
+summary`/`trend` (those commands exist, but their enrichment is out of scope for
+this skill — deferred, B3).
 
 See the skill source at
 [`plugins/mizan-authoring/skills/discover-and-import-templates/SKILL.md`](../plugins/mizan-authoring/skills/discover-and-import-templates/SKILL.md).
@@ -563,8 +567,9 @@ onboarding/discovery fan-out then landed: `discover-and-import-templates`
 (`mizan-authoring`) for pulling in community/starter templates,
 `configure-mizan` (`mizan-setup`) for first-run configuration and the ADC check,
 and `triage-a-result` (`mizan-results`) for explaining and debugging a single
-past run. Capabilities that would need unbuilt CLI commands — a
-`results summary`/`trend` enrichment of `report-to-html`, per-eval-set
+past run. Capabilities that remain out of scope — the `results summary`/`trend`
+enrichment of `report-to-html` (those commands exist, but wiring their
+summary/trend output into the report is deferred — B3), per-eval-set
 persistence/trend, tag-filtered discovery (`registry list`/`results list --tag`),
 heuristic authoring (`kind: heuristic`), and an MCP-server-backed variant
 (`mizan mcp`) — are deferred, not stubbed. See the project roadmap for sequencing.

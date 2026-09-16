@@ -58,8 +58,10 @@ The `RunID` of any element (e.g. `.[0].RunID` for the newest) is what you pass t
 > **No tag filter here.** This skill does **not** use `results list --tag`: that
 > flag exists but tag-filtered discovery is **deferred / out of scope**. Narrow
 > with `--metric`/`--namespace`/`--since`/`--limit`, then match any tag-like
-> intent **client-side** over each result's `Template` data. Do not reference
-> `results summary`/`trend` (no such command) or `kind: heuristic` authoring.
+> intent **client-side** over each result's `Template` data. Do not invoke
+> `results summary`/`trend` here either: those commands **exist**, but their
+> summary/trend enrichment is **out of scope for triage (deferred — B3)**, and
+> `kind: heuristic` authoring is likewise out of scope.
 
 ## Step 2 — pull the full record (`mizan results show <run-id> -o json`)
 
