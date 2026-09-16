@@ -167,14 +167,15 @@ func marshalEvaluators(evs []staxexport.Evaluator) ([]byte, error) {
 }
 
 // writeExportOutput writes the rendered JSON to stdout (out == "") or to the
-// named file (0o644). The file is created only after a successful conversion, so
-// a fail-closed export never leaves a partial or stale file.
+// named file (0o600, matching the registry's own pack-write perms). The file is
+// created only after a successful conversion, so a fail-closed export never
+// leaves a partial or stale file.
 func writeExportOutput(stdout io.Writer, out string, data []byte) error {
 	if out == "" {
 		_, err := stdout.Write(data)
 		return err
 	}
-	if err := os.WriteFile(out, data, 0o644); err != nil {
+	if err := os.WriteFile(out, data, 0o600); err != nil {
 		return fmt.Errorf("write %q: %w", out, err)
 	}
 	return nil
