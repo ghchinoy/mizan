@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mizan-results",
+  "version": "0.1.0",
+  "description": "Turn stored Mizan eval results into a self-contained, standalone HTML report from an agent: query results via the mizan CLI over -o json, aggregate client-side, and render a single offline report.html. Use when you need to review, summarize, or visualize past evaluation results as an HTML report.",
+  "author": {
+    "name": "ghchinoy",
+    "url": "https://github.com/ghchinoy"
+  },
+  "homepage": "https://github.com/ghchinoy/mizan/tree/main/plugins/mizan-results",
+  "repository": "https://github.com/ghchinoy/mizan",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mizan",
+    "evaluation",
+    "results",
+    "report",
+    "html",
+    "dashboard",
+    "trend",
+    "gen-ai-evaluation",
+    "cli"
+  ]
+}
