@@ -163,6 +163,42 @@ func TestYAMLCodecRoundTripCustomSchema(t *testing.T) {
 	}
 }
 
+// TestYAMLCodecRoundTripHeuristic proves the B2 HeuristicSpec threads through the
+// codec: Marshal(t) then Unmarshal returns the same spec (type/target/value/
+// caseInsensitive/schema).
+func TestYAMLCodecRoundTripHeuristic(t *testing.T) {
+	c := NewYAMLCodec()
+	in := &MetricTemplate{
+		ID:         "acme/contains",
+		Kind:       KindHeuristic,
+		Modalities: []Modality{ModalityText},
+		Inputs:     []InputSpec{{Name: "response", Modality: ModalityText, Required: true}},
+		Heuristic: &HeuristicSpec{
+			Type:            HeuristicContains,
+			Target:          "response",
+			Value:           "OK",
+			CaseInsensitive: true,
+		},
+	}
+	data, err := c.Marshal(in)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	got, err := c.Unmarshal(data)
+	if err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.Heuristic == nil {
+		t.Fatal("Heuristic lost in round-trip")
+	}
+	if *got.Heuristic != *in.Heuristic {
+		t.Errorf("Heuristic = %#v, want %#v", *got.Heuristic, *in.Heuristic)
+	}
+	if got.Kind != KindHeuristic {
+		t.Errorf("Kind = %q, want %q", got.Kind, KindHeuristic)
+	}
+}
+
 func TestYAMLCodecUnmarshalErrors(t *testing.T) {
 	c := NewYAMLCodec()
 	cases := map[string]string{
