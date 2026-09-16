@@ -71,6 +71,11 @@ const DOC_MAP = {
     outFile: 'llm-as-judge-scenarios.md',
     route: `${BASE}/guides/llm-as-judge-scenarios/`,
   },
+  'stax-interop.md': {
+    outDir: GUIDES_DIR,
+    outFile: 'stax-interop.md',
+    route: `${BASE}/guides/stax-interop/`,
+  },
   'roadmap.md': {
     outDir: GUIDES_DIR,
     outFile: 'roadmap.md',
