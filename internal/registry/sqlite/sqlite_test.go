@@ -824,6 +824,90 @@ func TestListFilters(t *testing.T) {
 	}
 }
 
+// TestMatchesInMemoryTags exercises the AND-narrowing, case-sensitive tag filter
+// added for B1 directly against matchesInMemory (the layer tags are filtered in,
+// because Tags are JSON-encoded, not a SQL column).
+func TestMatchesInMemoryTags(t *testing.T) {
+	tmpl := &registry.MetricTemplate{
+		ID:   "ns/t",
+		Tags: []string{"quality", "helpfulness"},
+	}
+	cases := []struct {
+		name string
+		tags []string
+		want bool
+	}{
+		{"empty filter matches", nil, true},
+		{"empty non-nil filter matches", []string{}, true},
+		{"single tag present", []string{"quality"}, true},
+		{"single tag absent", []string{"safety"}, false},
+		{"multi tag all present (AND)", []string{"quality", "helpfulness"}, true},
+		{"multi tag one missing (AND)", []string{"quality", "safety"}, false},
+		{"case-sensitive: differing case excluded", []string{"Quality"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := matchesInMemory(tmpl, registry.ListFilter{Tags: tc.tags})
+			if got != tc.want {
+				t.Errorf("matchesInMemory(Tags=%v) = %v, want %v", tc.tags, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestListFiltersTags verifies the tag filter end-to-end through Store.List,
+// including AND-narrowing across distinct templates.
+func TestListFiltersTags(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	a := fullTemplate()
+	a.ID = "ns/a"
+	a.Tags = []string{"quality", "safety"}
+
+	b := fullTemplate()
+	b.ID = "ns/b"
+	b.Tags = []string{"quality"}
+
+	c := fullTemplate()
+	c.ID = "ns/c"
+	c.Tags = nil
+
+	for _, tm := range []registry.MetricTemplate{a, b, c} {
+		tm := tm
+		if err := s.Put(ctx, &tm); err != nil {
+			t.Fatalf("Put %s: %v", tm.ID, err)
+		}
+	}
+
+	cases := []struct {
+		name   string
+		filter registry.ListFilter
+		wantID []string
+	}{
+		{"no tag filter (unchanged)", registry.ListFilter{}, []string{"ns/a", "ns/b", "ns/c"}},
+		{"single tag", registry.ListFilter{Tags: []string{"quality"}}, []string{"ns/a", "ns/b"}},
+		{"and narrowing", registry.ListFilter{Tags: []string{"quality", "safety"}}, []string{"ns/a"}},
+		{"absent tag", registry.ListFilter{Tags: []string{"nope"}}, nil},
+		{"case sensitive", registry.ListFilter{Tags: []string{"Quality"}}, nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := s.List(ctx, tc.filter)
+			if err != nil {
+				t.Fatalf("List: %v", err)
+			}
+			var ids []string
+			for _, g := range got {
+				ids = append(ids, g.ID)
+			}
+			if !reflect.DeepEqual(ids, tc.wantID) {
+				t.Errorf("List(%+v) = %v, want %v", tc.filter, ids, tc.wantID)
+			}
+		})
+	}
+}
+
 func TestListChangedSince(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()

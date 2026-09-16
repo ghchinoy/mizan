@@ -622,6 +622,7 @@ func newRegistryListCmd() *cobra.Command {
 	var (
 		namespace string
 		kind      string
+		tags      []string
 	)
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -636,7 +637,7 @@ func newRegistryListCmd() *cobra.Command {
 			// invalid filter fails fast with the clear enumerated error and does
 			// no DB work. Accept the vernacular aliases (single/compare) here too,
 			// folding them to the canonical kind before filtering (ITEM C).
-			filter := registry.ListFilter{Namespace: namespace}
+			filter := registry.ListFilter{Namespace: namespace, Tags: tags}
 			if kind != "" {
 				k, err := registry.NormalizeKind(kind)
 				if err != nil {
@@ -660,6 +661,7 @@ func newRegistryListCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&namespace, "namespace", "", "filter by id namespace prefix")
 	cmd.Flags().StringVar(&kind, "kind", "", "filter by metric kind (accepts single|pointwise, compare|pairwise, rubric, custom_schema)")
+	cmd.Flags().StringSliceVar(&tags, "tag", nil, "filter to templates carrying ALL given tags (repeatable)")
 	return cmd
 }
 
