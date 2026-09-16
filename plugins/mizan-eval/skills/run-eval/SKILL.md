@@ -151,8 +151,11 @@ results store (opt out with `--no-store`), but the run's stdout JSON does **not*
 include the RunID. Retrieve the persisted RunID (a time-sortable ULID) right after
 the run so the user can drill down later:
 
+`mizan results list -o json` returns a JSON **array** (newest first), so read the
+RunID from the first element — `.[0].RunID`, not `.RunID`:
+
 ```bash
-mizan results list --metric <namespace>/<slug> --limit 1 -o json   # newest first; read .RunID
+mizan results list --metric <namespace>/<slug> --limit 1 -o json   # newest first; RunID is .[0].RunID
 mizan results show <run-id> -o json                                # full provenance for that run
 ```
 

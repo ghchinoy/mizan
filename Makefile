@@ -100,6 +100,7 @@ clean: ## Remove the bin/ directory
 # PACKAGING, the drift test checks the -o json CONTRACT the skills document.
 validate-plugins: ## Validate agent plugins/skills packaging (plugins/, marketplace.json)
 	./scripts/validate-plugins.sh
+	./scripts/test-validate-plugins.sh
 
 # check: the CI-equivalent aggregate gate. Runs the same build/vet/fmt/lint/vuln/
 # test gates CI runs (test includes internal/skilldocs' skill-doc drift test via

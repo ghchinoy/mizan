@@ -213,5 +213,6 @@ jobs:
 
       - name: Validate plugins & skills
         run: |
-          chmod +x scripts/validate-plugins.sh
+          chmod +x scripts/validate-plugins.sh scripts/test-validate-plugins.sh
           ./scripts/validate-plugins.sh
+          ./scripts/test-validate-plugins.sh

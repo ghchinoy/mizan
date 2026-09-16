@@ -21,7 +21,10 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# REPO_ROOT defaults to the repo (script lives in scripts/). It may be overridden
+# via VALIDATE_ROOT so the regression self-test (scripts/test-validate-plugins.sh)
+# can point the validator at a fixture tree without copying the script.
+REPO_ROOT="${VALIDATE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$REPO_ROOT"
 
 RED='\033[1;31m'
@@ -61,8 +64,10 @@ for plugin_dir in plugins/*; do
     continue
   fi
 
-  schema_val="$(python3 -c "import json; print(json.load(open('$manifest')).get('\$schema',''))" 2>/dev/null || true)"
-  name_val="$(python3 -c "import json; print(json.load(open('$manifest')).get('name',''))" 2>/dev/null || true)"
+  # Path passed as argv (not string-interpolated into the -c program) to avoid
+  # shell/Python injection via crafted file paths.
+  schema_val="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('\$schema',''))" "$manifest" 2>/dev/null || true)"
+  name_val="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('name',''))" "$manifest" 2>/dev/null || true)"
 
   if [ "$schema_val" != "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json" ]; then
     err "Plugin '$plugin_name' $manifest has invalid or missing \$schema: '$schema_val'"
@@ -94,8 +99,10 @@ except ImportError:
 ALLOWED_FIELDS = {'name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools'}
 NAME_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*\$')
 
-filepath = '$skill_md'
-expected_name = '$expected_name'
+# Paths passed as argv (not string-interpolated into the -c program) to avoid
+# shell/Python injection via crafted file paths.
+filepath = sys.argv[1]
+expected_name = sys.argv[2]
 
 try:
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -199,7 +206,7 @@ print(json.dumps({
     'name': data.get('name', expected_name),
     'desc_len': desc_len,
 }))
-" 2>/dev/null || echo '{"critical_error": "python execution failed"}')"
+" "$skill_md" "$expected_name" 2>/dev/null || echo '{"critical_error": "python execution failed"}')"
 
   crit_err="$(echo "$read_res" | python3 -c "import json,sys; print(json.load(sys.stdin).get('critical_error',''))" 2>/dev/null || true)"
   if [ -n "$crit_err" ]; then
@@ -263,22 +270,27 @@ mp=".claude-plugin/marketplace.json"
 if [ -f "$mp" ]; then
   if python3 -m json.tool "$mp" >/dev/null 2>&1; then
     ok "$mp is valid JSON"
-    # Every listed plugin source, and each skill path RESOLVED RELATIVE TO ITS
-    # PLUGIN SOURCE (that is how Claude Code's marketplace loader resolves the
-    # `skills` array — a skill path is joined onto the plugin's `source` dir, not
-    # the repo root), must exist and stay in-repo. Python emits repo-relative
-    # paths as "<KIND>\t<path>" so the shell checks existence and containment.
+    # Every listed plugin `source`, and each `skills` entry, is resolved
+    # ROOT-RELATIVE — i.e. relative to the repository root, NOT joined onto the
+    # plugin's `source` dir. This matches the authoritative ghchinoy/agent-skills
+    # convention, where every skill path is written in full as
+    # './plugins/<plugin>/skills/<skill>', and matches how Claude Code's
+    # marketplace loader resolves the `skills` array (verified via
+    # `claude plugin install`). A source-relative path such as './skills/<skill>'
+    # therefore resolves to '<root>/skills/<skill>', which does not exist and is
+    # correctly rejected (see scripts/test-validate-plugins.sh regression).
+    # Path passed as argv to avoid injection via a crafted manifest path.
     mapfile -t mp_paths < <(python3 -c "
-import json, os
-d = json.load(open('$mp'))
+import json, os, sys
+d = json.load(open(sys.argv[1]))
 for p in d.get('plugins', []):
     src = p.get('source') or ''
     if src:
         print('source\t' + os.path.normpath(src))
     for s in p.get('skills', []):
-        base = src if src else '.'
-        print('skill\t' + os.path.normpath(os.path.join(base, s)))
-" 2>/dev/null || true)
+        # Root-relative: normalize the path as written, do NOT join onto src.
+        print('skill\t' + os.path.normpath(s))
+" "$mp" 2>/dev/null || true)
     for line in "${mp_paths[@]}"; do
       [ -n "$line" ] || continue
       kind="${line%%$'\t'*}"
