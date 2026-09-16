@@ -106,9 +106,15 @@ prompt body and drops the field from any category/prompt that Stax supplies impl
    the judge will receive it) — the exporter lists the unmapped field and the allowed targets. A future
    version may pass unknown fields through as literal `{{var}}` if Stax accepts arbitrary `ModelInput`
    variables, but v1 does not guess.
-3. The map is **configurable** (an override table) so a template using a non-conventional field name can
+3. **Alias collision is a hard error** (symmetric with rule 2). If two or more declared Mizan inputs
+   used in the template would map to the **same** Stax reserved var — e.g. both `output` and `answer`
+   present → `{{output}}`, or `expected` and `ground_truth` → `{{expected_output}}` — the export fails in
+   v1, naming the colliding source fields and their shared target. Silently merging them would send two
+   distinct Mizan inputs to one Stax variable and corrupt the judge prompt. The author resolves it by
+   removing/renaming one field or supplying an override (rule 4) that redirects one to a different var.
+4. The map is **configurable** (an override table) so a template using a non-conventional field name can
    be exported without renaming the source template.
-4. Exact placeholder set is validated against the template's declared `Inputs` (`model.go` `InputSpec`)
+5. Exact placeholder set is validated against the template's declared `Inputs` (`model.go` `InputSpec`)
    — every `{{var}}` in the body must be a declared input, mirroring Mizan's own `validatePlaceholders`.
 
 ---
@@ -119,6 +125,19 @@ Mizan's `rubric` kind scores **each (group, criterion) pair** on a Likert scale 
 per pair plus an overall rollup. Stax's `LLMEvaluator` emits **one** category → **one** score. The two
 do not round-trip losslessly. Two options, both specified; the exporter defaults to B and offers A as an
 explicit opt-in.
+
+**Category-name derivation rule (both options).** For a Likert scale `[min,max]`, every integer band in
+range becomes one `output_category` mapped to its own numeric value. The category **name** is derived
+deterministically from the band's `RatingRubric` description:
+
+- **Anchored band** (the band has a non-empty description in the relevant `RatingRubric` group):
+  name = `"{band}-{desc}"`, e.g. `1-poor`, `5-great`.
+- **Un-anchored / interior band** (no description — typically the interior 2..(max-1)): name =
+  `"score-{band}"`, e.g. `score-2`, `score-3`, `score-4`.
+
+This is a **rule, not just the example's shape**: it applies to every band of every evaluator the
+exporter emits, so category names are stable and reproducible across templates. (In Option A, where no
+single group's descriptions apply, all bands use the `score-{band}` form.)
 
 ### Option A — Flatten (one evaluator)
 
@@ -159,7 +178,9 @@ scores + rationales.
 
 ---
 
-## 6. Worked example
+## 6. Worked examples
+
+### 6.1 Rubric (`kind: rubric`)
 
 Source template (real Mizan golden fixture,
 `internal/registry/testdata/golden/templates/rubric-brand.yaml`):
@@ -227,6 +248,54 @@ Every Mizan per-criterion score maps to exactly one Stax evaluator; the `clarity
 5:great` anchors carry into both `clarity::*` evaluators; `tone` has no RatingRubric so its bands are
 generic. The `::`-delimited name convention lets a re-import reconstruct the single `acme/rubric-brand`
 template with its two groups.
+
+### 6.2 Pointwise (`kind: pointwise`)
+
+`pointwise` is the **direct map** (§3): one Mizan template → one Stax evaluator, no flatten/fan-out
+choice. The `MetricPromptTemplate` becomes the prompt `ModelInput` (placeholders renamed per §4), and the
+`RatingRubric` band→description map becomes `output_categories` via the §5 category-name derivation rule.
+When a template declares no `RatingRubric`, the bands fall back to `score-{band}` across the
+`rubricDetail.scale` range (default `[1,5]`).
+
+Source template (real Mizan golden fixture,
+`internal/registry/testdata/golden/templates/pointwise-quality.yaml`, RatingRubric added inline to show
+band derivation):
+
+```yaml
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+  id: acme/pointwise-quality
+  name: Pointwise Quality
+  version: 1.0.0
+spec:
+  kind: pointwise
+  modalities: [text]
+  inputs:
+    - { name: response, modality: text, required: true }
+  metricPromptTemplate: 'Rate the response: {{response}}'
+  systemInstruction: Be strict.
+  ratingRubric:
+    default: { "1": poor, "5": great }
+  rubricDetail:
+    scale: { min: 1, max: 5 }
+```
+
+Export (1 evaluator): `{{response}}` renames to `{{output}}` (§4); `systemInstruction` becomes a
+`system.instruction` `ModelInput`; the `default` band anchors 1/5 name the anchored categories, interior
+bands use `score-{band}`:
+
+```json
+{
+  "name": "acme/pointwise-quality",
+  "prompt": { "role": "user", "content": "Rate the response: {{output}}" },
+  "system": { "instruction": "Be strict." },
+  "output_categories": { "1-poor": 1, "score-2": 2, "score-3": 3, "score-4": 4, "5-great": 5 }
+}
+```
+
+If the template omitted `ratingRubric`, the categories would be `{ "score-1":1, …, "score-5":5 }`. No
+per-criterion decomposition is involved, so pointwise export is lossless within the mapping.
 
 ---
 
