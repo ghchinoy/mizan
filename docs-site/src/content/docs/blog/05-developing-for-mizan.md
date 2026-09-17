@@ -1,13 +1,13 @@
 ---
 title: "Developing for Mizan: extending the core"
-date: 2026-10-01
+date: 2026-11-11
 authors:
   - ghchinoy
 excerpt: >
   For contributors who do need to touch the core: an orientation to Mizan's
   architecture and where new metric kinds and behaviors plug in.
 tags: ["architecture", "contributing", "adaptive-rubrics"]
-draft: true
+draft: false
 series: "Build Evals with Mizan"
 seriesOrder: 5
 canonicalUrl: ""
