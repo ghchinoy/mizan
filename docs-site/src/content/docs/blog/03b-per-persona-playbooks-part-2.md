@@ -102,11 +102,12 @@ Aggregate (weighted-mean over 2 scored): 4.33   threshold: 3   PASSED
 
 For an application the table is the wrong surface, so add `--output json` and the
 same run returns a structured object: a `Members` array where each entry carries
-its `Score`, `Explanation`, and `Status`, and an `Aggregate` block with the
-method, the numeric score, the threshold, and a boolean `Passed`, alongside a
-top-level `Verdict`. Your application branches on `Passed`, logs each member's
-`Explanation`, and surfaces the aggregate to the user. That is the whole
-embedding contract: one manifest in, one parseable verdict out.
+a flat `Status` and `Score` plus a nested `Result` object holding that member's
+`Explanation`, and an `Aggregate` block with the method, the numeric score, the
+threshold, and a boolean `Passed`, alongside a top-level `Verdict`. Your
+application branches on `Passed`, logs each member's `Result.Explanation`, and
+surfaces the aggregate to the user. That is the whole embedding contract: one
+manifest in, one parseable verdict out.
 
 Because the members are ordinary metric templates, the whole set travels as a
 template pack. You curate the evaluation your application enforces once, ship it
