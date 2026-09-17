@@ -1,13 +1,13 @@
 ---
 title: "Turn a writing skill into an eval: grading this series with Mizan"
-date: 2026-10-01
+date: 2026-10-28
 authors:
   - ghchinoy
 excerpt: >
   The capstone closes the loop: take the editorial standard behind these posts
   and encode it as a Mizan rubric that grades the series itself.
 tags: ["evals", "rubrics", "adaptive-rubrics"]
-draft: true
+draft: false
 series: "Build Evals with Mizan"
 seriesOrder: 4.5
 canonicalUrl: ""

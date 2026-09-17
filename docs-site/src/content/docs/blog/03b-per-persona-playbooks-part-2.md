@@ -1,6 +1,6 @@
 ---
 title: "Using Mizan in your role: per-persona playbooks, part 2 (Genmedia configurator, Brand Lab)"
-date: 2026-10-01
+date: 2026-09-30
 authors:
   - ghchinoy
 excerpt: >
@@ -8,7 +8,7 @@ excerpt: >
   as a calling shape, and the Brand Lab user generating a rubric from a brand
   book and freezing it into a reusable metric.
 tags: ["personae", "brand-alignment", "templates"]
-draft: true
+draft: false
 series: "Build Evals with Mizan"
 seriesOrder: 3.2
 canonicalUrl: ""

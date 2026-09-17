@@ -1,13 +1,13 @@
 ---
 title: "Contribute a template pack: extend Mizan without touching the core"
-date: 2026-10-01
+date: 2026-10-14
 authors:
   - ghchinoy
 excerpt: >
   You do not have to fork Mizan to add value to it. This piece walks authoring,
   validating, and sharing a template pack that others can import.
 tags: ["templates", "contributing", "eval-sets"]
-draft: true
+draft: false
 series: "Build Evals with Mizan"
 seriesOrder: 4
 canonicalUrl: ""
