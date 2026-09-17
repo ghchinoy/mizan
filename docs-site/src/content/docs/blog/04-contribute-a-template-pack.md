@@ -252,9 +252,12 @@ mizan registry get acme-support/reply-quality
 
 ```
 ID:                       acme-support/reply-quality
+...
 Version:                  0.1.0
 Kind:                     rubric
+...
 Source:                   pack:acme-support@packs/acme-support
+...
 ```
 
 By default, import takes the higher version and never clobbers a template you have
