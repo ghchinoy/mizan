@@ -224,3 +224,55 @@ func TestRunDiffusionMultimodalImage(t *testing.T) {
 		t.Errorf("Passed = %v, want true", res.Passed)
 	}
 }
+
+func TestRunDiffusionRubric(t *testing.T) {
+	fd := &fakeDiffusionClient{
+		resp: &diffusion.StructuredDecisionResponse{
+			Answers: map[string]diffusion.QuestionAnswer{
+				"brand_1": {
+					Type:       "boolean",
+					Label:      "yes",
+					Confidence: 0.99,
+				},
+				"brand_2": {
+					Type:       "boolean",
+					Label:      "no",
+					Confidence: 0.85,
+				},
+			},
+		},
+	}
+
+	eng := NewEngine(&evaltest.FakeEvaluationClient{}, "proj-123", "us-central1", WithDiffusionClient(fd))
+
+	tmpl := registry.MetricTemplate{
+		ID:   "brand/scorecard",
+		Kind: registry.KindRubric,
+		RubricGroups: map[string][]string{
+			"brand": {"Logo visible", "Brand colors"},
+		},
+		MetricPromptTemplate: "Evaluate ad: {{copy}}",
+	}
+
+	inst := Instance{
+		Fields: map[string]AssetRef{
+			"copy": {Modality: registry.ModalityText, Text: "Sample ad copy"},
+		},
+	}
+
+	res, err := eng.Run(context.Background(), tmpl, inst, WithEngine("diffusion"))
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if !res.RubricDetail {
+		t.Error("RubricDetail = false, want true")
+	}
+	if res.Score == nil || *res.Score != 2.5 {
+		t.Errorf("Score = %v, want 2.5", res.Score)
+	}
+	pc, ok := res.CustomOutput["per_criterion"].([]any)
+	if !ok || len(pc) != 2 {
+		t.Fatalf("per_criterion = %v, want 2 entries", res.CustomOutput["per_criterion"])
+	}
+}

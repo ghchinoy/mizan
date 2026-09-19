@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/ghchinoy/mizan/internal/eval/diffusion"
@@ -36,38 +37,58 @@ func WithEngine(engine string) RunOption {
 
 // buildDiffusionSchema creates the DiffusionGemma decision schema based on template kind.
 func buildDiffusionSchema(tmpl registry.MetricTemplate) (string, error) {
-	var q diffusion.QuestionSchema
+	var questions []diffusion.QuestionSchema
 	switch tmpl.Kind {
 	case registry.KindBoul:
-		q = diffusion.QuestionSchema{
+		questions = append(questions, diffusion.QuestionSchema{
 			ID:           "verdict",
 			Type:         "boolean",
 			Instructions: tmpl.MetricPromptTemplate,
-		}
+		})
 	case registry.KindChoice:
 		var opts []diffusion.ChoiceOption
 		for _, c := range tmpl.Choices {
 			opts = append(opts, diffusion.ChoiceOption{Name: c})
 		}
-		q = diffusion.QuestionSchema{
+		questions = append(questions, diffusion.QuestionSchema{
 			ID:           "selection",
 			Type:         "choice",
 			Instructions: tmpl.MetricPromptTemplate,
 			Options:      opts,
-		}
+		})
 	case registry.KindScore, registry.KindPointwise:
-		q = diffusion.QuestionSchema{
+		questions = append(questions, diffusion.QuestionSchema{
 			ID:           "score",
 			Type:         "score",
 			Instructions: tmpl.MetricPromptTemplate,
 			Levels:       []string{"1", "2", "3", "4", "5"},
+		})
+	case registry.KindRubric:
+		if len(tmpl.RubricGroups) == 0 {
+			return "", fmt.Errorf("eval: rubric template %q has no rubric groups", tmpl.ID)
+		}
+		groupNames := make([]string, 0, len(tmpl.RubricGroups))
+		for g := range tmpl.RubricGroups {
+			groupNames = append(groupNames, g)
+		}
+		sort.Strings(groupNames)
+
+		for _, g := range groupNames {
+			for i, crit := range tmpl.RubricGroups[g] {
+				qID := fmt.Sprintf("%s_%d", g, i+1)
+				questions = append(questions, diffusion.QuestionSchema{
+					ID:           qID,
+					Type:         "boolean",
+					Instructions: crit,
+				})
+			}
 		}
 	default:
 		return "", fmt.Errorf("eval: diffusion engine does not support metric kind %q", tmpl.Kind)
 	}
 
 	payload := diffusion.DecisionSchemaPayload{
-		Questions: []diffusion.QuestionSchema{q},
+		Questions: questions,
 	}
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -203,6 +224,58 @@ func (e *Engine) runDiffusion(ctx context.Context, tmpl registry.MetricTemplate,
 			res.CustomOutput["score"] = ans.Score
 			res.CustomOutput["stderr"] = ans.Stderr
 			res.CustomOutput["probabilities"] = ans.Probabilities
+		}
+	case registry.KindRubric:
+		res.RubricDetail = true
+		var (
+			totalCriteria int
+			passedCount   int
+			perCriterion  []any
+		)
+
+		groupNames := make([]string, 0, len(tmpl.RubricGroups))
+		for g := range tmpl.RubricGroups {
+			groupNames = append(groupNames, g)
+		}
+		sort.Strings(groupNames)
+
+		for _, g := range groupNames {
+			for i, crit := range tmpl.RubricGroups[g] {
+				qID := fmt.Sprintf("%s_%d", g, i+1)
+				totalCriteria++
+				ans, ok := resp.Answers[qID]
+				passed := false
+				var conf, stderr float64
+				if ok {
+					lbl := strings.ToLower(strings.TrimSpace(ans.Label))
+					passed = (lbl == "yes" || lbl == "true" || ans.Noul >= 0.5)
+					conf = ans.Confidence
+					stderr = ans.Stderr
+				}
+				if passed {
+					passedCount++
+				}
+				critScore := 1
+				if !passed {
+					critScore = 0
+				}
+				perCriterion = append(perCriterion, map[string]any{
+					"group":      g,
+					"criterion":  crit,
+					"score":      critScore,
+					"passed":     passed,
+					"confidence": conf,
+					"stderr":     stderr,
+					"rationale":  fmt.Sprintf("Slot readout: %s (confidence: %.1f%%, stderr: ±%.4f)", ans.Label, conf*100, stderr),
+				})
+			}
+		}
+
+		res.CustomOutput["per_criterion"] = perCriterion
+		if totalCriteria > 0 {
+			overall := (float32(passedCount) / float32(totalCriteria)) * 5.0
+			res.Score = &overall
+			res.Explanation = fmt.Sprintf("DiffusionGemma evaluated %d/%d rubric criteria passed (score: %.1f/5)", passedCount, totalCriteria, overall)
 		}
 	}
 

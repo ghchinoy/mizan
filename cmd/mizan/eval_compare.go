@@ -142,6 +142,9 @@ func runCompareEngines(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 		if modelA != "" {
 			opts = append(opts, eval.WithModel(modelA))
 		}
+		if tmpl.Kind == registry.KindRubric {
+			opts = append(opts, eval.WithRubricDetailDefaultScale())
+		}
 		var err error
 		resA, err = eng.Run(ctx, *tmpl, inst, opts...)
 		durA = time.Since(start)
