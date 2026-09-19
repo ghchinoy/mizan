@@ -26,10 +26,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ghchinoy/mizan/internal/asset"
 	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/eval"
+	"github.com/ghchinoy/mizan/internal/eval/diffusion"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/registry/sqlite"
 	"github.com/ghchinoy/mizan/internal/results"
@@ -180,12 +182,15 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 		return nil, nil, err
 	}
 
+	diffClient := diffusion.NewClient(cfg.DiffusionEndpoint, cfg.DiffusionModel, 60*time.Second)
+
 	// The config default-model (WI-F3) is the lowest-precedence input to the
 	// engine's model resolution chain (below the flag and the template's own
 	// model, above the built-in). An empty value falls through to the built-in.
 	opts := []eval.Option{
 		eval.WithGenaiClient(genaiClient),
 		eval.WithGlobalClient(globalClient),
+		eval.WithDiffusionClient(diffClient),
 		eval.WithDefaultModel(cfg.DefaultModel),
 	}
 	// closeClients closes both native clients (regional + global); the regional

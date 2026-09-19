@@ -189,6 +189,8 @@ func representativeConfig() config.Config {
 		Location:             "us-central1",
 		StagingBucket:        "my-bucket",
 		APIEndpoint:          "https://aiplatform.googleapis.com",
+		DiffusionEndpoint:    "http://127.0.0.1:8080/v1",
+		DiffusionModel:       "diffgemma-26b-a4b-it-q4",
 		RegistryDBPath:       "/home/you/.config/mizan/registry.db",
 		ResultsBackend:       "sqlite",
 		ResultsDBPath:        "/home/you/.config/mizan/results.db",

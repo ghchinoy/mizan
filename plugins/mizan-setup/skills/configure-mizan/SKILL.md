@@ -88,6 +88,8 @@ tells you whether a value is a real setting or just the built-in default.
   "Location": "us-central1",
   "StagingBucket": "my-bucket",
   "APIEndpoint": "",
+  "DiffusionEndpoint": "http://127.0.0.1:8080/v1",
+  "DiffusionModel": "diffgemma-26b-a4b-it-q4",
   "RegistryDBPath": "/home/you/.config/mizan/registry.db",
   "ResultsBackend": "sqlite",
   "ResultsDBPath": "/home/you/.config/mizan/results.db",
@@ -110,7 +112,9 @@ default capitalized names — read `ProjectID`, `Location`, etc. exactly as show
 - **`ProjectID`** — GCP project for eval (empty blocks live evals). **`Location`**
   — eval-service region (default `us-central1`). **`StagingBucket`** — `gs://`
   prefix for multimodal inputs (only needed for media evals). **`APIEndpoint`** —
-  optional Vertex endpoint override.
+  optional Vertex endpoint override. **`DiffusionEndpoint`** — DiffusionGemma
+  endpoint (default `http://127.0.0.1:8080/v1`). **`DiffusionModel`** — default
+  DiffusionGemma model ID.
 - **`RegistryDBPath`** / **`ResultsDBPath`** — local SQLite paths for the template
   registry and the results store. **`ResultsBackend`** — results store backend
   (default `sqlite`). **`ResultsRetention`** — input retention policy

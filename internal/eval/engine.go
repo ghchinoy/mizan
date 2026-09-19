@@ -38,6 +38,7 @@ import (
 	"google.golang.org/genai"
 
 	"github.com/ghchinoy/mizan/internal/asset"
+	"github.com/ghchinoy/mizan/internal/eval/diffusion"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -140,6 +141,7 @@ type Engine struct {
 	client       EvaluationClient
 	globalClient EvaluationClient // GLOBAL-host native client for global-only autoraters (R-GLOBAL); nil disables auto-routing
 	genai        GenaiClient
+	diffusion    diffusion.Client // DiffusionGemma client for local/Cloud Run discrete block diffusion decisions
 	stager       asset.Stager
 	projectID    string
 	location     string
@@ -221,7 +223,8 @@ func NewEngine(client EvaluationClient, projectID, location string, opts ...Opti
 type RunOption func(*runConfig)
 
 type runConfig struct {
-	modelOverride string
+	modelOverride  string
+	engineOverride string // "vertex", "diffusion", "genai"
 
 	// rubricDetail, when true, routes a KindRubric template through the genai
 	// structured-output path (rubric per-criterion transparency) instead of the
@@ -389,6 +392,10 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 // resolution and timing in Run means every path shares one model chain and one
 // wall-clock measurement.
 func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
+	if rc.engineOverride == "diffusion" || rc.engineOverride == "diffgemma" {
+		return e.runDiffusion(ctx, tmpl, inst, model)
+	}
+
 	switch tmpl.Kind {
 	case registry.KindBoul:
 		return e.runBoul(ctx, tmpl, inst, model)

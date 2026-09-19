@@ -41,6 +41,12 @@ const (
 	// with no <src> (design rev 3). It is a config value so a fork or internal
 	// mirror can be selected without a code change.
 	DefaultTemplatesRepo = "github.com/ghchinoy/mizan-templates"
+
+	// DefaultDiffusionEndpoint is the default local endpoint for DiffusionGemma.
+	DefaultDiffusionEndpoint = "http://127.0.0.1:8080/v1"
+
+	// DefaultDiffusionModel is the default model identifier for DiffusionGemma.
+	DefaultDiffusionModel = "diffgemma-26b-a4b-it-q4"
 )
 
 // Config holds the resolved runtime configuration for a Mizan process.
@@ -49,6 +55,8 @@ type Config struct {
 	Location             string // native eval-service region; default us-central1
 	StagingBucket        string // gs:// prefix stripped; required only for multimodal (not this slice)
 	APIEndpoint          string // optional override
+	DiffusionEndpoint    string // DiffusionGemma OpenAI-compatible endpoint; default: http://127.0.0.1:8080/v1 (env: MIZAN_DIFFUSION_ENDPOINT)
+	DiffusionModel       string // DiffusionGemma model id; default: diffgemma-26b-a4b-it-q4 (env: MIZAN_DIFFUSION_MODEL)
 	RegistryDBPath       string // default: <UserConfigDir>/mizan/registry.db
 	ResultsBackend       string // eval results store backend; default "sqlite" (env: MIZAN_RESULTS_BACKEND)
 	ResultsDBPath        string // default: <UserConfigDir>/mizan/results.db (env: MIZAN_RESULTS_DB)
@@ -103,6 +111,8 @@ func LoadConfig() (*Config, error) {
 		Location:             firstNonEmpty(os.Getenv("MIZAN_LOCATION"), os.Getenv("LOCATION"), DefaultLocation),
 		StagingBucket:        strings.TrimPrefix(firstNonEmpty(os.Getenv("MIZAN_STAGING_BUCKET"), os.Getenv("GENMEDIA_BUCKET")), "gs://"),
 		APIEndpoint:          firstNonEmpty(os.Getenv("MIZAN_API_ENDPOINT"), os.Getenv("VERTEX_API_ENDPOINT")),
+		DiffusionEndpoint:    firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_ENDPOINT"), DefaultDiffusionEndpoint),
+		DiffusionModel:       firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_MODEL"), DefaultDiffusionModel),
 		DefaultTemplatesRepo: firstNonEmpty(os.Getenv("MIZAN_TEMPLATES_REPO"), DefaultTemplatesRepo),
 		// DefaultModel is intentionally left empty when unset: the eval engine's
 		// precedence chain (flag > template > config default > built-in) treats an

@@ -57,6 +57,7 @@ func newEvalCmd() *cobra.Command {
 	cmd.AddCommand(newEvalRunCmd())
 	cmd.AddCommand(newEvalPairwiseCmd())
 	cmd.AddCommand(newEvalAdaptiveCmd())
+	cmd.AddCommand(newEvalCompareEnginesCmd())
 	// eval batch (P3) is intentionally not wired in this slice.
 	return cmd
 }
@@ -276,6 +277,7 @@ func newEvalRunCmd() *cobra.Command {
 		set          string
 		failFast     bool
 		model        string
+		engineFlag   string
 		stats        bool
 		rubricDetail bool
 		rubricScale  string
@@ -374,6 +376,9 @@ func newEvalRunCmd() *cobra.Command {
 			// (if any) or the engine default (1-5) — see Engine.resolveRubricScale
 			// (H2, RFC-0001 §4.4).
 			runOpts := []eval.RunOption{eval.WithModel(model)}
+			if engineFlag != "" {
+				runOpts = append(runOpts, eval.WithEngine(engineFlag))
+			}
 			if rubricDetail {
 				if cmd.Flags().Changed("rubric-scale") {
 					min, max, err := eval.ParseRubricScale(rubricScale)
@@ -426,6 +431,7 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&set, "set", "", "path to an EvalSet manifest file to run (mutually exclusive with --metric; exactly one required)")
 	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "for --set, abort at the first errored/missing member (default: continue-on-error)")
 	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
+	cmd.Flags().StringVar(&engineFlag, "engine", "", "evaluation engine override: vertex (default) or diffusion (DiffusionGemma)")
 	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
 	cmd.Flags().BoolVar(&rubricDetail, "rubric-detail", false, "for a rubric template, return per-criterion scores via the genai structured path (location=global; drops sampling)")
 	cmd.Flags().StringVar(&rubricScale, "rubric-scale", "1-5", "Likert scale for --rubric-detail as \"<min>-<max>\" (two non-negative integers, min<max; negative bounds not supported)")

@@ -96,6 +96,8 @@ func Fields() []Field {
 		{Key: "location", EnvVars: []string{"MIZAN_LOCATION", "LOCATION"}, Value: func(c *Config) string { return c.Location }},
 		{Key: "staging-bucket", EnvVars: []string{"MIZAN_STAGING_BUCKET", "GENMEDIA_BUCKET"}, Value: func(c *Config) string { return c.StagingBucket }},
 		{Key: "api-endpoint", EnvVars: []string{"MIZAN_API_ENDPOINT", "VERTEX_API_ENDPOINT"}, Value: func(c *Config) string { return c.APIEndpoint }},
+		{Key: "diffusion-endpoint", EnvVars: []string{"MIZAN_DIFFUSION_ENDPOINT"}, Value: func(c *Config) string { return c.DiffusionEndpoint }},
+		{Key: "diffusion-model", EnvVars: []string{"MIZAN_DIFFUSION_MODEL"}, Value: func(c *Config) string { return c.DiffusionModel }},
 		{Key: "registry-db", EnvVars: []string{"MIZAN_REGISTRY_DB"}, Value: func(c *Config) string { return c.RegistryDBPath }},
 		{Key: "results-backend", EnvVars: []string{"MIZAN_RESULTS_BACKEND"}, Value: func(c *Config) string { return c.ResultsBackend }},
 		{Key: "results-db", EnvVars: []string{"MIZAN_RESULTS_DB"}, Value: func(c *Config) string { return c.ResultsDBPath }},
