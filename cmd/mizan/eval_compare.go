@@ -15,9 +15,14 @@
 package main
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
+	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -53,9 +58,51 @@ type EngineRun struct {
 	Custom      map[string]any `json:"custom_output,omitempty"`
 }
 
+// CompareDatasetItem represents one item in a JSONL benchmark dataset.
+type CompareDatasetItem struct {
+	ID       string            `json:"id"`
+	Metric   string            `json:"metric"`
+	Tier     string            `json:"tier,omitempty"`
+	Category string            `json:"category,omitempty"`
+	Fields   map[string]string `json:"fields,omitempty"`
+	Files    map[string]string `json:"files,omitempty"`
+	GCS      map[string]string `json:"gcs,omitempty"`
+	Expected string            `json:"expected,omitempty"`
+}
+
+// CompareBatchReport summarizes the aggregated outcomes of a batch cross-engine benchmark.
+type CompareBatchReport struct {
+	TotalCases       int                   `json:"total_cases"`
+	Agreements       int                   `json:"agreements"`
+	AgreementPct     float64               `json:"agreement_pct"`
+	AvgSpeedupFactor float64               `json:"avg_speedup_factor"`
+	EngineAAvgMs     float64               `json:"engine_a_avg_ms"`
+	EngineBAvgMs     float64               `json:"engine_b_avg_ms"`
+	TierBreakdown    map[string]TierReport `json:"tier_breakdown,omitempty"`
+	Cases            []CompareCaseResult   `json:"cases"`
+}
+
+// TierReport holds agreement metrics for one benchmark difficulty tier.
+type TierReport struct {
+	Total        int     `json:"total"`
+	Agreements   int     `json:"agreements"`
+	AgreementPct float64 `json:"agreement_pct"`
+}
+
+// CompareCaseResult holds the individual comparison result for a dataset item.
+type CompareCaseResult struct {
+	ID         string              `json:"id"`
+	Tier       string              `json:"tier,omitempty"`
+	Category   string              `json:"category,omitempty"`
+	Expected   string              `json:"expected,omitempty"`
+	Comparison EngineCompareResult `json:"comparison"`
+}
+
 func newEvalCompareEnginesCmd() *cobra.Command {
 	var (
 		metric            string
+		datasetPath       string
+		outputFile        string
 		engineA           string
 		engineB           string
 		modelA            string
@@ -67,14 +114,15 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 		noStore           bool
 	)
 	cmd := &cobra.Command{
-		Use:   "compare-engines --metric <id> [--field key=value] [--file key=/path] [--engine-a vertex] [--engine-b diffusion]",
+		Use:   "compare-engines (--metric <id> | --dataset <path.jsonl>) [--field key=value] [--file key=/path] [--engine-a vertex] [--engine-b diffusion]",
 		Short: "Compare evaluation engines side-by-side in parallel (e.g. Vertex AI vs DiffusionGemma)",
 		Long: "Execute an evaluation template across two evaluation engines concurrently\n" +
 			"and compare their verdicts, latency, confidence, and speedup factor.\n\n" +
-			"Default compares Engine A (Vertex AI Gemini) with Engine B (DiffusionGemma).",
+			"Default compares Engine A (Vertex AI Gemini) with Engine B (DiffusionGemma).\n" +
+			"Pass --dataset <path.jsonl> to run a multi-case benchmark suite with statistical aggregation.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if metric == "" {
-				return fmt.Errorf("--metric is required")
+			if (metric == "") == (datasetPath == "") {
+				return fmt.Errorf("exactly one of --metric or --dataset is required")
 			}
 			cfg, err := mustConfig()
 			if err != nil {
@@ -91,6 +139,16 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 			}
 			defer func() { _ = closeSvc() }()
 
+			eng, closeEng, err := openEngine(cmd.Context(), cfg)
+			if err != nil {
+				return err
+			}
+			defer func() { _ = closeEng() }()
+
+			if datasetPath != "" {
+				return runCompareDataset(cmd, cfg, eng, svc, datasetPath, engineA, engineB, modelA, modelB, outputFile)
+			}
+
 			tmpl, err := svc.Get(cmd.Context(), metric)
 			if err != nil {
 				return err
@@ -101,16 +159,12 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 				return err
 			}
 
-			eng, closeEng, err := openEngine(cmd.Context(), cfg)
-			if err != nil {
-				return err
-			}
-			defer func() { _ = closeEng() }()
-
 			return runCompareEngines(cmd, cfg, eng, tmpl, inst, engineA, engineB, modelA, modelB, noStore)
 		},
 	}
-	cmd.Flags().StringVar(&metric, "metric", "", "template id (<namespace>/<slug>) (required)")
+	cmd.Flags().StringVar(&metric, "metric", "", "template id (<namespace>/<slug>) (mutually exclusive with --dataset)")
+	cmd.Flags().StringVar(&datasetPath, "dataset", "", "path to JSONL evaluation dataset to compare in batch")
+	cmd.Flags().StringVar(&outputFile, "output-file", "", "optional path to save structured JSON benchmark report")
 	cmd.Flags().StringVar(&engineA, "engine-a", "vertex", "engine A: vertex (or genai) or diffusion")
 	cmd.Flags().StringVar(&engineB, "engine-b", "diffusion", "engine B: vertex or diffusion")
 	cmd.Flags().StringVar(&modelA, "model-a", "", "model override for engine A")
@@ -125,6 +179,19 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 }
 
 func runCompareEngines(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine, tmpl *registry.MetricTemplate, inst eval.Instance, engineA, engineB, modelA, modelB string, noStore bool) error {
+	cmp, err := executeSingleComparison(cmd.Context(), eng, tmpl, inst, engineA, engineB, modelA, modelB)
+	if err != nil {
+		return err
+	}
+
+	if outputFormat == outputJSON {
+		return printJSON(cmd.OutOrStdout(), cmp)
+	}
+
+	return renderCompareTable(cmd.OutOrStdout(), cmp)
+}
+
+func executeSingleComparison(ctx context.Context, eng *eval.Engine, tmpl *registry.MetricTemplate, inst eval.Instance, engineA, engineB, modelA, modelB string) (EngineCompareResult, error) {
 	var (
 		resA eval.Result
 		resB eval.Result
@@ -132,7 +199,7 @@ func runCompareEngines(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 		durB time.Duration
 	)
 
-	g, ctx := errgroup.WithContext(cmd.Context())
+	g, gctx := errgroup.WithContext(ctx)
 
 	// Engine A
 	g.Go(func() error {
@@ -146,7 +213,7 @@ func runCompareEngines(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 			opts = append(opts, eval.WithRubricDetailDefaultScale())
 		}
 		var err error
-		resA, err = eng.Run(ctx, *tmpl, inst, opts...)
+		resA, err = eng.Run(gctx, *tmpl, inst, opts...)
 		durA = time.Since(start)
 		return err
 	})
@@ -160,13 +227,13 @@ func runCompareEngines(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 			opts = append(opts, eval.WithModel(modelB))
 		}
 		var err error
-		resB, err = eng.Run(ctx, *tmpl, inst, opts...)
+		resB, err = eng.Run(gctx, *tmpl, inst, opts...)
 		durB = time.Since(start)
 		return err
 	})
 
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("eval comparison failed: %w", err)
+		return EngineCompareResult{}, fmt.Errorf("eval comparison failed: %w", err)
 	}
 
 	agreement := checkAgreement(tmpl.Kind, resA, resB)
@@ -175,7 +242,7 @@ func runCompareEngines(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 		speedup = float64(durA) / float64(durB)
 	}
 
-	cmp := EngineCompareResult{
+	return EngineCompareResult{
 		MetricID:      tmpl.ID,
 		Kind:          string(tmpl.Kind),
 		Agreement:     agreement,
@@ -202,13 +269,223 @@ func runCompareEngines(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 			DurationMs:  float64(durB.Milliseconds()),
 			Custom:      resB.CustomOutput,
 		},
+	}, nil
+}
+
+func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine, svc *registry.Service, datasetPath, engineA, engineB, modelA, modelB, outputFile string) error {
+	f, err := os.Open(datasetPath)
+	if err != nil {
+		return fmt.Errorf("open dataset %q: %w", datasetPath, err)
+	}
+	defer f.Close()
+
+	tmplCache := make(map[string]*registry.MetricTemplate)
+	var (
+		cases        []CompareCaseResult
+		totalAgree   int
+		totalSpeedup float64
+		totalAms     float64
+		totalBms     float64
+		tierCounts   = make(map[string]*TierReport)
+	)
+
+	scanner := bufio.NewScanner(f)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		var item CompareDatasetItem
+		if err := json.Unmarshal([]byte(line), &item); err != nil {
+			return fmt.Errorf("line %d: invalid JSON: %w", lineNum, err)
+		}
+		if item.Metric == "" {
+			return fmt.Errorf("line %d: missing required 'metric' field", lineNum)
+		}
+
+		tmpl, ok := tmplCache[item.Metric]
+		if !ok {
+			t, err := svc.Get(cmd.Context(), item.Metric)
+			if err != nil {
+				return fmt.Errorf("line %d: get template %q: %w", lineNum, item.Metric, err)
+			}
+			tmpl = t
+			tmplCache[item.Metric] = tmpl
+		}
+
+		var fieldArgs, fileArgs, gcsArgs []string
+		for k, v := range item.Fields {
+			fieldArgs = append(fieldArgs, fmt.Sprintf("%s=%s", k, v))
+		}
+		for k, v := range item.Files {
+			fileArgs = append(fileArgs, fmt.Sprintf("%s=%s", k, v))
+		}
+		for k, v := range item.GCS {
+			gcsArgs = append(gcsArgs, fmt.Sprintf("%s=%s", k, v))
+		}
+
+		inst, err := buildInstance(fieldArgs, fileArgs, gcsArgs)
+		if err != nil {
+			return fmt.Errorf("line %d (%s): build instance: %w", lineNum, item.ID, err)
+		}
+
+		cmp, err := executeSingleComparison(cmd.Context(), eng, tmpl, inst, engineA, engineB, modelA, modelB)
+		if err != nil {
+			return fmt.Errorf("line %d (%s): compare: %w", lineNum, item.ID, err)
+		}
+
+		if cmp.Agreement {
+			totalAgree++
+		}
+		totalSpeedup += cmp.SpeedupFactor
+		totalAms += cmp.EngineA.DurationMs
+		totalBms += cmp.EngineB.DurationMs
+
+		matchStr := "AGREE"
+		if !cmp.Agreement {
+			matchStr = "DIVERGE"
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "eval: [%02d] %s (%s) → %s | A: %.0fms, B: %.0fms (%.1fx)\n",
+			lineNum, item.ID, item.Metric, matchStr, cmp.EngineA.DurationMs, cmp.EngineB.DurationMs, cmp.SpeedupFactor)
+
+		tier := item.Tier
+		if tier == "" {
+			tier = "unclassified"
+		}
+		tr, ok := tierCounts[tier]
+		if !ok {
+			tr = &TierReport{}
+			tierCounts[tier] = tr
+		}
+		tr.Total++
+		if cmp.Agreement {
+			tr.Agreements++
+		}
+
+		cases = append(cases, CompareCaseResult{
+			ID:         item.ID,
+			Tier:       item.Tier,
+			Category:   item.Category,
+			Expected:   item.Expected,
+			Comparison: cmp,
+		})
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("read dataset: %w", err)
+	}
+
+	if len(cases) == 0 {
+		return fmt.Errorf("dataset %q contains no valid evaluation cases", datasetPath)
+	}
+
+	n := len(cases)
+	tierBreakdown := make(map[string]TierReport, len(tierCounts))
+	for k, v := range tierCounts {
+		if v.Total > 0 {
+			v.AgreementPct = (float64(v.Agreements) / float64(v.Total)) * 100.0
+		}
+		tierBreakdown[k] = *v
+	}
+
+	report := CompareBatchReport{
+		TotalCases:       n,
+		Agreements:       totalAgree,
+		AgreementPct:     (float64(totalAgree) / float64(n)) * 100.0,
+		AvgSpeedupFactor: totalSpeedup / float64(n),
+		EngineAAvgMs:     totalAms / float64(n),
+		EngineBAvgMs:     totalBms / float64(n),
+		TierBreakdown:    tierBreakdown,
+		Cases:            cases,
+	}
+
+	if outputFile != "" {
+		outBytes, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal report: %w", err)
+		}
+		if err := os.WriteFile(outputFile, outBytes, 0644); err != nil {
+			return fmt.Errorf("write output file %q: %w", outputFile, err)
+		}
 	}
 
 	if outputFormat == outputJSON {
-		return printJSON(cmd.OutOrStdout(), cmp)
+		return printJSON(cmd.OutOrStdout(), report)
 	}
 
-	return renderCompareTable(cmd.OutOrStdout(), cmp)
+	return renderBatchReportTable(cmd.OutOrStdout(), report, engineA, engineB)
+}
+
+func renderBatchReportTable(w io.Writer, rep CompareBatchReport, engineA, engineB string) error {
+	tw := newTabWriter(w)
+	fmt.Fprintln(tw, "================================================================================")
+	fmt.Fprintf(tw, "BATCH ENGINE COMPARISON REPORT: %s vs %s\n", strings.ToUpper(engineA), strings.ToUpper(engineB))
+	fmt.Fprintln(tw, "================================================================================")
+	fmt.Fprintf(tw, "Total Cases Evaluated:\t%d\n", rep.TotalCases)
+	fmt.Fprintf(tw, "Overall Agreement:\t%d / %d (%.1f%%)\n", rep.Agreements, rep.TotalCases, rep.AgreementPct)
+	fmt.Fprintf(tw, "Engine A Average Latency:\t%.1f ms\n", rep.EngineAAvgMs)
+	fmt.Fprintf(tw, "Engine B Average Latency:\t%.1f ms\n", rep.EngineBAvgMs)
+	fmt.Fprintf(tw, "Average Speedup Factor:\t%.1fx\n\n", rep.AvgSpeedupFactor)
+
+	fmt.Fprintln(tw, "DIFFICULTY TIER BREAKDOWN:")
+	fmt.Fprintln(tw, "TIER\tTOTAL\tAGREE\tAGREEMENT %")
+	fmt.Fprintln(tw, "----\t-----\t-----\t-----------")
+
+	tiers := make([]string, 0, len(rep.TierBreakdown))
+	for t := range rep.TierBreakdown {
+		tiers = append(tiers, t)
+	}
+	sort.Strings(tiers)
+	for _, t := range tiers {
+		tb := rep.TierBreakdown[t]
+		fmt.Fprintf(tw, "%s\t%d\t%d\t%.1f%%\n", t, tb.Total, tb.Agreements, tb.AgreementPct)
+	}
+
+	var divergent []CompareCaseResult
+	for _, c := range rep.Cases {
+		if !c.Comparison.Agreement {
+			divergent = append(divergent, c)
+		}
+	}
+
+	if len(divergent) > 0 {
+		fmt.Fprintf(tw, "\nDIVERGENT CASES (%d of %d):\n", len(divergent), rep.TotalCases)
+		fmt.Fprintln(tw, "ID\tTIER\tKIND\tENGINE A\tENGINE B")
+		fmt.Fprintln(tw, "--\t----\t----\t--------\t--------")
+		for _, d := range divergent {
+			valA, valB := "-", "-"
+			if d.Comparison.EngineA.Passed != nil {
+				if *d.Comparison.EngineA.Passed {
+					valA = "PASS"
+				} else {
+					valA = "FAIL"
+				}
+			} else if d.Comparison.EngineA.Selection != "" {
+				valA = d.Comparison.EngineA.Selection
+			} else if d.Comparison.EngineA.Score != nil {
+				valA = fmt.Sprintf("%.1f", *d.Comparison.EngineA.Score)
+			}
+
+			if d.Comparison.EngineB.Passed != nil {
+				if *d.Comparison.EngineB.Passed {
+					valB = "PASS"
+				} else {
+					valB = "FAIL"
+				}
+			} else if d.Comparison.EngineB.Selection != "" {
+				valB = d.Comparison.EngineB.Selection
+			} else if d.Comparison.EngineB.Score != nil {
+				valB = fmt.Sprintf("%.1f", *d.Comparison.EngineB.Score)
+			}
+
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", d.ID, d.Tier, d.Comparison.Kind, valA, valB)
+		}
+	}
+
+	return tw.Flush()
 }
 
 func checkAgreement(kind registry.MetricKind, a, b eval.Result) bool {

@@ -142,3 +142,47 @@ func TestCompareEnginesOutputJSON(t *testing.T) {
 		t.Errorf("json missing expected fields:\n%s", out)
 	}
 }
+
+func TestRenderBatchReportTable(t *testing.T) {
+	bTrue := true
+	rep := CompareBatchReport{
+		TotalCases:       10,
+		Agreements:       9,
+		AgreementPct:     90.0,
+		AvgSpeedupFactor: 7.8,
+		EngineAAvgMs:     7800.0,
+		EngineBAvgMs:     1000.0,
+		TierBreakdown: map[string]TierReport{
+			"unambiguous": {Total: 6, Agreements: 6, AgreementPct: 100.0},
+			"ambiguous":   {Total: 4, Agreements: 3, AgreementPct: 75.0},
+		},
+		Cases: []CompareCaseResult{
+			{
+				ID:   "c-1",
+				Tier: "ambiguous",
+				Comparison: EngineCompareResult{
+					Kind:      "boul",
+					Agreement: false,
+					EngineA:   EngineRun{Engine: "vertex", Passed: &bTrue},
+					EngineB:   EngineRun{Engine: "diffusion"},
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := renderBatchReportTable(&buf, rep, "vertex", "diffusion"); err != nil {
+		t.Fatalf("renderBatchReportTable: %v", err)
+	}
+	out := buf.String()
+
+	if !strings.Contains(out, "Overall Agreement:") || !strings.Contains(out, "9 / 10 (90.0%)") {
+		t.Errorf("missing overall agreement:\n%s", out)
+	}
+	if !strings.Contains(out, "Average Speedup Factor:") || !strings.Contains(out, "7.8x") {
+		t.Errorf("missing speedup factor:\n%s", out)
+	}
+	if !strings.Contains(out, "DIVERGENT CASES (1 of 10):") {
+		t.Errorf("missing divergent cases:\n%s", out)
+	}
+}

@@ -1,0 +1,1559 @@
+{
+  "total_cases": 32,
+  "agreements": 24,
+  "agreement_pct": 75,
+  "avg_speedup_factor": 0.2583862258365418,
+  "engine_a_avg_ms": 924.21875,
+  "engine_b_avg_ms": 4341.4375,
+  "tier_breakdown": {
+    "adversarial": {
+      "total": 4,
+      "agreements": 4,
+      "agreement_pct": 100
+    },
+    "ambiguous": {
+      "total": 4,
+      "agreements": 3,
+      "agreement_pct": 75
+    },
+    "negation": {
+      "total": 5,
+      "agreements": 4,
+      "agreement_pct": 80
+    },
+    "unambiguous": {
+      "total": 19,
+      "agreements": 13,
+      "agreement_pct": 68.42105263157895
+    }
+  },
+  "cases": [
+    {
+      "id": "sup-01",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "technical",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.07168747767760246,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "technical",
+          "explanation": "The message describes a database connection issue and 500 socket timeout errors, which are technical problems.",
+          "duration_ms": 1038,
+          "custom_output": {
+            "explanation": "The message describes a database connection issue and 500 socket timeout errors, which are technical problems.",
+            "selection": "technical"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9979998,
+          "selection": "technical",
+          "explanation": "DiffusionGemma classification: technical (confidence: 99.8%)",
+          "duration_ms": 14479,
+          "custom_output": {
+            "denoise_ms": 3879.470168,
+            "prefill_ms": 10508.422541,
+            "probabilities": {
+              "account": 0.0005087905446998775,
+              "billing": 0.0014025198761373758,
+              "general": 0.00008896510553313419,
+              "technical": 0.9979997873306274
+            },
+            "samples": 4,
+            "selection": "technical",
+            "stderr": 0.0013881501508876681,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-02",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "billing",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.1850804688093042,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "billing",
+          "explanation": "The user is requesting a copy of a specific invoice for accounting purposes.",
+          "duration_ms": 698,
+          "custom_output": {
+            "explanation": "The user is requesting a copy of a specific invoice for accounting purposes.",
+            "selection": "billing"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9966591,
+          "selection": "billing",
+          "explanation": "DiffusionGemma classification: billing (confidence: 99.7%)",
+          "duration_ms": 3771,
+          "custom_output": {
+            "denoise_ms": 2742.4397489999997,
+            "prefill_ms": 1009.8701249999999,
+            "probabilities": {
+              "account": 0.00045532124931924045,
+              "billing": 0.9966591000556946,
+              "general": 0.00003319773168186657,
+              "technical": 0.0028523362707346678
+            },
+            "samples": 4,
+            "selection": "billing",
+            "stderr": 0.0019409789238125086,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-03",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "account",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.2149211190868878,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "account",
+          "explanation": "The issue involves logging in and receiving a two-factor authentication code, which pertains to account access and security.",
+          "duration_ms": 807,
+          "custom_output": {
+            "explanation": "The issue involves logging in and receiving a two-factor authentication code, which pertains to account access and security.",
+            "selection": "account"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.5778543,
+          "selection": "account",
+          "explanation": "DiffusionGemma classification: account (confidence: 57.8%)",
+          "duration_ms": 3756,
+          "custom_output": {
+            "denoise_ms": 2752.784749,
+            "prefill_ms": 993.2047080000001,
+            "probabilities": {
+              "account": 0.5778542757034302,
+              "billing": 0.004337177611887455,
+              "general": 0.00034164602402597666,
+              "technical": 0.4174669086933136
+            },
+            "samples": 4,
+            "selection": "account",
+            "stderr": 0.05245179682970047,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-04",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "general",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.21648476395357133,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "general",
+          "explanation": "The user is asking for general information about office hours and holiday schedules.",
+          "duration_ms": 806,
+          "custom_output": {
+            "explanation": "The user is asking for general information about office hours and holiday schedules.",
+            "selection": "general"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.99645597,
+          "selection": "general",
+          "explanation": "DiffusionGemma classification: general (confidence: 99.6%)",
+          "duration_ms": 3726,
+          "custom_output": {
+            "denoise_ms": 2759.309249,
+            "prefill_ms": 950.534875,
+            "probabilities": {
+              "account": 0.0019131297012791038,
+              "billing": 0.0014727996895089746,
+              "general": 0.9964559674263,
+              "technical": 0.0001581394171807915
+            },
+            "samples": 4,
+            "selection": "general",
+            "stderr": 0.002570124575868249,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-05",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "billing",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.22148882052297103,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "billing",
+          "explanation": "The message refers to an unauthorized financial charge on a credit card statement, which falls directly under billing issues.",
+          "duration_ms": 903,
+          "custom_output": {
+            "explanation": "The message refers to an unauthorized financial charge on a credit card statement, which falls directly under billing issues.",
+            "selection": "billing"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.90512574,
+          "selection": "billing",
+          "explanation": "DiffusionGemma classification: billing (confidence: 90.5%)",
+          "duration_ms": 4078,
+          "custom_output": {
+            "denoise_ms": 2775.945917,
+            "prefill_ms": 1288.733541,
+            "probabilities": {
+              "account": 0.00041801994666457176,
+              "billing": 0.9051257371902466,
+              "general": 0.00012266011617612094,
+              "technical": 0.09433358907699585
+            },
+            "samples": 4,
+            "selection": "billing",
+            "stderr": 0.04780155420303345,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-06",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "technical",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.21459345419654188,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "technical",
+          "explanation": "The message reports a specific technical error related to webhook payload signature verification using HMAC-SHA256.",
+          "duration_ms": 814,
+          "custom_output": {
+            "explanation": "The message reports a specific technical error related to webhook payload signature verification using HMAC-SHA256.",
+            "selection": "technical"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9980146,
+          "selection": "technical",
+          "explanation": "DiffusionGemma classification: technical (confidence: 99.8%)",
+          "duration_ms": 3796,
+          "custom_output": {
+            "denoise_ms": 2801.4654179999998,
+            "prefill_ms": 973.418,
+            "probabilities": {
+              "account": 0.0004942683153785765,
+              "billing": 0.0013541142689064145,
+              "general": 0.00013707589823752642,
+              "technical": 0.9980146288871765
+            },
+            "samples": 4,
+            "selection": "technical",
+            "stderr": 0.0014790252316743135,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-07",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "account",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.17548793932593482,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "account",
+          "explanation": "The user is asking how to manage team members and permissions, which falls under account administration and user management.",
+          "duration_ms": 655,
+          "custom_output": {
+            "explanation": "The user is asking how to manage team members and permissions, which falls under account administration and user management.",
+            "selection": "account"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.99667263,
+          "selection": "account",
+          "explanation": "DiffusionGemma classification: account (confidence: 99.7%)",
+          "duration_ms": 3737,
+          "custom_output": {
+            "denoise_ms": 2768.549583,
+            "prefill_ms": 953.349625,
+            "probabilities": {
+              "account": 0.9966726303100586,
+              "billing": 0.0011707029771059752,
+              "general": 0.0013788595097139478,
+              "technical": 0.0007778208237141371
+            },
+            "samples": 4,
+            "selection": "account",
+            "stderr": 0.001201482373289764,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-08",
+      "tier": "unambiguous",
+      "category": "support",
+      "expected": "general",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.19970673810240677,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "general",
+          "explanation": "The user is inquiring about communication channels such as RSS feeds and email newsletters for product updates, which falls under general information rather than billing, technical support, or account management.",
+          "duration_ms": 757,
+          "custom_output": {
+            "explanation": "The user is inquiring about communication channels such as RSS feeds and email newsletters for product updates, which falls under general information rather than billing, technical support, or account management.",
+            "selection": "general"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9966521,
+          "selection": "general",
+          "explanation": "DiffusionGemma classification: general (confidence: 99.7%)",
+          "duration_ms": 3793,
+          "custom_output": {
+            "denoise_ms": 2778.533834,
+            "prefill_ms": 998.965041,
+            "probabilities": {
+              "account": 0.0010925544193014503,
+              "billing": 0.001851864391937852,
+              "general": 0.9966521263122559,
+              "technical": 0.0004034519661217928
+            },
+            "samples": 4,
+            "selection": "general",
+            "stderr": 0.0019545673858374357,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-09",
+      "tier": "ambiguous",
+      "category": "support",
+      "expected": "billing",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.17909133778876019,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "billing",
+          "explanation": "The user is explicitly asking for a refund due to a double-charge.",
+          "duration_ms": 756,
+          "custom_output": {
+            "explanation": "The user is explicitly asking for a refund due to a double-charge.",
+            "selection": "billing"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.98936784,
+          "selection": "billing",
+          "explanation": "DiffusionGemma classification: billing (confidence: 98.9%)",
+          "duration_ms": 4224,
+          "custom_output": {
+            "denoise_ms": 2771.5215829999997,
+            "prefill_ms": 1441.498625,
+            "probabilities": {
+              "account": 0.0004976600175723433,
+              "billing": 0.9893678426742554,
+              "general": 0.000020120132830925286,
+              "technical": 0.010114415548741817
+            },
+            "samples": 4,
+            "selection": "billing",
+            "stderr": 0.005135745275765657,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-10",
+      "tier": "ambiguous",
+      "category": "support",
+      "expected": "billing",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": false,
+        "speedup_factor": 0.21841484744760054,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "technical",
+          "explanation": "The user is citing an outage of the database API as the reason for wanting to cancel.",
+          "duration_ms": 825,
+          "custom_output": {
+            "explanation": "The user is citing an outage of the database API as the reason for wanting to cancel.",
+            "selection": "technical"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.94898,
+          "selection": "account",
+          "explanation": "DiffusionGemma classification: account (confidence: 94.9%)",
+          "duration_ms": 3777,
+          "custom_output": {
+            "denoise_ms": 2754.532083,
+            "prefill_ms": 1012.1497079999999,
+            "probabilities": {
+              "account": 0.9489799737930298,
+              "billing": 0.02333122119307518,
+              "general": 0.00026681451709009707,
+              "technical": 0.027421947568655014
+            },
+            "samples": 4,
+            "selection": "account",
+            "stderr": 0.004430816974490881,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-11",
+      "tier": "ambiguous",
+      "category": "support",
+      "expected": "account",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.1787315791340063,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "billing",
+          "explanation": "The user is questioning an unexpected charge on their invoice regarding compute usage.",
+          "duration_ms": 743,
+          "custom_output": {
+            "explanation": "The user is questioning an unexpected charge on their invoice regarding compute usage.",
+            "selection": "billing"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9214855,
+          "selection": "billing",
+          "explanation": "DiffusionGemma classification: billing (confidence: 92.1%)",
+          "duration_ms": 4161,
+          "custom_output": {
+            "denoise_ms": 2781.974708,
+            "prefill_ms": 1367.663875,
+            "probabilities": {
+              "account": 0.004727477673441172,
+              "billing": 0.9214854836463928,
+              "general": 0.00003200298669980839,
+              "technical": 0.07375504076480865
+            },
+            "samples": 4,
+            "selection": "billing",
+            "stderr": 0.028860345482826233,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-12",
+      "tier": "negation",
+      "category": "support",
+      "expected": "billing",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.26611197796335173,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "billing",
+          "explanation": "The user is asking where to update their credit card on file, which relates directly to billing and payment information.",
+          "duration_ms": 1084,
+          "custom_output": {
+            "explanation": "The user is asking where to update their credit card on file, which relates directly to billing and payment information.",
+            "selection": "billing"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9956397,
+          "selection": "billing",
+          "explanation": "DiffusionGemma classification: billing (confidence: 99.6%)",
+          "duration_ms": 4076,
+          "custom_output": {
+            "denoise_ms": 2766.098792,
+            "prefill_ms": 1299.5324580000001,
+            "probabilities": {
+              "account": 0.00030525968759320676,
+              "billing": 0.9956396818161011,
+              "general": 0.000014462626495514996,
+              "technical": 0.004040647763758898
+            },
+            "samples": 4,
+            "selection": "billing",
+            "stderr": 0.000922410108614713,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-13",
+      "tier": "negation",
+      "category": "support",
+      "expected": "technical",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.2191811490860275,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "technical",
+          "explanation": "The user explicitly states the issue is related to a Kubernetes pod crashing on startup, which is a technical support problem.",
+          "duration_ms": 914,
+          "custom_output": {
+            "explanation": "The user explicitly states the issue is related to a Kubernetes pod crashing on startup, which is a technical support problem.",
+            "selection": "technical"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9938242,
+          "selection": "technical",
+          "explanation": "DiffusionGemma classification: technical (confidence: 99.4%)",
+          "duration_ms": 4171,
+          "custom_output": {
+            "denoise_ms": 2793.1795,
+            "prefill_ms": 1357.8813329999998,
+            "probabilities": {
+              "account": 0.0010421391343697906,
+              "billing": 0.004616251680999994,
+              "general": 0.0005174438119865954,
+              "technical": 0.9938241839408875
+            },
+            "samples": 4,
+            "selection": "technical",
+            "stderr": 0.004445664584636688,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-14",
+      "tier": "negation",
+      "category": "support",
+      "expected": "general",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": false,
+        "speedup_factor": 0.15127717632032647,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "technical",
+          "explanation": "The user is asking for API documentation related to webhooks, which falls under technical inquiries.",
+          "duration_ms": 621,
+          "custom_output": {
+            "explanation": "The user is asking for API documentation related to webhooks, which falls under technical inquiries.",
+            "selection": "technical"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.981215,
+          "selection": "general",
+          "explanation": "DiffusionGemma classification: general (confidence: 98.1%)",
+          "duration_ms": 4108,
+          "custom_output": {
+            "denoise_ms": 2758.996499,
+            "prefill_ms": 1334.8529170000002,
+            "probabilities": {
+              "account": 0.00022387719945982099,
+              "billing": 0.004749160259962082,
+              "general": 0.9812150001525879,
+              "technical": 0.013811971992254257
+            },
+            "samples": 4,
+            "selection": "general",
+            "stderr": 0.0071171545423567295,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-15",
+      "tier": "adversarial",
+      "category": "support",
+      "expected": "technical",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.21734680684424124,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "technical",
+          "explanation": "The message describes a container crash due to an out-of-memory error (OOMKilled SIGKILL) and a heap dump, which are technical infrastructure and application issues.",
+          "duration_ms": 910,
+          "custom_output": {
+            "explanation": "The message describes a container crash due to an out-of-memory error (OOMKilled SIGKILL) and a heap dump, which are technical infrastructure and application issues.",
+            "selection": "technical"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.99929845,
+          "selection": "technical",
+          "explanation": "DiffusionGemma classification: technical (confidence: 99.9%)",
+          "duration_ms": 4188,
+          "custom_output": {
+            "denoise_ms": 2810.7939579999997,
+            "prefill_ms": 1343.418291,
+            "probabilities": {
+              "account": 0.00016374820552300662,
+              "billing": 0.00048143212916329503,
+              "general": 0.00005641221650876105,
+              "technical": 0.9992984533309937
+            },
+            "samples": 4,
+            "selection": "technical",
+            "stderr": 0.0004240119887981564,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "sup-16",
+      "tier": "adversarial",
+      "category": "support",
+      "expected": "billing",
+      "comparison": {
+        "metric_id": "quickstart/support-intent-choice",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.19082283764396485,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "selection": "billing",
+          "explanation": "The user is demanding a refund and complaining about an unauthorized transaction, which directly relates to billing.",
+          "duration_ms": 719,
+          "custom_output": {
+            "explanation": "The user is demanding a refund and complaining about an unauthorized transaction, which directly relates to billing.",
+            "selection": "billing"
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "confidence": 0.9956479,
+          "selection": "billing",
+          "explanation": "DiffusionGemma classification: billing (confidence: 99.6%)",
+          "duration_ms": 3768,
+          "custom_output": {
+            "denoise_ms": 2764.221875,
+            "prefill_ms": 968.6046670000001,
+            "probabilities": {
+              "account": 0.0005008596344850957,
+              "billing": 0.9956479072570801,
+              "general": 0.000028446122087188996,
+              "technical": 0.0038228011690080166
+            },
+            "samples": 4,
+            "selection": "billing",
+            "stderr": 0.0019501954084262252,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-01",
+      "tier": "unambiguous",
+      "category": "safety",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.10119362838261488,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The text is a standard, polite promotional message with no profanity, offensive language, or harmful claims.",
+          "duration_ms": 800,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text is a standard, polite promotional message with no profanity, offensive language, or harmful claims.",
+            "passed": true
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.9998428,
+          "explanation": "DiffusionGemma verdict: yes (confidence: 100.0%, stderr: ±0.0002)",
+          "duration_ms": 7913,
+          "custom_output": {
+            "agreement": 1,
+            "denoise_ms": 3103.559667,
+            "passed": true,
+            "prefill_ms": 4753.481584,
+            "probabilities": {
+              "no": 0.0001571644825162366,
+              "yes": 0.9998428225517273
+            },
+            "samples": 4,
+            "stderr": 0.00015637777687516063,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-02",
+      "tier": "unambiguous",
+      "category": "safety",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.34385338957078304,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The text is a standard, polite customer support greeting containing no profanity, offensive claims, or unsafe content.",
+          "duration_ms": 713,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text is a standard, polite customer support greeting containing no profanity, offensive claims, or unsafe content.",
+            "passed": true
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.9999969,
+          "explanation": "DiffusionGemma verdict: yes (confidence: 100.0%, stderr: ±0.0000)",
+          "duration_ms": 2076,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 732.122417,
+            "passed": true,
+            "prefill_ms": 1325.7833329999999,
+            "probabilities": {
+              "no": 0.000003089494384767022,
+              "yes": 0.9999969005584717
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-03",
+      "tier": "unambiguous",
+      "category": "safety",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.47299702277977634,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The text promotes an illegal activity (illegal casino website) and implies fraudulent financial actions (unverified cards), making it unsafe.",
+          "duration_ms": 1005,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text promotes an illegal activity (illegal casino website) and implies fraudulent financial actions (unverified cards), making it unsafe.",
+            "passed": false
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.999987,
+          "explanation": "DiffusionGemma verdict: no (confidence: 100.0%, stderr: ±0.0000)",
+          "duration_ms": 2125,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 728.796834,
+            "passed": false,
+            "prefill_ms": 1375.0815,
+            "probabilities": {
+              "no": 0.999987006187439,
+              "yes": 0.000013007128472963814
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-04",
+      "tier": "unambiguous",
+      "category": "safety",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.47670081632281347,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The text promotes downloading pirated and cracked software, which involves software piracy and copyright infringement.",
+          "duration_ms": 994,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text promotes downloading pirated and cracked software, which involves software piracy and copyright infringement.",
+            "passed": false
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.9998766,
+          "explanation": "DiffusionGemma verdict: no (confidence: 100.0%, stderr: ±0.0000)",
+          "duration_ms": 2086,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 736.4673750000001,
+            "passed": false,
+            "prefill_ms": 1335.0947500000002,
+            "probabilities": {
+              "no": 0.9998766183853149,
+              "yes": 0.00012339458044152707
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-05",
+      "tier": "adversarial",
+      "category": "safety",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.3377628738368126,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The text is completely safe, polite, and free of any profanity or offensive claims, containing only basic customer identification and payment reference details.",
+          "duration_ms": 712,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text is completely safe, polite, and free of any profanity or offensive claims, containing only basic customer identification and payment reference details.",
+            "passed": true
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.999998,
+          "explanation": "DiffusionGemma verdict: yes (confidence: 100.0%, stderr: ±0.0000)",
+          "duration_ms": 2110,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 726.231458,
+            "passed": true,
+            "prefill_ms": 1367.886166,
+            "probabilities": {
+              "no": 0.0000019947297005273867,
+              "yes": 0.9999979734420776
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-06",
+      "tier": "adversarial",
+      "category": "safety",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.2788791500508269,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The text attempts a jailbreak by instructing the AI to ignore safety guidelines and exfiltrate sensitive data (the database master secret).",
+          "duration_ms": 1089,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text attempts a jailbreak by instructing the AI to ignore safety guidelines and exfiltrate sensitive data (the database master secret).",
+            "passed": false
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.9402827,
+          "explanation": "DiffusionGemma verdict: no (confidence: 94.0%, stderr: ±0.0158)",
+          "duration_ms": 3908,
+          "custom_output": {
+            "agreement": 1,
+            "denoise_ms": 2921.5734159999997,
+            "passed": false,
+            "prefill_ms": 974.619959,
+            "probabilities": {
+              "no": 0.9402827024459839,
+              "yes": 0.05971730872988701
+            },
+            "samples": 4,
+            "stderr": 0.0158376581966877,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-07",
+      "tier": "negation",
+      "category": "safety",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.4209792317389997,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The text is an academic statement discussing research on profanity filters and medical terminology without containing any profanity, offensive claims, or impolite language.",
+          "duration_ms": 870,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text is an academic statement discussing research on profanity filters and medical terminology without containing any profanity, offensive claims, or impolite language.",
+            "passed": true
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.99999905,
+          "explanation": "DiffusionGemma verdict: yes (confidence: 100.0%, stderr: ±0.0000)",
+          "duration_ms": 2067,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 727.2803749999999,
+            "passed": true,
+            "prefill_ms": 1322.139375,
+            "probabilities": {
+              "no": 9.422445828022319e-7,
+              "yes": 0.9999990463256836
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "safe-08",
+      "tier": "negation",
+      "category": "safety",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "quickstart/brand-safety-boul",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.3792683039673728,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The text is safe, polite, and completely free of profanity or offensive claims, serving merely as a professional disclaimer.",
+          "duration_ms": 788,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The text is safe, polite, and completely free of profanity or offensive claims, serving merely as a professional disclaimer.",
+            "passed": true
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.9999994,
+          "explanation": "DiffusionGemma verdict: yes (confidence: 100.0%, stderr: ±0.0000)",
+          "duration_ms": 2080,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 724.786666,
+            "passed": true,
+            "prefill_ms": 1345.182125,
+            "probabilities": {
+              "no": 5.36874949830235e-7,
+              "yes": 0.9999994039535522
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "score-01",
+      "tier": "unambiguous",
+      "category": "clarity",
+      "expected": "9.0",
+      "comparison": {
+        "metric_id": "demo/clarity-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0.12910722614522901,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "score": 10,
+          "explanation": "The headline is extremely clear, uses strong and punchy fragmentation, and directly targets the intended audience with zero fluff.",
+          "duration_ms": 1011,
+          "custom_output": {
+            "explanation": "The headline is extremely clear, uses strong and punchy fragmentation, and directly targets the intended audience with zero fluff.",
+            "score": 10
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "score": 3.1103864,
+          "confidence": 0.5191225,
+          "explanation": "DiffusionGemma score: 3.110386371612549 (confidence: 51.9%)",
+          "duration_ms": 7835,
+          "custom_output": {
+            "denoise_ms": 3110.631335,
+            "prefill_ms": 4710.631667000001,
+            "probabilities": {
+              "1": 0.46603745222091675,
+              "2": 0.004505878314375877,
+              "3": 0.0016118267085403204,
+              "4": 0.00872231274843216,
+              "5": 0.5191224813461304
+            },
+            "samples": 4,
+            "score": 3.110386371612549,
+            "stderr": 0.19695918262004852,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "score-02",
+      "tier": "unambiguous",
+      "category": "clarity",
+      "expected": "3.0",
+      "comparison": {
+        "metric_id": "demo/clarity-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0.22413945517156017,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The headline is a string of dense corporate buzzwords that is completely incomprehensible and lacks any punchiness.",
+          "duration_ms": 971,
+          "custom_output": {
+            "explanation": "The headline is a string of dense corporate buzzwords that is completely incomprehensible and lacks any punchiness.",
+            "score": 1
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "score": 2.144053,
+          "confidence": 0.9002975,
+          "explanation": "DiffusionGemma score: 2.1440529823303223 (confidence: 90.0%)",
+          "duration_ms": 4332,
+          "custom_output": {
+            "denoise_ms": 2919.168623,
+            "prefill_ms": 1401.3705830000001,
+            "probabilities": {
+              "1": 0.007616596762090921,
+              "2": 0.9002975225448608,
+              "3": 0.05670071393251419,
+              "4": 0.011186600662767887,
+              "5": 0.024198532104492188
+            },
+            "samples": 4,
+            "score": 2.1440529823303223,
+            "stderr": 0.02240351028740406,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "score-03",
+      "tier": "unambiguous",
+      "category": "clarity",
+      "expected": "7.5",
+      "comparison": {
+        "metric_id": "demo/clarity-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0.23504569458488397,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "score": 8,
+          "explanation": "The headline is clear, concise, and immediately tells the target audience (engineering teams) what the product does, though it could be slightly more punchy.",
+          "duration_ms": 1023,
+          "custom_output": {
+            "explanation": "The headline is clear, concise, and immediately tells the target audience (engineering teams) what the product does, though it could be slightly more punchy.",
+            "score": 8
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "score": 3.6907508,
+          "confidence": 0.64611584,
+          "explanation": "DiffusionGemma score: 3.69075083732605 (confidence: 64.6%)",
+          "duration_ms": 4353,
+          "custom_output": {
+            "denoise_ms": 2915.285876,
+            "prefill_ms": 1423.114958,
+            "probabilities": {
+              "1": 0.3118559718132019,
+              "2": 0.0079746562987566,
+              "3": 0.0038479557260870934,
+              "4": 0.030205626040697098,
+              "5": 0.6461158394813538
+            },
+            "samples": 4,
+            "score": 3.69075083732605,
+            "stderr": 0.18353234231472015,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "score-04",
+      "tier": "ambiguous",
+      "category": "clarity",
+      "expected": "4.0",
+      "comparison": {
+        "metric_id": "demo/clarity-score",
+        "kind": "score",
+        "agreement": true,
+        "speedup_factor": 0.2446790660393395,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The headline is vague. Words like 'things' and 'whenever' lack specificity, making it unclear what is actually being offered, despite the punchy rhythm.",
+          "duration_ms": 975,
+          "custom_output": {
+            "explanation": "The headline is vague. Words like 'things' and 'whenever' lack specificity, making it unclear what is actually being offered, despite the punchy rhythm.",
+            "score": 4
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "score": 4.6413026,
+          "confidence": 0.6583203,
+          "explanation": "DiffusionGemma score: 4.641302585601807 (confidence: 65.8%)",
+          "duration_ms": 3988,
+          "custom_output": {
+            "denoise_ms": 2915.3527080000003,
+            "prefill_ms": 1062.5477919999998,
+            "probabilities": {
+              "1": 0.0030951290391385555,
+              "2": 0.002166880527511239,
+              "3": 0.003398528089746833,
+              "4": 0.3330191373825073,
+              "5": 0.6583203077316284
+            },
+            "samples": 4,
+            "score": 4.641302585601807,
+            "stderr": 0.08529337495565414,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "score-05",
+      "tier": "unambiguous",
+      "category": "clarity",
+      "expected": "8.5",
+      "comparison": {
+        "metric_id": "demo/clarity-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0.19150168483967936,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "score": 9,
+          "explanation": "The headline is extremely clear, concise, and punchy, instantly conveying the core technical value proposition to the target audience.",
+          "duration_ms": 780,
+          "custom_output": {
+            "explanation": "The headline is extremely clear, concise, and punchy, instantly conveying the core technical value proposition to the target audience.",
+            "score": 9
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "score": 4.114372,
+          "confidence": 0.7448267,
+          "explanation": "DiffusionGemma score: 4.1143717765808105 (confidence: 74.5%)",
+          "duration_ms": 4075,
+          "custom_output": {
+            "denoise_ms": 2931.846624,
+            "prefill_ms": 1119.320125,
+            "probabilities": {
+              "1": 0.20236632227897644,
+              "2": 0.010186200961470604,
+              "3": 0.002983689773827791,
+              "4": 0.039637092500925064,
+              "5": 0.7448266744613647
+            },
+            "samples": 4,
+            "score": 4.1143717765808105,
+            "stderr": 0.12316934764385223,
+            "steps": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "img-01",
+      "tier": "unambiguous",
+      "category": "vision",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "demo/image-diagram-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0.2635778185720509,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The image clearly shows a software component architecture diagram labeled 'Mizan — component architecture (implemented vs roadmap)' with various components in rounded rectangles connected by directional arrows.",
+          "duration_ms": 1321,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The image clearly shows a software component architecture diagram labeled 'Mizan — component architecture (implemented vs roadmap)' with various components in rounded rectangles connected by directional arrows.",
+            "passed": true
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.9980732,
+          "explanation": "DiffusionGemma verdict: no (confidence: 99.8%, stderr: ±0.0000)",
+          "duration_ms": 5015,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 891.98775,
+            "passed": false,
+            "prefill_ms": 4090.951166,
+            "probabilities": {
+              "no": 0.9980732202529907,
+              "yes": 0.0019267346942797303
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "img-02",
+      "tier": "unambiguous",
+      "category": "vision",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "demo/image-diagram-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0.8343010682398493,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The image clearly shows a sequential software flow diagram with components representing functions/actions and directional arrows connecting them.",
+          "duration_ms": 1404,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The image clearly shows a sequential software flow diagram with components representing functions/actions and directional arrows connecting them.",
+            "passed": true
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.99929035,
+          "explanation": "DiffusionGemma verdict: no (confidence: 99.9%, stderr: ±0.0000)",
+          "duration_ms": 1683,
+          "custom_output": {
+            "agreement": 0,
+            "denoise_ms": 725.999333,
+            "passed": false,
+            "prefill_ms": 938.7315000000001,
+            "probabilities": {
+              "no": 0.9992903470993042,
+              "yes": 0.0007096704212017357
+            },
+            "samples": 1,
+            "stderr": 0,
+            "steps": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "img-03",
+      "tier": "unambiguous",
+      "category": "vision",
+      "expected": "3.3",
+      "comparison": {
+        "metric_id": "quickstart/image-rubric-scorecard",
+        "kind": "rubric",
+        "agreement": true,
+        "speedup_factor": 0.2139443026232479,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-3.5-flash-lite",
+          "score": 4.1,
+          "duration_ms": 2069,
+          "custom_output": {
+            "explanation": "The image is an exceptionally clear and sharp software architecture diagram with high technical legibility and safety, though it lacks a distinct brand logo.",
+            "overall_score": 4.1,
+            "per_criterion": [
+              {
+                "criterion": "A brand logo is clearly visible",
+                "group": "brand_presence",
+                "rationale": "There is no brand logo present in the architecture diagram.",
+                "score": 1
+              },
+              {
+                "criterion": "Uses a predominantly blue-and-white color scheme",
+                "group": "brand_presence",
+                "rationale": "The diagram primarily uses blue-tinted boxes, black text, and white background.",
+                "score": 4
+              },
+              {
+                "criterion": "Contains no violent or graphic content",
+                "group": "safety",
+                "rationale": "The image is a software architecture diagram completely free of violence.",
+                "score": 5
+              },
+              {
+                "criterion": "Contains no adult or suggestive content",
+                "group": "safety",
+                "rationale": "The image contains only technical text and flowcharts, completely safe for all audiences.",
+                "score": 5
+              },
+              {
+                "criterion": "The image is in sharp focus",
+                "group": "technical_quality",
+                "rationale": "All text and lines are crisp and vector-sharp.",
+                "score": 5
+              },
+              {
+                "criterion": "The main subject is well-lit and clearly visible",
+                "group": "technical_quality",
+                "rationale": "The diagram layout is clear, high contrast, and easy to read.",
+                "score": 5
+              }
+            ]
+          }
+        },
+        "engine_b": {
+          "engine": "diffusion",
+          "score": 3.3333335,
+          "explanation": "DiffusionGemma evaluated 4/6 rubric criteria passed (score: 3.3/5)",
+          "duration_ms": 9671,
+          "custom_output": {
+            "denoise_ms": 4031.6434580000005,
+            "per_criterion": [
+              {
+                "confidence": 0.9555457830429077,
+                "criterion": "A brand logo is clearly visible",
+                "group": "brand_presence",
+                "passed": false,
+                "rationale": "Slot readout: no (confidence: 95.6%, stderr: ±0.0348)",
+                "score": 0,
+                "stderr": 0.03484160453081131
+              },
+              {
+                "confidence": 0.9622712135314941,
+                "criterion": "Uses a predominantly blue-and-white color scheme",
+                "group": "brand_presence",
+                "passed": false,
+                "rationale": "Slot readout: no (confidence: 96.2%, stderr: ±0.0060)",
+                "score": 0,
+                "stderr": 0.005966766271740198
+              },
+              {
+                "confidence": 0.9521178007125854,
+                "criterion": "Contains no violent or graphic content",
+                "group": "safety",
+                "passed": true,
+                "rationale": "Slot readout: yes (confidence: 95.2%, stderr: ±0.0389)",
+                "score": 1,
+                "stderr": 0.03892624005675316
+              },
+              {
+                "confidence": 0.7908715009689331,
+                "criterion": "Contains no adult or suggestive content",
+                "group": "safety",
+                "passed": true,
+                "rationale": "Slot readout: yes (confidence: 79.1%, stderr: ±0.1388)",
+                "score": 1,
+                "stderr": 0.13881175220012665
+              },
+              {
+                "confidence": 0.5729081630706787,
+                "criterion": "The image is in sharp focus",
+                "group": "technical_quality",
+                "passed": true,
+                "rationale": "Slot readout: yes (confidence: 57.3%, stderr: ±0.1924)",
+                "score": 1,
+                "stderr": 0.1924154907464981
+              },
+              {
+                "confidence": 0.8218749761581421,
+                "criterion": "The main subject is well-lit and clearly visible",
+                "group": "technical_quality",
+                "passed": true,
+                "rationale": "Slot readout: yes (confidence: 82.2%, stderr: ±0.1396)",
+                "score": 1,
+                "stderr": 0.13957008719444275
+              }
+            ],
+            "prefill_ms": 5577.2339999999995,
+            "samples": 4,
+            "steps": 4
+          }
+        }
+      }
+    }
+  ]
+}
