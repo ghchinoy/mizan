@@ -52,6 +52,7 @@ func fullTemplate() registry.MetricTemplate {
 		SystemInstruction:    "Be strict.",
 		CandidateFieldName:   "candidate",
 		BaselineFieldName:    "baseline",
+		Choices:              []string{"first", "second", "third"},
 		RubricGroups: map[string][]string{
 			"quality": {"Is it clear?", "Is it correct?"},
 		},
@@ -356,13 +357,13 @@ func TestMigrateV1ToV2(t *testing.T) {
 		}
 	}
 
-	// Open triggers migrate(): v1 → latest (v3).
+	// Open triggers migrate(): v1 → latest (v4).
 	s, err := Open(path)
 	if err != nil {
-		t.Fatalf("Open (migrate v1→v3): %v", err)
+		t.Fatalf("Open (migrate v1→v4): %v", err)
 	}
-	if uv := userVersion(t, s.db); uv != 3 {
-		t.Errorf("after migrate: user_version = %d, want 3", uv)
+	if uv := userVersion(t, s.db); uv != 4 {
+		t.Errorf("after migrate: user_version = %d, want 4", uv)
 	}
 
 	// The pre-existing row survives and reads back with the added fields nil.
@@ -373,7 +374,7 @@ func TestMigrateV1ToV2(t *testing.T) {
 	if legacy.Name != "Legacy" || !legacy.CreatedAt.Equal(seedTS) {
 		t.Errorf("legacy row not intact: %#v", *legacy)
 	}
-	if legacy.RatingRubric != nil || legacy.RubricDetail != nil || legacy.RubricProvenance != nil || legacy.Heuristic != nil {
+	if legacy.RatingRubric != nil || legacy.RubricDetail != nil || legacy.RubricProvenance != nil || legacy.Heuristic != nil || len(legacy.Choices) != 0 {
 		t.Errorf("migrated legacy row: expected nil additive fields, got %#v", *legacy)
 	}
 
@@ -393,14 +394,14 @@ func TestMigrateV1ToV2(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	// A second Open must be a no-op: version stays 3, data is intact.
+	// A second Open must be a no-op: version stays 4, data is intact.
 	s2, err := Open(path)
 	if err != nil {
 		t.Fatalf("second Open: %v", err)
 	}
 	t.Cleanup(func() { _ = s2.Close() })
-	if uv := userVersion(t, s2.db); uv != 3 {
-		t.Errorf("second Open: user_version = %d, want 3", uv)
+	if uv := userVersion(t, s2.db); uv != 4 {
+		t.Errorf("second Open: user_version = %d, want 4", uv)
 	}
 	if _, err := s2.Get(ctx, "legacy/pointwise"); err != nil {
 		t.Errorf("legacy row missing after second Open: %v", err)

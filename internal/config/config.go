@@ -169,7 +169,7 @@ func loadEnvFile() map[string]string {
 		}
 		return nil
 	}
-	dir, err := os.UserConfigDir()
+	dir, err := UserConfigDir()
 	if err != nil {
 		return nil
 	}
@@ -392,8 +392,19 @@ func endpointHostAllowed(host string) bool {
 	return host == "googleapis.com" || strings.HasSuffix(host, ".googleapis.com")
 }
 
+// UserConfigDir returns the base configuration directory for Mizan. If
+// XDG_CONFIG_HOME is set and non-empty, it is used on all platforms (allowing
+// standard XDG overrides and clean test isolation). Otherwise it falls back
+// to os.UserConfigDir().
+func UserConfigDir() (string, error) {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return xdg, nil
+	}
+	return os.UserConfigDir()
+}
+
 func defaultDBPath() string {
-	dir, err := os.UserConfigDir()
+	dir, err := UserConfigDir()
 	if err != nil {
 		return "registry.db"
 	}
@@ -401,7 +412,7 @@ func defaultDBPath() string {
 }
 
 func defaultResultsDBPath() string {
-	dir, err := os.UserConfigDir()
+	dir, err := UserConfigDir()
 	if err != nil {
 		return "results.db"
 	}

@@ -68,19 +68,30 @@ func TestRegistryCreateWithKindAliasPersistsCanonical(t *testing.T) {
 		id       string
 		spelling string
 		want     registry.MetricKind
+		extra    []string
 	}{
-		{"test/single-metric", "single", registry.KindPointwise},
-		{"test/compare-metric", "compare", registry.KindPairwise},
+		{"test/single-metric", "single", registry.KindPointwise, nil},
+		{"test/compare-metric", "compare", registry.KindPairwise, nil},
+		{"test/bool-metric", "bool", registry.KindBoul, nil},
+		{"test/boolean-metric", "boolean", registry.KindBoul, nil},
+		{"test/boul-metric", "boul", registry.KindBoul, nil},
+		{"test/grade-metric", "grade", registry.KindScore, nil},
+		{"test/score-metric", "score", registry.KindScore, nil},
+		{"test/choice-metric", "choice", registry.KindChoice, []string{"--choices", "option_a,option_b"}},
+		{"test/classify-metric", "classify", registry.KindChoice, []string{"--choices", "option_a,option_b"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.spelling, func(t *testing.T) {
 			useIsolatedRegistry(t)
-			out, err := executeRoot(t, "--output", "json",
+			args := []string{
+				"--output", "json",
 				"registry", "create",
 				"--id", tc.id,
 				"--kind", tc.spelling,
 				"--prompt", "Judge {{response}}",
-			)
+			}
+			args = append(args, tc.extra...)
+			out, err := executeRoot(t, args...)
 			if err != nil {
 				t.Fatalf("registry create --kind %s: %v (out=%q)", tc.spelling, err, out)
 			}
@@ -113,6 +124,18 @@ func TestRegistryListKindAliasFiltersSameAsCanonical(t *testing.T) {
 		"--id", "test/pair", "--kind", "pairwise", "--prompt", "Compare {{baseline}} {{candidate}}"); err != nil {
 		t.Fatalf("seed pairwise: %v (out=%q)", err, out)
 	}
+	if out, err := executeRoot(t, "registry", "create",
+		"--id", "test/boul", "--kind", "boul", "--prompt", "Is safe? {{response}}"); err != nil {
+		t.Fatalf("seed boul: %v (out=%q)", err, out)
+	}
+	if out, err := executeRoot(t, "registry", "create",
+		"--id", "test/choice", "--kind", "choice", "--choices", "a,b", "--prompt", "Choose {{response}}"); err != nil {
+		t.Fatalf("seed choice: %v (out=%q)", err, out)
+	}
+	if out, err := executeRoot(t, "registry", "create",
+		"--id", "test/score", "--kind", "score", "--prompt", "Rate {{response}}"); err != nil {
+		t.Fatalf("seed score: %v (out=%q)", err, out)
+	}
 
 	single := listKinds(t, "single")
 	pointwise := listKinds(t, "pointwise")
@@ -130,6 +153,33 @@ func TestRegistryListKindAliasFiltersSameAsCanonical(t *testing.T) {
 	}
 	if !equalKinds(compare, pairwise) {
 		t.Errorf("list --kind compare (%v) != list --kind pairwise (%v)", compare, pairwise)
+	}
+
+	boolList := listKinds(t, "bool")
+	boulList := listKinds(t, "boul")
+	if len(boolList) != 1 || boolList[0] != registry.KindBoul {
+		t.Errorf("list --kind bool = %v, want exactly [boul]", boolList)
+	}
+	if !equalKinds(boolList, boulList) {
+		t.Errorf("list --kind bool (%v) != list --kind boul (%v)", boolList, boulList)
+	}
+
+	classifyList := listKinds(t, "classify")
+	choiceList := listKinds(t, "choice")
+	if len(classifyList) != 1 || classifyList[0] != registry.KindChoice {
+		t.Errorf("list --kind classify = %v, want exactly [choice]", classifyList)
+	}
+	if !equalKinds(classifyList, choiceList) {
+		t.Errorf("list --kind classify (%v) != list --kind choice (%v)", classifyList, choiceList)
+	}
+
+	gradeList := listKinds(t, "grade")
+	scoreList := listKinds(t, "score")
+	if len(gradeList) != 1 || gradeList[0] != registry.KindScore {
+		t.Errorf("list --kind grade = %v, want exactly [score]", gradeList)
+	}
+	if !equalKinds(gradeList, scoreList) {
+		t.Errorf("list --kind grade (%v) != list --kind score (%v)", gradeList, scoreList)
 	}
 }
 

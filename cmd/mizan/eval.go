@@ -969,12 +969,25 @@ func renderResult(w io.Writer, res eval.Result, showStats bool) error {
 		return renderRubricDetailResult(w, res, showStats)
 	}
 	tw := newTabWriter(w)
+	if res.Passed != nil {
+		status := "FAIL"
+		if *res.Passed {
+			status = "PASS"
+		}
+		if res.Confidence != nil {
+			fmt.Fprintf(tw, "Passed:\t%s (confidence=%.2f)\n", status, *res.Confidence)
+		} else {
+			fmt.Fprintf(tw, "Passed:\t%s\n", status)
+		}
+	}
+	if res.ChoiceSelection != "" {
+		fmt.Fprintf(tw, "Selection:\t%s\n", res.ChoiceSelection)
+	}
 	switch {
 	case res.Score != nil:
 		fmt.Fprintf(tw, "Score:\t%g\n", *res.Score)
-	case res.PairwiseChoice != "":
-		// Pairwise yields a Choice, not a Score; suppress the misleading
-		// "Score: (none)" line and print only the Choice below (eval-triage #4).
+	case res.PairwiseChoice != "" || res.Passed != nil || res.ChoiceSelection != "":
+		// Suppress misleading "Score: (none)" line when a discrete verdict was produced
 	default:
 		fmt.Fprintf(tw, "Score:\t(none)\n")
 	}

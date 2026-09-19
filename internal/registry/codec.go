@@ -112,6 +112,7 @@ type packSpec struct {
 	SystemInstruction    string                       `yaml:"systemInstruction,omitempty"`
 	CandidateFieldName   string                       `yaml:"candidateFieldName,omitempty"` // pairwise
 	BaselineFieldName    string                       `yaml:"baselineFieldName,omitempty"`  // pairwise
+	Choices              []string                     `yaml:"choices,omitempty"`            // choice
 	RubricGroups         map[string][]string          `yaml:"rubricGroups,omitempty"`       // rubric
 	ResponseSchema       map[string]any               `yaml:"responseSchema,omitempty"`     // custom_schema (JSON-Schema object)
 	RatingRubric         map[string]map[string]string `yaml:"ratingRubric,omitempty"`       // RFC-0001 §4.4
@@ -193,6 +194,7 @@ func (c YAMLCodec) Unmarshal(data []byte) (*MetricTemplate, error) {
 		SystemInstruction:    pf.Spec.SystemInstruction,
 		CandidateFieldName:   pf.Spec.CandidateFieldName,
 		BaselineFieldName:    pf.Spec.BaselineFieldName,
+		Choices:              pf.Spec.Choices,
 		RubricGroups:         pf.Spec.RubricGroups,
 		RatingRubric:         pf.Spec.RatingRubric,
 		RubricDetail:         pf.Spec.RubricDetail,
@@ -254,6 +256,7 @@ func (c YAMLCodec) Marshal(t *MetricTemplate) ([]byte, error) {
 			SystemInstruction:    t.SystemInstruction,
 			CandidateFieldName:   t.CandidateFieldName,
 			BaselineFieldName:    t.BaselineFieldName,
+			Choices:              t.Choices,
 			RubricGroups:         t.RubricGroups,
 			RatingRubric:         t.RatingRubric,
 			RubricDetail:         t.RubricDetail,

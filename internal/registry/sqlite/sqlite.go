@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS metric_templates (
     system_instruction     TEXT NOT NULL DEFAULT '',
     candidate_field_name   TEXT NOT NULL DEFAULT '',
     baseline_field_name    TEXT NOT NULL DEFAULT '',
+    choices                TEXT NOT NULL DEFAULT '[]',   -- JSON []string
     rubric_groups          TEXT NOT NULL DEFAULT 'null', -- JSON map[string][]string
     response_schema        TEXT NOT NULL DEFAULT 'null', -- JSON *Schema
     autorater_model        TEXT NOT NULL DEFAULT '',
@@ -190,7 +191,13 @@ CREATE INDEX IF NOT EXISTS idx_metric_templates_source ON metric_templates(sourc
 			return fmt.Errorf("sqlite: migrate v3 alter: %w", err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 3;"); err != nil {
+	// Existing v1/v2/v3 DBs: add the choices column (v4).
+	if uv >= 1 && uv <= 3 {
+		if _, err := tx.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN choices TEXT NOT NULL DEFAULT '[]'"); err != nil {
+			return fmt.Errorf("sqlite: migrate v4 alter: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 4;"); err != nil {
 		return fmt.Errorf("sqlite: set user_version: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -224,6 +231,7 @@ func (s *Store) Put(ctx context.Context, t *registry.MetricTemplate) error {
 	tags := mustJSON(t.Tags)
 	modalities := mustJSON(t.Modalities)
 	inputs := mustJSON(t.Inputs)
+	choices := mustJSON(t.Choices)
 	rubric := mustJSON(t.RubricGroups)
 	schema := mustJSON(t.ResponseSchema)
 	ratingRubric := mustJSON(t.RatingRubric)
@@ -235,14 +243,14 @@ func (s *Store) Put(ctx context.Context, t *registry.MetricTemplate) error {
 INSERT INTO metric_templates (
     id, name, description, version, authors, maintainers, license, tags,
     kind, modalities, inputs, metric_prompt_template, system_instruction,
-    candidate_field_name, baseline_field_name, rubric_groups, response_schema,
+    candidate_field_name, baseline_field_name, choices, rubric_groups, response_schema,
     autorater_model, sampling_count, flip_enabled,
     rating_rubric, rubric_detail, rubric_provenance, heuristic,
     source, content_hash, dirty, created_at, updated_at, imported_at
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?, ?,
     ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?
@@ -253,7 +261,7 @@ ON CONFLICT(id) DO UPDATE SET
     tags=excluded.tags, kind=excluded.kind, modalities=excluded.modalities,
     inputs=excluded.inputs, metric_prompt_template=excluded.metric_prompt_template,
     system_instruction=excluded.system_instruction, candidate_field_name=excluded.candidate_field_name,
-    baseline_field_name=excluded.baseline_field_name, rubric_groups=excluded.rubric_groups,
+    baseline_field_name=excluded.baseline_field_name, choices=excluded.choices, rubric_groups=excluded.rubric_groups,
     response_schema=excluded.response_schema, autorater_model=excluded.autorater_model,
     sampling_count=excluded.sampling_count, flip_enabled=excluded.flip_enabled,
     rating_rubric=excluded.rating_rubric, rubric_detail=excluded.rubric_detail,
@@ -264,7 +272,7 @@ ON CONFLICT(id) DO UPDATE SET
 	_, err := s.db.ExecContext(ctx, q,
 		t.ID, t.Name, t.Description, t.Version, authors, maintainers, t.License, tags,
 		string(t.Kind), modalities, inputs, t.MetricPromptTemplate, t.SystemInstruction,
-		t.CandidateFieldName, t.BaselineFieldName, rubric, schema,
+		t.CandidateFieldName, t.BaselineFieldName, choices, rubric, schema,
 		t.AutoraterModel, t.SamplingCount, boolToInt(t.FlipEnabled),
 		ratingRubric, rubricDetail, rubricProvenance, heuristic,
 		t.Source, t.ContentHash, boolToInt(t.Dirty), created, updated, nullTime(t.ImportedAt),
@@ -417,7 +425,7 @@ func matchesInMemory(t *registry.MetricTemplate, f registry.ListFilter) bool {
 const selectCols = `SELECT
     id, name, description, version, authors, maintainers, license, tags,
     kind, modalities, inputs, metric_prompt_template, system_instruction,
-    candidate_field_name, baseline_field_name, rubric_groups, response_schema,
+    candidate_field_name, baseline_field_name, choices, rubric_groups, response_schema,
     autorater_model, sampling_count, flip_enabled,
     rating_rubric, rubric_detail, rubric_provenance, heuristic,
     source, content_hash, dirty, created_at, updated_at, imported_at`
@@ -431,7 +439,7 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 	var (
 		t                                            registry.MetricTemplate
 		authors, maintainers, tags, modalities       string
-		inputs, rubric, schema                       string
+		inputs, choices, rubric, schema              string
 		ratingRubric, rubricDetail, rubricProvenance string
 		heuristic                                    string
 		kind                                         string
@@ -441,7 +449,7 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 	if err := sc.Scan(
 		&t.ID, &t.Name, &t.Description, &t.Version, &authors, &maintainers, &t.License, &tags,
 		&kind, &modalities, &inputs, &t.MetricPromptTemplate, &t.SystemInstruction,
-		&t.CandidateFieldName, &t.BaselineFieldName, &rubric, &schema,
+		&t.CandidateFieldName, &t.BaselineFieldName, &choices, &rubric, &schema,
 		&t.AutoraterModel, &t.SamplingCount, &flip,
 		&ratingRubric, &rubricDetail, &rubricProvenance, &heuristic,
 		&t.Source, &t.ContentHash, &dirty, &createdAt, &updatedAt, &importedAt,
@@ -474,6 +482,9 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 		return nil, err
 	}
 	if err := unmarshalIf("inputs", inputs, &t.Inputs); err != nil {
+		return nil, err
+	}
+	if err := unmarshalIf("choices", choices, &t.Choices); err != nil {
 		return nil, err
 	}
 	if err := unmarshalIf("rubric_groups", rubric, &t.RubricGroups); err != nil {

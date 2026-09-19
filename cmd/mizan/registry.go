@@ -51,6 +51,7 @@ type templateFlags struct {
 	tags          []string
 	candidate     string
 	baseline      string
+	choices       []string // choice (KindChoice) allowed options
 	// authoring metadata
 	version string
 	license string
@@ -80,7 +81,7 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	fl.StringVar(&f.id, "id", "", "stable template id, <namespace>/<slug> (required)")
 	fl.StringVar(&f.name, "name", "", "human-readable name")
 	fl.StringVar(&f.description, "description", "", "description")
-	fl.StringVar(&f.kind, "kind", string(registry.KindPointwise), "metric kind: single (a.k.a. pointwise) — score one response | compare (a.k.a. pairwise) — compare two | rubric | custom_schema | heuristic (non-LLM deterministic check)")
+	fl.StringVar(&f.kind, "kind", string(registry.KindPointwise), "metric kind: boul (bool/boolean) | choice (classify) | score (grade) | single (pointwise) | compare (pairwise) | rubric | custom_schema | heuristic")
 	fl.StringVar(&f.prompt, "prompt", "", "metric prompt template ({{var}} placeholders)")
 	fl.StringVar(&f.system, "system", "", "system instruction")
 	// Default is empty (WI-F3): an unset --model leaves the template's
@@ -95,6 +96,7 @@ func (f *templateFlags) bind(cmd *cobra.Command) {
 	fl.StringSliceVar(&f.tags, "tag", nil, "tags (repeatable)")
 	fl.StringVar(&f.candidate, "candidate-field", "", "pairwise: candidate response field name")
 	fl.StringVar(&f.baseline, "baseline-field", "", "pairwise: baseline response field name")
+	fl.StringSliceVar(&f.choices, "choices", nil, "choice: allowed classification categories (comma-separated or repeatable)")
 	// StringArrayVar (not StringSliceVar): each flag value is kept intact so a
 	// criterion may itself contain commas; criteria are split on ';' below.
 	fl.StringArrayVar(&f.rubricGroups, "rubric-group", nil, `rubric: group as "name=criterion one;criterion two" (repeatable; same name accumulates)`)
@@ -348,6 +350,10 @@ func validateTemplate(t *registry.MetricTemplate) error {
 		if t.ResponseSchema == nil || strings.TrimSpace(t.ResponseSchema.JSON) == "" {
 			return fmt.Errorf("kind %q requires a response schema; pass --response-schema '<json>' or --response-schema-file <path>", t.Kind)
 		}
+	case registry.KindChoice:
+		if len(t.Choices) < 2 {
+			return fmt.Errorf("kind %q requires at least 2 choices; pass --choices \"opt1,opt2\"", t.Kind)
+		}
 	case registry.KindHeuristic:
 		if err := validateHeuristicTemplate(t); err != nil {
 			return err
@@ -476,6 +482,15 @@ func (f *templateFlags) apply(cmd *cobra.Command, t *registry.MetricTemplate, up
 	set("flip-enabled", func() { t.FlipEnabled = f.flipEnabled })
 	set("candidate-field", func() { t.CandidateFieldName = f.candidate })
 	set("baseline-field", func() { t.BaselineFieldName = f.baseline })
+	set("choices", func() {
+		var cs []string
+		for _, c := range f.choices {
+			if trimmed := strings.TrimSpace(c); trimmed != "" {
+				cs = append(cs, trimmed)
+			}
+		}
+		t.Choices = cs
+	})
 	set("modality", func() {
 		var ms []registry.Modality
 		for _, m := range f.modalities {

@@ -79,11 +79,14 @@ type Instance struct {
 
 // Result is the outcome of a single evaluation.
 type Result struct {
-	Score          *float32
-	PairwiseChoice string // "" unless pairwise
-	Explanation    string
-	RawOutput      []string       // if ReturnRawOutput
-	CustomOutput   map[string]any // if KindCustomSchema
+	Score           *float32
+	Passed          *bool    `json:"passed,omitempty"`           // if KindBoul
+	Confidence      *float32 `json:"confidence,omitempty"`       // if KindBoul
+	ChoiceSelection string   `json:"choice_selection,omitempty"` // if KindChoice
+	PairwiseChoice  string   // "" unless pairwise
+	Explanation     string
+	RawOutput       []string       // if ReturnRawOutput
+	CustomOutput    map[string]any // if KindCustomSchema, KindBoul, KindChoice, KindScore
 	// RubricDetail is set by the rubric per-criterion transparency path
 	// (runRubricStructured) to mark that CustomOutput carries the
 	// {per_criterion, overall_score, explanation} structure. The renderer routes
@@ -387,6 +390,12 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 // wall-clock measurement.
 func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	switch tmpl.Kind {
+	case registry.KindBoul:
+		return e.runBoul(ctx, tmpl, inst, model)
+	case registry.KindChoice:
+		return e.runChoice(ctx, tmpl, inst, model)
+	case registry.KindScore:
+		return e.runScore(ctx, tmpl, inst, model, rc)
 	case registry.KindPointwise:
 		return e.runPointwise(ctx, tmpl, inst, model)
 	case registry.KindRubric:

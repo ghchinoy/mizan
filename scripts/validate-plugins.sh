@@ -285,7 +285,10 @@ if [ -f "$mp" ]; then
     # convention came from the ghchinoy/agent-skills DOCS, which have diverged
     # from the shipping CLI.
     # Path passed as argv to avoid injection via a crafted manifest path.
-    mapfile -t mp_paths < <(python3 -c "
+    mp_paths=()
+    while IFS= read -r line || [ -n "$line" ]; do
+      mp_paths+=("$line")
+    done < <(python3 -c "
 import json, os, sys
 d = json.load(open(sys.argv[1]))
 for p in d.get('plugins', []):

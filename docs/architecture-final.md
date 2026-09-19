@@ -196,6 +196,9 @@ from the retired draft; the eval-layer types are given below and the authoritati
 dispatch is the bullets that follow. (CLI surface and desktop bindings folded from
 the retired draft are in §12 and §13.)
 
+- `boul` → `genai.GenerateContent` with strict boolean schema (`passed`, `confidence`, `explanation`) at `location=global`.
+- `choice` → `genai.GenerateContent` with dynamic enum schema (`selection: enum(Choices)`, `explanation`) at `location=global`.
+- `score` → `genai.GenerateContent` with continuous numeric scale schema (`score`, `explanation`) or structured rubric at `location=global`.
 - `pointwise`/`pairwise`, text-only → `*MetricSpec` + `JsonInstance`.
 - `pointwise`/`pairwise`, any non-text asset → `*MetricSpec` +
   `ContentMapInstance` with **`FileData` (`gs://`) only** — see the inline-bytes
@@ -208,6 +211,7 @@ the retired draft are in §12 and §13.)
   inline) — instead the rubric criteria are rendered as additional judge-prompt
   text via `renderRubricGroups` and appended to the metric prompt.
 - `custom_schema` → `genai.GenerateContent` with `ResponseSchema` + backoff retry.
+- `heuristic` → deterministic, non-LLM, credential-free checks (`contains`, `regex`, `equals`, `json-valid`, `json-schema-valid`).
 
 `AutoraterConfig` (SamplingCount, FlipEnabled, AutoraterModel) is populated from
 the template's `autorater.*` fields.
@@ -229,11 +233,14 @@ type AssetRef struct {
     MimeType string // detected or explicit
 }
 type Result struct {
-    Score          *float32
-    PairwiseChoice string // "" unless pairwise
-    Explanation    string
-    RawOutput      []string          // if ReturnRawOutput
-    CustomOutput   map[string]any    // if KindCustomSchema
+    Score           *float32
+    Passed          *bool          // if KindBoul
+    Confidence      *float32       // if KindBoul
+    ChoiceSelection string         // if KindChoice
+    PairwiseChoice  string         // "" unless pairwise
+    Explanation     string
+    RawOutput       []string       // if ReturnRawOutput
+    CustomOutput    map[string]any // if KindCustomSchema, KindBoul, KindChoice, KindScore
 }
 
 type Engine interface {

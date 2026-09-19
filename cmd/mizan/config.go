@@ -50,7 +50,10 @@ func buildConfigKeys() map[string]string {
 // `config set` writes and LoadConfig reads. It never uses the current working
 // directory (avoids the CWD-.env trust bug closed in internal/config).
 func dotenvPath() (string, error) {
-	dir, err := os.UserConfigDir()
+	if p := os.Getenv("MIZAN_ENV_FILE"); p != "" {
+		return p, nil
+	}
+	dir, err := config.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve user config dir: %w", err)
 	}

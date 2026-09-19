@@ -125,6 +125,9 @@ func renderTemplate(w io.Writer, t *registry.MetricTemplate) error {
 	if t.MetricPromptTemplate != "" {
 		fmt.Fprintf(tw, "Prompt:\t%s\n", firstLine(t.MetricPromptTemplate))
 	}
+	if len(t.Choices) > 0 {
+		fmt.Fprintf(tw, "Choices:\t%s\n", strings.Join(t.Choices, ", "))
+	}
 	if len(t.RubricGroups) > 0 {
 		names := make([]string, 0, len(t.RubricGroups))
 		for name := range t.RubricGroups {

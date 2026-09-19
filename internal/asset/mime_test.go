@@ -125,7 +125,7 @@ func TestDetectMIME_MismatchDanger(t *testing.T) {
 }
 
 func TestDetectMIME_Unknown(t *testing.T) {
-	if got := DetectMIME("mystery.xyz", []byte{0x00, 0x01, 0x02, 0x03}); got != "application/octet-stream" {
+	if got := DetectMIME("mystery.unknown", []byte{0x00, 0x01, 0x02, 0x03}); got != "application/octet-stream" {
 		t.Fatalf("DetectMIME(unknown) = %q, want application/octet-stream", got)
 	}
 	if got := DetectMIME("", nil); got != "application/octet-stream" {

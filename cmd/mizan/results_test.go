@@ -399,6 +399,33 @@ func runIDs(rs []results.Result) []string {
 	return ids
 }
 
+func TestOutcomeSummary(t *testing.T) {
+	bTrue := results.Outcome{CustomOutput: map[string]any{"passed": true}}
+	if got := outcomeSummary(bTrue); got != "PASS" {
+		t.Errorf("outcomeSummary(passed=true) = %q, want PASS", got)
+	}
+
+	bFalse := results.Outcome{CustomOutput: map[string]any{"passed": false}}
+	if got := outcomeSummary(bFalse); got != "FAIL" {
+		t.Errorf("outcomeSummary(passed=false) = %q, want FAIL", got)
+	}
+
+	choice := results.Outcome{CustomOutput: map[string]any{"selection": "technical"}}
+	if got := outcomeSummary(choice); got != "technical" {
+		t.Errorf("outcomeSummary(selection=technical) = %q, want technical", got)
+	}
+
+	score := results.Outcome{Score: float32p(4.5)}
+	if got := outcomeSummary(score); got != "4.5" {
+		t.Errorf("outcomeSummary(score=4.5) = %q, want 4.5", got)
+	}
+
+	pairwise := results.Outcome{PairwiseChoice: "CANDIDATE"}
+	if got := outcomeSummary(pairwise); got != "CANDIDATE" {
+		t.Errorf("outcomeSummary(pairwise) = %q, want CANDIDATE", got)
+	}
+}
+
 // TestResultsShowNotFound proves `results show` on an unknown run id maps
 // results.ErrNotFound to a crisp, non-nil error (non-zero exit).
 func TestResultsShowNotFound(t *testing.T) {

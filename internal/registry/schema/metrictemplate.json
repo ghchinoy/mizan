@@ -50,8 +50,8 @@
       "properties": {
         "kind": {
           "type": "string",
-          "description": "Accepts vernacular single/compare and canonical pointwise/pairwise/rubric/custom_schema/heuristic (design §3.2, §4.B); the codec canonicalizes via NormalizeKind.",
-          "enum": ["single", "pointwise", "compare", "pairwise", "rubric", "custom_schema", "heuristic"]
+          "description": "Accepts vernacular single/compare/bool/boolean/classify/grade and canonical boul/choice/score/pointwise/pairwise/rubric/custom_schema/heuristic; the codec canonicalizes via NormalizeKind.",
+          "enum": ["single", "pointwise", "compare", "pairwise", "rubric", "custom_schema", "heuristic", "boul", "bool", "boolean", "choice", "classify", "score", "grade"]
         },
         "modalities": {
           "type": "array",
@@ -74,6 +74,11 @@
         "systemInstruction": { "type": "string" },
         "candidateFieldName": { "type": "string" },
         "baselineFieldName": { "type": "string" },
+        "choices": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2
+        },
         "rubricGroups": {
           "type": "object",
           "additionalProperties": { "type": "array", "items": { "type": "string" } }

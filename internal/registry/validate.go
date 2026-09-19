@@ -575,9 +575,13 @@ func validateKindSpecific(rep *Report, file, id string, kind MetricKind, pf pack
 	hasRubric := len(pf.Spec.RubricGroups) > 0
 	hasSchema := len(pf.Spec.ResponseSchema) > 0
 	hasPair := pf.Spec.CandidateFieldName != "" || pf.Spec.BaselineFieldName != ""
+	hasChoices := len(pf.Spec.Choices) > 0
 
 	switch kind {
 	case KindPairwise:
+		if hasChoices {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.choices (those are choice-only)", kind)
+		}
 		if pf.Spec.CandidateFieldName == "" {
 			rep.add(file, id, SeverityError, "kind %q requires spec.candidateFieldName", kind)
 		} else if !inputNames[pf.Spec.CandidateFieldName] {
@@ -589,10 +593,16 @@ func validateKindSpecific(rep *Report, file, id string, kind MetricKind, pf pack
 			rep.add(file, id, SeverityError, "kind %q baselineFieldName %q is not declared in spec.inputs", kind, pf.Spec.BaselineFieldName)
 		}
 	case KindRubric:
+		if hasChoices {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.choices (those are choice-only)", kind)
+		}
 		if !hasRubric {
 			rep.add(file, id, SeverityError, "kind %q requires a non-empty spec.rubricGroups", kind)
 		}
 	case KindCustomSchema:
+		if hasChoices {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.choices (those are choice-only)", kind)
+		}
 		if !hasSchema {
 			rep.add(file, id, SeverityError, "kind %q requires spec.responseSchema", kind)
 		} else if err := validateResponseSchema(pf.Spec.ResponseSchema); err != nil {
@@ -608,6 +618,76 @@ func validateKindSpecific(rep *Report, file, id string, kind MetricKind, pf pack
 		}
 		if hasSchema {
 			rep.add(file, id, SeverityError, "kind %q must not set spec.responseSchema (that is custom_schema-only)", kind)
+		}
+		if hasChoices {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.choices (those are choice-only)", kind)
+		}
+	case KindBoul:
+		if hasPair {
+			rep.add(file, id, SeverityError, "kind %q must not set candidateFieldName/baselineFieldName (those are pairwise-only)", kind)
+		}
+		if hasRubric {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.rubricGroups (that is rubric-only)", kind)
+		}
+		if hasSchema {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.responseSchema (that is custom_schema-only)", kind)
+		}
+		if hasChoices {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.choices (those are choice-only)", kind)
+		}
+		if pf.Spec.Heuristic != nil {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.heuristic (that is heuristic-only)", kind)
+		}
+		if strings.TrimSpace(pf.Spec.MetricPromptTemplate) == "" {
+			rep.add(file, id, SeverityError, "kind %q requires spec.metricPromptTemplate", kind)
+		}
+	case KindChoice:
+		if hasPair {
+			rep.add(file, id, SeverityError, "kind %q must not set candidateFieldName/baselineFieldName (those are pairwise-only)", kind)
+		}
+		if hasRubric {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.rubricGroups (that is rubric-only)", kind)
+		}
+		if hasSchema {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.responseSchema (that is custom_schema-only)", kind)
+		}
+		if pf.Spec.Heuristic != nil {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.heuristic (that is heuristic-only)", kind)
+		}
+		if len(pf.Spec.Choices) < 2 {
+			rep.add(file, id, SeverityError, "kind %q requires at least 2 spec.choices", kind)
+		} else {
+			seen := map[string]bool{}
+			for _, c := range pf.Spec.Choices {
+				trimmed := strings.TrimSpace(c)
+				if trimmed == "" {
+					rep.add(file, id, SeverityError, "kind %q choices must not contain empty strings", kind)
+					break
+				}
+				if seen[trimmed] {
+					rep.add(file, id, SeverityError, "kind %q contains duplicate choice %q", kind, trimmed)
+				}
+				seen[trimmed] = true
+			}
+		}
+		if strings.TrimSpace(pf.Spec.MetricPromptTemplate) == "" {
+			rep.add(file, id, SeverityError, "kind %q requires spec.metricPromptTemplate", kind)
+		}
+	case KindScore:
+		if hasPair {
+			rep.add(file, id, SeverityError, "kind %q must not set candidateFieldName/baselineFieldName (those are pairwise-only)", kind)
+		}
+		if hasSchema {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.responseSchema (that is custom_schema-only)", kind)
+		}
+		if hasChoices {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.choices (those are choice-only)", kind)
+		}
+		if pf.Spec.Heuristic != nil {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.heuristic (that is heuristic-only)", kind)
+		}
+		if strings.TrimSpace(pf.Spec.MetricPromptTemplate) == "" {
+			rep.add(file, id, SeverityError, "kind %q requires spec.metricPromptTemplate", kind)
 		}
 	case KindHeuristic:
 		validateHeuristicSpec(rep, file, id, kind, inputNames, hasRubric, hasSchema, hasPair, pf)

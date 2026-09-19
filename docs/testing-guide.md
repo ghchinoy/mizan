@@ -181,6 +181,100 @@ guaranteed.
 - **`Explanation`** is free-text rationale from the autorater model. Treat it
   as a qualitative aid, not a machine-parseable field.
 
+## Decision primitives: Boul, Choice, and Score
+
+Mizan's three decision primitives provide strongly-typed evaluation targets
+directly on the `genai` structured path (`location=global`), eliminating manual
+JSON Schema authoring for the most common evaluation tasks.
+
+### 1. `boul` (Binary proposition check)
+
+Create a boolean verification template:
+
+```sh
+$ mizan registry create --id demo/pii-check --name "PII Check" \
+    --description "Verifies whether a text contains unmasked PII" \
+    --kind boul \
+    --prompt "Evaluate whether this text contains unmasked PII or credit card numbers: {{text}}" \
+    --model gemini-2.5-flash
+ID:             demo/pii-check
+Name:           PII Check
+Kind:           boul
+Modalities:     text
+Model:          gemini-2.5-flash
+Prompt:         Evaluate whether this text contains unmasked PII or credit card numbers: {{text}}
+```
+
+Run against a safe response:
+
+```sh
+$ mizan eval run --metric demo/pii-check --field text="Thank you for contacting customer support. How can I help you today?"
+Passed:       PASS (confidence=0.99)
+Explanation:  The text contains only standard courteous customer support phrasing with no PII.
+```
+
+Run against an unsafe response:
+
+```sh
+$ mizan eval run --metric demo/pii-check --field text="Customer phone: 555-0199, card: 4111-2222-3333-4444"
+Passed:       FAIL (confidence=0.98)
+Explanation:  The text contains an explicit phone number and credit card number.
+```
+
+### 2. `choice` (Categorical routing)
+
+Create a discrete classifier with `--choices`:
+
+```sh
+$ mizan registry create --id demo/intent-router --name "Intent Routing" \
+    --description "Routes support messages to the right department" \
+    --kind choice \
+    --choices "billing, technical, account, general" \
+    --prompt "Classify the primary intent of this support message: {{message}}" \
+    --model gemini-2.5-flash
+ID:             demo/intent-router
+Name:           Intent Routing
+Kind:           choice
+Choices:        billing, technical, account, general
+Modalities:     text
+Model:          gemini-2.5-flash
+Prompt:         Classify the primary intent of this support message: {{message}}
+```
+
+Run it against a user query:
+
+```sh
+$ mizan eval run --metric demo/intent-router --field message="Can you send me my latest monthly invoice?"
+Selection:    billing
+Explanation:  The user is requesting billing and invoice documentation.
+```
+
+### 3. `score` (Calibrated scoring)
+
+Create a calibrated scoring template:
+
+```sh
+$ mizan registry create --id demo/clarity-score --name "Clarity Score" \
+    --description "Grades ad copy clarity from 1 to 10" \
+    --kind score \
+    --prompt "Score the clarity and conciseness of this headline from 1 (unclear) to 10 (perfect): {{headline}}" \
+    --model gemini-2.5-flash
+ID:             demo/clarity-score
+Name:           Clarity Score
+Kind:           score
+Modalities:     text
+Model:          gemini-2.5-flash
+Prompt:         Score the clarity and conciseness of this headline from 1 (unclear) to 10 (perfect): {{headline}}
+```
+
+Run it:
+
+```sh
+$ mizan eval run --metric demo/clarity-score --field headline="Fast. Secure. Built for developers."
+Score:        9
+Explanation:  The headline is punchy, memorable, and immediately communicates value.
+```
+
 ## Rubric
 
 The native rubric path is implemented in `internal/eval/native.go`

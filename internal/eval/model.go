@@ -234,7 +234,7 @@ func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string, rubricDe
 		Model:    bareModelID(model),
 		Path:     "native",
 	}
-	if tmpl.Kind == registry.KindCustomSchema || (rubricDetail && tmpl.Kind == registry.KindRubric) {
+	if tmpl.Kind == registry.KindCustomSchema || tmpl.Kind == registry.KindBoul || tmpl.Kind == registry.KindChoice || tmpl.Kind == registry.KindScore || (rubricDetail && tmpl.Kind == registry.KindRubric) {
 		// The genai path is global regardless of a fully-qualified template
 		// model: genaiModelID reduces it to the bare id sent to the global
 		// client, so the location shown here is always GenaiLocation. A

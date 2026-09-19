@@ -582,6 +582,15 @@ func metricRef(r results.Result) string {
 
 // outcomeSummary renders the one-cell score/choice summary for the list table.
 func outcomeSummary(o results.Outcome) string {
+	if p, ok := o.CustomOutput["passed"].(bool); ok {
+		if p {
+			return "PASS"
+		}
+		return "FAIL"
+	}
+	if sel, ok := o.CustomOutput["selection"].(string); ok && sel != "" {
+		return sel
+	}
 	switch {
 	case o.Score != nil:
 		return fmt.Sprintf("%g", *o.Score)
@@ -713,6 +722,20 @@ func renderResultDetail(w io.Writer, r *results.Result) error {
 
 	// Outcome — score/choice/explanation/warnings/duration/tokens.
 	otw := newTabWriter(w)
+	if p, ok := r.Outcome.CustomOutput["passed"].(bool); ok {
+		status := "FAIL"
+		if p {
+			status = "PASS"
+		}
+		if conf, ok := r.Outcome.CustomOutput["confidence"].(float64); ok {
+			fmt.Fprintf(otw, "Passed:\t%s (confidence=%.2f)\n", status, conf)
+		} else {
+			fmt.Fprintf(otw, "Passed:\t%s\n", status)
+		}
+	}
+	if sel, ok := r.Outcome.CustomOutput["selection"].(string); ok && sel != "" {
+		fmt.Fprintf(otw, "Selection:\t%s\n", sanitizeCell(sel))
+	}
 	if r.Outcome.Score != nil {
 		fmt.Fprintf(otw, "Score:\t%g\n", *r.Outcome.Score)
 	}

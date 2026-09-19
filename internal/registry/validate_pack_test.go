@@ -940,3 +940,103 @@ func TestValidatePackDiscoversPacksTree(t *testing.T) {
 		t.Fatalf("want 1 parsed template for dry-run carriage, got %d", len(rep.Templates))
 	}
 }
+
+func TestValidatePackBoul(t *testing.T) {
+	valid := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/boul-valid, version: 1.0.0, license: Apache-2.0}
+spec:
+  kind: boul
+  modalities: [text]
+  inputs:
+    - {name: response, modality: text, required: true}
+  metricPromptTemplate: "Is this safe? {{response}}"
+`
+	rep := validatePackDir(t, map[string]string{"templates/boul.yaml": valid})
+	if rep.HasErrors() {
+		t.Fatalf("want clean, got:\n%s", errorMessages(rep))
+	}
+
+	withChoices := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/boul-bad, version: 1.0.0, license: Apache-2.0}
+spec:
+  kind: boul
+  modalities: [text]
+  choices: [a, b]
+  inputs:
+    - {name: response, modality: text, required: true}
+  metricPromptTemplate: "Is this safe? {{response}}"
+`
+	repBad := validatePackDir(t, map[string]string{"templates/boul.yaml": withChoices})
+	if !strings.Contains(errorMessages(repBad), "must not set spec.choices") {
+		t.Fatalf("want error forbidding choices on boul, got:\n%s", errorMessages(repBad))
+	}
+}
+
+func TestValidatePackChoice(t *testing.T) {
+	valid := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/choice-valid, version: 1.0.0, license: Apache-2.0}
+spec:
+  kind: choice
+  modalities: [text]
+  choices: [billing, technical, sales]
+  inputs:
+    - {name: message, modality: text, required: true}
+  metricPromptTemplate: "Classify: {{message}}"
+`
+	rep := validatePackDir(t, map[string]string{"templates/choice.yaml": valid})
+	if rep.HasErrors() {
+		t.Fatalf("want clean, got:\n%s", errorMessages(rep))
+	}
+
+	dupChoices := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/choice-dup, version: 1.0.0, license: Apache-2.0}
+spec:
+  kind: choice
+  modalities: [text]
+  choices: [billing, technical, billing]
+  inputs:
+    - {name: message, modality: text, required: true}
+  metricPromptTemplate: "Classify: {{message}}"
+`
+	repDup := validatePackDir(t, map[string]string{"templates/choice.yaml": dupChoices})
+	if !strings.Contains(errorMessages(repDup), "duplicate choice") {
+		t.Fatalf("want duplicate choice error, got:\n%s", errorMessages(repDup))
+	}
+
+	tooFewChoices := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/choice-few, version: 1.0.0, license: Apache-2.0}
+spec:
+  kind: choice
+  modalities: [text]
+  choices: [onlyone]
+  inputs:
+    - {name: message, modality: text, required: true}
+  metricPromptTemplate: "Classify: {{message}}"
+`
+	repFew := validatePackDir(t, map[string]string{"templates/choice.yaml": tooFewChoices})
+	if !strings.Contains(errorMessages(repFew), "at least 2") {
+		t.Fatalf("want at least 2 choices error, got:\n%s", errorMessages(repFew))
+	}
+}
+
+func TestValidatePackScore(t *testing.T) {
+	valid := `apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata: {id: acme/score-valid, version: 1.0.0, license: Apache-2.0}
+spec:
+  kind: score
+  modalities: [text]
+  inputs:
+    - {name: text, modality: text, required: true}
+  metricPromptTemplate: "Grade from 1 to 10: {{text}}"
+`
+	rep := validatePackDir(t, map[string]string{"templates/score.yaml": valid})
+	if rep.HasErrors() {
+		t.Fatalf("want clean, got:\n%s", errorMessages(rep))
+	}
+}

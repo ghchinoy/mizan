@@ -220,11 +220,16 @@ score:
   the judge, so Mizan tells you to add a `{{...}}` placeholder (single-brace
   `{var}` is **not** recognized — use `{{var}}`).
 
-`--kind` accepts `single` (or `pointwise`), `compare` (or `pairwise`),
-`rubric`, `custom_schema`, or `heuristic`, and all five are runnable end-to-end
-today. The first four call an LLM autorater; `heuristic` is a **non-LLM,
-credential-free** deterministic check (see
-[Heuristic (non-LLM) checks](#heuristic-non-llm-checks) below).
+`--kind` accepts Mizan's **three strongly-typed decision primitives**:
+`boul` (or `bool`/`boolean`), `choice` (or `classify`), and `score` (or `grade`),
+as well as the canonical lower-level targets: `pointwise` (or `single`),
+`pairwise` (or `compare`), `rubric`, `custom_schema`, or `heuristic`. All are
+runnable end-to-end today.
+
+The decision primitives provide clean, strongly-typed developer abstractions:
+- **`boul`** evaluates a proposition to true or false (with confidence).
+- **`choice`** routes an input to one of N predefined categories (`--choices`).
+- **`score`** grades an input along a calibrated numeric scale.
 
 > **single = pointwise, compare = pairwise.** *Pointwise* and *pairwise* are
 > the Vertex AI Gen AI Evaluation Service's own terms — non-standard jargon —
@@ -232,38 +237,84 @@ credential-free** deterministic check (see
 > as `--kind` values (`single|pointwise`, `compare|pairwise`), and as the
 > subcommands `mizan eval single` (= `mizan eval run`, score **one**
 > response) and `mizan eval compare` (= `mizan eval pairwise`, compare
-> **two** responses). `rubric` and `custom_schema` are the other two kinds;
-> both are run through `mizan eval run`. Whichever spelling you pass, the CLI
-> folds it to the canonical kind, so a stored template always reports
-> `pointwise` / `pairwise`.
+> **two** responses). Whichever spelling you pass, the CLI folds it to the
+> canonical kind.
 
-Two kinds need extra authoring flags, and one has an extra structural
-requirement on its prompt:
+The kinds require the following authoring flags:
 
-- **`single` (`pointwise`)** — no extra flags needed beyond `--prompt`; see
+- **`boul` (`bool`, `boolean`)** — a binary proposition evaluator; requires
+  `--prompt`. Returns `Passed: PASS` or `FAIL`, plus confidence and explanation.
+- **`choice` (`classify`)** — an N-way discrete categorical classifier; requires
+  `--prompt` and `--choices "opt1,opt2,..."` (at least 2 choices). Returns
+  `Selection: <choice>` and explanation.
+- **`score` (`grade`)** — continuous or calibrated numerical scoring; requires
+  `--prompt`. Returns numeric `Score` and explanation.
+- **`single` (`pointwise`)** — single response scoring against prompt instructions;
+  no extra flags needed beyond `--prompt`; see
   [Scoring a single text response](#scoring-a-single-text-response-end-to-end)
   below.
-- **`rubric`** — also requires `--rubric-group "name=criterion
-  one;criterion two"` (repeatable) or `--rubric-groups-file <path>`; `create`
-  rejects the template immediately if neither is given.
-- **`custom_schema`** — also requires `--response-schema '<json>'` or
-  `--response-schema-file <path>`; `create` rejects the template immediately
-  if neither is given.
-- **`compare` (`pairwise`)** — also requires
-  `--baseline-field`/`--candidate-field`, and the `--prompt` text must
-  reference those field names as `{{name}}` placeholders (the run fails
-  otherwise, since the API rejects instance keys the template doesn't
-  reference). Use the dedicated `mizan eval compare` / `mizan eval pairwise
-  --baseline key=value --candidate key=value` command, which makes the
-  baseline/candidate roles explicit (generic `eval run --field` also
-  technically works, since the compare fields are ordinary placeholders, but
-  the dedicated command is the documented, less error-prone path).
+- **`rubric`** — multi-criteria scoring; requires `--rubric-group "name=criterion
+  one;criterion two"` (repeatable) or `--rubric-groups-file <path>`.
+- **`custom_schema`** — arbitrary JSON output; requires `--response-schema '<json>'` or
+  `--response-schema-file <path>`.
+- **`compare` (`pairwise`)** — comparative ranking; requires
+  `--baseline-field`/`--candidate-field`, referenced in `--prompt`. Use
+  `mizan eval compare` / `mizan eval pairwise`.
 - **`heuristic`** — a non-LLM deterministic check; requires
   `--heuristic-type` and `--heuristic-target` (plus an operand for most types).
   See [Heuristic (non-LLM) checks](#heuristic-non-llm-checks) below.
 
 See [`docs/testing-guide.md`](testing-guide.md) for full recipes and live
 output for every kind.
+
+#### Strongly-typed decision primitives (boul, choice, score)
+
+Traditional LLM evaluation relies heavily on fuzzy, unstructured text generation
+or complex, hand-authored OpenAPI JSON schemas. Mizan unifies evaluation into
+three strongly-typed decision primitives:
+
+1. **`boul` (Binary Proposition Check)**:
+   A homophone for `bool` (with a respectful nod to TypeSafe AI's Jev `noul`).
+   It evaluates whether a statement, claim, or condition holds true:
+   ```sh
+   mizan registry create --id safety/pii-check --name "PII Check" \
+     --kind boul \
+     --prompt "Does this customer message contain unmasked PII or credit card numbers? {{message}}"
+   ```
+   When evaluated with `mizan eval run`, it produces clean boolean verification:
+   ```
+   Passed:       FAIL (confidence=0.98)
+   Explanation:  The message contains a visible credit card number in the body.
+   ```
+
+2. **`choice` (Categorical Routing & Classification)**:
+   Classifies inputs into exactly one of $N$ discrete options (up to 255)
+   without writing OpenAPI JSON schemas by hand:
+   ```sh
+   mizan registry create --id support/intent --name "Ticket Intent" \
+     --kind choice \
+     --choices "billing, technical, account, sales, general" \
+     --prompt "Classify the primary intent of this support message: {{message}}"
+   ```
+   Under the hood, Mizan compiles the choices array into a strict enum schema,
+   forcing the model to pick exactly one valid bucket:
+   ```
+   Selection:    billing
+   Explanation:  The user is asking about an unexpected charge on their invoice.
+   ```
+
+3. **`score` (Calibrated Continuous Grading)**:
+   Evaluates quality along a numeric range:
+   ```sh
+   mizan registry create --id copy/clarity --name "Ad Clarity" \
+     --kind score \
+     --prompt "Score the clarity and conciseness of this ad copy from 1 to 10: {{copy}}"
+   ```
+   Produces a calibrated float score and rationale:
+   ```
+   Score:        8.5
+   Explanation:  The value proposition is clear and easy to read.
+   ```
 
 #### Heuristic (non-LLM) checks
 

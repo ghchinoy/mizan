@@ -53,27 +53,24 @@ shareable: the template is a file, so you can commit it, hand it to a teammate,
 or import one that someone else authored, and the standard travels with the
 work instead of staying in one reviewer's head.
 
-## Four kinds of judgment
+## The shape of judgment: three core primitives
 
-Mizan gives you four metric kinds, and they differ by the shape of the question
-you are asking.
+Mizan frames evaluations around the three fundamental questions developers ask in code:
 
-A **pointwise** metric answers a single question about a single response: how
-concise is this, how well does it follow the prompt, on a scale you define.
-Reach for it when you want one number and a reason.
+- **`boul`** (Binary proposition) — *Did it pass?* Evaluates a true/false condition
+  (e.g., brand safety checks, factual assertions, policy gates) and returns a clean
+  `PASS` or `FAIL` with a confidence score.
+- **`choice`** (Categorical routing) — *Which bucket does it belong to?* Routes an input
+  to one of discrete predefined options without writing JSON schema logic by hand.
+- **`score`** (Continuous grading) — *How good is it on a scale?* Evaluates quality along
+  a calibrated numeric range.
 
-A **rubric** metric checks several named criteria at once and reports against
-each. A brand rubric might ask, in one run, whether the copy uses the approved
-voice, avoids competitor names, and carries the required legal line.
+Alongside these primitives, Mizan supports lower-level and specialized targets:
+multi-criteria **rubric** scorecards, comparative **pairwise** rankings, arbitrary
+**custom_schema** extraction, and zero-credential **heuristic** rule checks.
 
-Two more cover the remaining shapes. A **custom_schema** metric returns
-structured fields you specify, so a compliance check comes back as typed data
-you can act on rather than prose you have to parse. A **pairwise** metric sets
-two candidates side by side and picks the stronger one, for the times the honest
-question is "which of these two."
-
-You will meet all four across this series. The rest of this piece runs the first
-one.
+You will meet all of them across this series. The rest of this piece runs your first
+eval in ten minutes.
 
 ## Run one eval in ten minutes
 

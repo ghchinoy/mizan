@@ -137,7 +137,9 @@ spec:
 ```
 
 Nothing here is executable. It is a prompt, a list of declared inputs, and named
-rubric groups. Anyone can read it, diff it, and reason about what it scores before
+rubric groups. Templates can just as easily express binary proposition checks with `kind: boul`,
+or discrete classification with `kind: choice` and a `choices: [...]` list.
+Anyone can read it, diff it, and reason about what it scores before
 they ever run it. That is what "templates are data" buys you.
 
 ## The validate gate

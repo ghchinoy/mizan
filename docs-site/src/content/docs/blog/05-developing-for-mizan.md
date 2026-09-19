@@ -90,6 +90,12 @@ in full because it is the seam every metric kind attaches to:
 ```go
 func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	switch tmpl.Kind {
+	case registry.KindBoul:
+		return e.runBoul(ctx, tmpl, inst, model)
+	case registry.KindChoice:
+		return e.runChoice(ctx, tmpl, inst, model)
+	case registry.KindScore:
+		return e.runScore(ctx, tmpl, inst, model, rc)
 	case registry.KindPointwise:
 		return e.runPointwise(ctx, tmpl, inst, model)
 	case registry.KindRubric:

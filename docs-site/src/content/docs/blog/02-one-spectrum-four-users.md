@@ -56,14 +56,10 @@ the whole line.
 
 ## The tool is fixed; the criteria move
 
-Recall the four metric kinds from piece one. A **pointwise** metric scores one
-response against one question. A **rubric** metric scores several named criteria
-at once. A **custom_schema** metric returns typed fields you define. A
-**pairwise** metric picks the stronger of two candidates.
+Recall the core primitives from piece one. A **`boul`** metric evaluates a proposition to a boolean verdict. A **`choice`** metric routes inputs across discrete categories. A **`score`** or **rubric** metric grades along a scale or across named criteria. A **pairwise** metric picks the stronger of two candidates.
 
-None of those kinds is a "brand" tool or a "technical" tool. A pointwise metric
-does not know whether the number it produces measures brand voice or factual
-grounding. You decide that when you write the prompt and the criteria. The
+None of those primitives is a "brand" tool or a "technical" tool. A `boul` metric
+does not know whether it is verifying brand logo placement or database transaction integrity. You decide that when you write the prompt and the criteria. The
 workflow is identical at both ends of the spectrum: you author a template, you
 hand it a response, and you read back a verdict with the judge's reasoning. The
 brand reviewer and the platform engineer follow the same three steps. They differ

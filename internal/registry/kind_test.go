@@ -28,11 +28,19 @@ func TestNormalizeKindAliases(t *testing.T) {
 		// Vernacular aliases fold to their canonical kind.
 		{"single", KindPointwise},
 		{"compare", KindPairwise},
+		{"bool", KindBoul},
+		{"boolean", KindBoul},
+		{"classify", KindChoice},
+		{"grade", KindScore},
 		// Canonical kinds pass through unchanged (backward compatible).
+		{"boul", KindBoul},
+		{"choice", KindChoice},
+		{"score", KindScore},
 		{"pointwise", KindPointwise},
 		{"pairwise", KindPairwise},
 		{"rubric", KindRubric},
 		{"custom_schema", KindCustomSchema},
+		{"heuristic", KindHeuristic},
 	}
 	for _, tc := range cases {
 		got, err := NormalizeKind(tc.in)

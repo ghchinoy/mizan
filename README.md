@@ -28,6 +28,7 @@ what isn't built — Mizan never claims a capability it hasn't actually shipped.
 
 ### Works today
 
+- **Strongly-typed decision primitives** — `boul` (binary true/false propositions with confidence), `choice` (discrete category routing across `--choices`), and `score` (calibrated continuous grading) via direct structured output.
 - **Metric registry CRUD** — `mizan registry create|list|get|update|delete`,
   backed by a local, pure-Go SQLite store (no C toolchain required).
 - **Config** — `mizan config show|set`, persisted to

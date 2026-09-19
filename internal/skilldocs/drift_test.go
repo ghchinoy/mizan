@@ -97,14 +97,19 @@ func documentedResultShape(t *testing.T) map[string]any {
 // mirror exactly.
 func representativeResult() eval.Result {
 	score := float32(4)
+	passed := true
+	confidence := float32(0.9)
 	return eval.Result{
-		Score:          &score,
-		PairwiseChoice: "CANDIDATE",
-		Explanation:    "The response satisfies the metric because ...",
-		RawOutput:      []string{"..."},
-		CustomOutput:   map[string]any{"example": true},
-		RubricDetail:   true,
-		Warnings:       []string{"..."},
+		Score:           &score,
+		Passed:          &passed,
+		Confidence:      &confidence,
+		ChoiceSelection: "CANDIDATE",
+		PairwiseChoice:  "CANDIDATE",
+		Explanation:     "The response satisfies the metric because ...",
+		RawOutput:       []string{"..."},
+		CustomOutput:    map[string]any{"example": true},
+		RubricDetail:    true,
+		Warnings:        []string{"..."},
 		Stats: eval.Stats{
 			Duration:   9 * time.Millisecond,
 			TokenUsage: &eval.TokenUsage{PromptTokens: 10, CandidatesTokens: 20, TotalTokens: 30},

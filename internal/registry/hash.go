@@ -86,6 +86,7 @@ func contentHash(t *MetricTemplate) string {
 		SystemInstruction    string                       `json:"systemInstruction"`
 		CandidateFieldName   string                       `json:"candidateFieldName"`
 		BaselineFieldName    string                       `json:"baselineFieldName"`
+		Choices              []string                     `json:"choices,omitempty"`
 		RubricGroups         map[string][]string          `json:"rubricGroups"`
 		ResponseSchema       string                       `json:"responseSchema"`
 		RatingRubric         map[string]map[string]string `json:"ratingRubric"`
@@ -108,6 +109,7 @@ func contentHash(t *MetricTemplate) string {
 		SystemInstruction:    t.SystemInstruction,
 		CandidateFieldName:   t.CandidateFieldName,
 		BaselineFieldName:    t.BaselineFieldName,
+		Choices:              t.Choices,
 		RubricGroups:         t.RubricGroups,
 		RatingRubric:         t.RatingRubric,
 		RubricDetail:         t.RubricDetail,

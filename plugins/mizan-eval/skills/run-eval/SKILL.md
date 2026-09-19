@@ -108,6 +108,9 @@ reason over the struct. This is the shape the drift test in
 ```json
 {
   "Score": 4,
+  "passed": true,
+  "confidence": 0.9,
+  "choice_selection": "CANDIDATE",
   "PairwiseChoice": "CANDIDATE",
   "Explanation": "The response satisfies the metric because ...",
   "RawOutput": ["..."],
@@ -127,8 +130,11 @@ reason over the struct. This is the shape the drift test in
 
 Field semantics (from `internal/eval/engine.go`):
 
-- **`Score`** — pointwise numeric score (a number, or `null` when a pairwise run
+- **`Score`** — numeric score (a number, or `null` when a pairwise run
   produced a choice instead).
+- **`passed`** — boolean verdict for `boul` / `bool` / `boolean` templates (`true`/`false`).
+- **`confidence`** — confidence rating (0.0–1.0) for `boul` templates.
+- **`choice_selection`** — selected category string for `choice` / `classify` templates.
 - **`PairwiseChoice`** — `BASELINE` / `CANDIDATE` / `TIE`; empty (`""`) for pointwise.
 - **`Explanation`** — the judge's rationale; the primary thing to surface to the user.
 - **`RawOutput`** — raw judge output, when the template requests it.

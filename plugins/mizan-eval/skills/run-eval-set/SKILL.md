@@ -140,6 +140,9 @@ carries the `run-eval` snake_case tags (`rubric_detail`, `warnings`, `duration_n
       "Score": 4,
       "Result": {
         "Score": 4,
+        "passed": true,
+        "confidence": 4,
+        "choice_selection": "selected-option",
         "PairwiseChoice": "",
         "Explanation": "The response satisfies the metric because ...",
         "RawOutput": ["..."],

@@ -74,6 +74,12 @@ const (
 	// the engine as a PEER of the LLM kinds but calls NO Vertex/genai client and
 	// resolves NO autorater (design §4.B). Its config lives in HeuristicSpec.
 	KindHeuristic MetricKind = "heuristic"
+	// KindBoul evaluates a boolean proposition (true/false) with confidence score.
+	KindBoul MetricKind = "boul"
+	// KindChoice routes an input into one of N discrete categories.
+	KindChoice MetricKind = "choice"
+	// KindScore evaluates continuous or calibrated rubric ratings.
+	KindScore MetricKind = "score"
 )
 
 // Vernacular kind aliases (ITEM C). These are plain-English spellings accepted
@@ -82,30 +88,41 @@ const (
 // the eval engine and the Vertex request specs (PointwiseMetricSpec /
 // PairwiseMetricSpec) only ever see the canonical kinds above.
 //
-//	single  -> pointwise  (score ONE response)
-//	compare -> pairwise   (compare TWO responses, pick the better)
+//	single   -> pointwise  (score ONE response)
+//	compare  -> pairwise   (compare TWO responses, pick the better)
+//	bool     -> boul       (binary classification)
+//	boolean  -> boul       (binary classification)
+//	classify -> choice     (discrete category routing)
+//	grade    -> score      (calibrated scoring)
 const (
-	KindAliasSingle  = "single"  // a.k.a. pointwise
-	KindAliasCompare = "compare" // a.k.a. pairwise
+	KindAliasSingle   = "single"   // a.k.a. pointwise
+	KindAliasCompare  = "compare"  // a.k.a. pairwise
+	KindAliasBool     = "bool"     // a.k.a. boul
+	KindAliasBoolean  = "boolean"  // a.k.a. boul
+	KindAliasClassify = "classify" // a.k.a. choice
+	KindAliasGrade    = "grade"    // a.k.a. score
 )
 
 // NormalizeKind maps a user-supplied kind spelling to its canonical MetricKind.
-// The canonical kinds (pointwise/pairwise/rubric/custom_schema) pass through
-// unchanged and the vernacular aliases are folded to their canonical kind
-// (single -> pointwise, compare -> pairwise). Any other value is rejected so a
-// typo fails clearly at the parse boundary instead of deep in the eval path.
-// Normalizing here — and only here — keeps all downstream logic and the Vertex
-// request specs unchanged regardless of which spelling the caller used.
+// The canonical kinds pass through unchanged and the vernacular aliases are
+// folded to their canonical kind. Any other value is rejected so a typo fails
+// clearly at the parse boundary instead of deep in the eval path.
 func NormalizeKind(s string) (MetricKind, error) {
 	switch s {
 	case KindAliasSingle:
 		return KindPointwise, nil
 	case KindAliasCompare:
 		return KindPairwise, nil
+	case string(KindBoul), KindAliasBool, KindAliasBoolean:
+		return KindBoul, nil
+	case string(KindChoice), KindAliasClassify:
+		return KindChoice, nil
+	case string(KindScore), KindAliasGrade:
+		return KindScore, nil
 	case string(KindPointwise), string(KindPairwise), string(KindRubric), string(KindCustomSchema), string(KindHeuristic):
 		return MetricKind(s), nil
 	default:
-		return "", fmt.Errorf("unknown metric kind %q (want one of: single|pointwise, compare|pairwise, rubric, custom_schema, heuristic)", s)
+		return "", fmt.Errorf("unknown metric kind %q (want one of: boul|bool|boolean, choice|classify, score|grade, single|pointwise, compare|pairwise, rubric, custom_schema, heuristic)", s)
 	}
 }
 
@@ -295,6 +312,7 @@ type MetricTemplate struct {
 	SystemInstruction    string              //
 	CandidateFieldName   string              // pairwise only
 	BaselineFieldName    string              // pairwise only
+	Choices              []string            `json:"choices,omitempty"` // choice only: discrete classification categories
 	RubricGroups         map[string][]string // rubric only
 	ResponseSchema       *Schema             // custom_schema only
 	AutoraterModel       string              // publisher-relative id (e.g. gemini-2.5-flash);

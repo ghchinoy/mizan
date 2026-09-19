@@ -461,3 +461,44 @@ func TestPrintPreflightSanitizesControlChars(t *testing.T) {
 		t.Errorf("unexpected sanitized model rendering: %q", out)
 	}
 }
+
+func TestRenderResultBoul(t *testing.T) {
+	outputFormat = outputTable
+	bTrue := true
+	conf := float32(0.95)
+	res := eval.Result{
+		Passed:      &bTrue,
+		Confidence:  &conf,
+		Explanation: "Safe content.",
+	}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Passed:") || !strings.Contains(out, "PASS (confidence=0.95)") {
+		t.Errorf("expected Passed: PASS (confidence=0.95), got:\n%s", out)
+	}
+	if strings.Contains(out, "Score:") {
+		t.Errorf("Score line should be suppressed for boul, got:\n%s", out)
+	}
+}
+
+func TestRenderResultChoice(t *testing.T) {
+	outputFormat = outputTable
+	res := eval.Result{
+		ChoiceSelection: "technical",
+		Explanation:     "API error question.",
+	}
+	var buf bytes.Buffer
+	if err := renderResult(&buf, res, false); err != nil {
+		t.Fatalf("renderResult: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "Selection:") || !strings.Contains(out, "technical") {
+		t.Errorf("expected Selection: technical, got:\n%s", out)
+	}
+	if strings.Contains(out, "Score:") {
+		t.Errorf("Score line should be suppressed for choice, got:\n%s", out)
+	}
+}
