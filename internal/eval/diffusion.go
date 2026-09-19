@@ -76,7 +76,8 @@ func buildDiffusionSchema(tmpl registry.MetricTemplate) (string, error) {
 	return string(b), nil
 }
 
-// extractDiffusionInputs substitutes text variables and collects any image references.
+// extractDiffusionInputs substitutes text variables and collects any image references,
+// formatting the state into a JSON dictionary as required by DiffusionGemma.
 func extractDiffusionInputs(template string, inst Instance) (string, []string, error) {
 	vars := extractVars(template)
 	var missing []string
@@ -87,6 +88,13 @@ func extractDiffusionInputs(template string, inst Instance) (string, []string, e
 	}
 	if len(missing) > 0 {
 		return "", nil, fmt.Errorf("eval: instance is missing values for template variables %v", missing)
+	}
+
+	state := make(map[string]any)
+	for k, ref := range inst.Fields {
+		if isTextRef(ref) {
+			state[k] = ref.Text
+		}
 	}
 
 	var images []string
@@ -103,7 +111,13 @@ func extractDiffusionInputs(template string, inst Instance) (string, []string, e
 		}
 		return fmt.Sprintf("[attached %s: %q]", ref.Modality, name)
 	})
-	return rendered, images, nil
+	state["_prompt"] = rendered
+
+	b, err := json.Marshal(state)
+	if err != nil {
+		return "", nil, fmt.Errorf("eval: marshal diffusion state: %w", err)
+	}
+	return string(b), images, nil
 }
 
 // runDiffusion evaluates a template using the DiffusionGemma client.
