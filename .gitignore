@@ -19,7 +19,9 @@ node_modules/
 
 # Local env
 .env
+.env.*
 *.db
+
 
 # OS
 .DS_Store

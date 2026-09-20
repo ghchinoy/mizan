@@ -48,3 +48,5 @@ Every experiment is executed using `mizan eval compare-engines` with parallel `e
 | **03** | [Policy & Brand Safety Gating](03-policy-and-safety-gating.md) | `quickstart/brand-safety-boul` (`boul`) | Text | Proposition verification, adversarial inputs, and confidence calibration |
 | **04** | [Comprehensive Benchmark Report (Local Metal)](04-comprehensive-benchmark-report.md) | Full Suite (32 cases) | Text + Vision | 32-case empirical benchmark on Apple Silicon Metal |
 | **05** | [GCE vLLM Cloud GPU Benchmark Report](05-gce-vllm-benchmark-report.md) | Full Suite (32 cases) | Text + Vision | 32-case re-run on GCE 1× NVIDIA L4 GPU showing 3.7x latency speedup and 84.4% agreement |
+| **06** | [Empirical Calibration Benchmark Report](06-calibration-benchmark-report.md) | Calibration Suite (46 cases) | Text | 46-case ground-truth benchmark across 15 calibration templates evaluating Gemini 3.5 Flash Lite vs. 3.8 Flash |
+
