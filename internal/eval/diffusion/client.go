@@ -20,7 +20,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -122,7 +124,7 @@ func (c *HTTPClient) Complete(ctx context.Context, req ChatCompletionRequest) (*
 
 	if len(chatResp.Choices) > 0 {
 		content := chatResp.Choices[0].Message.RawContent()
-		if structured, err := ParseStructuredContent(content); err == nil && structured.Diagnostics.Steps > 0 {
+		if structured, err := ParseStructuredContentWithLogprobs(content, chatResp.Choices[0].Logprobs); err == nil && structured.Diagnostics.Steps > 0 {
 			stats.Diagnostics = &structured.Diagnostics
 			stats.PrefillMs = structured.Diagnostics.Timing.PrefillMs
 			stats.DenoiseMs = structured.Diagnostics.Timing.DenoiseMs
@@ -148,6 +150,8 @@ func (c *HTTPClient) Decide(ctx context.Context, schemaContent, userStateContent
 			{Role: "system", Content: schemaContent},
 			{Role: "user", Content: userPayload},
 		},
+		Logprobs:    true,
+		TopLogprobs: 5,
 	}
 
 	chatResp, stats, err := c.Complete(ctx, req)
@@ -160,7 +164,7 @@ func (c *HTTPClient) Decide(ctx context.Context, schemaContent, userStateContent
 	}
 
 	rawText := chatResp.Choices[0].Message.RawContent()
-	structured, err := ParseStructuredContent(rawText)
+	structured, err := ParseStructuredContentWithLogprobs(rawText, chatResp.Choices[0].Logprobs)
 	if err != nil {
 		return nil, stats, fmt.Errorf("diffusion: parse decision output: %w (raw: %s)", err, rawText)
 	}
@@ -170,20 +174,203 @@ func (c *HTTPClient) Decide(ctx context.Context, schemaContent, userStateContent
 
 // ParseStructuredContent unmarshals JSON or fenced JSON decision content.
 func ParseStructuredContent(raw string) (*StructuredDecisionResponse, error) {
-	clean := strings.TrimSpace(raw)
-	if strings.HasPrefix(clean, "```") {
-		firstLine := strings.Index(clean, "\n")
-		if firstLine != -1 {
-			clean = clean[firstLine+1:]
-		}
-		clean = strings.TrimSuffix(clean, "```")
-		clean = strings.TrimSpace(clean)
-	}
+	return ParseStructuredContentWithLogprobs(raw, nil)
+}
 
+// ParseStructuredContentWithLogprobs unmarshals either native Metal StructuredDecisionResponse
+// or vLLM flat JSON key-value decision content, enriching confidence, Shannon entropy,
+// and probabilities using token logprobs when present.
+func ParseStructuredContentWithLogprobs(raw string, logprobs *ChoiceLogprobs) (*StructuredDecisionResponse, error) {
 	var resp StructuredDecisionResponse
-	if err := json.Unmarshal([]byte(clean), &resp); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON into StructuredDecisionResponse: %w", err)
+	if err := json.Unmarshal([]byte(raw), &resp); err == nil && len(resp.Answers) > 0 {
+		return &resp, nil
 	}
 
-	return &resp, nil
+	clean := cleanJSON(raw)
+	if err := json.Unmarshal([]byte(clean), &resp); err == nil && len(resp.Answers) > 0 {
+		return &resp, nil
+	}
+
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal([]byte(clean), &rawMap); err == nil && len(rawMap) > 0 {
+		resp.Answers = make(map[string]QuestionAnswer)
+		if resp.Diagnostics.Questions == nil {
+			resp.Diagnostics.Questions = make(map[string]QuestionDiagnostic)
+		}
+		for k, v := range rawMap {
+			label := fmt.Sprintf("%v", v)
+			conf, lp, ent, probs := extractKeySlotLogprobTelemetry(k, label, logprobs)
+
+			var scoreVal float64
+			if f, err := strconv.ParseFloat(strings.TrimSpace(label), 64); err == nil {
+				scoreVal = f
+			}
+			// If top_logprobs contains numeric levels, compute probability-weighted expected score
+			var weightedSum, probSum float64
+			var numericLevels int
+			for tok, p := range probs {
+				if lvl, err := strconv.ParseFloat(strings.TrimSpace(tok), 64); err == nil && lvl >= 0 && lvl <= 10 {
+					weightedSum += lvl * p
+					probSum += p
+					numericLevels++
+				}
+			}
+			if numericLevels >= 2 && probSum > 0 {
+				scoreVal = weightedSum / probSum
+			}
+
+			normLbl := strings.ToLower(strings.TrimSpace(label))
+			var noul float64
+			if normLbl == "yes" || normLbl == "true" {
+				noul = conf
+			} else if normLbl == "no" || normLbl == "false" {
+				noul = 1.0 - conf
+			}
+
+			resp.Answers[k] = QuestionAnswer{
+				Type:          "auto",
+				Label:         label,
+				Choice:        label,
+				Score:         scoreVal,
+				Noul:          noul,
+				Confidence:    conf,
+				Logprob:       lp,
+				Entropy:       ent,
+				Probabilities: probs,
+			}
+			resp.Diagnostics.Questions[k] = QuestionDiagnostic{
+				Argmax:       label,
+				Entropy:      ent,
+				LabelMass:    conf,
+				PrimaryToken: label,
+			}
+		}
+		return &resp, nil
+	}
+
+	return nil, fmt.Errorf("failed to parse JSON into StructuredDecisionResponse: %s", raw)
+}
+
+func extractKeySlotLogprobTelemetry(key, label string, lp *ChoiceLogprobs) (confidence float64, logprob float64, entropy float64, probs map[string]float64) {
+	confidence = 1.0
+	if lp == nil || len(lp.Content) == 0 {
+		return confidence, 0, 0, nil
+	}
+
+	normLabel := strings.ToLower(strings.TrimSpace(label))
+	if normLabel == "" {
+		return 1.0, 0, 0, nil
+	}
+
+	normKey := strings.ToLower(strings.TrimSpace(key))
+	colonIdx := -1
+	if normKey != "" {
+		keyIdx := -1
+		for i := 0; i < len(lp.Content); i++ {
+			tokClean := strings.ToLower(strings.Trim(lp.Content[i].Token, " \t\n\r\"',:{}[]"))
+			if tokClean != "" && (strings.Contains(normKey, tokClean) || strings.Contains(tokClean, normKey)) {
+				keyIdx = i
+			}
+			if keyIdx != -1 && i >= keyIdx && strings.Contains(lp.Content[i].Token, ":") {
+				colonIdx = i
+				break
+			}
+		}
+	}
+
+	if colonIdx == -1 {
+		for i := len(lp.Content) - 1; i >= 0; i-- {
+			if strings.Contains(lp.Content[i].Token, ":") {
+				colonIdx = i
+				break
+			}
+		}
+	}
+
+	startSearch := 0
+	if colonIdx != -1 && colonIdx+1 < len(lp.Content) {
+		startSearch = colonIdx + 1
+	}
+
+	var matchedTokens []*TokenLogprob
+	for i := startSearch; i < len(lp.Content); i++ {
+		if i > startSearch && strings.Contains(lp.Content[i].Token, ",") {
+			break
+		}
+		tokClean := strings.ToLower(strings.Trim(lp.Content[i].Token, " \t\n\r\"',:{}[]"))
+		if tokClean == "" {
+			continue
+		}
+		if strings.Contains(normLabel, tokClean) || strings.HasPrefix(tokClean, normLabel) {
+			matchedTokens = append(matchedTokens, &lp.Content[i])
+		}
+	}
+
+	if len(matchedTokens) == 0 {
+		for i := len(lp.Content) - 1; i >= 0; i-- {
+			tokClean := strings.Trim(lp.Content[i].Token, " \t\n\r\"',:{}[]")
+			if len(tokClean) > 0 {
+				matchedTokens = append(matchedTokens, &lp.Content[i])
+				break
+			}
+		}
+	}
+	if len(matchedTokens) == 0 {
+		return 1.0, 0, 0, nil
+	}
+
+	minLogprob := 0.0
+	maxEntropy := 0.0
+	probs = make(map[string]float64)
+
+	for idx, mt := range matchedTokens {
+		if idx == 0 || mt.Logprob < minLogprob {
+			minLogprob = mt.Logprob
+		}
+		var h float64
+		for _, item := range mt.TopLogprobs {
+			p := math.Exp(item.Logprob)
+			tKey := strings.Trim(item.Token, " \t\n\r\"',:{}[]")
+			if tKey != "" {
+				if existing, ok := probs[tKey]; !ok || p > existing {
+					probs[tKey] = p
+				}
+			}
+			if p > 0 {
+				h -= p * math.Log(p)
+			}
+		}
+		if h > maxEntropy {
+			maxEntropy = h
+		}
+	}
+
+	logprob = minLogprob
+	confidence = math.Exp(minLogprob)
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+	entropy = maxEntropy
+
+	return confidence, logprob, entropy, probs
+}
+
+func cleanJSON(content string) string {
+	content = strings.TrimSpace(content)
+	if idx := strings.Index(content, "```json"); idx != -1 {
+		content = content[idx+7:]
+		if end := strings.Index(content, "```"); end != -1 {
+			content = content[:end]
+		}
+	} else if idx := strings.Index(content, "```"); idx != -1 {
+		content = content[idx+3:]
+		if end := strings.Index(content, "```"); end != -1 {
+			content = content[:end]
+		}
+	} else if idx := strings.Index(content, "{"); idx != -1 {
+		if end := strings.LastIndex(content, "}"); end != -1 && end > idx {
+			content = content[idx : end+1]
+		}
+	}
+	return strings.TrimSpace(content)
 }

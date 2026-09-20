@@ -46,4 +46,5 @@ Every experiment is executed using `mizan eval compare-engines` with parallel `e
 | **01** | [Categorical Support Triage](01-text-categorical-triage.md) | `quickstart/support-intent-choice` (`choice`) | Text | Discrete routing, multi-intent ambiguity, and probability splits |
 | **02** | [Multimodal Vision & Multi-Rubrics](02-multimodal-vision-evaluation.md) | `demo/image-diagram-check` (`boul`), `quickstart/image-rubric-scorecard` (`rubric`) | Image (`.webp`) | Visual OCR, technical diagram divergence, and single-pass multi-criterion fanout |
 | **03** | [Policy & Brand Safety Gating](03-policy-and-safety-gating.md) | `quickstart/brand-safety-boul` (`boul`) | Text | Proposition verification, adversarial inputs, and confidence calibration |
-| **04** | [Comprehensive Benchmark Report](04-comprehensive-benchmark-report.md) | Full Suite (32 cases) | Text + Vision | 32-case empirical benchmark across all difficulty tiers and modalities |
+| **04** | [Comprehensive Benchmark Report (Local Metal)](04-comprehensive-benchmark-report.md) | Full Suite (32 cases) | Text + Vision | 32-case empirical benchmark on Apple Silicon Metal |
+| **05** | [GCE vLLM Cloud GPU Benchmark Report](05-gce-vllm-benchmark-report.md) | Full Suite (32 cases) | Text + Vision | 32-case re-run on GCE 1× NVIDIA L4 GPU showing 3.7x latency speedup and 84.4% agreement |

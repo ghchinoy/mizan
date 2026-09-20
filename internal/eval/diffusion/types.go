@@ -31,10 +31,12 @@ import (
 // ChatCompletionRequest is the OpenAI-compatible payload format sent to the
 // DiffusionGemma inference server.
 type ChatCompletionRequest struct {
-	Model     string        `json:"model,omitempty"`
-	Messages  []ChatMessage `json:"messages"`
-	MaxTokens int           `json:"max_tokens,omitempty"`
-	Stream    bool          `json:"stream,omitempty"`
+	Model       string        `json:"model,omitempty"`
+	Messages    []ChatMessage `json:"messages"`
+	MaxTokens   int           `json:"max_tokens,omitempty"`
+	Stream      bool          `json:"stream,omitempty"`
+	Logprobs    bool          `json:"logprobs,omitempty"`
+	TopLogprobs int           `json:"top_logprobs,omitempty"`
 }
 
 // ChatMessage represents a single chat turn.
@@ -76,11 +78,30 @@ type ChatCompletionResponse struct {
 	Usage   Usage        `json:"usage"`
 }
 
-// ChatChoice contains the assistant message.
+// ChatChoice contains the assistant message and optional token logprobs.
 type ChatChoice struct {
-	Index        int         `json:"index"`
-	Message      ChatMessage `json:"message"`
-	FinishReason string      `json:"finish_reason"`
+	Index        int             `json:"index"`
+	Message      ChatMessage     `json:"message"`
+	FinishReason string          `json:"finish_reason"`
+	Logprobs     *ChoiceLogprobs `json:"logprobs,omitempty"`
+}
+
+// ChoiceLogprobs holds OpenAI/vLLM token-level log-probabilities.
+type ChoiceLogprobs struct {
+	Content []TokenLogprob `json:"content"`
+}
+
+// TokenLogprob represents the log-probability and top-k alternatives for a single output token.
+type TokenLogprob struct {
+	Token       string           `json:"token"`
+	Logprob     float64          `json:"logprob"`
+	TopLogprobs []TopLogprobItem `json:"top_logprobs,omitempty"`
+}
+
+// TopLogprobItem represents a single candidate token and its logprob at a given position.
+type TopLogprobItem struct {
+	Token   string  `json:"token"`
+	Logprob float64 `json:"logprob"`
 }
 
 // Usage reports token statistics.
@@ -92,7 +113,8 @@ type Usage struct {
 
 // DecisionSchemaPayload is the JSON structure sent as the system message to DiffusionGemma.
 type DecisionSchemaPayload struct {
-	Questions []QuestionSchema `json:"questions"`
+	Instructions string           `json:"instructions,omitempty"`
+	Questions    []QuestionSchema `json:"questions"`
 }
 
 // QuestionSchema defines one slot question for DiffusionGemma.
@@ -121,6 +143,8 @@ type QuestionAnswer struct {
 	Type          string             `json:"type"`
 	Label         string             `json:"label"`
 	Confidence    float64            `json:"confidence"`
+	Logprob       float64            `json:"logprob,omitempty"`
+	Entropy       float64            `json:"entropy,omitempty"`
 	Stderr        float64            `json:"stderr"`
 	Agreement     float64            `json:"agreement"`
 	Probabilities map[string]float64 `json:"probabilities"`

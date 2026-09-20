@@ -131,6 +131,11 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 			if diffusionEndpoint != "" {
 				cfg.DiffusionEndpoint = diffusionEndpoint
 			}
+			if modelB != "" && strings.EqualFold(engineB, "diffusion") {
+				cfg.DiffusionModel = modelB
+			} else if modelA != "" && strings.EqualFold(engineA, "diffusion") {
+				cfg.DiffusionModel = modelA
+			}
 			applyProjectOverride(cfg, projectOverride)
 
 			svc, closeSvc, err := wire.OpenService(cfg)

@@ -199,3 +199,61 @@ func TestDecideMultimodalImage(t *testing.T) {
 		t.Fatalf("expected 2 parts (image + text), got %d", len(parts))
 	}
 }
+
+func TestDecideVLLMWithLogprobs(t *testing.T) {
+	mockResponse := ChatCompletionResponse{
+		ID:    "chatcmpl-vllm-789",
+		Model: "nvidia/diffusiongemma-26B-A4B-it-NVFP4",
+		Choices: []ChatChoice{
+			{
+				Index: 0,
+				Message: ChatMessage{
+					Role:    "assistant",
+					Content: `{"selection": "billing"}`,
+				},
+				Logprobs: &ChoiceLogprobs{
+					Content: []TokenLogprob{
+						{Token: "{", Logprob: -0.0001},
+						{Token: "\"selection\"", Logprob: -0.0001},
+						{Token: ":", Logprob: -0.0001},
+						{
+							Token:   "\"billing\"",
+							Logprob: -0.051293, // exp(-0.051293) ≈ 0.95
+							TopLogprobs: []TopLogprobItem{
+								{Token: "\"billing\"", Logprob: -0.051293},
+								{Token: "\"account\"", Logprob: -2.995732},
+							},
+						},
+						{Token: "}", Logprob: -0.0001},
+					},
+				},
+				FinishReason: "stop",
+			},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(mockResponse)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL+"/v1", "nvidia/diffusiongemma-26B-A4B-it-NVFP4", 5*time.Second)
+	resp, _, err := c.Decide(context.Background(), "{}", "state")
+	if err != nil {
+		t.Fatalf("Decide: %v", err)
+	}
+
+	ans, ok := resp.Answers["selection"]
+	if !ok {
+		t.Fatalf("missing 'selection' in answers")
+	}
+	if ans.Choice != "billing" {
+		t.Errorf("Choice = %q, want 'billing'", ans.Choice)
+	}
+	if ans.Confidence < 0.94 || ans.Confidence > 0.96 {
+		t.Errorf("Confidence = %v, want ~0.95", ans.Confidence)
+	}
+	if ans.Entropy <= 0 {
+		t.Errorf("Entropy = %v, want > 0", ans.Entropy)
+	}
+}

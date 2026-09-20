@@ -309,13 +309,17 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	// important interface detail in B2.
 	var model string
 	if tmpl.Kind != registry.KindHeuristic {
-		model = e.resolveModel(tmpl, rc.modelOverride)
-		// Reject a clearly-malformed model id (from the flag, template, or config
-		// default) here, uniformly for the native and genai paths, so it fails with a
-		// crisp LOCAL error before being composed into a Vertex resource name or sent
-		// to the genai SDK, rather than being bounced by the remote API.
-		if err := ValidateModel(model); err != nil {
-			return Result{}, err
+		if rc.engineOverride == "diffusion" || rc.engineOverride == "diffgemma" {
+			model = rc.modelOverride
+		} else {
+			model = e.resolveModel(tmpl, rc.modelOverride)
+			// Reject a clearly-malformed model id (from the flag, template, or config
+			// default) here, uniformly for the native and genai paths, so it fails with a
+			// crisp LOCAL error before being composed into a Vertex resource name or sent
+			// to the genai SDK, rather than being bounced by the remote API.
+			if err := ValidateModel(model); err != nil {
+				return Result{}, err
+			}
 		}
 	}
 	// The rubric-detail lever only applies to rubric templates — reject it on any

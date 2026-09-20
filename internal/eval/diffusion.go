@@ -88,7 +88,8 @@ func buildDiffusionSchema(tmpl registry.MetricTemplate) (string, error) {
 	}
 
 	payload := diffusion.DecisionSchemaPayload{
-		Questions: questions,
+		Instructions: "Evaluate the input and answer each question in the schema.",
+		Questions:    questions,
 	}
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -197,6 +198,8 @@ func (e *Engine) runDiffusion(ctx context.Context, tmpl registry.MetricTemplate,
 			res.Explanation = fmt.Sprintf("DiffusionGemma verdict: %s (confidence: %.1f%%, stderr: ±%.4f)", ans.Label, ans.Confidence*100, ans.Stderr)
 			res.CustomOutput["passed"] = passed
 			res.CustomOutput["stderr"] = ans.Stderr
+			res.CustomOutput["entropy"] = ans.Entropy
+			res.CustomOutput["logprob"] = ans.Logprob
 			res.CustomOutput["agreement"] = ans.Agreement
 			res.CustomOutput["probabilities"] = ans.Probabilities
 		}
@@ -212,6 +215,8 @@ func (e *Engine) runDiffusion(ctx context.Context, tmpl registry.MetricTemplate,
 			res.Explanation = fmt.Sprintf("DiffusionGemma classification: %s (confidence: %.1f%%)", choice, ans.Confidence*100)
 			res.CustomOutput["selection"] = choice
 			res.CustomOutput["stderr"] = ans.Stderr
+			res.CustomOutput["entropy"] = ans.Entropy
+			res.CustomOutput["logprob"] = ans.Logprob
 			res.CustomOutput["probabilities"] = ans.Probabilities
 		}
 	case registry.KindScore, registry.KindPointwise:
@@ -223,6 +228,8 @@ func (e *Engine) runDiffusion(ctx context.Context, tmpl registry.MetricTemplate,
 			res.Explanation = fmt.Sprintf("DiffusionGemma score: %g (confidence: %.1f%%)", ans.Score, ans.Confidence*100)
 			res.CustomOutput["score"] = ans.Score
 			res.CustomOutput["stderr"] = ans.Stderr
+			res.CustomOutput["entropy"] = ans.Entropy
+			res.CustomOutput["logprob"] = ans.Logprob
 			res.CustomOutput["probabilities"] = ans.Probabilities
 		}
 	case registry.KindRubric:
