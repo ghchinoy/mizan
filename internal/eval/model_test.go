@@ -218,12 +218,13 @@ func TestNativeEmptyModelInheritsBuiltin(t *testing.T) {
 // autorater id (WI-F3). The other precedence tests compare against the
 // BuiltinDefaultModel symbol, so they would still pass if the constant were
 // changed; this test pins the actual string so an accidental (or unreviewed)
-// change to the coordinator-locked GA id is caught. The rationale (2.5-flash is
-// served on BOTH regional native and location=global, unlike the global-only
-// 3.5 ids) lives in model.go — changing this value is a deliberate act.
+// change to the GA id is caught. The rationale (gemini-2.5 text retires
+// 2026-10-20; gemini-3.5-flash is the durable replacement and, though global-only,
+// is routed to the global host by route.go / the 404 self-correcting retry) lives
+// in model.go — changing this value is a deliberate act.
 func TestBuiltinDefaultModelValue(t *testing.T) {
-	if BuiltinDefaultModel != "gemini-2.5-flash" {
-		t.Errorf("BuiltinDefaultModel = %q, want %q (coordinator-locked GA id)", BuiltinDefaultModel, "gemini-2.5-flash")
+	if BuiltinDefaultModel != "gemini-3.5-flash" {
+		t.Errorf("BuiltinDefaultModel = %q, want %q (locked GA id)", BuiltinDefaultModel, "gemini-3.5-flash")
 	}
 	// The genai (custom_schema) path is global by design; the constant backing
 	// the pre-flight echo and the wire composition root must agree on that.

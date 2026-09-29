@@ -70,11 +70,17 @@ const (
 	// adaptiveAPIVersion identifies the RPC/surface that produced the rubric.
 	adaptiveAPIVersion = "v1beta1:generateInstanceRubrics"
 	// adaptiveGeneratorModel is the builtin generator model the predefined-recipe
-	// path uses (design §4.2: default builtin gemini-2.5-flash). A user-selectable
+	// path uses (design §4.2: default builtin gemini-3.5-flash). A user-selectable
 	// generator model was part of the custom rubricGenerationSpec path, which is
 	// not offered (non-viable at the API — see
 	// rubric-generation-mechanics-research.md §3.1).
-	adaptiveGeneratorModel = "gemini-2.5-flash"
+	//
+	// Deprecation re-pin (2026-10-20): moved off the retiring gemini-2.5-flash to
+	// the durable gemini-3.5-flash, matching BuiltinDefaultModel. Like all 3.x
+	// flash it is global-only, but "gemini-3.5" is in route.go
+	// globalOnlyModelPrefixes so this dials the global host directly (no first-call
+	// regional 404/retry).
+	adaptiveGeneratorModel = "gemini-3.5-flash"
 	// maxSampleRefPreview bounds the sample-input preview stored in provenance so
 	// the persisted YAML never carries an unbounded prompt blob (security): the
 	// full input is pinned by its SHA-256, only a capped preview is human-readable.

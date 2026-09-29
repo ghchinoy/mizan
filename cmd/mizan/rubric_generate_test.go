@@ -449,3 +449,17 @@ func TestRubricGenerateFlagValidation(t *testing.T) {
 		t.Fatalf("generator was called %d times; validation must fail before any live call", fake.Calls())
 	}
 }
+
+// TestAdaptiveGeneratorModelValue LOCKS the literal value of the builtin adaptive
+// rubric generator model. The other tests compare against the
+// adaptiveGeneratorModel symbol, so they would still pass if the constant were
+// changed; this pins the actual string so an accidental change to the GA id is
+// caught. Rationale (gemini-2.5 text retires 2026-10-20; gemini-3.5-flash is the
+// durable replacement, global-only but routed to the global host via route.go
+// globalOnlyModelPrefixes) lives in rubric.go — changing it is a deliberate act.
+// It intentionally tracks eval.BuiltinDefaultModel's durable target.
+func TestAdaptiveGeneratorModelValue(t *testing.T) {
+	if adaptiveGeneratorModel != "gemini-3.5-flash" {
+		t.Errorf("adaptiveGeneratorModel = %q, want %q (locked GA id)", adaptiveGeneratorModel, "gemini-3.5-flash")
+	}
+}

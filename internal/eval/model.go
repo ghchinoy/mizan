@@ -34,14 +34,20 @@ import (
 // coordinator may adjust this value before merge; change it HERE and nowhere
 // else.
 //
-// Value rationale (coordinator lock): gemini-2.5-flash is served on BOTH the
-// native regional endpoints (us-central1 default) AND location=global, whereas
-// gemini-3.5-flash/-lite are global-only and 404 on the regional native
-// EvaluateInstances autorater path. So the built-in stays 2.5-flash for safety;
-// users select a newer global-only model via the default-model config key or the
-// eval-time --model override (which delivers item 3's intent without a code
-// change).
-const BuiltinDefaultModel = "gemini-2.5-flash"
+// Value rationale (deprecation re-pin, 2026-10-20): gemini-2.5-flash and all
+// gemini-2.5 text models retire on 2026-10-20, so the built-in default moves to
+// gemini-3.5-flash — the durable (12-month-guaranteed) official gemini-2.5-pro
+// replacement (chosen over the rolling-latest gemini-3.8-flash for that stability
+// guarantee). Like every 3.x flash model, gemini-3.5-flash is global-only: it is
+// NOT served on the native REGIONAL eval host and 404s on the regional
+// EvaluateInstances autorater path. That is safe here for two independent reasons:
+// (1) the router already lists the "gemini-3.5" family in globalOnlyModelPrefixes
+// (route.go), so this default is dialed DIRECTLY to the global host with no wasted
+// regional attempt or first-call retry latency; and (2) as a backstop, even an
+// unlisted global-only model is caught by the self-correcting isAutoraterNotFound
+// retry, which re-routes a regional 404 to the global host. Users may still select
+// another model via the default-model config key or the eval-time --model override.
+const BuiltinDefaultModel = "gemini-3.5-flash"
 
 // GenaiLocation is the fixed location the genai (custom_schema) path targets.
 // The native EvaluateInstances path is regional (cfg.Location); the genai path

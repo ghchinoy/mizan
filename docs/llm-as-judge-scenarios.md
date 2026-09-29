@@ -444,7 +444,7 @@ precedence chain (`internal/eval/model.go`, `resolveModel`):
 - **Template `--model`** at create time — bakes a model into the template.
 - **`default-model` config** (`mizan config set default-model <id>`, env
   `MIZAN_DEFAULT_MODEL`) — your account-wide default.
-- **Built-in fallback** `gemini-2.5-flash` (`BuiltinDefaultModel`) — the single
+- **Built-in fallback** `gemini-3.5-flash` (`BuiltinDefaultModel`) — the single
   source of truth, used only when nothing above is set.
 
 A malformed model id is rejected **locally** with a crisp error before any API
@@ -497,8 +497,10 @@ this is never silent:
 mizan: autorater gemini-3.5-flash is global-only (…); routing this eval to the GLOBAL host (location=global). Your configured --location is kept for labeling only.
 ```
 
-The built-in default stays `gemini-2.5-flash` — served on *both* regional and
-global endpoints — so a default run never triggers routing at all.
+The built-in default is `gemini-3.5-flash`, which is itself global-only, so even a
+default run is routed to the global host. Because `gemini-3.5` is in the `route.go`
+global-only fast-path, Mizan dials global directly — no first-call regional
+404/retry.
 
 ---
 
