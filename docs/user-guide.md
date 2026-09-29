@@ -73,7 +73,7 @@ api-endpoint    (unset)                               default
 registry-db     /home/you/.config/mizan/registry.db   default
 pack-cache      /home/you/.cache/mizan/packs          default
 templates-repo  github.com/ghchinoy/mizan-templates   default
-default-model   gemini-2.5-flash (built-in)           default
+default-model   gemini-3.5-flash (built-in)           default
 author-name     (unset)                               default
 default-license (unset)                               default
 ```
@@ -953,7 +953,7 @@ walkthrough.
 ### Choosing the judge model — and global-only judges
 
 The autorater model is resolved per run: `--model` flag > template model >
-`default-model` config (`MIZAN_DEFAULT_MODEL`) > built-in `gemini-2.5-flash`.
+`default-model` config (`MIZAN_DEFAULT_MODEL`) > built-in `gemini-3.5-flash`.
 
 Some newer judges — the `gemini-3.5` family (`gemini-3.5-flash` /
 `-flash-lite`) — are **global-only**: they exist only on Vertex's global eval
@@ -976,8 +976,9 @@ The pre-flight echo Mizan prints to stderr before each call also shows
 `location=global (src=global-route)` for a known global-only judge — the
 `global-route` source makes clear the global location came from this forced
 routing, not from a fully-qualified model resource (which would read `src=model`).
-The built-in default (`gemini-2.5-flash`) is served on both
-regional and global endpoints, so a default run is never re-routed. For the full
+The built-in default (`gemini-3.5-flash`) is itself global-only, so a default run
+is routed to the global host too — Mizan dials global directly via the `route.go`
+global-only fast-path (no first-call regional 404/retry). For the full
 detection details see
 [`docs/llm-as-judge-scenarios.md`](llm-as-judge-scenarios.md) Scenario 7.
 
