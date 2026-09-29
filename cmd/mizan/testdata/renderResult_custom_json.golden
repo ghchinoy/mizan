@@ -13,6 +13,7 @@
     "token_usage": {
       "prompt_tokens": 120,
       "candidates_tokens": 34,
+      "thoughts_tokens": 0,
       "total_tokens": 154
     }
   }

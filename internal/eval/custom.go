@@ -134,6 +134,7 @@ func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTem
 		ResponseSchema:   schema,
 		Temperature:      genai.Ptr[float32](0.0),
 	}
+	applyThinking(ctx, cfg)
 	if tmpl.SystemInstruction != "" {
 		cfg.SystemInstruction = genai.NewContentFromText(tmpl.SystemInstruction, genai.RoleUser)
 	}
@@ -168,6 +169,7 @@ func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTem
 		res.Stats.TokenUsage = &TokenUsage{
 			PromptTokens:     um.PromptTokenCount,
 			CandidatesTokens: um.CandidatesTokenCount,
+			ThoughtsTokens:   um.ThoughtsTokenCount,
 			TotalTokens:      um.TotalTokenCount,
 		}
 	}

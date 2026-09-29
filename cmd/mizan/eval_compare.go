@@ -58,16 +58,18 @@ type EngineCompareResult struct {
 
 // EngineRun holds result and telemetry from one engine's run.
 type EngineRun struct {
-	Engine      string         `json:"engine"`
-	Model       string         `json:"model,omitempty"`
-	Passed      *bool          `json:"passed,omitempty"`
-	Score       *float32       `json:"score,omitempty"`
-	Confidence  *float32       `json:"confidence,omitempty"`
-	Selection   string         `json:"selection,omitempty"`
-	Explanation string         `json:"explanation,omitempty"`
-	DurationMs  float64        `json:"duration_ms"`
-	Custom      map[string]any `json:"custom_output,omitempty"`
-	Error       string         `json:"error,omitempty"`
+	Engine      string           `json:"engine"`
+	Model       string           `json:"model,omitempty"`
+	Passed      *bool            `json:"passed,omitempty"`
+	Score       *float32         `json:"score,omitempty"`
+	Confidence  *float32         `json:"confidence,omitempty"`
+	Selection   string           `json:"selection,omitempty"`
+	Explanation string           `json:"explanation,omitempty"`
+	DurationMs  float64          `json:"duration_ms"`
+	Custom      map[string]any   `json:"custom_output,omitempty"`
+	Error       string           `json:"error,omitempty"`
+	Tokens      *eval.TokenUsage `json:"tokens,omitempty"`
+	Skipped     bool             `json:"skipped,omitempty"`
 
 	// Gold-label scoring (dataset mode only).
 	Prediction string `json:"prediction,omitempty"`
@@ -154,6 +156,13 @@ type CompareRunMeta struct {
 	AllowFallback     bool      `json:"allow_diffusion_fallback,omitempty"`
 	Workers           int       `json:"workers"`
 	Warmup            int       `json:"warmup"`
+	ThinkingBudget    int       `json:"thinking_budget"`
+	ThinkingSide      string    `json:"thinking_side,omitempty"`
+	PairwiseGenai     bool      `json:"pairwise_genai,omitempty"`
+	CascadeModel      string    `json:"cascade_model,omitempty"`
+	CascadeThreshold  float64   `json:"cascade_threshold,omitempty"`
+	BatchWallMs       float64   `json:"batch_wall_ms"`
+	ThroughputPerSec  float64   `json:"throughput_items_per_sec"`
 	Serial            bool      `json:"serial_engines"`
 	ScoreTolerance    float64   `json:"score_tolerance"`
 	BootstrapIters    int       `json:"bootstrap_iters"`
@@ -252,6 +261,11 @@ type compareOptions struct {
 	bootstrapIters   int
 	bootstrapSeed    int64
 	limit            int
+	thinkingBudget   int
+	thinkingSide     string
+	pairwiseGenai    bool
+	cascadeModel     string
+	cascadeThreshold float64
 	warmup           int
 	noStore          bool
 	failFast         bool
@@ -274,7 +288,7 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 		o                 compareOptions
 	)
 	cmd := &cobra.Command{
-		Use:   "compare-engines (--metric <id> | --dataset <path.jsonl>) [--field key=value] [--file key=/path] [--engine-a vertex] [--engine-b diffusion]",
+		Use:   "compare-engines (--metric <id> | --dataset <path.jsonl>) [--field key=value] [--file key=/path] [--engine-a vertex] [--engine-b diffusion|local|cascade|none]",
 		Short: "Compare evaluation engines side-by-side (e.g. Vertex AI Gemini vs DiffusionGemma)",
 		Long: "Execute an evaluation template on two engines and compare their verdicts, latency and confidence.\n\n" +
 			"With --dataset <path.jsonl>, each engine is scored against the item's \"expected\" gold label\n" +
@@ -366,6 +380,11 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 	f.IntVar(&o.bootstrapIters, "bootstrap", 2000, "bootstrap resamples for 95% confidence intervals (0 disables)")
 	f.Int64Var(&o.bootstrapSeed, "seed", 20260925, "bootstrap RNG seed")
 	f.IntVar(&o.limit, "limit", 0, "evaluate at most N dataset items (0 = all)")
+	f.IntVar(&o.thinkingBudget, "thinking-budget", -1, "Gemini thinking budget on genai calls (0 = off; -1 = model default)")
+	f.StringVar(&o.thinkingSide, "thinking-side", "both", "which vertex engine gets --thinking-budget: a | b | both (lets one run pair default vs budgeted thinking)")
+	f.BoolVar(&o.pairwiseGenai, "pairwise-genai", false, "judge pairwise templates with genai structured output instead of native EvaluateInstances (enables --thinking-budget for pairwise)")
+	f.StringVar(&o.cascadeModel, "cascade-model", "gemini-3.8-flash", "engine \"cascade\": Gemini model used when DiffusionGemma hesitates")
+	f.Float64Var(&o.cascadeThreshold, "cascade-threshold", 0.35, "engine \"cascade\": escalate when DiffusionGemma hesitation (entropy / ln k) >= this")
 	f.IntVar(&o.warmup, "warmup", 1, "untimed warm-up comparisons on the first item before the batch (token minting, connection setup, cold replicas)")
 	f.BoolVar(&o.failFast, "fail-fast", false, "abort the batch on the first engine error (default: record the error and continue)")
 	f.BoolVar(&o.redactEndpoints, "redact-endpoints", true, "replace endpoint hosts with their kind (vertex-dedicated, gateway, cloudrun, local) in the report")
@@ -390,6 +409,12 @@ func isLocalEngine(e string) bool {
 }
 
 func runOne(ctx context.Context, eng *eval.Engine, tmpl *registry.MetricTemplate, inst eval.Instance, side, engine, model string, o compareOptions) (eval.Result, EngineRun) {
+	switch strings.ToLower(engine) {
+	case "none":
+		return eval.Result{}, EngineRun{Engine: "none", Skipped: true}
+	case "cascade":
+		return runCascade(ctx, eng, tmpl, inst, side, o)
+	}
 	opts := []eval.RunOption{eval.WithEngine(engine)}
 	if model != "" {
 		opts = append(opts, eval.WithModel(model))
@@ -402,8 +427,15 @@ func runOne(ctx context.Context, eng *eval.Engine, tmpl *registry.MetricTemplate
 	case isDiffusionEngine(engine):
 		mirror := o.mirror && (o.mirrorSide == "" || o.mirrorSide == "both" || o.mirrorSide == side)
 		opts = append(opts, eval.WithDiffusionSamples(o.samples), eval.WithDiffusionFallback(o.allowFallback), eval.WithDiffusionMirror(mirror))
-	case tmpl.Kind == registry.KindRubric:
-		opts = append(opts, eval.WithRubricDetailDefaultScale())
+	default:
+		tb := o.thinkingBudget
+		if o.thinkingSide != "" && o.thinkingSide != "both" && o.thinkingSide != side {
+			tb = -1
+		}
+		opts = append(opts, eval.WithThinkingBudget(tb), eval.WithPairwiseGenai(o.pairwiseGenai))
+		if tmpl.Kind == registry.KindRubric {
+			opts = append(opts, eval.WithRubricDetailDefaultScale())
+		}
 	}
 	start := time.Now()
 	res, err := eng.Run(ctx, *tmpl, inst, opts...)
@@ -418,6 +450,7 @@ func runOne(ctx context.Context, eng *eval.Engine, tmpl *registry.MetricTemplate
 		Explanation: res.Explanation,
 		DurationMs:  float64(dur.Microseconds()) / 1000,
 		Custom:      res.CustomOutput,
+		Tokens:      res.Stats.TokenUsage,
 	}
 	if res.PairwiseChoice != "" {
 		run.Selection = res.PairwiseChoice
@@ -541,7 +574,7 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 		BootstrapSeed:    o.bootstrapSeed,
 		Notes:            o.notes,
 	}
-	if isDiffusionEngine(o.engineA) || isDiffusionEngine(o.engineB) {
+	if isDiffusionEngine(o.engineA) || isDiffusionEngine(o.engineB) || o.engineA == "cascade" || o.engineB == "cascade" {
 		meta.DiffusionEndpoint = cfg.DiffusionEndpoint
 		if o.redactEndpoints {
 			meta.DiffusionEndpoint = endpointKind(cfg.DiffusionEndpoint)
@@ -581,6 +614,11 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 	}
 	meta.Warmup = o.warmup
 
+	meta.ThinkingBudget, meta.ThinkingSide, meta.PairwiseGenai = o.thinkingBudget, o.thinkingSide, o.pairwiseGenai
+	if o.engineA == "cascade" || o.engineB == "cascade" {
+		meta.CascadeModel, meta.CascadeThreshold = o.cascadeModel, o.cascadeThreshold
+	}
+	batchStart := time.Now()
 	workers := o.workers
 	if workers < 1 {
 		workers = 1
@@ -649,6 +687,10 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 	}
 
 	meta.FinishedAt = time.Now().UTC()
+	meta.BatchWallMs = float64(time.Since(batchStart).Microseconds()) / 1000
+	if meta.BatchWallMs > 0 {
+		meta.ThroughputPerSec = float64(len(cases)) / (meta.BatchWallMs / 1000)
+	}
 	report := buildBatchReport(meta, cases, o)
 
 	if outputFile != "" {
@@ -741,7 +783,7 @@ func predictionString(kind registry.MetricKind, r EngineRun) string {
 
 // scoreRun fills Prediction and, when a gold label is present, Correct.
 func scoreRun(r *EngineRun, kind registry.MetricKind, expected string, tol float64) {
-	if !r.ok() {
+	if !r.ok() || r.Skipped {
 		return
 	}
 	r.Prediction = predictionString(kind, *r)
@@ -1345,4 +1387,75 @@ func renderCompareTable(w io.Writer, cmp EngineCompareResult) error {
 	fmt.Fprintf(tw, "Explanation:\t%s\t%s\n", explA, explB)
 
 	return tw.Flush()
+}
+
+// runCascade serves the entropy cascade live: DiffusionGemma first, then the
+// cascade Gemini model only when DiffusionGemma's hesitation (normalized
+// entropy of its answer distribution) is at or above the threshold. The
+// returned run is the answer actually served; DurationMs is end-to-end.
+func runCascade(ctx context.Context, eng *eval.Engine, tmpl *registry.MetricTemplate, inst eval.Instance, side string, o compareOptions) (eval.Result, EngineRun) {
+	start := time.Now()
+	dres, drun := runOne(ctx, eng, tmpl, inst, side, "diffusion", "", o)
+	h, ok := hesitationOf(dres)
+	escalate := drun.Error != "" || !ok || h >= o.cascadeThreshold
+	out, run := dres, drun
+	var gms float64
+	if escalate {
+		out, run = runOne(ctx, eng, tmpl, inst, side, "vertex", o.cascadeModel, o)
+		gms = run.DurationMs
+	}
+	if run.Custom == nil {
+		run.Custom = map[string]any{}
+	}
+	run.Custom["cascade_escalated"] = escalate
+	run.Custom["cascade_hesitation"] = h
+	run.Custom["cascade_dgem_ms"] = drun.DurationMs
+	run.Custom["cascade_gemini_ms"] = gms
+	if drun.Error != "" {
+		run.Custom["cascade_dgem_error"] = drun.Error
+	}
+	run.Engine = "cascade"
+	run.DurationMs = float64(time.Since(start).Microseconds()) / 1000
+	return out, run
+}
+
+// hesitationOf returns entropy / ln(k) of a diffusion answer's distribution.
+func hesitationOf(res eval.Result) (float64, bool) {
+	c := res.CustomOutput
+	if c == nil {
+		return 0, false
+	}
+	var probs map[string]float64
+	switch p := c["probabilities"].(type) {
+	case map[string]float64:
+		probs = p
+	case map[string]any:
+		probs = map[string]float64{}
+		for k, v := range p {
+			if f, ok := toF(v); ok {
+				probs[k] = f
+			}
+		}
+	}
+	if len(probs) >= 2 {
+		var h float64
+		for _, p := range probs {
+			if p > 0 {
+				h -= p * math.Log(p)
+			}
+		}
+		return h / math.Log(float64(len(probs))), true
+	}
+	if per, ok := c["per_criterion"].([]any); ok && len(per) > 0 {
+		var sum float64
+		for _, x := range per {
+			if m, ok := x.(map[string]any); ok {
+				if e, ok := toF(m["entropy"]); ok {
+					sum += e / math.Ln2
+				}
+			}
+		}
+		return sum / float64(len(per)), true
+	}
+	return 0, false
 }

@@ -1,0 +1,1 @@
+{"n":18000,"errors":0,"wall_s":211.969872,"items_per_s":84.91772830810596,"p50_ms":376.408,"p95_ms":424.235,"p99_ms":435.103,"concurrency":32,"target":"dgem-g4","suite":"safety_response"}

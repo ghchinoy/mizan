@@ -154,6 +154,7 @@ carries the `run-eval` snake_case tags (`rubric_detail`, `warnings`, `duration_n
           "token_usage": {
             "prompt_tokens": 10,
             "candidates_tokens": 20,
+            "thoughts_tokens": 0,
             "total_tokens": 30
           }
         }
