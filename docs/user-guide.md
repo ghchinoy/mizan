@@ -539,6 +539,28 @@ In `compare-engines`, `--engine-a`/`--engine-b` also accept **`local`**
 `PASS`/`FAIL`/`true`/`false` is compared against `Passed` when the template sets
 a `passThreshold`, and a `pairwise_*` metric is compared on its preference.
 
+`compare-engines` also has options for speed and cost studies (used by
+Experiment 07b):
+
+- **`--engine-b none`** runs one engine only, for throughput. The report's
+  `meta.batch_wall_ms` and `meta.throughput_items_per_sec` give items/s at the
+  chosen `--workers`.
+- **`--engine-a cascade`** serves an entropy cascade live. DiffusionGemma
+  answers first, and `--cascade-model` (default `gemini-3.8-flash`) is called
+  only when DiffusionGemma's hesitation (normalized entropy) is at or above
+  `--cascade-threshold` (default 0.35). Each result records
+  `cascade_escalated`, `cascade_dgem_ms` and `cascade_gemini_ms`.
+- **`--thinking-budget N`** sets Gemini's thinking budget on genai calls (0 turns
+  thinking off where the model allows it; -1 keeps the model default).
+  `--thinking-side a|b` applies it to one engine only, so a single run can pair
+  default thinking against budget 0.
+- **`--pairwise-genai`** judges pairwise templates with genai structured output
+  instead of native `EvaluateInstances`, which has no thinking control.
+
+Genai results report token usage, including `thoughts_tokens` (thinking
+tokens, billed as output). Native `EvaluateInstances` results carry no token
+counts.
+
 Other useful create flags: `--system` (system instruction), `--sampling-count`
 (autorater sampling count, default 4 — lowering it trades self-consistency for
 latency), `--modality` (repeatable; default `text`), `--tag` (repeatable),
