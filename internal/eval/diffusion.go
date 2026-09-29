@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -584,9 +585,9 @@ func recordDiffusionStats(res *Result, stats *diffusion.RequestStats) {
 	out["steps"] = stats.DenoiseSteps
 	out["samples"] = stats.SamplesN
 	res.Stats.TokenUsage = &TokenUsage{
-		PromptTokens:     int32(stats.PromptTokens),
-		CandidatesTokens: int32(stats.OutputTokens),
-		TotalTokens:      int32(stats.TotalTokens),
+		PromptTokens:     clampInt32(stats.PromptTokens),
+		CandidatesTokens: clampInt32(stats.OutputTokens),
+		TotalTokens:      clampInt32(stats.TotalTokens),
 	}
 }
 
@@ -855,4 +856,9 @@ func fillPrebuiltDiffusionResult(res *Result, tmpl registry.MetricTemplate, resp
 	}
 	applyPassThreshold(res, tmpl.Native)
 	return nil
+}
+
+// clampInt32 narrows a token count to int32 without overflow.
+func clampInt32(v int) int32 {
+	return int32(min(max(v, 0), math.MaxInt32)) //nolint:gosec // G115: clamped to the int32 range above
 }

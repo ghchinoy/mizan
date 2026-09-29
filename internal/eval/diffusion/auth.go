@@ -170,7 +170,7 @@ func refreshAuthorizedUser(ctx context.Context) (access, id string, ok bool) {
 		}
 		path = filepath.Join(home, ".config", "gcloud", "application_default_credentials.json")
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := os.ReadFile(path) //nolint:gosec // G703: the ADC path is operator-controlled (env or home dir), as in every Google SDK
 	if err != nil {
 		return "", "", false
 	}

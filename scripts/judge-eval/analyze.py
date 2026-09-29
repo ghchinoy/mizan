@@ -14,7 +14,7 @@
 # limitations under the License.
 """Summarize Experiment 07 runs (compare-engines schema v2 reports).
 
-Reads docs/experiments/judge-eval/runs/*.json and writes summary.json and
+Reads <run dir>/*.json (argv[1]; default docs/experiments/judge-eval/runs) and writes summary.json and
 summary.md next to them. For each suite it reports:
   - accuracy vs gold for every judge configuration, with a bootstrap 95% CI
   - Likert MAE / Spearman where the gold is numeric
@@ -34,8 +34,9 @@ import math
 import os
 import random
 import statistics
+import sys
 
-RUNS = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "experiments", "judge-eval", "runs")
+RUNS = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "..", "..", "docs", "experiments", "judge-eval", "runs")
 THRESHOLDS = (0.16, 0.35)
 SEED = 20260925
 
@@ -145,6 +146,13 @@ def side_stats(cases, side):
     return st
 
 
+def side_label(rep, side):
+    """Engine label for one side, honouring --diffusion-mirror-side."""
+    meta = rep["meta"]
+    mirror_on = meta.get("diffusion_mirror") and meta.get("diffusion_mirror_side", "both") in ("both", "", side)
+    return engine_label(rep[f"engine_{side}"], dict(meta, diffusion_mirror=mirror_on), side)
+
+
 def summarize(path):
     rep, retries, merged = load_merged(path)
     meta = rep["meta"]
@@ -155,9 +163,7 @@ def summarize(path):
     for side in ("a", "b"):
         s = rep[f"engine_{side}"]
         st = side_stats(rep["cases"], side)
-        mirror_on = meta.get("diffusion_mirror") and meta.get("diffusion_mirror_side", "both") in ("both", "", side)
-        m2 = dict(meta, diffusion_mirror=mirror_on)
-        st.update({"label": engine_label(s, m2, side), "readout_modes": s.get("readout_modes"), "backends_used": s.get("backends_used"),
+        st.update({"label": side_label(rep, side), "readout_modes": s.get("readout_modes"), "backends_used": s.get("backends_used"),
                    "position_consistency": s.get("pairwise_position_consistency"), "server_p50_ms": s.get("server_p50_ms")})
         out["engines"][side] = st
     # paired, recomputed on cases where both sides were scored
@@ -219,7 +225,7 @@ def mcnemar(b, c):
 
 def main():
     runs = sorted(glob.glob(os.path.join(RUNS, "*.json")))
-    runs = [r for r in runs if not r.endswith("summary.json") and ".retry" not in r]
+    runs = [r for r in runs if os.path.basename(r) not in ("summary.json", "backends.json") and ".retry" not in r]
     rows = [summarize(r) for r in runs]
     with open(os.path.join(RUNS, "summary.json"), "w") as f:
         json.dump(rows, f, indent=1)

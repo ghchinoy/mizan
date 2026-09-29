@@ -37,7 +37,7 @@ func bootstrapMeanCI(xs []float64, iters int, seed int64) Interval {
 	if n == 0 || iters <= 0 {
 		return Interval{}
 	}
-	rng := rand.New(rand.NewSource(seed))
+	rng := rand.New(rand.NewSource(seed)) //nolint:gosec // G404: seeded bootstrap must be reproducible, not cryptographic
 	means := make([]float64, iters)
 	for i := range means {
 		var s float64
@@ -56,7 +56,7 @@ func bootstrapDiffCI(a, b []float64, iters int, seed int64) Interval {
 	if n == 0 || n != len(b) || iters <= 0 {
 		return Interval{}
 	}
-	rng := rand.New(rand.NewSource(seed))
+	rng := rand.New(rand.NewSource(seed)) //nolint:gosec // G404: seeded bootstrap must be reproducible, not cryptographic
 	diffs := make([]float64, iters)
 	for i := range diffs {
 		var s float64
@@ -208,16 +208,11 @@ func ece10(conf []float64, correct []bool) float64 {
 	if len(conf) == 0 {
 		return math.NaN()
 	}
-	var binN [10]float64
-	var binC, binA [10]float64
+	binN := make([]float64, 10)
+	binC := make([]float64, 10)
+	binA := make([]float64, 10)
 	for i, c := range conf {
-		b := int(c * 10)
-		if b >= 10 {
-			b = 9
-		}
-		if b < 0 {
-			b = 0
-		}
+		b := min(max(int(c*10), 0), 9)
 		binN[b]++
 		binC[b] += c
 		if correct[i] {

@@ -182,7 +182,7 @@ func (c *HTTPClient) Complete(ctx context.Context, req ChatCompletionRequest) (*
 		if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable) && attempt < c.MaxRetries {
 			retries++
 			backoff := time.Duration(250*(1<<attempt)) * time.Millisecond
-			backoff += time.Duration(rand.Int63n(int64(backoff / 2)))
+			backoff += time.Duration(rand.Int63n(int64(backoff / 2))) //nolint:gosec // G404: retry jitter, not security-sensitive
 			select {
 			case <-ctx.Done():
 				return nil, nil, ctx.Err()
@@ -344,9 +344,10 @@ func ParseStructuredContentWithLogprobs(raw string, logprobs *ChoiceLogprobs) (*
 
 			normLbl := strings.ToLower(strings.TrimSpace(label))
 			var noul float64
-			if normLbl == "yes" || normLbl == "true" {
+			switch normLbl {
+			case "yes", "true":
 				noul = conf
-			} else if normLbl == "no" || normLbl == "false" {
+			case "no", "false":
 				noul = 1.0 - conf
 			}
 

@@ -400,7 +400,7 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		if m == "" {
 			m = model
 		}
-		res.Applied = &AppliedAutorater{Model: m, SamplingCount: int32(rc.diffusionSamples), FlipEnabled: rc.diffusionMirror || tmpl.FlipEnabled, EffectiveHost: "diffusion", ModelSource: "diffusion"}
+		res.Applied = &AppliedAutorater{Model: m, SamplingCount: clampInt32(rc.diffusionSamples), FlipEnabled: rc.diffusionMirror || tmpl.FlipEnabled, EffectiveHost: "diffusion", ModelSource: "diffusion"}
 		return res, nil
 	}
 	// Record the RESOLVED autorater-as-applied on EVERY kind/path uniformly, right

@@ -163,25 +163,24 @@ type CompareRunMeta struct {
 
 // EngineSummary aggregates one engine's performance over a batch.
 type EngineSummary struct {
-	Engine         string          `json:"engine"`
-	Models         map[string]int  `json:"models,omitempty"`
-	Cases          int             `json:"cases"`
-	Errors         int             `json:"errors"`
-	Scored         int             `json:"scored"` // gold present and no error
-	Correct        int             `json:"correct"`
-	Accuracy       *float64        `json:"accuracy,omitempty"`
-	AccuracyCI95   *Interval       `json:"accuracy_ci95,omitempty"`
-	LatencyP50Ms   float64         `json:"latency_p50_ms"`
-	LatencyP95Ms   float64         `json:"latency_p95_ms"`
-	LatencyMeanMs  float64         `json:"latency_mean_ms"`
-	ServerP50Ms    *float64        `json:"server_p50_ms,omitempty"`
-	ReadoutModes   map[string]int  `json:"readout_modes,omitempty"`
-	BackendsUsed   map[string]int  `json:"backends_used,omitempty"`
-	Calibration    *CalibSummary   `json:"calibration,omitempty"`
-	ScoreMetrics   *ScoreSummary   `json:"score_metrics,omitempty"`
-	PositionConsis *float64        `json:"pairwise_position_consistency,omitempty"`
-	ErrorSamples   []string        `json:"error_samples,omitempty"`
-	byKey          map[string]bool // case id -> correct (internal)
+	Engine         string         `json:"engine"`
+	Models         map[string]int `json:"models,omitempty"`
+	Cases          int            `json:"cases"`
+	Errors         int            `json:"errors"`
+	Scored         int            `json:"scored"` // gold present and no error
+	Correct        int            `json:"correct"`
+	Accuracy       *float64       `json:"accuracy,omitempty"`
+	AccuracyCI95   *Interval      `json:"accuracy_ci95,omitempty"`
+	LatencyP50Ms   float64        `json:"latency_p50_ms"`
+	LatencyP95Ms   float64        `json:"latency_p95_ms"`
+	LatencyMeanMs  float64        `json:"latency_mean_ms"`
+	ServerP50Ms    *float64       `json:"server_p50_ms,omitempty"`
+	ReadoutModes   map[string]int `json:"readout_modes,omitempty"`
+	BackendsUsed   map[string]int `json:"backends_used,omitempty"`
+	Calibration    *CalibSummary  `json:"calibration,omitempty"`
+	ScoreMetrics   *ScoreSummary  `json:"score_metrics,omitempty"`
+	PositionConsis *float64       `json:"pairwise_position_consistency,omitempty"`
+	ErrorSamples   []string       `json:"error_samples,omitempty"`
 }
 
 // CalibSummary reports top-1 calibration for cases where the engine reported a confidence.
@@ -657,7 +656,7 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 		if err != nil {
 			return fmt.Errorf("marshal report: %w", err)
 		}
-		if err := os.WriteFile(outputFile, outBytes, 0o644); err != nil {
+		if err := os.WriteFile(outputFile, outBytes, 0o644); err != nil { //nolint:gosec // G306: a benchmark report meant to be shared/committed, not a secret
 			return fmt.Errorf("write output file %q: %w", outputFile, err)
 		}
 	}

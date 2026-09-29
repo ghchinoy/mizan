@@ -34,7 +34,7 @@ cd "$(dirname "$0")/../.."
 MIZAN=${MIZAN:-./bin/mizan}
 WORKERS=${WORKERS:-4}  # keep modest: a shared project with saturated Gemini quota queues requests for minutes
 S=docs/experiments/judge-eval/suites
-R=docs/experiments/judge-eval/runs
+R=${RUN_DIR:-docs/experiments/judge-eval/runs/$(date -u +%Y%m%d)}
 mkdir -p "$R"
 : "${DGEM_VERTEX_ENDPOINT:?set DGEM_VERTEX_ENDPOINT}" "${DGEM_GATEWAY_URL:?set DGEM_GATEWAY_URL}" "${MIZAN_PROJECT_ID:?set MIZAN_PROJECT_ID}"
 
@@ -46,6 +46,33 @@ PREBUILT_SUITES="prebuilt_safety prebuilt_groundedness prebuilt_fluency prebuilt
 # concurrent load on 2026-09-26, while flash-lite / 3.7-flash stayed < 2 s).
 # Run both tracks at once to overlap them; unset runs everything in order.
 TRACK=${TRACK:-all}
+
+# Record exactly what was tested: serving health (version, revision, vLLM commit)
+# for each diffusion backend, once per run directory. Needs gcloud-free ADC via
+# python3 (same refresh-token exchange mizan uses).
+if [[ ! -s "$R/backends.json" ]]; then
+  python3 - "$R/backends.json" <<'PY' || echo "warn: backend health capture failed"
+import json, os, sys, time, urllib.parse, urllib.request
+c = json.load(open(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS") or os.path.expanduser("~/.config/gcloud/application_default_credentials.json")))
+tok = json.load(urllib.request.urlopen("https://oauth2.googleapis.com/token", urllib.parse.urlencode(
+    {k: c[k] for k in ("client_id", "client_secret", "refresh_token")} | {"grant_type": "refresh_token"}).encode()))
+def get(url, bearer):
+    try:
+        req = urllib.request.Request(url, headers={"Authorization": "Bearer " + bearer})
+        return json.load(urllib.request.urlopen(req, timeout=30))
+    except Exception as e:  # noqa: BLE001
+        return {"error": str(e)}
+keep = ("status", "server", "version", "revision", "vllm_commit", "vllm_ready", "warmed")
+v = get(os.environ["DGEM_VERTEX_ENDPOINT"].rstrip("/") + "/invoke/health", tok["access_token"])
+gw = os.environ["DGEM_GATEWAY_URL"].rstrip("/").removesuffix("/v1")
+cr = get(gw + "/api/status?backend=cloudrun", tok["id_token"])
+out = {"captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+       "vertex_dedicated": {k: v.get(k) for k in keep if k in v} or v,
+       "cloudrun_via_gateway": {k: cr.get(k) for k in ("status", "gpu_hardware", "model") if k in cr} or cr}
+json.dump(out, open(sys.argv[1], "w"), indent=1)
+print("backends:", json.dumps(out))
+PY
+fi
 cmp() { # name suite-or-path extra-args...
   local name=$1 suite=$2; shift 2
   local slow=0; [[ " $* " == *" gemini-3.8-flash "* ]] && slow=1
@@ -87,10 +114,14 @@ done
 # Latency probe: serial (one request in flight, engines one after the other) on
 # 30 items so queueing and client contention do not distort p50/p95. Accuracy
 # numbers come from the runs above; these runs are only for latency.
-head -30 "$S/safety_response.jsonl" > "$R/latency_probe.jsonl.in"
-WORKERS=1 cmp lat_j4_vs_j1 "$R/latency_probe.jsonl.in" --serial --engine-a vertex --model-a gemini-3.8-flash \
+head -30 "$S/safety_response.jsonl" > "$R/latency_probe.$TRACK.jsonl.in"
+WORKERS=1 cmp lat_j4_vs_j1 "$R/latency_probe.$TRACK.jsonl.in" --serial --engine-a vertex --model-a gemini-3.8-flash \
     --engine-b diffusion --diffusion-endpoint "$DGEM_VERTEX_ENDPOINT" --notes "serial latency probe"
-WORKERS=1 cmp lat_j3_vs_j1c "$R/latency_probe.jsonl.in" --serial --engine-a vertex --model-a gemini-3.5-flash-lite \
+WORKERS=1 cmp lat_j3_vs_j1c "$R/latency_probe.$TRACK.jsonl.in" --serial --engine-a vertex --model-a gemini-3.5-flash-lite \
     --engine-b diffusion --diffusion-endpoint "$DGEM_GATEWAY_URL" --diffusion-backend cloudrun --notes "serial latency probe"
-rm -f "$R/latency_probe.jsonl.in"
+# Gateway overhead: dgem through the gateway with vertex_first routing (compare its
+# p50 with the direct-endpoint dgem side of lat_j4_vs_j1).
+WORKERS=1 cmp lat_j1g "$R/latency_probe.$TRACK.jsonl.in" --serial --engine-a diffusion --engine-b diffusion \
+    --diffusion-endpoint "$DGEM_GATEWAY_URL" --diffusion-backend vertex_first --notes "serial latency probe: dgem via gateway vertex_first (both sides)"
+rm -f "$R/latency_probe.$TRACK.jsonl.in"
 echo "done $(date -u +%H:%M:%S)"

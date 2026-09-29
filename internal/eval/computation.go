@@ -596,7 +596,7 @@ func toolMetric(metric, pred, ref string) (float64, string, error) {
 	// Vertex EvaluateInstances scores key/kv match 0 when the first call names
 	// differ (observed 2026-09-26: wrong-tool calls with identical arguments
 	// return tool_parameter_kv_match = 0). Mirror that so local == Vertex.
-	if metric != "tool_name_match" && !(r.nameOK && p.nameOK && r.name == p.name) {
+	if metric != "tool_name_match" && (!r.nameOK || !p.nameOK || r.name != p.name) {
 		return 0, fmt.Sprintf("%s = 0 (tool name %q does not match reference %q)", metric, p.name, r.name), nil
 	}
 	switch metric {
