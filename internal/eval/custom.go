@@ -219,7 +219,7 @@ func (e *Engine) generateWithBackoff(ctx context.Context, model string, contents
 		if err == nil {
 			return resp, nil
 		}
-		if !isResourceExhausted(err) {
+		if !isResourceExhausted(err) && !isTransientGenaiError(err) {
 			return nil, fmt.Errorf("eval: custom_schema generate (non-retryable): %w", err)
 		}
 		lastErr = err
@@ -249,6 +249,25 @@ func isResourceExhausted(err error) bool {
 	var apiErr genai.APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.Code == 429 || apiErr.Status == "RESOURCE_EXHAUSTED"
+	}
+	return false
+}
+
+// isTransientGenaiError reports server/transport failures worth retrying:
+// HTTP 500/503 (INTERNAL / UNAVAILABLE) and connection-level failures. The
+// latter were observed on 2026-09-26 when gemini-3.8-flash queued requests for
+// ~80 s under load and the connection was then reset by the peer; treating them
+// as fatal silently dropped ~14% of a benchmark's items.
+func isTransientGenaiError(err error) bool {
+	var apiErr genai.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.Code == 500 || apiErr.Code == 503 || apiErr.Status == "UNAVAILABLE" || apiErr.Status == "INTERNAL"
+	}
+	msg := err.Error()
+	for _, s := range []string{"connection reset by peer", "unexpected EOF", "broken pipe", "http2: server sent GOAWAY", "connection refused"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
 	}
 	return false
 }

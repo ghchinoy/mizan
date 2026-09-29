@@ -84,6 +84,8 @@ const globalHost = "aiplatform.googleapis.com"
 // global up front; a stale entry only costs a fast-path, never correctness.
 var globalOnlyModelPrefixes = []string{
 	"gemini-3.5", // gemini-3.5-flash / -lite: global-only
+	"gemini-3.7", // gemini-3.7-flash: global-only
+	"gemini-3.8", // gemini-3.8-flash: global-only
 }
 
 // isGlobalOnlyModel reports whether model's bare publisher id names a known

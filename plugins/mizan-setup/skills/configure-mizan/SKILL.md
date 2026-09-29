@@ -90,6 +90,9 @@ tells you whether a value is a real setting or just the built-in default.
   "APIEndpoint": "",
   "DiffusionEndpoint": "http://127.0.0.1:8080/v1",
   "DiffusionModel": "diffgemma-26b-a4b-it-q4",
+  "DiffusionBackend": "",
+  "DiffusionAuth": "auto",
+  "DiffusionTimeout": "120s",
   "RegistryDBPath": "/home/you/.config/mizan/registry.db",
   "ResultsBackend": "sqlite",
   "ResultsDBPath": "/home/you/.config/mizan/results.db",
@@ -114,7 +117,12 @@ default capitalized names — read `ProjectID`, `Location`, etc. exactly as show
   prefix for multimodal inputs (only needed for media evals). **`APIEndpoint`** —
   optional Vertex endpoint override. **`DiffusionEndpoint`** — DiffusionGemma
   endpoint (default `http://127.0.0.1:8080/v1`). **`DiffusionModel`** — default
-  DiffusionGemma model ID.
+  DiffusionGemma model ID. **`DiffusionBackend`** — `X-DGem-Backend` header sent
+  to a dgem gateway (`vertex` | `cloudrun` | `vertex_first`; empty sends none).
+  **`DiffusionAuth`** — `auto` (access token for Vertex dedicated endpoints, ID
+  token for other remote https, none for local) | `none` | `access-token` |
+  `id-token`; tokens come from Application Default Credentials.
+  **`DiffusionTimeout`** — per-request timeout (default `120s`).
 - **`RegistryDBPath`** / **`ResultsDBPath`** — local SQLite paths for the template
   registry and the results store. **`ResultsBackend`** — results store backend
   (default `sqlite`). **`ResultsRetention`** — input retention policy

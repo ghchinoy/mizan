@@ -127,6 +127,8 @@ CREATE TABLE IF NOT EXISTS metric_templates (
     rubric_provenance      TEXT NOT NULL DEFAULT 'null', -- JSON *RubricProvenance
     -- additive B2 non-LLM check spec (v3; design §4.B)
     heuristic              TEXT NOT NULL DEFAULT 'null', -- JSON *HeuristicSpec
+    -- additive Vertex-native metric spec (v5; kind computation|prebuilt)
+    native_metric          TEXT NOT NULL DEFAULT 'null', -- JSON *NativeMetricSpec
     -- provenance / sync (collab §3.9)
     source                 TEXT NOT NULL DEFAULT '',
     content_hash           TEXT NOT NULL DEFAULT '',
@@ -197,7 +199,16 @@ CREATE INDEX IF NOT EXISTS idx_metric_templates_source ON metric_templates(sourc
 			return fmt.Errorf("sqlite: migrate v4 alter: %w", err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 4;"); err != nil {
+	// Existing v1..v4 DBs: add the native_metric column (v5) carrying the
+	// kind:computation / kind:prebuilt NativeMetricSpec. Same additive, cheap,
+	// non-destructive pattern as the heuristic column; existing rows take the
+	// 'null' default, which unmarshalIf reads back as a nil spec.
+	if uv >= 1 && uv <= 4 {
+		if _, err := tx.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN native_metric TEXT NOT NULL DEFAULT 'null'"); err != nil {
+			return fmt.Errorf("sqlite: migrate v5 alter: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 5;"); err != nil {
 		return fmt.Errorf("sqlite: set user_version: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -238,6 +249,7 @@ func (s *Store) Put(ctx context.Context, t *registry.MetricTemplate) error {
 	rubricDetail := mustJSON(t.RubricDetail)
 	rubricProvenance := mustJSON(t.RubricProvenance)
 	heuristic := mustJSON(t.Heuristic)
+	nativeMetric := mustJSON(t.Native)
 
 	const q = `
 INSERT INTO metric_templates (
@@ -245,14 +257,14 @@ INSERT INTO metric_templates (
     kind, modalities, inputs, metric_prompt_template, system_instruction,
     candidate_field_name, baseline_field_name, choices, rubric_groups, response_schema,
     autorater_model, sampling_count, flip_enabled,
-    rating_rubric, rubric_detail, rubric_provenance, heuristic,
+    rating_rubric, rubric_detail, rubric_provenance, heuristic, native_metric,
     source, content_hash, dirty, created_at, updated_at, imported_at
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?,
     ?, ?, ?,
-    ?, ?, ?, ?,
+    ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?
 )
 ON CONFLICT(id) DO UPDATE SET
@@ -266,6 +278,7 @@ ON CONFLICT(id) DO UPDATE SET
     sampling_count=excluded.sampling_count, flip_enabled=excluded.flip_enabled,
     rating_rubric=excluded.rating_rubric, rubric_detail=excluded.rubric_detail,
     rubric_provenance=excluded.rubric_provenance, heuristic=excluded.heuristic,
+    native_metric=excluded.native_metric,
     source=excluded.source, content_hash=excluded.content_hash, dirty=excluded.dirty,
     updated_at=excluded.updated_at, imported_at=excluded.imported_at
 `
@@ -274,7 +287,7 @@ ON CONFLICT(id) DO UPDATE SET
 		string(t.Kind), modalities, inputs, t.MetricPromptTemplate, t.SystemInstruction,
 		t.CandidateFieldName, t.BaselineFieldName, choices, rubric, schema,
 		t.AutoraterModel, t.SamplingCount, boolToInt(t.FlipEnabled),
-		ratingRubric, rubricDetail, rubricProvenance, heuristic,
+		ratingRubric, rubricDetail, rubricProvenance, heuristic, nativeMetric,
 		t.Source, t.ContentHash, boolToInt(t.Dirty), created, updated, nullTime(t.ImportedAt),
 	)
 	if err != nil {
@@ -427,7 +440,7 @@ const selectCols = `SELECT
     kind, modalities, inputs, metric_prompt_template, system_instruction,
     candidate_field_name, baseline_field_name, choices, rubric_groups, response_schema,
     autorater_model, sampling_count, flip_enabled,
-    rating_rubric, rubric_detail, rubric_provenance, heuristic,
+    rating_rubric, rubric_detail, rubric_provenance, heuristic, native_metric,
     source, content_hash, dirty, created_at, updated_at, imported_at`
 
 // scanner is satisfied by both *sql.Row and *sql.Rows.
@@ -441,7 +454,7 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 		authors, maintainers, tags, modalities       string
 		inputs, choices, rubric, schema              string
 		ratingRubric, rubricDetail, rubricProvenance string
-		heuristic                                    string
+		heuristic, nativeMetric                      string
 		kind                                         string
 		flip, dirty                                  int
 		createdAt, updatedAt, importedAt             sql.NullTime
@@ -451,7 +464,7 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 		&kind, &modalities, &inputs, &t.MetricPromptTemplate, &t.SystemInstruction,
 		&t.CandidateFieldName, &t.BaselineFieldName, &choices, &rubric, &schema,
 		&t.AutoraterModel, &t.SamplingCount, &flip,
-		&ratingRubric, &rubricDetail, &rubricProvenance, &heuristic,
+		&ratingRubric, &rubricDetail, &rubricProvenance, &heuristic, &nativeMetric,
 		&t.Source, &t.ContentHash, &dirty, &createdAt, &updatedAt, &importedAt,
 	); err != nil {
 		return nil, err
@@ -503,6 +516,9 @@ func scanTemplate(sc scanner) (*registry.MetricTemplate, error) {
 		return nil, err
 	}
 	if err := unmarshalIf("heuristic", heuristic, &t.Heuristic); err != nil {
+		return nil, err
+	}
+	if err := unmarshalIf("native_metric", nativeMetric, &t.Native); err != nil {
 		return nil, err
 	}
 	return &t, nil

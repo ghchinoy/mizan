@@ -226,6 +226,11 @@ type runConfig struct {
 	modelOverride  string
 	engineOverride string // "vertex", "diffusion", "genai"
 
+	// Diffusion-engine knobs (ignored by the Vertex paths).
+	diffusionSamples       int
+	allowDiffusionFallback bool
+	diffusionMirror        bool
+
 	// rubricDetail, when true, routes a KindRubric template through the genai
 	// structured-output path (rubric per-criterion transparency) instead of the
 	// native pointwise path. scaleMin/scaleMax are the (already-parsed and
@@ -307,8 +312,16 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	// autorater-stamping path below) so res.Applied stays nil for a heuristic run
 	// and runHeuristic never receives a resolved model. This is the single most
 	// important interface detail in B2.
+	//
+	// kind:computation takes the SAME bypass: no model is involved in any of its
+	// metrics, so no autorater is resolved or validated — not even on
+	// --engine vertex, where the regional EvaluateInstances call carries no
+	// AutoraterConfig at all.
+	if err := checkEngineForKind(tmpl, rc.engineOverride); err != nil {
+		return Result{}, err
+	}
 	var model string
-	if tmpl.Kind != registry.KindHeuristic {
+	if tmpl.Kind != registry.KindHeuristic && tmpl.Kind != registry.KindComputation {
 		if rc.engineOverride == "diffusion" || rc.engineOverride == "diffgemma" {
 			model = rc.modelOverride
 		} else {
@@ -356,6 +369,16 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		}
 	}
 
+	// computation/prebuilt carry no prompt, so the placeholder check above is
+	// skipped for them; their field check is the spec.native role mapping
+	// (nativeTextFields) — run it here, before dispatch, on every engine, so an
+	// unknown or missing field fails identically on local, Vertex, and diffusion.
+	if registry.IsNativeKind(tmpl.Kind) {
+		if _, err := nativeTextFields(tmpl, inst); err != nil {
+			return Result{}, err
+		}
+	}
+
 	start := time.Now()
 	res, err := e.dispatch(ctx, tmpl, inst, model, rc)
 	res.Stats.Duration = time.Since(start)
@@ -368,7 +391,16 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	// MODEL-BYPASS (design §4.B): a heuristic has no autorater, so leave
 	// res.Applied nil (the results store records an empty AppliedAutorater for it).
 	// Duration is still recorded above (cheap, useful for B3).
-	if tmpl.Kind == registry.KindHeuristic {
+	// kind:computation likewise has no autorater on either engine.
+	if tmpl.Kind == registry.KindHeuristic || tmpl.Kind == registry.KindComputation {
+		return res, nil
+	}
+	if rc.engineOverride == "diffusion" || rc.engineOverride == "diffgemma" {
+		m, _ := res.CustomOutput["model"].(string)
+		if m == "" {
+			m = model
+		}
+		res.Applied = &AppliedAutorater{Model: m, SamplingCount: clampInt32(rc.diffusionSamples), FlipEnabled: rc.diffusionMirror || tmpl.FlipEnabled, EffectiveHost: "diffusion", ModelSource: "diffusion"}
 		return res, nil
 	}
 	// Record the RESOLVED autorater-as-applied on EVERY kind/path uniformly, right
@@ -381,8 +413,12 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	if target.Location == globalLocation || target.Location == "" {
 		effectiveHost = "global"
 	}
+	appliedModel := model
+	if tmpl.Kind == registry.KindPrebuilt {
+		appliedModel = PrebuiltServiceJudge
+	}
 	res.Applied = &AppliedAutorater{
-		Model:         model,
+		Model:         appliedModel,
 		SamplingCount: tmpl.SamplingCount,
 		FlipEnabled:   tmpl.FlipEnabled,
 		EffectiveHost: effectiveHost,
@@ -397,7 +433,7 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 // wall-clock measurement.
 func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	if rc.engineOverride == "diffusion" || rc.engineOverride == "diffgemma" {
-		return e.runDiffusion(ctx, tmpl, inst, model)
+		return e.runDiffusion(ctx, tmpl, inst, model, rc)
 	}
 
 	switch tmpl.Kind {
@@ -431,9 +467,53 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 		// structurally cannot reach e.client/e.globalClient/e.genai — NO client, NO
 		// model, NO network (design §4.B invariant).
 		return runHeuristic(tmpl, inst)
+	case registry.KindComputation:
+		// Default (no override / "local"): a FREE function — NO client, NO model,
+		// NO network, like runHeuristic. "vertex" opts into the managed
+		// EvaluateInstances implementation for parity checks.
+		if rc.engineOverride == engineVertex {
+			return e.runComputationVertex(ctx, tmpl, inst)
+		}
+		return runComputation(tmpl, inst)
+	case registry.KindPrebuilt:
+		return e.runPrebuilt(ctx, tmpl, inst, model)
 	default:
 		return Result{}, fmt.Errorf("eval: unknown metric kind %q", tmpl.Kind)
 	}
+}
+
+// checkEngineForKind rejects an engine override that cannot serve the template's
+// kind, with a crisp local error before any model resolution or dispatch:
+//
+//   - kind:computation runs on "local" (the default) or "vertex". DiffusionGemma
+//     is refused: a computation metric involves no model at all, so there is
+//     nothing for a judge engine to do.
+//   - "local" is the credential-free tier; it serves kind:computation (and is a
+//     no-op for kind:heuristic, which is always local). Any LLM-judged kind needs
+//     a model engine.
+func checkEngineForKind(tmpl registry.MetricTemplate, engine string) error {
+	if tmpl.Kind == registry.KindComputation {
+		switch {
+		case engine == "" || engine == engineLocal || engine == engineVertex:
+			return nil
+		case isDiffusionOverride(engine):
+			return fmt.Errorf("eval: template %q is kind computation (%s): computation metrics need no model, so the diffusion engine does not apply; run it locally (default, or --engine local) or through Vertex (--engine vertex)", tmpl.ID, nativeMetricName(tmpl))
+		default:
+			return fmt.Errorf("eval: engine %q does not serve kind computation (want local or vertex)", engine)
+		}
+	}
+	if engine == engineLocal && tmpl.Kind != registry.KindHeuristic {
+		return fmt.Errorf("eval: engine \"local\" only runs model-free metrics (kind computation or heuristic); template %q is kind %q — use vertex or diffusion", tmpl.ID, tmpl.Kind)
+	}
+	return nil
+}
+
+// nativeMetricName returns spec.native.metric, or "?" when the spec is absent.
+func nativeMetricName(tmpl registry.MetricTemplate) string {
+	if tmpl.Native != nil && tmpl.Native.Metric != "" {
+		return tmpl.Native.Metric
+	}
+	return "?"
 }
 
 // resolveRubricScale determines the Likert [min,max] the genai/global structured

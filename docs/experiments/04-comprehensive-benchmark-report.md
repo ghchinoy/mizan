@@ -1,5 +1,8 @@
 # Comprehensive Empirical Benchmark Report: Vertex AI (Gemini 3.5 Flash Lite) vs. DiffusionGemma 26B
 
+> **Status (2026-09-25): superseded, do not cite.** This report measures agreement between the two engines, not accuracy. Cases where both engines were wrong (sup-10, sup-11, safe-05) count as "agreement". Scored against the `expected` labels in `benchmark_suite.jsonl` (score cases within ±1), Vertex `gemini-3.5-flash-lite` gets **27/32** and DiffusionGemma (Metal, 4 samples) gets **24/32**. Latency includes cold prefill (sup-01: 14.5 s) and both engines ran at the same time on the client. The re-run is Experiment 07.
+
+
 * **Date**: September 19, 2026
 * **Harness**: `mizan eval compare-engines` with parallel `errgroup` concurrency
 * **Dataset**: `docs/experiments/benchmark_suite.jsonl` (32 diverse, multi-tier evaluation cases)

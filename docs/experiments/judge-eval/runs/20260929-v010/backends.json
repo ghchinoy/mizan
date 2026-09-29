@@ -1,0 +1,17 @@
+{
+ "captured_at": "2026-09-29T14:29:21Z",
+ "vertex_dedicated": {
+  "status": "ok",
+  "server": "dgem-structured-server",
+  "version": "v0.1.0",
+  "revision": "f241b77",
+  "vllm_commit": "a9eafde59cbd55182dc2265cc398b7186f0a0eaa",
+  "vllm_ready": true,
+  "warmed": true
+ },
+ "cloudrun_via_gateway": {
+  "status": "warm_and_ready",
+  "gpu_hardware": "1x NVIDIA RTX Pro 6000 (48GB VRAM, SigLIP Multimodal)",
+  "model": "nvidia/diffusiongemma-26B-A4B-it-NVFP4"
+ }
+}

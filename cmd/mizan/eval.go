@@ -361,6 +361,18 @@ func newEvalRunCmd() *cobra.Command {
 				return runHeuristicMetric(cmd, cfg, tmpl, inst, stats, noStore, noHostLabel)
 			}
 
+			// kind:computation (exact_match, bleu, rouge, tool_*, trajectory_*) has
+			// no model either. By default (no --engine, or --engine local) it runs
+			// credential-free and offline exactly like a heuristic; --engine vertex
+			// sends it to Vertex EvaluateInstances for a parity check (still no
+			// autorater, so --model is ignored and never validated).
+			if tmpl.Kind == registry.KindComputation {
+				if cmd.Flags().Changed("model") {
+					fmt.Fprintln(cmd.ErrOrStderr(), "mizan: warning: --model is ignored for kind:computation metrics (no model is involved)")
+				}
+				return runComputationMetric(cmd, cfg, tmpl, inst, engineFlag, stats, noStore, noHostLabel)
+			}
+
 			// Validate the user-supplied --model BEFORE it is echoed to stderr or
 			// composed into a Vertex resource name, so a malformed value fails
 			// locally instead of injecting into the pre-flight line / remote call.
@@ -431,7 +443,7 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&set, "set", "", "path to an EvalSet manifest file to run (mutually exclusive with --metric; exactly one required)")
 	cmd.Flags().BoolVar(&failFast, "fail-fast", false, "for --set, abort at the first errored/missing member (default: continue-on-error)")
 	cmd.Flags().StringVar(&model, "model", "", "override autorater model for this run (highest precedence)")
-	cmd.Flags().StringVar(&engineFlag, "engine", "", "evaluation engine override: vertex (default) or diffusion (DiffusionGemma)")
+	cmd.Flags().StringVar(&engineFlag, "engine", "", "evaluation engine override: vertex (default) or diffusion (DiffusionGemma); kind:computation defaults to local (credential-free) and also accepts vertex")
 	cmd.Flags().BoolVar(&stats, "stats", false, "print per-run stats (timing always; token usage on the genai/custom_schema path only)")
 	cmd.Flags().BoolVar(&rubricDetail, "rubric-detail", false, "for a rubric template, return per-criterion scores via the genai structured path (location=global; drops sampling)")
 	cmd.Flags().StringVar(&rubricScale, "rubric-scale", "1-5", "Likert scale for --rubric-detail as \"<min>-<max>\" (two non-negative integers, min<max; negative bounds not supported)")
@@ -460,6 +472,54 @@ func runHeuristicMetric(cmd *cobra.Command, cfg *config.Config, tmpl *registry.M
 
 	runStart := time.Now()
 	res, err := eng.Run(cmd.Context(), *tmpl, inst)
+	if err != nil {
+		return err
+	}
+	emitWarnings(cmd.ErrOrStderr(), res.Warnings)
+	if err := renderResult(cmd.OutOrStdout(), res, stats); err != nil {
+		return err
+	}
+	if !noStore {
+		storeResult(cmd, cfg, "eval run", *tmpl, inst, res, storeHookOpts{RunAt: runStart, NoHostLabel: noHostLabel})
+	}
+	return nil
+}
+
+// runComputationMetric executes a kind:computation template. With no --engine
+// (or --engine local) it builds a deliberately client-free engine — like
+// runHeuristicMetric — so the run needs NO ADC and makes NO network call. With
+// --engine vertex it opens the live engine and the metric is computed by Vertex
+// EvaluateInstances on the regional host (no autorater is sent). Any other engine
+// (e.g. diffusion) is rejected by the engine with a clear "needs no model" error.
+func runComputationMetric(cmd *cobra.Command, cfg *config.Config, tmpl *registry.MetricTemplate, inst eval.Instance, engineFlag string, stats, noStore, noHostLabel bool) error {
+	metric := "unknown"
+	if tmpl.Native != nil && tmpl.Native.Metric != "" {
+		metric = tmpl.Native.Metric
+	}
+	engineName := strings.ToLower(strings.TrimSpace(engineFlag))
+	var eng *eval.Engine
+	if engineName == "vertex" {
+		live, closeEng, err := openEngine(cmd.Context(), cfg)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = closeEng() }()
+		eng = live
+		fmt.Fprintf(cmd.ErrOrStderr(), "mizan: computation: no autorater (%s via Vertex EvaluateInstances, project=%s, location=%s)\n",
+			sanitizeEchoValue(metric), sanitizeEchoValue(cfg.ProjectID), sanitizeEchoValue(cfg.Location))
+	} else {
+		eng = eval.NewEngine(nil, cfg.ProjectID, cfg.Location)
+		if engineName == "" || engineName == "local" {
+			fmt.Fprintf(cmd.ErrOrStderr(), "mizan: computation: no autorater (local %s, no network)\n", sanitizeEchoValue(metric))
+		}
+	}
+
+	runOpts := []eval.RunOption{}
+	if engineName != "" {
+		runOpts = append(runOpts, eval.WithEngine(engineName))
+	}
+	runStart := time.Now()
+	res, err := eng.Run(cmd.Context(), *tmpl, inst, runOpts...)
 	if err != nil {
 		return err
 	}

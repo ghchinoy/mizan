@@ -80,6 +80,23 @@ const (
 	KindChoice MetricKind = "choice"
 	// KindScore evaluates continuous or calibrated rubric ratings.
 	KindScore MetricKind = "score"
+	// KindComputation is a Vertex Gen AI Evaluation Service "computation-based"
+	// metric (exact_match, bleu, rouge, the tool_* and trajectory_* families):
+	// NO model is involved. Like KindHeuristic it resolves NO autorater and, by
+	// default, runs as a pure local Go function with no credential and no network
+	// (the "no autorater" tier). It can optionally be sent to Vertex
+	// EvaluateInstances (--engine vertex) to check parity with the managed
+	// implementation. Its config lives in NativeMetricSpec.
+	KindComputation MetricKind = "computation"
+	// KindPrebuilt is one of Vertex's named, Google-authored judge metrics
+	// (safety, groundedness, fluency, coherence, fulfillment, the
+	// summarization_* / question_answering_* families, and their pairwise_*
+	// variants), run through EvaluateInstances with the template's autorater.
+	// The judge prompt is Vertex's own, so a prebuilt template carries NO
+	// metricPromptTemplate; its config lives in NativeMetricSpec. Each metric
+	// also has a built-in DiffusionGemma question mapping on the same rating
+	// scale so `compare-engines --engine-b diffusion` works on it.
+	KindPrebuilt MetricKind = "prebuilt"
 )
 
 // Vernacular kind aliases (ITEM C). These are plain-English spellings accepted
@@ -119,10 +136,11 @@ func NormalizeKind(s string) (MetricKind, error) {
 		return KindChoice, nil
 	case string(KindScore), KindAliasGrade:
 		return KindScore, nil
-	case string(KindPointwise), string(KindPairwise), string(KindRubric), string(KindCustomSchema), string(KindHeuristic):
+	case string(KindPointwise), string(KindPairwise), string(KindRubric), string(KindCustomSchema), string(KindHeuristic),
+		string(KindComputation), string(KindPrebuilt):
 		return MetricKind(s), nil
 	default:
-		return "", fmt.Errorf("unknown metric kind %q (want one of: boul|bool|boolean, choice|classify, score|grade, single|pointwise, compare|pairwise, rubric, custom_schema, heuristic)", s)
+		return "", fmt.Errorf("unknown metric kind %q (want one of: boul|bool|boolean, choice|classify, score|grade, single|pointwise, compare|pairwise, rubric, custom_schema, heuristic, computation, prebuilt)", s)
 	}
 }
 
@@ -354,6 +372,13 @@ type MetricTemplate struct {
 	// change), mirroring RubricDetail/RubricProvenance. It is persisted,
 	// schema-validated, and INCLUDED in the content hash.
 	Heuristic *HeuristicSpec `yaml:"heuristic,omitempty" json:"heuristic,omitempty"`
+
+	// Native is the OPTIONAL Vertex-native metric config (KindComputation and
+	// KindPrebuilt only; YAML key spec.native). A nil pointer means the template is
+	// neither — existing templates are unaffected (no migration, no behavior
+	// change), following the Heuristic precedent. It is persisted (column
+	// native_metric), schema-validated, and INCLUDED in the content hash.
+	Native *NativeMetricSpec `yaml:"native,omitempty" json:"native,omitempty"`
 
 	// Provenance / sync (see collaboration-design.md §3.9)
 	Source      string

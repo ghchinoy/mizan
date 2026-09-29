@@ -5,7 +5,10 @@ registry, configure credentials/project settings, and run evaluations —
 single (pointwise), compare (pairwise), rubric, and custom_schema, including
 multimodal (image/audio/video/music) assets — against the live Vertex AI Gen AI
 Evaluation Service, plus `heuristic` non-LLM checks that run deterministically
-with no credentials and no network. All five metric kinds and multimodal are
+with no credentials and no network, Vertex's model-free `computation` metrics
+(BLEU, ROUGE, exact match, tool-call and trajectory checks — local by default),
+and Vertex's named `prebuilt` judge metrics (safety, groundedness, fluency, …).
+All of these metric kinds and multimodal are
 implemented and CLI-runnable end-to-end. Every command and output shown below was run against
 the built CLI; where a capability isn't implemented yet, this guide says so
 explicitly rather than implying it works. For deeper, copy-pasteable recipes
@@ -224,7 +227,9 @@ score:
 `boul` (or `bool`/`boolean`), `choice` (or `classify`), and `score` (or `grade`),
 as well as the canonical lower-level targets: `pointwise` (or `single`),
 `pairwise` (or `compare`), `rubric`, `custom_schema`, or `heuristic`. All are
-runnable end-to-end today.
+runnable end-to-end today. Two further kinds, `computation` and `prebuilt`, are
+authored as pack manifests (they have no `registry create` flags) — see
+[Computation and prebuilt (Vertex-native) metrics](#computation-and-prebuilt-vertex-native-metrics).
 
 The decision primitives provide clean, strongly-typed developer abstractions:
 - **`boul`** evaluates a proposition to true or false (with confidence).
@@ -263,6 +268,9 @@ The kinds require the following authoring flags:
 - **`heuristic`** — a non-LLM deterministic check; requires
   `--heuristic-type` and `--heuristic-target` (plus an operand for most types).
   See [Heuristic (non-LLM) checks](#heuristic-non-llm-checks) below.
+- **`computation`** / **`prebuilt`** — Vertex-native metrics configured by a
+  `spec.native` block in a pack manifest (no create flags). See
+  [Computation and prebuilt (Vertex-native) metrics](#computation-and-prebuilt-vertex-native-metrics).
 
 See [`docs/testing-guide.md`](testing-guide.md) for full recipes and live
 output for every kind.
@@ -373,6 +381,163 @@ resolved project/location/model echo the LLM kinds print, making it obvious no
 autorater was resolved and no call was made. The run still persists to the
 results store (kind `heuristic`, empty applied-autorater), and `results show`
 renders it like any other result.
+
+#### Computation and prebuilt (Vertex-native) metrics
+
+Two kinds cover the Vertex AI Gen AI Evaluation Service metrics that are not
+prompt templates. Both are configured by a **`spec.native`** block instead of a
+`metricPromptTemplate` (an authored prompt is rejected), and both are authored as
+pack manifests and loaded with `registry import` / `pack import` (there are no
+`registry create` flags for `spec.native`).
+
+- **`computation`** — metrics with **no model involved**: `exact_match`, `bleu`,
+  `rouge`, `tool_call_valid`, `tool_name_match`, `tool_parameter_key_match`,
+  `tool_parameter_kv_match`, `trajectory_exact_match`,
+  `trajectory_in_order_match`, `trajectory_any_order_match`,
+  `trajectory_precision`, `trajectory_recall`, `trajectory_single_tool_use`.
+  Like a heuristic they resolve **no autorater** (an `autorater:` block is
+  rejected; `--model` is ignored) and, by default, run as **pure local Go —
+  no project, no credentials, no network** (the "no autorater" tier).
+  `--engine vertex` sends the same metric to Vertex `EvaluateInstances` on the
+  regional host instead, to check parity. `--engine diffusion` is refused
+  (there is no model to run).
+- **`prebuilt`** — Vertex's named judge metrics: `safety`, `groundedness`,
+  `fluency`, `coherence`, `fulfillment`, `summarization_quality`,
+  `summarization_helpfulness`, `summarization_verbosity`,
+  `question_answering_quality`, `question_answering_relevance`,
+  `question_answering_helpfulness`, `question_answering_correctness`,
+  `pairwise_summarization_quality`, `pairwise_question_answering_quality`. They
+  run through `EvaluateInstances` on the regional host with the **service's own
+  judge** (documented as `gemini-2.5-flash`). The API rejects an
+  `AutoraterConfig` for predefined metrics, so `autorater.model`,
+  `samplingCount` and `flipEnabled` do not apply to them, and results record
+  the judge as `vertex-service-default`. To choose the judge model, write the
+  same criteria as a `pointwise`/`boul`/`score` template instead. Each also has a built-in
+  DiffusionGemma question on **Vertex's own rating scale** (1/0 for `safety`,
+  `groundedness` and `question_answering_correctness`, 1–5 for the Likert
+  metrics, −2…2 for `summarization_verbosity`, BASELINE/CANDIDATE/TIE for
+  `pairwise_*`), so `mizan eval compare-engines --engine-a vertex --engine-b
+  diffusion` compares them directly.
+
+`spec.native` keys: `metric` (required); `responseField` (default `response`);
+`referenceField` (default `reference` for metrics that need a reference; for
+`summarization_*` / `question_answering_*`, where the reference is optional, it
+is used only when set); `contextField`, `instructionField` (alias
+`promptField`), and `baselineField` where the metric reads them; `rougeType`
+(`rouge1` | `rouge2` | `rougeL` default | `rougeLsum`); `toolName`
+(`trajectory_single_tool_use`); and `passThreshold`, which adds
+`Passed = Score >= passThreshold` to the result. Every mapped field must be
+declared in `spec.inputs`, and `pack validate` rejects a missing required role
+(for example `groundedness` without `contextField`) or an option on the wrong
+metric. `useStemmer: true` is rejected: mizan's local ROUGE has no Porter
+stemmer, so accepting it would make the local and Vertex scores disagree.
+
+```yaml
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+  id: nlg/rouge-l-summary
+  name: ROUGE-L summary overlap
+  description: Summary-level ROUGE-L F-measure against a reference summary; no model involved.
+  version: 1.0.0
+  license: Apache-2.0
+spec:
+  kind: computation
+  modalities: [text]
+  inputs:
+    - name: summary
+      modality: text
+      required: true
+    - name: reference
+      modality: text
+      required: true
+  native:
+    metric: rouge
+    responseField: summary
+    rougeType: rougeLsum
+    passThreshold: 0.4
+```
+
+```console
+$ mizan eval run --metric nlg/rouge-l-summary \
+    --field summary=$'the cat sat on the mat\nit was happy' \
+    --field reference=$'the cat is on the mat\nthe cat was happy'
+mizan: computation: no autorater (local rouge, no network)
+Passed:                        PASS
+Score:                         0.7368421
+Explanation:                   rouge = 0.7368 (rougeLsum F-measure)
+CustomOutput[engine]:          local
+CustomOutput[metric]:          rouge
+CustomOutput[pass_threshold]:  0.4
+CustomOutput[passed]:          true
+```
+
+A prebuilt template maps its inputs the same way (its judge is the service
+default; an `autorater` block is accepted for lint compatibility but ignored):
+
+```yaml
+spec:
+  kind: prebuilt
+  modalities: [text]
+  inputs:
+    - name: answer
+      modality: text
+      required: true
+    - name: context
+      modality: text
+      required: true
+  native:
+    metric: groundedness
+    responseField: answer
+    contextField: context
+    passThreshold: 1
+  autorater:
+    model: gemini-2.5-flash
+```
+
+How the local computation metrics are defined (chosen to match the Vertex docs
+and the libraries Vertex builds on):
+
+- **`exact_match`** — 1 if response and reference are equal after trimming
+  surrounding whitespace, else 0.
+- **`bleu`** — sentence-level BLEU-4 on 0–1, identical to
+  `sacrebleu.sentence_bleu(hyp, [ref]) / 100` with its defaults: sacrebleu's
+  **13a tokenizer** (split on whitespace after separating punctuation, with the
+  WMT digit rules for `.` `,` `-`; case-sensitive), brevity penalty, **effective
+  order** (n-gram orders the hypothesis is too short to have are dropped from the
+  geometric mean), and sacrebleu's `exp` smoothing for an order with n-grams but
+  no matches.
+- **`rouge`** — F-measure as in Google's `rouge_score`: tokens are lowercase
+  alphanumeric runs; `rouge1`/`rouge2` use clipped n-gram overlap, `rougeL` the
+  longest common subsequence, and `rougeLsum` the summary-level (union) LCS after
+  splitting both texts into sentences on newlines.
+- **Tool metrics** — response and reference are JSON
+  `{"content": "...", "tool_calls": [{"name": "...", "arguments": {...}}]}`, and
+  only the **first** tool call is compared. `tool_call_valid`: 1 if the response
+  parses and its first call has a non-empty `name` and an `arguments` object.
+  `tool_name_match`: 1 if the first names match. `tool_parameter_key_match`:
+  the fraction of the reference call's argument keys present in the predicted
+  call (extra predicted keys are not penalized; a reference call with no
+  arguments scores 1). `tool_parameter_kv_match`: the same fraction, counting a
+  key only when the values are equal after JSON decoding (so `3` equals `3.0`).
+  If the reference has no tool call, the score is 1 only when the response has
+  none either.
+- **Trajectory metrics** — response and reference are JSON lists of
+  `{"tool_name": "...", "tool_input": {...}}`; calls are compared by name plus
+  canonicalized input JSON (key order and a stringified `tool_input` do not
+  matter). `exact_match`: same sequence. `in_order_match`: the reference is a
+  subsequence of the response. `any_order_match`: every reference call occurs in
+  the response (a repeated call must be repeated). `precision` / `recall`:
+  matched calls (multiset intersection) over predicted / reference calls.
+  `single_tool_use`: 1 if `toolName` is called anywhere in the response.
+- A malformed **response** (not tool-call or trajectory JSON) scores 0; a
+  malformed **reference** is an error, because it is gold data.
+
+In `compare-engines`, `--engine-a`/`--engine-b` also accept **`local`**
+(computation only). Dataset scoring treats `computation` and `prebuilt` like
+`score`: a numeric `expected` is correct within `--score-tolerance`, while
+`PASS`/`FAIL`/`true`/`false` is compared against `Passed` when the template sets
+a `passThreshold`, and a `pairwise_*` metric is compared on its preference.
 
 Other useful create flags: `--system` (system instruction), `--sampling-count`
 (autorater sampling count, default 4 — lowering it trades self-consistency for
@@ -690,7 +855,9 @@ It validates two manifest kinds:
   declared in `inputs`; `rubric` needs `rubricGroups`; `custom_schema` needs a
   valid `responseSchema`; `heuristic` needs a `spec.heuristic` block with a
   known `type`, a `target` declared in `inputs`, the required operand, and a
-  compilable regex/schema; `pointwise` forbids all of these), placeholder
+  compilable regex/schema; `computation`/`prebuilt` need a `spec.native` block
+  whose `metric` fits the kind and whose mapped fields are declared in `inputs`,
+  and forbid a prompt; `pointwise` forbids all of these), placeholder
   consistency (every `{{x}}` is declared in `inputs`, every required input is
   referenced, each input's modality is listed in `spec.modalities`), and lint
   **warnings** (missing description/license/model, out-of-range

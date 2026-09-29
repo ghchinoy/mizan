@@ -47,6 +47,15 @@ const (
 
 	// DefaultDiffusionModel is the default model identifier for DiffusionGemma.
 	DefaultDiffusionModel = "diffgemma-26b-a4b-it-q4"
+
+	// DefaultDiffusionAuth picks the Authorization mode from the endpoint: an
+	// OAuth2 access token for Vertex AI dedicated endpoints, an OIDC identity
+	// token for other remote https endpoints (Cloud Run, IAP gateway), none for
+	// local endpoints.
+	DefaultDiffusionAuth = "auto"
+
+	// DefaultDiffusionTimeout is the per-request HTTP timeout for diffusion calls.
+	DefaultDiffusionTimeout = "120s"
 )
 
 // Config holds the resolved runtime configuration for a Mizan process.
@@ -57,6 +66,9 @@ type Config struct {
 	APIEndpoint          string // optional override
 	DiffusionEndpoint    string // DiffusionGemma OpenAI-compatible endpoint; default: http://127.0.0.1:8080/v1 (env: MIZAN_DIFFUSION_ENDPOINT)
 	DiffusionModel       string // DiffusionGemma model id; default: diffgemma-26b-a4b-it-q4 (env: MIZAN_DIFFUSION_MODEL)
+	DiffusionBackend     string // X-DGem-Backend header for a dgem gateway: vertex|cloudrun|vertex_first; "" -> none (env: MIZAN_DIFFUSION_BACKEND)
+	DiffusionAuth        string // auto|none|access-token|id-token; default auto (env: MIZAN_DIFFUSION_AUTH)
+	DiffusionTimeout     string // per-request timeout (Go duration); default 120s (env: MIZAN_DIFFUSION_TIMEOUT)
 	RegistryDBPath       string // default: <UserConfigDir>/mizan/registry.db
 	ResultsBackend       string // eval results store backend; default "sqlite" (env: MIZAN_RESULTS_BACKEND)
 	ResultsDBPath        string // default: <UserConfigDir>/mizan/results.db (env: MIZAN_RESULTS_DB)
@@ -113,6 +125,9 @@ func LoadConfig() (*Config, error) {
 		APIEndpoint:          firstNonEmpty(os.Getenv("MIZAN_API_ENDPOINT"), os.Getenv("VERTEX_API_ENDPOINT")),
 		DiffusionEndpoint:    firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_ENDPOINT"), DefaultDiffusionEndpoint),
 		DiffusionModel:       firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_MODEL"), DefaultDiffusionModel),
+		DiffusionBackend:     os.Getenv("MIZAN_DIFFUSION_BACKEND"),
+		DiffusionAuth:        firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_AUTH"), DefaultDiffusionAuth),
+		DiffusionTimeout:     firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_TIMEOUT"), DefaultDiffusionTimeout),
 		DefaultTemplatesRepo: firstNonEmpty(os.Getenv("MIZAN_TEMPLATES_REPO"), DefaultTemplatesRepo),
 		// DefaultModel is intentionally left empty when unset: the eval engine's
 		// precedence chain (flag > template > config default > built-in) treats an

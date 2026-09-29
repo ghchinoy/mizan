@@ -16,6 +16,8 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"math"
 	"strings"
 	"testing"
 
@@ -31,26 +33,26 @@ func TestCheckAgreement(t *testing.T) {
 	scoreLow := float32(1.0)
 
 	// 1. Boul agreement
-	if !checkAgreement(registry.KindBoul, eval.Result{Passed: &bTrue}, eval.Result{Passed: &bTrue}) {
+	if !checkAgreement(registry.KindBoul, eval.Result{Passed: &bTrue}, eval.Result{Passed: &bTrue}, 1) {
 		t.Error("boul both true should agree")
 	}
-	if checkAgreement(registry.KindBoul, eval.Result{Passed: &bTrue}, eval.Result{Passed: &bFalse}) {
+	if checkAgreement(registry.KindBoul, eval.Result{Passed: &bTrue}, eval.Result{Passed: &bFalse}, 1) {
 		t.Error("boul true vs false should disagree")
 	}
 
 	// 2. Choice agreement
-	if !checkAgreement(registry.KindChoice, eval.Result{ChoiceSelection: "billing"}, eval.Result{ChoiceSelection: "billing"}) {
+	if !checkAgreement(registry.KindChoice, eval.Result{ChoiceSelection: "billing"}, eval.Result{ChoiceSelection: "billing"}, 1) {
 		t.Error("choice same selection should agree")
 	}
-	if checkAgreement(registry.KindChoice, eval.Result{ChoiceSelection: "billing"}, eval.Result{ChoiceSelection: "technical"}) {
+	if checkAgreement(registry.KindChoice, eval.Result{ChoiceSelection: "billing"}, eval.Result{ChoiceSelection: "technical"}, 1) {
 		t.Error("choice different selection should disagree")
 	}
 
 	// 3. Score agreement
-	if !checkAgreement(registry.KindScore, eval.Result{Score: &scoreHigh}, eval.Result{Score: &scoreClose}) {
+	if !checkAgreement(registry.KindScore, eval.Result{Score: &scoreHigh}, eval.Result{Score: &scoreClose}, 1) {
 		t.Error("score 4.5 vs 4.0 should agree (within 1.0 delta)")
 	}
-	if checkAgreement(registry.KindScore, eval.Result{Score: &scoreHigh}, eval.Result{Score: &scoreLow}) {
+	if checkAgreement(registry.KindScore, eval.Result{Score: &scoreHigh}, eval.Result{Score: &scoreLow}, 1) {
 		t.Error("score 4.5 vs 1.0 should disagree (outside 1.0 delta)")
 	}
 }
@@ -143,46 +145,119 @@ func TestCompareEnginesOutputJSON(t *testing.T) {
 	}
 }
 
-func TestRenderBatchReportTable(t *testing.T) {
-	bTrue := true
-	rep := CompareBatchReport{
-		TotalCases:       10,
-		Agreements:       9,
-		AgreementPct:     90.0,
-		AvgSpeedupFactor: 7.8,
-		EngineAAvgMs:     7800.0,
-		EngineBAvgMs:     1000.0,
-		TierBreakdown: map[string]TierReport{
-			"unambiguous": {Total: 6, Agreements: 6, AgreementPct: 100.0},
-			"ambiguous":   {Total: 4, Agreements: 3, AgreementPct: 75.0},
-		},
-		Cases: []CompareCaseResult{
-			{
-				ID:   "c-1",
-				Tier: "ambiguous",
-				Comparison: EngineCompareResult{
-					Kind:      "boul",
-					Agreement: false,
-					EngineA:   EngineRun{Engine: "vertex", Passed: &bTrue},
-					EngineB:   EngineRun{Engine: "diffusion"},
-				},
-			},
-		},
+func TestScoreRunAgainstGold(t *testing.T) {
+	bFalse := false
+	sc := float32(3.4)
+	cases := []struct {
+		kind     registry.MetricKind
+		run      EngineRun
+		expected string
+		want     *bool
+	}{
+		{registry.KindBoul, EngineRun{Passed: &bFalse}, "FAIL", ptrBool(true)},
+		{registry.KindBoul, EngineRun{Passed: &bFalse}, "true", ptrBool(false)},
+		{registry.KindChoice, EngineRun{Selection: "Billing"}, "billing", ptrBool(true)},
+		{registry.KindPairwise, EngineRun{Selection: "CANDIDATE"}, "B", ptrBool(true)},
+		{registry.KindScore, EngineRun{Score: &sc}, "3", ptrBool(true)},
+		{registry.KindScore, EngineRun{Score: &sc}, "4", ptrBool(false)},
+		{registry.KindChoice, EngineRun{Selection: "x"}, "", nil},
+		{registry.KindChoice, EngineRun{Selection: "x", Error: "boom"}, "x", nil},
+	}
+	for i, c := range cases {
+		r := c.run
+		scoreRun(&r, c.kind, c.expected, 0.5)
+		if (r.Correct == nil) != (c.want == nil) || (r.Correct != nil && *r.Correct != *c.want) {
+			t.Errorf("case %d: Correct = %v, want %v", i, r.Correct, c.want)
+		}
+	}
+}
+
+func ptrBool(b bool) *bool { return &b }
+
+func TestBuildBatchReportAccuracyFirst(t *testing.T) {
+	yes, no := true, false
+	mk := func(id string, aOK, bOK bool, agree bool) CompareCaseResult {
+		return CompareCaseResult{ID: id, Tier: "t", Expected: "PASS", Comparison: EngineCompareResult{
+			Kind: "boul", Agreement: agree,
+			EngineA: EngineRun{Engine: "vertex", Passed: &yes, Prediction: "PASS", Correct: ptrBool(aOK), DurationMs: 900},
+			EngineB: EngineRun{Engine: "diffusion", Passed: &no, Prediction: "FAIL", Correct: ptrBool(bOK), DurationMs: 150,
+				Custom: map[string]any{"readout_mode": "envelope", "backend_used": "vertex", "server_ms": 60.0}},
+		}}
+	}
+	cases := []CompareCaseResult{mk("1", true, true, true), mk("2", true, false, false), mk("3", false, false, true), mk("4", true, false, false)}
+	cases = append(cases, CompareCaseResult{ID: "5", Comparison: EngineCompareResult{Kind: "boul",
+		EngineA: EngineRun{Engine: "vertex", Error: "429"}, EngineB: EngineRun{Engine: "diffusion", Error: "429"}}})
+	rep := buildBatchReport(CompareRunMeta{}, cases, compareOptions{engineA: "vertex", engineB: "diffusion", bootstrapIters: 200, bootstrapSeed: 1})
+
+	if rep.EngineA.Correct != 3 || rep.EngineA.Scored != 4 || rep.EngineA.Errors != 1 {
+		t.Errorf("engine A = %+v", rep.EngineA)
+	}
+	if rep.EngineB.Correct != 1 || rep.EngineB.ReadoutModes["envelope"] != 4 || rep.EngineB.BackendsUsed["vertex"] != 4 {
+		t.Errorf("engine B = %+v", rep.EngineB)
+	}
+	p := rep.Paired
+	if p.N != 4 || p.BothCorrect != 1 || p.OnlyACorrect != 2 || p.OnlyBCorrect != 0 || p.BothWrong != 1 {
+		t.Errorf("paired = %+v", p)
+	}
+	if p.McNemarP == nil || *p.McNemarP != 0.5 {
+		t.Errorf("McNemar p = %v, want 0.5", p.McNemarP)
+	}
+	if p.MedianSpeedup == nil || *p.MedianSpeedup != 6 {
+		t.Errorf("median ratio = %v, want 6", p.MedianSpeedup)
 	}
 
 	var buf bytes.Buffer
-	if err := renderBatchReportTable(&buf, rep, "vertex", "diffusion"); err != nil {
-		t.Fatalf("renderBatchReportTable: %v", err)
+	if err := renderBatchReportTable(&buf, rep); err != nil {
+		t.Fatal(err)
 	}
 	out := buf.String()
+	for _, want := range []string{"Accuracy vs gold:", "3/4 (75.0%)", "1/4 (25.0%)", "McNemar exact p=0.500", "MISSES / ERRORS"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
 
-	if !strings.Contains(out, "Overall Agreement:") || !strings.Contains(out, "9 / 10 (90.0%)") {
-		t.Errorf("missing overall agreement:\n%s", out)
+func TestStats(t *testing.T) {
+	if k := cohenKappa([]string{"a", "a", "b", "b"}, []string{"a", "a", "b", "b"}); k != 1 {
+		t.Errorf("kappa = %v, want 1", k)
 	}
-	if !strings.Contains(out, "Average Speedup Factor:") || !strings.Contains(out, "7.8x") {
-		t.Errorf("missing speedup factor:\n%s", out)
+	if r := spearman([]float64{1, 2, 3, 4}, []float64{10, 20, 30, 40}); math.Abs(r-1) > 1e-12 {
+		t.Errorf("spearman = %v", r)
 	}
-	if !strings.Contains(out, "DIVERGENT CASES (1 of 10):") {
-		t.Errorf("missing divergent cases:\n%s", out)
+	if p := mcnemarExact(0, 6); math.Abs(p-0.03125) > 1e-9 {
+		t.Errorf("mcnemar(0,6) = %v, want 0.03125", p)
+	}
+	ci := bootstrapMeanCI([]float64{1, 1, 1, 0}, 500, 7)
+	if ci.Lo > 0.75 || ci.Hi < 0.75 {
+		t.Errorf("ci = %+v", ci)
+	}
+	if e := ece10([]float64{0.95, 0.95}, []bool{true, true}); math.Abs(e-0.05) > 1e-9 {
+		t.Errorf("ece = %v", e)
+	}
+}
+
+func TestEndpointKind(t *testing.T) {
+	for in, want := range map[string]string{
+		"http://127.0.0.1:8080/v1": "local",
+		"https://1.us-central1-2.prediction.vertexai.goog/v1/projects/p/locations/l/endpoints/1": "vertex-dedicated",
+		"https://dgemma-gateway-abc-uc.a.run.app/v1":                                             "gateway",
+		"https://dgemma-abc-uc.a.run.app/v1":                                                     "cloudrun",
+	} {
+		if got := endpointKind(in); got != want {
+			t.Errorf("%s -> %s, want %s", in, got, want)
+		}
+	}
+}
+
+func TestDatasetExpectedNormalization(t *testing.T) {
+	var it CompareDatasetItem
+	for raw, want := range map[string]string{`{"metric":"m","expected":3}`: "3", `{"metric":"m","expected":true}`: "true", `{"metric":"m","expected":" PASS "}`: "PASS", `{"metric":"m"}`: ""} {
+		if err := json.Unmarshal([]byte(raw), &it); err != nil {
+			t.Fatal(err)
+		}
+		if it.Expected != want {
+			t.Errorf("%s -> %q, want %q", raw, it.Expected, want)
+		}
 	}
 }

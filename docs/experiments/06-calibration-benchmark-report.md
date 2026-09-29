@@ -1,5 +1,17 @@
 # Empirical Calibration Benchmark Report: Dataset-Derived Ground Truth & Model Rightsizing
 
+> **Status (2026-09-25): corrected; headline table withdrawn.** The Gemini rows below (37/38/40 of 46) have no result file in this repo or in dgem. The DiffusionGemma and cascade rows come from dgem's `bench-calibration` harness and templates, not from `mizan eval compare-engines`. Numbers recomputed from dgem's committed result files on this suite's 46 IDs:
+>
+> | Engine (dgem `bench-calibration`) | 46 mizan IDs | 50 dgem cases | Result file |
+> |---|---|---|---|
+> | gemini-3.8-flash | **45/46** (miss: b77-01) | 49/50 | `benchmarks/results_calibration_gemini38.json` |
+> | DiffusionGemma, Cloud Run L4 | **42/46** (miss: tox-03, anli-01/02/03) | 44/50 | `benchmarks/results_calibration_cloudrun.json` |
+> | Cascade H≥0.35 → 3.8-flash | 43/46 | 47/50 | `benchmarks/results_calibration_cascade.json` |
+> | Cascade H_norm≥0.16 → 3.8-flash (prior-guided) | 46/46 | 49/50 | `benchmarks/results_calibration_cascade_normalized.json` |
+>
+> On these files **gemini-3.8-flash is more accurate than DiffusionGemma alone** (45 vs 42 of 46). The claim that DiffusionGemma "beats every Gemini model" is withdrawn, and so is "Gemini 66.7% on AgentDrift localization": the 3.8-flash result file gets all `adlab-*` cases right. The entropy figures (0.0744 / 0.5932 nats, "8.0×", 0.0186 nats) are raw T=1 values from the first version of `results_calibration_cloudrun.json`. dgem `fb6583c` (2026-09-22) rewrote that file with T=1.35 temperature scaling, giving 0.1878 / 0.7334 nats, a 3.9× ratio. Tier groups hold 1-9 cases, too few to support any percentage. Experiment 07 re-runs this suite with both engines scored in the same session.
+
+
 * **Date**: September 20, 2026
 * **Harness**: `mizan eval compare-engines` with parallel `errgroup` concurrency
 * **Dataset**: `docs/experiments/calibration_suite.jsonl` (46 diverse, multi-tier evaluation cases derived from published human-annotated corpora)

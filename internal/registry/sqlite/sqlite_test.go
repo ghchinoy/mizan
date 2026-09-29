@@ -357,13 +357,13 @@ func TestMigrateV1ToV2(t *testing.T) {
 		}
 	}
 
-	// Open triggers migrate(): v1 → latest (v4).
+	// Open triggers migrate(): v1 → latest (v5).
 	s, err := Open(path)
 	if err != nil {
-		t.Fatalf("Open (migrate v1→v4): %v", err)
+		t.Fatalf("Open (migrate v1→v5): %v", err)
 	}
-	if uv := userVersion(t, s.db); uv != 4 {
-		t.Errorf("after migrate: user_version = %d, want 4", uv)
+	if uv := userVersion(t, s.db); uv != 5 {
+		t.Errorf("after migrate: user_version = %d, want 5", uv)
 	}
 
 	// The pre-existing row survives and reads back with the added fields nil.
@@ -374,7 +374,7 @@ func TestMigrateV1ToV2(t *testing.T) {
 	if legacy.Name != "Legacy" || !legacy.CreatedAt.Equal(seedTS) {
 		t.Errorf("legacy row not intact: %#v", *legacy)
 	}
-	if legacy.RatingRubric != nil || legacy.RubricDetail != nil || legacy.RubricProvenance != nil || legacy.Heuristic != nil || len(legacy.Choices) != 0 {
+	if legacy.RatingRubric != nil || legacy.RubricDetail != nil || legacy.RubricProvenance != nil || legacy.Heuristic != nil || legacy.Native != nil || len(legacy.Choices) != 0 {
 		t.Errorf("migrated legacy row: expected nil additive fields, got %#v", *legacy)
 	}
 
@@ -394,14 +394,14 @@ func TestMigrateV1ToV2(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	// A second Open must be a no-op: version stays 4, data is intact.
+	// A second Open must be a no-op: version stays 5, data is intact.
 	s2, err := Open(path)
 	if err != nil {
 		t.Fatalf("second Open: %v", err)
 	}
 	t.Cleanup(func() { _ = s2.Close() })
-	if uv := userVersion(t, s2.db); uv != 4 {
-		t.Errorf("second Open: user_version = %d, want 4", uv)
+	if uv := userVersion(t, s2.db); uv != 5 {
+		t.Errorf("second Open: user_version = %d, want 5", uv)
 	}
 	if _, err := s2.Get(ctx, "legacy/pointwise"); err != nil {
 		t.Errorf("legacy row missing after second Open: %v", err)

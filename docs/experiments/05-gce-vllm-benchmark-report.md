@@ -1,5 +1,12 @@
 # Empirical Benchmark Report: Vertex AI (Gemini 3.5 Flash Lite) vs. GCE vLLM DiffusionGemma 26B
 
+> **Status (2026-09-25): superseded, do not cite.** Two problems:
+> 1. **No structured readout.** The GCE run called raw vLLM `/v1/chat/completions`, not `structured_server.py`. Mizan's fallback parser read free-form JSON. Every case has `samples: 0, steps: 0, denoise_ms: 0`. The "probabilities" are raw top-5 tokens (`TECHNICAL`, `analytical`, `기술`) rather than a softmax restricted to the options, and one score came back as `7` on a 1-5 scale. The confidence, entropy and calibration statements below therefore do not describe DiffusionGemma's slot readout.
+> 2. **Agreement, not accuracy.** Scored against the `expected` labels (score cases within ±1), Vertex and DiffusionGemma each get **26/32**. The "flawless negation" and sup-14 claims don't hold: both engines answered `technical` on sup-14, where the expected label is `general`.
+>
+> Mizan now tags every diffusion result with `readout_mode` and by default refuses the fallback path. See Experiment 07.
+
+
 * **Date**: September 20, 2026
 * **Harness**: `mizan eval compare-engines` with parallel `errgroup` concurrency
 * **Dataset**: `docs/experiments/benchmark_suite.jsonl` (32 diverse, multi-tier evaluation cases)
