@@ -54,7 +54,7 @@ func TestOrBuiltinModel(t *testing.T) {
 		t.Errorf("orBuiltinModel(configured) = %q, want the value verbatim", got)
 	}
 	got := orBuiltinModel("")
-	if !strings.Contains(got, "gemini-2.5-flash") || !strings.Contains(got, "built-in") {
+	if !strings.Contains(got, "gemini-3.5-flash") || !strings.Contains(got, "built-in") {
 		t.Errorf("orBuiltinModel(\"\") = %q, want the built-in id annotated (built-in)", got)
 	}
 }
@@ -93,7 +93,7 @@ func TestConfigShowDefaultModelBuiltinFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config show: %v (out=%q)", err, out)
 	}
-	if !strings.Contains(out, "gemini-2.5-flash") || !strings.Contains(out, "built-in") {
+	if !strings.Contains(out, "gemini-3.5-flash") || !strings.Contains(out, "built-in") {
 		t.Errorf("config show did not surface the annotated built-in default: %q", out)
 	}
 }
