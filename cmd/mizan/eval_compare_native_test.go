@@ -126,3 +126,17 @@ func TestCompareLocalEngineComputation(t *testing.T) {
 		t.Errorf("A err=%q B err=%q, want only B to fail", cmp.EngineA.Error, cmp.EngineB.Error)
 	}
 }
+
+func TestHesitationOf(t *testing.T) {
+	h, ok := hesitationOf(eval.Result{CustomOutput: map[string]any{"probabilities": map[string]float64{"yes": 0.5, "no": 0.5}}})
+	if !ok || h < 0.999 || h > 1.001 {
+		t.Errorf("uniform binary hesitation = %v %v, want 1", h, ok)
+	}
+	h, ok = hesitationOf(eval.Result{CustomOutput: map[string]any{"probabilities": map[string]any{"A": 1.0, "B": 0.0, "C": 0.0}}})
+	if !ok || h != 0 {
+		t.Errorf("certain hesitation = %v %v, want 0", h, ok)
+	}
+	if _, ok := hesitationOf(eval.Result{}); ok {
+		t.Error("no distribution should report ok=false")
+	}
+}

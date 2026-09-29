@@ -99,7 +99,17 @@ def engine_label(run_side, meta, side):
         return f"dgem[{be}]{mirror}"
     if eng == "local":
         return "local"
-    return f"vertex[{model or 'service-default'}]"
+    if eng == "none":
+        return "none"
+    if eng == "cascade":
+        return f"cascade[dgem->{meta.get('cascade_model')}@h{meta.get('cascade_threshold')}]"
+    extra = ""
+    tb = meta.get("thinking_budget", -1)
+    if tb is not None and tb >= 0 and meta.get("thinking_side", "both") in ("both", "", side):
+        extra += f"+think{tb}"
+    if meta.get("pairwise_genai"):
+        extra += "+genai"
+    return f"vertex[{model or 'service-default'}]{extra}"
 
 
 def load_merged(path):

@@ -122,6 +122,7 @@ reason over the struct. This is the shape the drift test in
     "token_usage": {
       "prompt_tokens": 10,
       "candidates_tokens": 20,
+      "thoughts_tokens": 0,
       "total_tokens": 30
     }
   }
@@ -144,7 +145,7 @@ Field semantics (from `internal/eval/engine.go`):
 - **`warnings`** — non-fatal notes (e.g. the pairwise flip caveat); present only when
   the run produced any (also echoed to stderr). Always surface these to the user.
 - **`Stats.duration_ns`** — wall-clock duration in nanoseconds (always present).
-- **`Stats.token_usage`** — prompt/candidates/total tokens; present only on the
+- **`Stats.token_usage`** — prompt/candidates/thoughts/total tokens (thoughts = Gemini thinking tokens, billed as output); present only on the
   genai / `custom_schema` path (the native path returns no token usage).
 
 > The resolved autorater (`Applied`) is deliberately **not** serialized (`json:"-"`);

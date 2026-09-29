@@ -131,6 +131,7 @@ type Stats struct {
 type TokenUsage struct {
 	PromptTokens     int32 `json:"prompt_tokens"`
 	CandidatesTokens int32 `json:"candidates_tokens"`
+	ThoughtsTokens   int32 `json:"thoughts_tokens"` // Gemini thinking tokens (billed as output); 0 when the model did not think
 	TotalTokens      int32 `json:"total_tokens"`
 }
 
@@ -230,6 +231,11 @@ type runConfig struct {
 	diffusionSamples       int
 	allowDiffusionFallback bool
 	diffusionMirror        bool
+
+	// Genai-path latency knobs (Experiment 07b).
+	thinkingBudget int
+	thinkingSet    bool
+	pairwiseGenai  bool
 
 	// rubricDetail, when true, routes a KindRubric template through the genai
 	// structured-output path (rubric per-criterion transparency) instead of the
@@ -379,6 +385,7 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		}
 	}
 
+	ctx = withThinkingCtx(ctx, rc)
 	start := time.Now()
 	res, err := e.dispatch(ctx, tmpl, inst, model, rc)
 	res.Stats.Duration = time.Since(start)
@@ -461,6 +468,9 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 	case registry.KindCustomSchema:
 		return e.runCustomSchema(ctx, tmpl, inst, model)
 	case registry.KindPairwise:
+		if rc.pairwiseGenai {
+			return e.runPairwiseGenai(ctx, tmpl, inst, model)
+		}
 		return e.runPairwise(ctx, tmpl, inst, model)
 	case registry.KindHeuristic:
 		// Deterministic, credential-free: a FREE function (not a method), so it
