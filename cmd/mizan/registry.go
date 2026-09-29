@@ -358,6 +358,21 @@ func validateTemplate(t *registry.MetricTemplate) error {
 		if err := validateHeuristicTemplate(t); err != nil {
 			return err
 		}
+	case registry.KindComputation, registry.KindPrebuilt:
+		// There are no authoring flags for spec.native: these kinds are authored as
+		// pack manifests (`registry import` / `pack import`). An update of an
+		// imported template keeps its Native spec, so it validates here with the
+		// SAME rules `pack validate` applies (registry.ValidateNativeSpec).
+		if t.Native == nil {
+			return fmt.Errorf("kind %q requires a spec.native block, which has no create flags; author it as a pack manifest and import it with `mizan registry import` (see docs/user-guide.md)", t.Kind)
+		}
+		declared := map[string]bool{}
+		for _, in := range t.Inputs {
+			declared[in.Name] = true
+		}
+		if errs := registry.ValidateNativeSpec(t.Kind, t.Native, declared); len(errs) > 0 {
+			return fmt.Errorf("%s", strings.Join(errs, "; "))
+		}
 	}
 	return nil
 }

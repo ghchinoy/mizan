@@ -182,7 +182,22 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 		return nil, nil, err
 	}
 
-	diffClient := diffusion.NewClient(cfg.DiffusionEndpoint, cfg.DiffusionModel, 60*time.Second)
+	diffTimeout, err := time.ParseDuration(firstNonEmptyStr(cfg.DiffusionTimeout, "120s"))
+	if err != nil {
+		_ = client.Close()
+		_ = globalClient.Close()
+		return nil, nil, fmt.Errorf("wire: invalid diffusion-timeout %q: %w", cfg.DiffusionTimeout, err)
+	}
+	diffClient := diffusion.NewClient(cfg.DiffusionEndpoint, cfg.DiffusionModel, diffTimeout).WithBackend(cfg.DiffusionBackend)
+	diffTokens, err := diffusion.ResolveAuth(cfg.DiffusionAuth, cfg.DiffusionEndpoint, "")
+	if err != nil {
+		_ = client.Close()
+		_ = globalClient.Close()
+		return nil, nil, fmt.Errorf("wire: %w", err)
+	}
+	if diffTokens != nil {
+		diffClient.WithTokenSource(diffTokens)
+	}
 
 	// The config default-model (WI-F3) is the lowest-precedence input to the
 	// engine's model resolution chain (below the flag and the template's own
@@ -231,4 +246,13 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 
 	engine := eval.NewEngine(client, cfg.ProjectID, cfg.Location, opts...)
 	return engine, closeFn, nil
+}
+
+func firstNonEmptyStr(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

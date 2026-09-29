@@ -93,9 +93,13 @@ func contentHash(t *MetricTemplate) string {
 		RubricDetail         *RubricDetail                `json:"rubricDetail"`
 		RubricProvenance     *RubricProvenance            `json:"rubricProvenance"`
 		Heuristic            *HeuristicSpec               `json:"heuristic"`
-		AutoraterModel       string                       `json:"autoraterModel"`
-		SamplingCount        int32                        `json:"samplingCount"`
-		FlipEnabled          bool                         `json:"flipEnabled"`
+		// Native is tagged omitempty so every template that predates it (nil)
+		// keeps its exact golden hash; a computation/prebuilt template hashes its
+		// full spec.native block.
+		Native         *NativeMetricSpec `json:"native,omitempty"`
+		AutoraterModel string            `json:"autoraterModel"`
+		SamplingCount  int32             `json:"samplingCount"`
+		FlipEnabled    bool              `json:"flipEnabled"`
 	}{
 		ID:                   t.ID,
 		Name:                 t.Name,
@@ -115,6 +119,7 @@ func contentHash(t *MetricTemplate) string {
 		RubricDetail:         t.RubricDetail,
 		RubricProvenance:     t.RubricProvenance,
 		Heuristic:            t.Heuristic,
+		Native:               t.Native,
 		AutoraterModel:       t.AutoraterModel,
 		SamplingCount:        t.SamplingCount,
 		FlipEnabled:          t.FlipEnabled,

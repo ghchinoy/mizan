@@ -50,8 +50,8 @@
       "properties": {
         "kind": {
           "type": "string",
-          "description": "Accepts vernacular single/compare/bool/boolean/classify/grade and canonical boul/choice/score/pointwise/pairwise/rubric/custom_schema/heuristic; the codec canonicalizes via NormalizeKind.",
-          "enum": ["single", "pointwise", "compare", "pairwise", "rubric", "custom_schema", "heuristic", "boul", "bool", "boolean", "choice", "classify", "score", "grade"]
+          "description": "Accepts vernacular single/compare/bool/boolean/classify/grade and canonical boul/choice/score/pointwise/pairwise/rubric/custom_schema/heuristic/computation/prebuilt; the codec canonicalizes via NormalizeKind.",
+          "enum": ["single", "pointwise", "compare", "pairwise", "rubric", "custom_schema", "heuristic", "computation", "prebuilt", "boul", "bool", "boolean", "choice", "classify", "score", "grade"]
         },
         "modalities": {
           "type": "array",
@@ -156,6 +156,38 @@
             "value": { "type": "string" },
             "caseInsensitive": { "type": "boolean" },
             "schema": { "type": "string" }
+          }
+        },
+        "native": {
+          "type": "object",
+          "description": "OPTIONAL Vertex-native metric spec. Present ONLY for kind:computation (no model; runs locally, optionally via Vertex EvaluateInstances) and kind:prebuilt (Vertex's named judge metrics). The *Field members name spec.inputs entries.",
+          "additionalProperties": false,
+          "required": ["metric"],
+          "properties": {
+            "metric": {
+              "type": "string",
+              "enum": [
+                "exact_match", "bleu", "rouge",
+                "tool_call_valid", "tool_name_match", "tool_parameter_key_match", "tool_parameter_kv_match",
+                "trajectory_exact_match", "trajectory_in_order_match", "trajectory_any_order_match",
+                "trajectory_precision", "trajectory_recall", "trajectory_single_tool_use",
+                "safety", "groundedness", "fluency", "coherence", "fulfillment",
+                "summarization_quality", "summarization_helpfulness", "summarization_verbosity",
+                "question_answering_quality", "question_answering_relevance",
+                "question_answering_helpfulness", "question_answering_correctness",
+                "pairwise_summarization_quality", "pairwise_question_answering_quality"
+              ]
+            },
+            "promptField": { "type": "string" },
+            "responseField": { "type": "string" },
+            "referenceField": { "type": "string" },
+            "contextField": { "type": "string" },
+            "instructionField": { "type": "string" },
+            "baselineField": { "type": "string" },
+            "rougeType": { "type": "string", "enum": ["rouge1", "rouge2", "rougeL", "rougeLsum"] },
+            "useStemmer": { "type": "boolean" },
+            "toolName": { "type": "string" },
+            "passThreshold": { "type": "number" }
           }
         }
       }

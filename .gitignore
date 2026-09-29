@@ -30,3 +30,6 @@ node_modules/
 docs/project-log/
 
 /docs/friction
+
+# Experiment 07 suites are rebuilt from upstream (some CC-BY-NC); only the manifest is committed.
+/docs/experiments/judge-eval/suites/

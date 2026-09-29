@@ -119,6 +119,7 @@ type packSpec struct {
 	RubricDetail         *RubricDetail                `yaml:"rubricDetail,omitempty"`       // RFC-0001 §4.4
 	RubricProvenance     *RubricProvenance            `yaml:"rubricProvenance,omitempty"`   // adaptive-generation provenance (§4.4)
 	Heuristic            *HeuristicSpec               `yaml:"heuristic,omitempty"`          // non-LLM check spec (kind:heuristic, §4.B)
+	Native               *NativeMetricSpec            `yaml:"native,omitempty"`             // Vertex-native metric spec (kind:computation|prebuilt)
 	Autorater            packAutorater                `yaml:"autorater,omitempty"`
 }
 
@@ -200,6 +201,7 @@ func (c YAMLCodec) Unmarshal(data []byte) (*MetricTemplate, error) {
 		RubricDetail:         pf.Spec.RubricDetail,
 		RubricProvenance:     pf.Spec.RubricProvenance,
 		Heuristic:            pf.Spec.Heuristic,
+		Native:               pf.Spec.Native,
 		AutoraterModel:       autoraterModel,
 		SamplingCount:        pf.Spec.Autorater.SamplingCount,
 		FlipEnabled:          pf.Spec.Autorater.FlipEnabled,
@@ -262,6 +264,7 @@ func (c YAMLCodec) Marshal(t *MetricTemplate) ([]byte, error) {
 			RubricDetail:         t.RubricDetail,
 			RubricProvenance:     t.RubricProvenance,
 			Heuristic:            t.Heuristic,
+			Native:               t.Native,
 			Autorater: packAutorater{
 				Model:         t.AutoraterModel,
 				SamplingCount: t.SamplingCount,

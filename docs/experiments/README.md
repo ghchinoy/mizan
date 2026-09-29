@@ -1,5 +1,7 @@
 # Mizan Empirical Evaluation Experiments: Vertex AI Gemini vs. DiffusionGemma
 
+> **Status (2026-09-25):** Experiments 01-06 are superseded. 01-03 are single anecdotal runs with no saved results. 04 and 05 report agreement between the engines instead of accuracy, and 05 did not use DiffusionGemma's structured readout. 06 cites Gemini numbers that have no result file. Each report opens with a correction. Experiment 07 replaces them all, scoring both engines against gold labels in the same session. The setup notes below (Gemini 2.5 Flash, local Metal) describe Experiments 01-04 only.
+
 This directory documents live, empirical comparison experiments evaluating Mizan metric templates across two distinct generative architectures:
 1. **Cloud Autoregressive Engine**: Google Cloud Vertex AI / Gemini 2.5 Flash via direct structured JSON output.
 2. **Local Discrete Block Diffusion Engine**: Google DeepMind DiffusionGemma 26B (`diffgemma-26b-a4b-it-q4`) running locally on Apple Silicon Metal via discrete slot readouts (`http://127.0.0.1:8080/v1`).
@@ -49,4 +51,5 @@ Every experiment is executed using `mizan eval compare-engines` with parallel `e
 | **04** | [Comprehensive Benchmark Report (Local Metal)](04-comprehensive-benchmark-report.md) | Full Suite (32 cases) | Text + Vision | 32-case empirical benchmark on Apple Silicon Metal |
 | **05** | [GCE vLLM Cloud GPU Benchmark Report](05-gce-vllm-benchmark-report.md) | Full Suite (32 cases) | Text + Vision | 32-case re-run on GCE 1× NVIDIA L4 GPU showing 3.7x latency speedup and 84.4% agreement |
 | **06** | [Empirical Calibration Benchmark Report](06-calibration-benchmark-report.md) | Calibration Suite (46 cases) | Text | 46-case ground-truth benchmark across 15 calibration templates evaluating Gemini 3.5 Flash Lite vs. 3.8 Flash |
+| **07** | [Judge Capabilities With and Without an Autoregressive Autorater](07-judge-capability-rerun.md) | `judge-eval` pack (22 templates), 15 suites / 1,940 items | Text | Gold-scored, same-session comparison of no-model computation metrics, DiffusionGemma (Vertex G4 and Cloud Run), gemini-3.5-flash-lite, gemini-3.8-flash, Vertex predefined metrics and an entropy cascade |
 

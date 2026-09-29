@@ -577,6 +577,12 @@ func validateKindSpecific(rep *Report, file, id string, kind MetricKind, pf pack
 	hasPair := pf.Spec.CandidateFieldName != "" || pf.Spec.BaselineFieldName != ""
 	hasChoices := len(pf.Spec.Choices) > 0
 
+	// spec.native belongs to the two Vertex-native kinds only (following the
+	// heuristic precedent: kind-specific data is forbidden on every other kind).
+	if pf.Spec.Native != nil && !IsNativeKind(kind) {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.native (that is computation/prebuilt-only)", kind)
+	}
+
 	switch kind {
 	case KindPairwise:
 		if hasChoices {
@@ -691,6 +697,47 @@ func validateKindSpecific(rep *Report, file, id string, kind MetricKind, pf pack
 		}
 	case KindHeuristic:
 		validateHeuristicSpec(rep, file, id, kind, inputNames, hasRubric, hasSchema, hasPair, pf)
+	case KindComputation, KindPrebuilt:
+		validateNativeKind(rep, file, id, kind, inputNames, hasRubric, hasSchema, hasPair, hasChoices, pf)
+	}
+}
+
+// validateNativeKind enforces the kind:computation / kind:prebuilt contract: a
+// spec.native block whose metric is valid for the kind and whose field mappings
+// are declared in spec.inputs (ValidateNativeSpec, shared with the CLI), and NONE
+// of the prompt-driven kinds' data. Neither kind carries a metricPromptTemplate:
+// a computation metric has no model at all, and a prebuilt metric uses Vertex's
+// own judge prompt — an authored prompt would be silently ignored, so it is an
+// error rather than a trap. A computation metric additionally resolves NO
+// autorater, so an autorater block is rejected too; a prebuilt metric takes its
+// judge model from autorater.model as usual.
+func validateNativeKind(rep *Report, file, id string, kind MetricKind, inputNames map[string]bool, hasRubric, hasSchema, hasPair, hasChoices bool, pf packFile) {
+	if hasPair {
+		rep.add(file, id, SeverityError, "kind %q must not set candidateFieldName/baselineFieldName (use spec.native.responseField/baselineField)", kind)
+	}
+	if hasRubric {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.rubricGroups (that is rubric-only)", kind)
+	}
+	if hasSchema {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.responseSchema (that is custom_schema-only)", kind)
+	}
+	if hasChoices {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.choices (those are choice-only)", kind)
+	}
+	if pf.Spec.Heuristic != nil {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.heuristic (that is heuristic-only)", kind)
+	}
+	if strings.TrimSpace(pf.Spec.MetricPromptTemplate) != "" || strings.TrimSpace(pf.Spec.SystemInstruction) != "" {
+		rep.add(file, id, SeverityError, "kind %q must not set spec.metricPromptTemplate/systemInstruction (the metric's prompt is built in; map inputs with spec.native.*Field)", kind)
+	}
+	if kind == KindComputation {
+		a := pf.Spec.Autorater
+		if a.Model != "" || a.SamplingCount != 0 || a.FlipEnabled {
+			rep.add(file, id, SeverityError, "kind %q must not set spec.autorater (a computation metric involves no model)", kind)
+		}
+	}
+	for _, msg := range ValidateNativeSpec(kind, pf.Spec.Native, inputNames) {
+		rep.add(file, id, SeverityError, "%s", msg)
 	}
 }
 
@@ -805,6 +852,15 @@ func validatePlaceholders(rep *Report, file, id string, kind MetricKind, pf pack
 	if kind == KindHeuristic && pf.Spec.Heuristic != nil && pf.Spec.Heuristic.Target != "" {
 		referenced[pf.Spec.Heuristic.Target] = true
 	}
+	// A computation/prebuilt metric has no prompt either; it references its
+	// inputs via the spec.native field mappings (with defaults applied).
+	if IsNativeKind(kind) && pf.Spec.Native != nil {
+		if bindings, err := ResolveNativeFields(pf.Spec.Native); err == nil {
+			for _, b := range bindings {
+				referenced[b.Field] = true
+			}
+		}
+	}
 	for _, text := range []string{pf.Spec.MetricPromptTemplate, pf.Spec.SystemInstruction} {
 		for _, m := range placeholderPattern.FindAllStringSubmatch(text, -1) {
 			name := m[1]
@@ -818,6 +874,10 @@ func validatePlaceholders(rep *Report, file, id string, kind MetricKind, pf pack
 	// Every REQUIRED input must be referenced by the prompt/system text.
 	for _, in := range pf.Spec.Inputs {
 		if in.Required && !referenced[in.Name] {
+			if IsNativeKind(kind) {
+				rep.add(file, id, SeverityError, "required input %q is never mapped by spec.native (the metric would never read it)", in.Name)
+				continue
+			}
 			rep.add(file, id, SeverityError, "required input %q is never referenced as {{%s}} in the prompt", in.Name, in.Name)
 		}
 	}
@@ -845,7 +905,13 @@ func lintTemplate(rep *Report, file, id string, pf packFile) {
 	if strings.TrimSpace(pf.Metadata.License) == "" {
 		rep.add(file, id, SeverityWarning, "lint: missing metadata.license")
 	}
-	if strings.TrimSpace(pf.Spec.Autorater.Model) == "" {
+	// A computation metric has no autorater by design, so its absence is not
+	// worth a lint warning.
+	isComputation := false
+	if k, err := NormalizeKind(pf.Spec.Kind); err == nil && k == KindComputation {
+		isComputation = true
+	}
+	if strings.TrimSpace(pf.Spec.Autorater.Model) == "" && !isComputation {
 		rep.add(file, id, SeverityWarning, "lint: no autorater.model set (eval-time default will be used)")
 	}
 	if sc := pf.Spec.Autorater.SamplingCount; sc != 0 && (sc < 1 || sc > 32) {

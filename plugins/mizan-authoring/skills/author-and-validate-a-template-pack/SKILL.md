@@ -86,7 +86,9 @@ Real, verified flags (from `cmd/mizan/registry.go`):
 - `--id <namespace>/<slug>` — **required**; the stable template id.
 - `--kind` — one of `single` (a.k.a. `pointwise`), `compare` (a.k.a. `pairwise`),
   `rubric`, `custom_schema`. (`heuristic` also exists but heuristic authoring is
-  out of scope for this skill.)
+  out of scope for this skill. `computation` and `prebuilt` — Vertex-native
+  metrics configured by a `spec.native` block — have no create flags; author
+  them directly as pack manifests, see docs/user-guide.md.)
 - `--prompt` — the metric prompt template, with `{{var}}` placeholders.
 - `--input 'name:modality[:required]'` — declare an input (repeatable; modality is
   `text|image|audio|video|music`; `required` defaults to `false`).
