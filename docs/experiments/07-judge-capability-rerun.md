@@ -32,7 +32,7 @@ Earlier experiments reported how often two engines agreed. That hid cases where 
 | J2 | J1 plus a second read with the two responses swapped (pairwise only) | `--diffusion-mirror` |
 | J3 | `gemini-3.5-flash-lite`, temperature 0 | genai structured output; native `EvaluateInstances` for pairwise |
 | J4 | `gemini-3.8-flash`, temperature 0 | same |
-| J5 | Entropy cascade: use J1's answer when its hesitation (normalized entropy) is below 16% or 35%, otherwise use the paired Gemini answer. Computed offline from the same runs. The thresholds are dgem's standard hesitation bands, not tuned on this data | `analyze.py` |
+| J5 | Entropy cascade: use J1's answer when its hesitation (normalized entropy) is below 16% or 35%, otherwise use the paired Gemini answer. Computed offline from the same runs. Both thresholds were fixed before this data was seen and not tuned on it: 16% is dgem's normalized-entropy gate (EXP-05b) and the edge of the Studio's "Clear" band; 35% reuses the value of dgem's earlier raw-entropy cascade default (0.35 nats) on the normalized scale. It is not a dgem band (those are 16% and 50%). A 35% gate means escalating when dgem is less than about 93% sure on a yes/no, or 90% on A/B/tie. Sweeping the gate on these runs, pooled accuracy stays flat (77.0–77.6%) from 5% to 35% while escalation falls from 68% to 36%, then drops above 35%; see §3.5. | `analyze.py` |
 | J6 | Vertex predefined metrics (`safety`, `groundedness`, `fluency`, `coherence`), judged by the service's own model | `kind: prebuilt` |
 
 Every DiffusionGemma result on both dates came back in the structured-readout format (`readout_mode: envelope`). Mizan now refuses free-form replies, which is the failure that affected Experiment 05. Gemini calls ran in the dgem hosting project. The DiffusionGemma model name in the reports (`diffgemma-26b-a4b-it-q4`) is only the client-side label, which the server echoes back. The serving identity is the `/health` record in `backends.json`.
@@ -98,6 +98,24 @@ Cascade accuracy is followed by the share of items escalated to Gemini.
 | LLMBar | 79 | 94 | 94 (58%) | 94 (80%) |
 | MT-Bench turn 1 | 73 | 78 | 75 (41%) | 77 (63%) |
 | Helpfulness, Likert | 35 | 43 | 34 (34%) | 35 (54%) |
+
+**Gate sweep** (dgem G4 → gemini-3.8-flash, 8 suites, 799 paired items, offline). The share escalated is in parentheses.
+
+| Gate | 0 (always Gemini) | 0.05 | 0.16 | 0.25 | **0.35** | 0.50 | 0.70 | never (dgem only) |
+|---|---|---|---|---|---|---|---|---|
+| Pooled accuracy | 77.2% (100%) | 77.6% (68%) | 77.0% (53%) | 77.1% (44%) | **77.0% (36%)** | 76.1% (25%) | 74.5% (14%) | 72.6% (0%) |
+
+How well hesitation predicts dgem's own errors (AUROC, where 0.5 means no signal) varies by suite:
+
+| Suite | AUROC |
+|---|---|
+| Faithfulness | 0.88 |
+| Pairwise (four suites) | 0.68–0.76 |
+| Toxicity | 0.71 |
+| Likert | 0.59 |
+| Safety | 0.53 |
+
+This is why the cascade beats both judges on faithfulness but does little on safety.
 
 ### 3.6 Latency (serial probe: 30 items, one request in flight)
 
