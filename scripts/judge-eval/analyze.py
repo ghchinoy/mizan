@@ -20,9 +20,12 @@ summary.md next to them. For each suite it reports:
   - Likert MAE / Spearman where the gold is numeric
   - an offline entropy cascade (J5): keep the DiffusionGemma answer when its
     normalized entropy (hesitation) is below a threshold, otherwise take the
-    paired Gemini answer from the same run. Reported at fixed thresholds of
-    16% and 35%, which are the Hesitation bands in dgem's Studio, not values
-    tuned on this data.
+    paired Gemini answer from the same run. Reported at two thresholds fixed
+    before this data was seen: 16% (dgem's normalized-entropy gate from EXP-05b
+    and the edge of the Studio's "Clear" band) and 35% (the value of dgem's
+    earlier raw-entropy cascade default, 0.35 nats, reused on the normalized
+    scale). Neither was tuned on this data; 35% is not a dgem Studio band
+    (those are 16% and 50%).
   - p50 latency per engine, error counts, readout modes, and backends used.
 
 Pure standard library.
