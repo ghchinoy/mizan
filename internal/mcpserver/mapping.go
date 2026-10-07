@@ -71,6 +71,9 @@ func metricDetail(t registry.MetricTemplate) GetMetricOut {
 		MetricPromptTemplate: t.MetricPromptTemplate,
 		Tags:                 t.Tags,
 	}
+	if t.ResponseSchema != nil {
+		out.ResponseSchema = t.ResponseSchema.JSON
+	}
 	for _, in := range t.Inputs {
 		out.Inputs = append(out.Inputs, InputField{
 			Name:     in.Name,
@@ -95,8 +98,11 @@ func modalityStrings(ms []registry.Modality) []string {
 
 // assetRef converts a single FieldValue to an eval.AssetRef, enforcing that
 // EXACTLY ONE of text/file/gcs is set (mirrors the CLI's per-flag assembly in
-// cmd buildInstance). An empty or multiply-set value is an error.
-func assetRef(key string, v FieldValue) (eval.AssetRef, error) {
+// cmd buildInstance). An empty or multiply-set value is an error. When
+// allowLocalFiles is false, a {file: ...} input is rejected with a tool error —
+// a local file: input is a local-transport-only affordance (stdio), unsafe for a
+// possibly-remote HTTP caller.
+func assetRef(key string, v FieldValue, allowLocalFiles bool) (eval.AssetRef, error) {
 	set := 0
 	if v.Text != "" {
 		set++
@@ -117,6 +123,9 @@ func assetRef(key string, v FieldValue) (eval.AssetRef, error) {
 	case v.Text != "":
 		return eval.AssetRef{Modality: registry.ModalityText, Text: v.Text}, nil
 	case v.File != "":
+		if !allowLocalFiles {
+			return eval.AssetRef{}, fmt.Errorf("field %q: local file inputs are disabled on this transport; use gcs: or text:", key)
+		}
 		return eval.AssetRef{FilePath: v.File}, nil
 	default:
 		return eval.AssetRef{GCSUri: v.GCS}, nil
@@ -125,13 +134,14 @@ func assetRef(key string, v FieldValue) (eval.AssetRef, error) {
 
 // instanceFromFields builds an eval.Instance from the MCP fields map. It mirrors
 // the CLI's buildInstance: each entry becomes one AssetRef keyed by field name.
-func instanceFromFields(fields map[string]FieldValue) (eval.Instance, error) {
+// allowLocalFiles is threaded to assetRef to gate local file: inputs per transport.
+func instanceFromFields(fields map[string]FieldValue, allowLocalFiles bool) (eval.Instance, error) {
 	inst := eval.Instance{Fields: map[string]eval.AssetRef{}}
 	for k, v := range fields {
 		if k == "" {
 			return eval.Instance{}, fmt.Errorf("empty field name is not allowed")
 		}
-		ref, err := assetRef(k, v)
+		ref, err := assetRef(k, v, allowLocalFiles)
 		if err != nil {
 			return eval.Instance{}, err
 		}

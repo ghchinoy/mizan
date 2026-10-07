@@ -55,3 +55,54 @@ func TestMcpStdioHasNoPortFlag(t *testing.T) {
 		t.Error("`mizan mcp stdio` should not have a --port flag")
 	}
 }
+
+func TestMcpHTTPAddressDefaultsToLoopback(t *testing.T) {
+	f := newMcpHTTPCmd().Flags().Lookup("address")
+	if f == nil {
+		t.Fatal("`mizan mcp http` is missing the --address flag")
+	}
+	if f.DefValue != "127.0.0.1" {
+		t.Errorf("--address default = %q, want 127.0.0.1 (loopback)", f.DefValue)
+	}
+}
+
+func TestMcpHTTPHasAllowLocalFilesFlagDefaultFalse(t *testing.T) {
+	f := newMcpHTTPCmd().Flags().Lookup("allow-local-files")
+	if f == nil {
+		t.Fatal("`mizan mcp http` is missing the --allow-local-files flag")
+	}
+	if f.DefValue != "false" {
+		t.Errorf("--allow-local-files default = %q, want false", f.DefValue)
+	}
+}
+
+func TestMcpStdioHasNoAllowLocalFilesFlag(t *testing.T) {
+	// stdio allows local files unconditionally (local trust); no flag needed.
+	if f := newMcpStdioCmd().Flags().Lookup("allow-local-files"); f != nil {
+		t.Error("`mizan mcp stdio` should not have an --allow-local-files flag")
+	}
+}
+
+func TestParseAllowedProjects(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"", nil},
+		{"   ", nil},
+		{"a", []string{"a"}},
+		{" a , b ,, c ", []string{"a", "b", "c"}},
+	}
+	for _, tc := range cases {
+		got := parseAllowedProjects(tc.in)
+		if len(got) != len(tc.want) {
+			t.Errorf("parseAllowedProjects(%q) = %v, want %v", tc.in, got, tc.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Errorf("parseAllowedProjects(%q)[%d] = %q, want %q", tc.in, i, got[i], tc.want[i])
+			}
+		}
+	}
+}

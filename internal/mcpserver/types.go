@@ -87,6 +87,9 @@ type GetMetricOut struct {
 	FlipEnabled          bool         `json:"flipEnabled"`
 	MetricPromptTemplate string       `json:"metricPromptTemplate,omitempty"`
 	Tags                 []string     `json:"tags,omitempty"`
+	// ResponseSchema is the raw JSON-Schema of the desired output shape for a
+	// custom_schema metric (design §4). Empty for non-custom_schema metrics.
+	ResponseSchema string `json:"responseSchema,omitempty"`
 }
 
 // --- shared field value -------------------------------------------------------

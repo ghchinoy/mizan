@@ -33,45 +33,42 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// mcpDevSigningKey is the fallback HS256 signing key used only when JWT_SIGNING_KEY
-// is unset — for local development. It mirrors the template's development-key
-// fallback. Production deployments MUST set JWT_SIGNING_KEY.
-const mcpDevSigningKey = "mizan-mcp-development-signing-key-change-me!"
+// minSigningKeyBytes is the minimum accepted length for the HS256 signing key.
+// A short key weakens the HMAC; a real deployment key must be at least this long.
+const minSigningKeyBytes = 32
 
 // bearerAuth gates HTTP ingress behind a valid HS256-signed Bearer JWT.
 type bearerAuth struct {
 	signingKey []byte
 }
 
-// newBearerAuth builds the bearer gate, taking the HMAC signing key from
-// JWT_SIGNING_KEY and falling back to a development key when it is unset.
-func newBearerAuth() *bearerAuth {
+// newBearerAuth builds the bearer gate from the HMAC signing key in
+// JWT_SIGNING_KEY. It FAILS CLOSED: there is no shipped/default key fallback, so
+// when JWT_SIGNING_KEY is unset or shorter than minSigningKeyBytes it returns an
+// error and the HTTP transport must not serve. The only no-auth path is the
+// explicit DISABLE_AUTH=true toggle (loopback-bound local development), handled by
+// the caller before newBearerAuth is reached.
+func newBearerAuth() (*bearerAuth, error) {
 	key := []byte(os.Getenv("JWT_SIGNING_KEY"))
-	if len(key) == 0 {
-		key = []byte(mcpDevSigningKey)
+	if len(key) < minSigningKeyBytes {
+		return nil, fmt.Errorf("JWT_SIGNING_KEY must be set (>=%d bytes) to serve MCP over HTTP; "+
+			"set DISABLE_AUTH=true only for loopback-bound local development", minSigningKeyBytes)
 	}
-	return &bearerAuth{signingKey: key}
-}
-
-// usingDevKey reports whether the fallback development signing key is in effect
-// (i.e. JWT_SIGNING_KEY was not set). The http command warns when this is true.
-func (a *bearerAuth) usingDevKey() bool {
-	return string(a.signingKey) == mcpDevSigningKey
+	return &bearerAuth{signingKey: key}, nil
 }
 
 // requireBearer wraps next behind HS256 Bearer-JWT validation. A missing or
 // invalid token yields 401 with an RFC 6750 WWW-Authenticate challenge; a valid
 // token passes through. The token is read from the Authorization header
-// ("Bearer <jwt>"), falling back to a ?token= query parameter (helpful for some
-// browser SSE clients), matching the template's RequireBearer.
+// ("Bearer <jwt>") ONLY — a token in a URL/query parameter would leak into access
+// logs, proxies, and Referer headers, and the streamable-HTTP transport does not
+// need the query path. A valid token is also REQUIRED to carry an exp claim
+// (jwt.WithExpirationRequired), so a forever-valid token is rejected.
 func (a *bearerAuth) requireBearer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := ""
 		if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
 			tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-		}
-		if tokenStr == "" {
-			tokenStr = r.URL.Query().Get("token")
 		}
 		if tokenStr == "" {
 			a.respondUnauthorized(w, "missing_token", "access token is required")
@@ -83,7 +80,7 @@ func (a *bearerAuth) requireBearer(next http.Handler) http.Handler {
 				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 			}
 			return a.signingKey, nil
-		})
+		}, jwt.WithExpirationRequired())
 		if err != nil || !token.Valid {
 			a.respondUnauthorized(w, "invalid_token", "access token is invalid or expired")
 			return
@@ -106,9 +103,11 @@ func (a *bearerAuth) respondUnauthorized(w http.ResponseWriter, errCode, errDesc
 }
 
 // generateToken issues a signed HS256 Bearer token for the given subject and TTL.
-// It mirrors the template's GenerateAccessToken and exists so operators can mint a
-// local token against the same signing key the server validates (and so the auth
-// middleware test can produce a valid token without a token server).
+// It mirrors the template's GenerateAccessToken. It is unexported and has no CLI
+// surface today — its only caller is the auth middleware test, which needs to mint
+// a valid token (always carrying an exp claim) against the same signing key the
+// server validates, without standing up a token server. It is NOT an operator mint
+// path; expose a subcommand first if operator minting is ever required.
 func (a *bearerAuth) generateToken(subject string, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{

@@ -177,7 +177,9 @@ func TestAssetRefMapping(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ref, err := assetRef("k", tc.in)
+			// allowLocalFiles=true so the valid "file" case maps rather than being
+			// gated; the transport gate is covered by TestAssetRefLocalFileGate.
+			ref, err := assetRef("k", tc.in, true)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("want error for %+v, got ref %+v", tc.in, ref)

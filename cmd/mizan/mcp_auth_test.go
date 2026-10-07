@@ -149,21 +149,55 @@ func TestDisableAuthBypass(t *testing.T) {
 	}
 }
 
+// a validEnvKey is a 40-byte signing key (>= minSigningKeyBytes).
+const validEnvKey = "env-provided-signing-key-that-is-long-ok"
+
 func TestNewBearerAuthUsesEnvKey(t *testing.T) {
-	t.Setenv("JWT_SIGNING_KEY", "env-provided-key")
-	auth := newBearerAuth()
-	if auth.usingDevKey() {
-		t.Error("usingDevKey() = true, want false when JWT_SIGNING_KEY is set")
+	t.Setenv("JWT_SIGNING_KEY", validEnvKey)
+	auth, err := newBearerAuth()
+	if err != nil {
+		t.Fatalf("newBearerAuth() with a valid key: %v", err)
 	}
-	if string(auth.signingKey) != "env-provided-key" {
+	if string(auth.signingKey) != validEnvKey {
 		t.Errorf("signingKey = %q, want the env value", string(auth.signingKey))
+	}
+	// A key this long mints and validates a token end-to-end.
+	token, err := auth.generateToken("tester", time.Hour)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+	srv := httptest.NewServer(auth.requireBearer(okHandler))
+	defer srv.Close()
+	req, _ := http.NewRequest(http.MethodPost, srv.URL, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := srv.Client().Do(req)
+	if err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("status = %d, want 200 for a token minted with a real key", resp.StatusCode)
 	}
 }
 
-func TestNewBearerAuthFallsBackToDevKey(t *testing.T) {
-	t.Setenv("JWT_SIGNING_KEY", "")
-	auth := newBearerAuth()
-	if !auth.usingDevKey() {
-		t.Error("usingDevKey() = false, want true when JWT_SIGNING_KEY is unset")
+// TestNewBearerAuthFailsClosedWithoutKey proves the fail-closed posture: with auth
+// enabled and no (or too-short) JWT_SIGNING_KEY, newBearerAuth returns an error so
+// the http command does NOT serve. The dev-key fallback is gone.
+func TestNewBearerAuthFailsClosedWithoutKey(t *testing.T) {
+	cases := []struct {
+		name string
+		key  string
+	}{
+		{"unset", ""},
+		{"too short", "short-key"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("JWT_SIGNING_KEY", tc.key)
+			auth, err := newBearerAuth()
+			if err == nil {
+				t.Fatalf("newBearerAuth() = %v, nil; want a fail-closed error for key %q", auth, tc.key)
+			}
+		})
 	}
 }

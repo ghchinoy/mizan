@@ -30,6 +30,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -45,8 +47,8 @@ import (
 // stdio needs none).
 func newMcpCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "mcp",
-		Short:   "Serve the mizan eval engine over the Model Context Protocol (MCP)",
+		Use:   "mcp",
+		Short: "Serve the mizan eval engine over the Model Context Protocol (MCP)",
 		Long: "Serve the mizan eval engine over the Model Context Protocol (MCP).\n\n" +
 			"The server exposes four tools — mizan_list_metrics, mizan_get_metric,\n" +
 			"mizan_eval_run, and mizan_eval_pairwise — each mapping onto an existing\n" +
@@ -73,7 +75,7 @@ func newMcpCmd() *cobra.Command {
 // It returns an untyped server via newServer so this file stays SDK-free; the
 // concrete *mcp.Server construction (mcpserver.NewServer) is SDK-agnostic from the
 // cmd layer's point of view — only the transport files touch the go-sdk types.
-func buildMcpServer(ctx context.Context) (*mcpserver.Deps, func() error, error) {
+func buildMcpServer(ctx context.Context, allowLocalFiles bool) (*mcpserver.Deps, func() error, error) {
 	cfg, err := mustConfig()
 	if err != nil {
 		return nil, nil, err
@@ -142,12 +144,31 @@ func buildMcpServer(ctx context.Context) (*mcpserver.Deps, func() error, error) 
 	}
 
 	deps := &mcpserver.Deps{
-		Registry:  reg,
-		Engine:    eng,
-		Results:   res,
-		Config:    cfg,
-		EngineFor: engineFor,
+		Registry:        reg,
+		Engine:          eng,
+		Results:         res,
+		Config:          cfg,
+		EngineFor:       engineFor,
+		AllowLocalFiles: allowLocalFiles,
+		// Optional per-call project-override allowlist (confused-deputy residual,
+		// design §8 Q5). EMPTY preserves current behavior (allow all); when set via
+		// MIZAN_MCP_ALLOWED_PROJECTS (CSV), per-call project overrides outside the
+		// list are rejected with a tool error.
+		AllowedProjects: parseAllowedProjects(os.Getenv("MIZAN_MCP_ALLOWED_PROJECTS")),
 	}
 	ok = true
 	return deps, cleanup, nil
+}
+
+// parseAllowedProjects parses the MIZAN_MCP_ALLOWED_PROJECTS CSV into a trimmed,
+// non-empty project-id list. An empty or whitespace-only value yields nil, which
+// preserves the default allow-all behavior.
+func parseAllowedProjects(csv string) []string {
+	var out []string
+	for _, p := range strings.Split(csv, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

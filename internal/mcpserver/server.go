@@ -52,6 +52,22 @@ type Deps struct {
 	// the handler (defer) after the run. A nil EngineFor means per-call
 	// project/location overrides are rejected with a clear tool error.
 	EngineFor func(ctx context.Context, project, location string) (*eval.Engine, func() error, error)
+
+	// AllowLocalFiles governs whether a field may use a local {file: ...} input.
+	// It is a TRANSPORT-trust decision set by the cmd layer: stdio (local pipe,
+	// CLI trust) sets it true; http sets it false by default (callers may be
+	// remote/untrusted) with an opt-in --allow-local-files flag. When false, a
+	// field that supplies a local file path is rejected with a tool error — a
+	// local file: input would otherwise let a caller read any file the server
+	// process can access.
+	AllowLocalFiles bool
+
+	// AllowedProjects is an OPTIONAL per-call project-override allowlist (design
+	// §8 Q5 confused-deputy residual). EMPTY (nil) preserves the default
+	// allow-all behavior. When non-empty, a per-call project override whose value
+	// is not in the list is rejected with a tool error; the server's default
+	// project is always permitted.
+	AllowedProjects []string
 }
 
 // NewServer builds a single *mcp.Server with the four mizan tools registered on

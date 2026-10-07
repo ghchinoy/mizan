@@ -40,7 +40,9 @@ func newMcpStdioCmd() *cobra.Command {
 			"command blocks until the client disconnects or the process is signalled.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			deps, cleanup, err := buildMcpServer(cmd.Context())
+			// stdio is a local process pipe (the caller is the local user, CLI trust
+			// model), so local file: inputs are allowed here.
+			deps, cleanup, err := buildMcpServer(cmd.Context(), true)
 			if err != nil {
 				return err
 			}

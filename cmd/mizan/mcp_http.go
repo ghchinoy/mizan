@@ -37,26 +37,64 @@ import (
 // defaultMcpHTTPPort mirrors the template's default listen port.
 const defaultMcpHTTPPort = 8080
 
+// defaultMcpHTTPAddress binds loopback by default so the first `mizan mcp http`
+// does not expose the server to the local network/host. Operators who deliberately
+// expose it pass --address 0.0.0.0 (which requires a real JWT_SIGNING_KEY).
+const defaultMcpHTTPAddress = "127.0.0.1"
+
 // newMcpHTTPCmd wires `mizan mcp http`: serve the four MCP tools over the SDK's
 // streamable-HTTP transport (Stateless), mounted on an http.Server. Auth is ON by
-// default — a stateless HS256 Bearer-JWT gate (mcp_auth.go, ported from the
-// template) — and bypassed with DISABLE_AUTH=true for local development. The
-// signing key comes from JWT_SIGNING_KEY.
+// default and FAILS CLOSED — a stateless HS256 Bearer-JWT gate (mcp_auth.go)
+// requires a real JWT_SIGNING_KEY (>=32 bytes); there is no shipped default key.
+// The only no-auth path is the explicit DISABLE_AUTH=true toggle (local dev).
 func newMcpHTTPCmd() *cobra.Command {
 	var port int
+	var address string
+	var allowLocalFiles bool
 	cmd := &cobra.Command{
 		Use:   "http",
 		Short: "Serve MCP over streamable HTTP (bearer-JWT auth; DISABLE_AUTH=true to bypass)",
 		Long: "Serve the mizan MCP tools over the streamable-HTTP transport.\n\n" +
 			"The server mounts the MCP endpoint at / and a liveness probe at\n" +
 			"/healthz. Requests are gated by a stateless HS256 Bearer-JWT check\n" +
-			"whose signing key is read from JWT_SIGNING_KEY; set DISABLE_AUTH=true to\n" +
-			"bypass the gate for local development (never expose an unauthenticated\n" +
-			"server to public ingress). The command blocks until the process is\n" +
-			"signalled (SIGINT/SIGTERM), then shuts down gracefully.",
+			"whose signing key is read from JWT_SIGNING_KEY (required, >=32 bytes);\n" +
+			"the server FAILS TO START with auth enabled and no valid key. Set\n" +
+			"DISABLE_AUTH=true to bypass the gate for local development (never expose\n" +
+			"an unauthenticated server to public ingress).\n\n" +
+			"The server binds 127.0.0.1 by default; --address 0.0.0.0 exposes it on\n" +
+			"all interfaces and requires a real JWT_SIGNING_KEY. By default local\n" +
+			"file:// inputs are DISABLED on this transport (callers may be remote and\n" +
+			"untrusted); use gcs: or text:. --allow-local-files re-enables them and is\n" +
+			"UNSAFE for untrusted callers (it lets a caller read any file the server\n" +
+			"process can access).\n\n" +
+			"SECURITY — least-privilege service account: a caller may set the\n" +
+			"project/location per call and pass gs:// URIs, which run under the\n" +
+			"SERVER's ADC/service-account identity (confused-deputy, by design per the\n" +
+			"owner's locked decision). When exposing this server, its service account\n" +
+			"MUST be least-privilege, scoped to exactly the intended project(s) and\n" +
+			"bucket(s). Optionally set MIZAN_MCP_ALLOWED_PROJECTS (CSV) to reject\n" +
+			"per-call project overrides outside that list.\n\n" +
+			"The command blocks until the process is signalled (SIGINT/SIGTERM), then\n" +
+			"shuts down gracefully.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			deps, cleanup, err := buildMcpServer(cmd.Context())
+			// Fail closed BEFORE opening any service: with auth enabled and no valid
+			// JWT_SIGNING_KEY, build the gate first so the command errors out instead
+			// of serving.
+			authDisabled := os.Getenv("DISABLE_AUTH") == "true"
+			var auth *bearerAuth
+			if authDisabled {
+				fmt.Fprintln(cmd.ErrOrStderr(),
+					"mizan: warning: MCP HTTP authentication is DISABLED (DISABLE_AUTH=true); do not expose to public ingress")
+			} else {
+				a, err := newBearerAuth()
+				if err != nil {
+					return err
+				}
+				auth = a
+			}
+
+			deps, cleanup, err := buildMcpServer(cmd.Context(), allowLocalFiles)
 			if err != nil {
 				return err
 			}
@@ -70,17 +108,11 @@ func newMcpHTTPCmd() *cobra.Command {
 				&mcp.StreamableHTTPOptions{Stateless: true},
 			)
 
-			var mcpHandler http.Handler = streamable
-			if os.Getenv("DISABLE_AUTH") == "true" {
-				fmt.Fprintln(cmd.ErrOrStderr(),
-					"mizan: warning: MCP HTTP authentication is DISABLED (DISABLE_AUTH=true); do not expose to public ingress")
-			} else {
-				auth := newBearerAuth()
-				if auth.usingDevKey() {
-					fmt.Fprintln(cmd.ErrOrStderr(),
-						"mizan: warning: JWT_SIGNING_KEY is unset; using the built-in development signing key (set JWT_SIGNING_KEY for production)")
-				}
-				mcpHandler = auth.requireBearer(streamable)
+			// Origin verification is OFF by default in go-sdk v1.7.0; wrap the handler
+			// with cross-origin protection (defense-in-depth against DNS-rebinding).
+			var mcpHandler http.Handler = http.NewCrossOriginProtection().Handler(streamable)
+			if auth != nil {
+				mcpHandler = auth.requireBearer(mcpHandler)
 			}
 
 			mux := http.NewServeMux()
@@ -91,7 +123,7 @@ func newMcpHTTPCmd() *cobra.Command {
 			mux.Handle("/", mcpHandler)
 
 			server := &http.Server{
-				Addr:              fmt.Sprintf(":%d", port),
+				Addr:              fmt.Sprintf("%s:%d", address, port),
 				Handler:           mux,
 				ReadHeaderTimeout: 10 * time.Second,
 			}
@@ -99,6 +131,10 @@ func newMcpHTTPCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&port, "port", defaultMcpHTTPPort, "port to listen on")
+	cmd.Flags().StringVar(&address, "address", defaultMcpHTTPAddress,
+		"bind address (use 0.0.0.0 to expose on all interfaces; requires a real JWT_SIGNING_KEY)")
+	cmd.Flags().BoolVar(&allowLocalFiles, "allow-local-files", false,
+		"allow local file: inputs over HTTP (UNSAFE for untrusted callers; lets a caller read server-side files)")
 	return cmd
 }
 

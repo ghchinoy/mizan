@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
@@ -78,10 +79,28 @@ func (h *handlers) engineForCall(ctx context.Context, project, location string) 
 	if project == "" && location == "" {
 		return h.deps.Engine, nil, nil
 	}
+	if project != "" && !h.projectAllowed(project) {
+		return nil, nil, fmt.Errorf("project override %q is not in the allowed-projects list for this server", project)
+	}
 	if h.deps.EngineFor == nil {
 		return nil, nil, fmt.Errorf("per-call project/location override is not supported by this server configuration")
 	}
 	return h.deps.EngineFor(ctx, project, location)
+}
+
+// projectAllowed reports whether a per-call project override is permitted. An
+// empty AllowedProjects list means allow all (preserving the default behavior);
+// otherwise the project must be in the list (design §8 Q5 confused-deputy knob).
+func (h *handlers) projectAllowed(project string) bool {
+	if len(h.deps.AllowedProjects) == 0 {
+		return true
+	}
+	for _, p := range h.deps.AllowedProjects {
+		if p == project {
+			return true
+		}
+	}
+	return false
 }
 
 // run backs mizan_eval_run: fetch the template, assemble the instance from
@@ -93,7 +112,7 @@ func (h *handlers) run(ctx context.Context, in EvalRunIn) (EvalRunOut, error) {
 	if err != nil {
 		return EvalRunOut{}, err
 	}
-	inst, err := instanceFromFields(in.Fields)
+	inst, err := instanceFromFields(in.Fields, h.deps.AllowLocalFiles)
 	if err != nil {
 		return EvalRunOut{}, err
 	}
@@ -130,15 +149,15 @@ func (h *handlers) pairwise(ctx context.Context, in EvalPairwiseIn) (EvalPairwis
 	if tmpl.BaselineFieldName == "" || tmpl.CandidateFieldName == "" {
 		return EvalPairwiseOut{}, fmt.Errorf("metric %q is not a pairwise metric (it does not set baseline and candidate field names)", in.Metric)
 	}
-	inst, err := instanceFromFields(in.Fields)
+	inst, err := instanceFromFields(in.Fields, h.deps.AllowLocalFiles)
 	if err != nil {
 		return EvalPairwiseOut{}, err
 	}
-	baseline, err := assetRef(tmpl.BaselineFieldName, in.Baseline)
+	baseline, err := assetRef(tmpl.BaselineFieldName, in.Baseline, h.deps.AllowLocalFiles)
 	if err != nil {
 		return EvalPairwiseOut{}, fmt.Errorf("baseline: %w", err)
 	}
-	candidate, err := assetRef(tmpl.CandidateFieldName, in.Candidate)
+	candidate, err := assetRef(tmpl.CandidateFieldName, in.Candidate, h.deps.AllowLocalFiles)
 	if err != nil {
 		return EvalPairwiseOut{}, fmt.Errorf("candidate: %w", err)
 	}
@@ -185,25 +204,9 @@ func requirePairwiseFields(tmpl registry.MetricTemplate, inst eval.Instance) err
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("pairwise requires the %s", joinAnd(missing))
+		return fmt.Errorf("pairwise requires the %s", strings.Join(missing, " and "))
 	}
 	return nil
-}
-
-// joinAnd joins parts with " and " (small local helper to avoid pulling strings).
-func joinAnd(parts []string) string {
-	switch len(parts) {
-	case 0:
-		return ""
-	case 1:
-		return parts[0]
-	default:
-		out := parts[0]
-		for _, p := range parts[1:] {
-			out += " and " + p
-		}
-		return out
-	}
 }
 
 // record persists a successful eval result to the results store and returns the
