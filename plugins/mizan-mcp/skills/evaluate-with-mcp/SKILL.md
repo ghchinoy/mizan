@@ -2,7 +2,7 @@
 name: evaluate-with-mcp
 description: Run an agent-in-the-loop Mizan evaluation over the Model Context Protocol (MCP) — discover a judge (mizan_list_metrics -> mizan_get_metric), run it (mizan_eval_run / mizan_eval_pairwise), and read the persisted runId returned INLINE in the tool result. Use when an agent has the mizan MCP server connected (via the mizan-mcp plugin's stdio registration) and should score or A/B-compare a response/asset against a metric using MCP tools rather than shelling out to the `mizan` CLI.
 license: Apache-2.0
-compatibility: Requires the `mizan` CLI on PATH (go install github.com/ghchinoy/mizan/cmd/mizan@latest); the plugin launches it as `mizan mcp stdio`. The two read-only tools (mizan_list_metrics, mizan_get_metric) need no credentials. A live eval (mizan_eval_run / mizan_eval_pairwise) calls Vertex AI and needs Google Application Default Credentials (ADC) plus a project/location, and a staging bucket when using file:/local inputs. This skill never takes or stores credentials — it relies on the server's existing ADC exactly as the CLI does.
+compatibility: "Requires the mizan CLI on PATH (go install github.com/ghchinoy/mizan/cmd/mizan@latest); the plugin launches it as mizan mcp stdio. The read-only tools (mizan_list_metrics, mizan_get_metric) need no credentials. A live eval (mizan_eval_run / mizan_eval_pairwise) calls Vertex AI and needs Google ADC plus a project/location, and a staging bucket for file: inputs. This skill never takes or stores credentials — it relies on the server's existing ADC, exactly as the CLI does."
 metadata:
   author: ghchinoy
   version: "0.1.0"
