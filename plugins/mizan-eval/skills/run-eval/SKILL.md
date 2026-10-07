@@ -15,6 +15,15 @@ pick the better (**pairwise**), by driving the local `mizan` CLI and reasoning
 over its machine-readable `-o json` output. This skill wraps commands that exist
 in the Mizan CLI today; it starts no server and re-implements no CLI logic.
 
+**If an MCP server is available.** When a mizan MCP server is reachable by the
+agent (e.g. via the `mizan-mcp` plugin), prefer its `mizan_eval_run` /
+`mizan_eval_pairwise` tools over shelling out to the CLI for the eval itself:
+those tools persist the run by default and return the `runId` inline in the tool
+result, and each input field takes a discriminated value that is exactly one of
+`text`, `file`, or `gcs`. The eval tools still need ADC plus a GCP project (and a
+staging bucket for `file` inputs), and the CLI path documented below remains the
+default/fallback whenever no MCP server is available.
+
 ## When to use this skill
 
 - "Evaluate / score / grade this response against metric X."
@@ -165,6 +174,10 @@ RunID from the first element — `.[0].RunID`, not `.RunID`:
 mizan results list --metric <namespace>/<slug> --limit 1 -o json   # newest first; RunID is .[0].RunID
 mizan results show <run-id> -o json                                # full provenance for that run
 ```
+
+This two-step re-query is only needed on the CLI path: the MCP `mizan_eval_run` /
+`mizan_eval_pairwise` tools already return the `runId` inline in the tool result,
+so no `results list` / `results show` re-query is needed when running via MCP.
 
 ## Reporting back to the user
 
