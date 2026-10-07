@@ -201,7 +201,16 @@ ADC check result (present / missing, with the exact `gcloud` command to fix it).
 Note that live evals still require the user's own ADC and that no credential was
 taken or stored. Surface any CLI stderr verbatim with the concrete fix.
 
+## MCP server
+
+Mizan now also ships an MCP server via the `mizan mcp` subcommand, with two
+transports — `mizan mcp stdio` and `mizan mcp http` — exposing four tools:
+mizan_list_metrics, mizan_get_metric, mizan_eval_run, and mizan_eval_pairwise.
+The configuration this skill manages — project, location, default model, results
+store, and the GCS staging bucket via MIZAN_STAGING_BUCKET / GENMEDIA_BUCKET — is
+the same configuration the MCP server reads at startup, so configuring mizan with
+this skill also configures the MCP server.
+
 ## Out of scope / deferred (do not use as if shipping)
 
-- No `mizan mcp` server exists; this is CLI configuration only.
 - `config set` writes **only non-secret** settings; it is not a credential store.

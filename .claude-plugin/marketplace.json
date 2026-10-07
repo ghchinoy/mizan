@@ -6,7 +6,7 @@
   },
   "metadata": {
     "pluginRoot": "./plugins",
-    "description": "Mizan agent skills — package Mizan's evaluation, authoring, and results workflows as model-invoked skills that drive the mizan CLI over -o json."
+    "description": "Mizan agent skills — package Mizan's evaluation, authoring, and results workflows as model-invoked skills that drive the mizan CLI over -o json, with mizan now also reachable over MCP via its mizan mcp server."
   },
   "plugins": [
     {
