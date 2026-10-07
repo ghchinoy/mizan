@@ -7,6 +7,7 @@ toolchain go1.26.6
 require (
 	cloud.google.com/go/aiplatform v1.126.0
 	cloud.google.com/go/storage v1.64.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/googleapis/gax-go/v2 v2.23.0
 	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.7.0
