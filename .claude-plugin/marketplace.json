@@ -44,6 +44,14 @@
         "./skills/rubric-generate-from-brand-book",
         "./skills/discover-and-import-templates"
       ]
+    },
+    {
+      "name": "mizan-mcp",
+      "source": "./plugins/mizan-mcp",
+      "description": "Expose the Mizan eval engine to agents and MCP clients as callable tools via the `mizan mcp` server: registers a local stdio MCP server (`mizan mcp stdio`) advertising mizan_list_metrics, mizan_get_metric (read-only), mizan_eval_run, and mizan_eval_pairwise, plus an agent-in-the-loop eval skill that discovers a judge, runs it, and reads the persisted runId returned inline.",
+      "skills": [
+        "./skills/evaluate-with-mcp"
+      ]
     }
   ]
 }

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mizan-mcp",
+  "version": "0.1.0",
+  "description": "Expose the Mizan eval engine to agents and MCP clients as callable tools via the `mizan mcp` server. Registers a local stdio MCP server (`mizan mcp stdio`) advertising four tools — mizan_list_metrics, mizan_get_metric (read-only), mizan_eval_run, and mizan_eval_pairwise — plus an agent-in-the-loop eval skill. Use when an agent should discover a judge and run an evaluation over MCP rather than shelling out to the CLI.",
+  "author": {
+    "name": "ghchinoy",
+    "url": "https://github.com/ghchinoy"
+  },
+  "homepage": "https://github.com/ghchinoy/mizan/tree/main/plugins/mizan-mcp",
+  "repository": "https://github.com/ghchinoy/mizan",
+  "license": "Apache-2.0",
+  "keywords": [
+    "mizan",
+    "mcp",
+    "model-context-protocol",
+    "evaluation",
+    "llm-as-judge",
+    "pairwise",
+    "agent-in-the-loop",
+    "vertex-ai",
+    "stdio"
+  ]
+}

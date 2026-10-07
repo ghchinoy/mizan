@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "mizan": {
+      "type": "stdio",
+      "command": "mizan",
+      "args": ["mcp", "stdio"]
+    }
+  }
+}
