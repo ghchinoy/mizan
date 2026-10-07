@@ -39,9 +39,19 @@ import (
 // dependency direction (depends only on the service façades + config).
 type Deps struct {
 	Registry *registry.Service
-	Engine   *eval.Engine
-	Results  *results.Service
-	Config   *config.Config
+	// Engine is the DEFAULT engine (built for the server's project/location). It
+	// backs every call that supplies no per-call project/location override.
+	Engine  *eval.Engine
+	Results *results.Service
+	Config  *config.Config
+	// EngineFor builds a REQUEST-SCOPED engine for a per-call project/location
+	// override (design §8 Q5: project/location ARE overridable per call; the bucket
+	// stays fixed at server start). The cmd layer (Phase B) supplies a closure that
+	// copies the config, applies the override via the CLI's applyProjectOverride
+	// pattern, and calls wire.NewEngine. The returned close func MUST be invoked by
+	// the handler (defer) after the run. A nil EngineFor means per-call
+	// project/location overrides are rejected with a clear tool error.
+	EngineFor func(ctx context.Context, project, location string) (*eval.Engine, func() error, error)
 }
 
 // NewServer builds a single *mcp.Server with the four mizan tools registered on

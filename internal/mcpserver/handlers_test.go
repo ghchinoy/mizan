@@ -308,6 +308,61 @@ func TestEvalPairwiseMapsChoice(t *testing.T) {
 	}
 }
 
+func TestEvalRunUsesEngineForOnOverride(t *testing.T) {
+	// Default engine returns 1.0; a per-call override must route through EngineFor's
+	// engine instead, which returns a distinguishable 9.9.
+	defFake := (&evaltest.FakeEvaluationClient{}).PushResponse(
+		evaltest.NewPointwiseResponse(1.0, "default"))
+	hz := newHarness(t, defFake)
+
+	factoryFake := (&evaltest.FakeEvaluationClient{}).PushResponse(
+		evaltest.NewPointwiseResponse(9.9, "override"))
+	var gotProject, gotLocation string
+	var closed bool
+	hz.h.deps.EngineFor = func(_ context.Context, project, location string) (*eval.Engine, func() error, error) {
+		gotProject, gotLocation = project, location
+		return eval.NewEngine(factoryFake, "proj2", "us-east1"), func() error { closed = true; return nil }, nil
+	}
+
+	out, err := hz.h.run(context.Background(), EvalRunIn{
+		Metric:   pointwiseID,
+		Fields:   map[string]FieldValue{"response": {Text: "x"}},
+		Project:  "proj2",
+		Location: "us-east1",
+		Store:    boolPtr(false),
+	})
+	if err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if out.Score == nil || *out.Score != 9.9 {
+		t.Errorf("score = %v, want 9.9 (factory-built engine)", out.Score)
+	}
+	if gotProject != "proj2" || gotLocation != "us-east1" {
+		t.Errorf("factory got project=%q location=%q, want proj2/us-east1", gotProject, gotLocation)
+	}
+	if !closed {
+		t.Error("closeFn was not invoked")
+	}
+	if defFake.Calls() != 0 {
+		t.Errorf("default engine received %d calls; want the factory engine to be used", defFake.Calls())
+	}
+	if factoryFake.Calls() != 1 {
+		t.Errorf("factory engine received %d calls, want 1", factoryFake.Calls())
+	}
+}
+
+func TestEvalRunOverrideWithoutFactoryIsToolError(t *testing.T) {
+	hz := newHarness(t, &evaltest.FakeEvaluationClient{})
+	hz.h.deps.EngineFor = nil // explicit: no per-call engine factory configured
+	if _, err := hz.h.run(context.Background(), EvalRunIn{
+		Metric:  pointwiseID,
+		Fields:  map[string]FieldValue{"response": {Text: "x"}},
+		Project: "other-proj",
+	}); err == nil {
+		t.Fatal("expected a tool error when an override is requested but EngineFor is nil")
+	}
+}
+
 func TestEvalPairwiseNonPairwiseMetricIsToolError(t *testing.T) {
 	fake := (&evaltest.FakeEvaluationClient{}).PushResponse(
 		evaltest.NewPointwiseResponse(1.0, "x"))

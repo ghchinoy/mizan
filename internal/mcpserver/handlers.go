@@ -69,19 +69,25 @@ func (h *handlers) get(ctx context.Context, in GetMetricIn) (GetMetricOut, error
 	return metricDetail(*t), nil
 }
 
+// engineForCall selects the engine for a run. With no per-call project/location
+// override it returns the default injected engine (and a nil close func). With an
+// override it delegates to Deps.EngineFor to build a request-scoped engine (whose
+// returned close func the caller MUST defer). When an override is requested but no
+// factory is configured it returns a tool error (design §8 Q5).
+func (h *handlers) engineForCall(ctx context.Context, project, location string) (*eval.Engine, func() error, error) {
+	if project == "" && location == "" {
+		return h.deps.Engine, nil, nil
+	}
+	if h.deps.EngineFor == nil {
+		return nil, nil, fmt.Errorf("per-call project/location override is not supported by this server configuration")
+	}
+	return h.deps.EngineFor(ctx, project, location)
+}
+
 // run backs mizan_eval_run: fetch the template, assemble the instance from
-// fields, run the engine, and (by default) persist the run and return its runId.
-//
-// PROJECT/LOCATION OVERRIDE (design §5, brief §"Field assembly & project/location
-// override"): in.Project / in.Location are accepted in the schema but CANNOT be
-// applied here in Phase A. The engine is injected already-constructed (its
-// projectID/location are fixed at NewEngine time), and the CLI applies an
-// override via applyProjectOverride on *config.Config BEFORE wire.NewEngine
-// builds the engine. Phase B (the cmd transport layer) must intercept these
-// params and build/select a per-call engine (applyProjectOverride + wire.NewEngine)
-// so the override takes effect. They are NOT silently dropped: this is documented
-// here and in the phase-A project-log for Phase B to wire. Only the model
-// override is applicable at this layer (eval.WithModel).
+// fields, select the engine (default, or a request-scoped one for a per-call
+// project/location override), run it, and (by default) persist the run and return
+// its runId. The model override is applied via eval.WithModel.
 func (h *handlers) run(ctx context.Context, in EvalRunIn) (EvalRunOut, error) {
 	tmpl, err := h.deps.Registry.Get(ctx, in.Metric)
 	if err != nil {
@@ -91,7 +97,14 @@ func (h *handlers) run(ctx context.Context, in EvalRunIn) (EvalRunOut, error) {
 	if err != nil {
 		return EvalRunOut{}, err
 	}
-	res, err := h.deps.Engine.Run(ctx, *tmpl, inst, eval.WithModel(in.Model))
+	eng, closeFn, err := h.engineForCall(ctx, in.Project, in.Location)
+	if err != nil {
+		return EvalRunOut{}, err
+	}
+	if closeFn != nil {
+		defer func() { _ = closeFn() }()
+	}
+	res, err := eng.Run(ctx, *tmpl, inst, eval.WithModel(in.Model))
 	if err != nil {
 		return EvalRunOut{}, err
 	}
@@ -107,8 +120,8 @@ func (h *handlers) run(ctx context.Context, in EvalRunIn) (EvalRunOut, error) {
 }
 
 // pairwise backs mizan_eval_pairwise: fold baseline/candidate into the instance
-// under the template's Baseline/CandidateFieldName, validate, run, and (by
-// default) persist. The same project/location deferral as run applies.
+// under the template's Baseline/CandidateFieldName, validate, select the engine
+// (default or request-scoped per-call override), run, and (by default) persist.
 func (h *handlers) pairwise(ctx context.Context, in EvalPairwiseIn) (EvalPairwiseOut, error) {
 	tmpl, err := h.deps.Registry.Get(ctx, in.Metric)
 	if err != nil {
@@ -135,7 +148,14 @@ func (h *handlers) pairwise(ctx context.Context, in EvalPairwiseIn) (EvalPairwis
 	if err := requirePairwiseFields(*tmpl, inst); err != nil {
 		return EvalPairwiseOut{}, err
 	}
-	res, err := h.deps.Engine.Run(ctx, *tmpl, inst, eval.WithModel(in.Model))
+	eng, closeFn, err := h.engineForCall(ctx, in.Project, in.Location)
+	if err != nil {
+		return EvalPairwiseOut{}, err
+	}
+	if closeFn != nil {
+		defer func() { _ = closeFn() }()
+	}
+	res, err := eng.Run(ctx, *tmpl, inst, eval.WithModel(in.Model))
 	if err != nil {
 		return EvalPairwiseOut{}, err
 	}
