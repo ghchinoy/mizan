@@ -1,0 +1,14 @@
+apiVersion: mizan.dev/v1alpha1
+kind: Pack
+metadata:
+  name: multimodal-judge
+  version: 0.1.0
+  description: >
+    Multimodal evaluation templates and core suite for fine-print verification,
+    Set-of-Mark UI grounding, visual pairwise preference, and untrusted OCR
+    prompt-injection quarantine.
+  maintainers:
+    - mizan-community
+  license: Apache-2.0
+spec:
+  requiresApiVersion: mizan.dev/v1alpha1

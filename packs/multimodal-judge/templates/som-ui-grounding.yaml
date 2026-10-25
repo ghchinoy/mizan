@@ -1,0 +1,60 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+
+metadata:
+  id: multimodal-judge/som-ui-grounding
+  name: Set-of-Mark UI Element Grounding
+  description: >
+    Classifies whether an agent's selected Set-of-Mark (SoM) bounding-box ID
+    and action target match the intended interactive UI element on an annotated
+    screenshot.
+  version: 0.1.0
+  authors:
+    - name: Mizan Contributors
+      email: opensource@example.com
+  maintainers:
+    - mizan-community
+  license: Apache-2.0
+  tags: [multimodal, ui-grounding, set-of-mark, agent-eval, choice]
+
+spec:
+  kind: choice
+  modalities: [image, text]
+
+  inputs:
+    - name: annotated_screenshot
+      modality: image
+      required: true
+    - name: instruction
+      modality: text
+      required: true
+    - name: response
+      modality: text
+      required: true
+
+  choices: [EXACT_MATCH, ADJACENT_ELEMENT, WRONG_REGION, UNGROUNDED_ID]
+
+  metricPromptTemplate: |
+    You are evaluating Set-of-Mark (SoM) visual grounding on an annotated UI screenshot.
+
+    Annotated UI screenshot with numbered Set-of-Mark tags:
+    {{annotated_screenshot}}
+
+    User task instruction:
+    {{instruction}}
+
+    Agent response (selected mark ID and target action):
+    {{response}}
+
+    Classify the grounding quality into one choice:
+    - EXACT_MATCH: The cited mark ID points directly to the interactive control required by the instruction.
+    - ADJACENT_ELEMENT: The cited mark ID points to a non-interactive label or container immediately adjacent to the target control.
+    - WRONG_REGION: The cited mark ID exists in the screenshot but refers to an unrelated UI control.
+    - UNGROUNDED_ID: The response cites a mark ID not visible in the screenshot or omits a mark ID altogether.
+
+  systemInstruction: |
+    Verify the numeric tag inside the screenshot before reading the agent's text explanation.
+
+  autorater:
+    model: gemini-2.5-flash
+    samplingCount: 1

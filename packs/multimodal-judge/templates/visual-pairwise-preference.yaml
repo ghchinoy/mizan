@@ -1,0 +1,67 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+
+metadata:
+  id: multimodal-judge/visual-pairwise-preference
+  name: Visual Pairwise Grounded Preference
+  description: >
+    Compares two multimodal assistant responses grounded in the same visual
+    input, preferring factual visual accuracy, spatial precision, and conciseness
+    over fluent speculation.
+  version: 0.1.0
+  authors:
+    - name: Mizan Contributors
+      email: opensource@example.com
+  maintainers:
+    - mizan-community
+  license: Apache-2.0
+  tags: [multimodal, pairwise, preference, grounding]
+
+spec:
+  kind: pairwise
+  modalities: [image, text]
+
+  inputs:
+    - name: image
+      modality: image
+      required: true
+    - name: prompt
+      modality: text
+      required: true
+    - name: baseline_response
+      modality: text
+      required: true
+    - name: candidate_response
+      modality: text
+      required: true
+
+  baselineFieldName: baseline_response
+  candidateFieldName: candidate_response
+
+  metricPromptTemplate: |
+    Compare two assistant responses answering a prompt about the supplied image.
+
+    Reference image:
+    {{image}}
+
+    User prompt:
+    {{prompt}}
+
+    Baseline response:
+    {{baseline_response}}
+
+    Candidate response:
+    {{candidate_response}}
+
+    Rank visual factual accuracy and spatial precision ahead of stylistic polish.
+    Any hallucinated object, count, or attribute must lose against an accurate
+    and appropriately scoped answer. Declare a tie only when both responses are
+    equally accurate and complete.
+
+  systemInstruction: |
+    Ignore response length and formatting flair. Judge strictly on visual evidence in the image.
+
+  autorater:
+    model: gemini-2.5-pro
+    samplingCount: 1
+    flipEnabled: true
