@@ -17,6 +17,7 @@ package main
 import (
 	"encoding/json"
 	"math"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -160,5 +161,67 @@ func TestFromReportJudgeEvalLikertTieResolution(t *testing.T) {
 	}
 	if repNone.EngineB.ScoreMetrics != nil && repNone.EngineB.ScoreMetrics.UniquePredictions != 0 {
 		t.Errorf("default UniquePredictions = %d, want 0 (omitted)", repNone.EngineB.ScoreMetrics.UniquePredictions)
+	}
+}
+
+func TestFromReportDominantNonNumericFallbackPreservesDiscreteScore(t *testing.T) {
+	dir := t.TempDir()
+	reportPath := filepath.Join(dir, "dominant_non_numeric.json")
+	payload := `{
+  "total_cases": 2,
+  "cases": [
+    {
+      "id": "c-tail-5",
+      "tier": "core",
+      "category": "q",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "m/r",
+        "kind": "rubric",
+        "agreement": true,
+        "engine_a": {"engine": "vertex", "score": 1.0},
+        "engine_b": {"engine": "diffusion", "score": 1.0, "custom_output": {"probabilities": {"It": 0.999, "5": 0.001}}}
+      }
+    },
+    {
+      "id": "c-tail-1",
+      "tier": "core",
+      "category": "q",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "m/r",
+        "kind": "rubric",
+        "agreement": true,
+        "engine_a": {"engine": "vertex", "score": 5.0},
+        "engine_b": {"engine": "diffusion", "score": 5.0, "custom_output": {"probabilities": {"It": 0.999, "1": 0.001}}}
+      }
+    }
+  ]
+}`
+	if err := os.WriteFile(reportPath, []byte(payload), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	out, err := executeRoot(t, "--output", "json", "eval", "compare-engines",
+		"--from-report", reportPath,
+		"--tie-break", "expected-grade",
+		"--bootstrap", "0")
+	if err != nil {
+		t.Fatalf("compare-engines: %v\nout:\n%s", err, out)
+	}
+	var rep CompareBatchReport
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatalf("unmarshal report: %v", err)
+	}
+	if len(rep.Cases) != 2 {
+		t.Fatalf("len(Cases) = %d, want 2", len(rep.Cases))
+	}
+	for _, c := range rep.Cases {
+		eb := c.Comparison.EngineB
+		if eb.Correct == nil || !*eb.Correct {
+			t.Errorf("case %s: engine_b.correct = %v, want true (prediction=%q)", c.ID, eb.Correct, eb.Prediction)
+		}
+		if _, has := eb.Custom["tie_break_score"]; has {
+			t.Errorf("case %s: unexpected tie_break_score %v on dominant non-numeric token map", c.ID, eb.Custom["tie_break_score"])
+		}
 	}
 }

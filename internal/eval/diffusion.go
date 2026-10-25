@@ -374,9 +374,13 @@ func (e *Engine) runDiffusion(ctx context.Context, tmpl registry.MetricTemplate,
 			expectedGrade = eg
 		}
 		res.CustomOutput["expected_grade"] = expectedGrade
-		maxScale := minScale + len(levels) - 1
-		if maxScale > minScale {
-			res.CustomOutput["expected_grade_normalized"] = (expectedGrade - float64(minScale)) / float64(maxScale-minScale)
+		normMin := float64(minScale)
+		normMax := float64(minScale + len(levels) - 1)
+		if pMin, pMax, pOK := inferProbabilityGradeScale(ans.Probabilities); pOK && (tmpl.RubricDetail == nil || tmpl.RubricDetail.Scale == nil) {
+			normMin, normMax = pMin, pMax
+		}
+		if normMax > normMin {
+			res.CustomOutput["expected_grade_normalized"] = (expectedGrade - normMin) / (normMax - normMin)
 		}
 	case registry.KindRubric:
 		e.fillRubricResult(&res, tmpl, resp, rc)
