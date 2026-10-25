@@ -145,6 +145,15 @@ schema, inputs, etc.) is the authoring surface documented under
 `author-and-validate-a-template-pack`; discovery only needs the identity fields
 above.
 
+**MCP-aware note (browse step only).** When an MCP client is connected to the
+mizan MCP server, this "see what landed" browse step can use the read-only
+structured tools `mizan_list_metrics` and `mizan_get_metric` instead of shelling
+out to `registry list`/`get -o json` and parsing the CLI's JSON — they expose the
+same read-only discovery surface (the identity fields above) as typed results.
+This applies to discovery only: the import and reconciliation steps
+(`registry import` with `--dry-run`/`--strategy`) and the git-URL pack source
+stay on the CLI — the MCP server exposes no import tool.
+
 ## Discovery without a tag filter (explicit deferred-surface disclaimer)
 
 **This skill does NOT use `registry list --tag`.** A `--tag` flag exists on
