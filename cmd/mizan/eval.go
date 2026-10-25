@@ -58,6 +58,7 @@ func newEvalCmd() *cobra.Command {
 	cmd.AddCommand(newEvalPairwiseCmd())
 	cmd.AddCommand(newEvalAdaptiveCmd())
 	cmd.AddCommand(newEvalCompareEnginesCmd())
+	cmd.AddCommand(newEvalCalibrateGateCmd())
 	// eval batch (P3) is intentionally not wired in this slice.
 	return cmd
 }
