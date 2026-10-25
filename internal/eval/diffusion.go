@@ -357,10 +357,10 @@ func (e *Engine) runDiffusion(ctx context.Context, tmpl registry.MetricTemplate,
 		if !ok {
 			return Result{}, fmt.Errorf("eval: diffusion response has no %q answer", "score")
 		}
-		min, _ := e.diffusionScoreLevels(tmpl, rc)
+		minScale, levels := e.diffusionScoreLevels(tmpl, rc)
 		// The server's score is the expected 1-based level index; shift it onto
 		// the declared scale.
-		expected := float64(min-1) + ans.Score
+		expected := float64(minScale-1) + ans.Score
 		s32 := float32(expected)
 		res.Score = &s32
 		c32 := float32(ans.Confidence)
@@ -369,6 +369,15 @@ func (e *Engine) runDiffusion(ctx context.Context, tmpl registry.MetricTemplate,
 		res.CustomOutput["score"] = expected
 		res.CustomOutput["argmax_level"] = ans.Level
 		recordAnswer(res.CustomOutput, ans)
+		expectedGrade := expected
+		if eg, ok := ExpectedGradeFromProbabilities(ans.Probabilities); ok {
+			expectedGrade = eg
+		}
+		res.CustomOutput["expected_grade"] = expectedGrade
+		maxScale := minScale + len(levels) - 1
+		if maxScale > minScale {
+			res.CustomOutput["expected_grade_normalized"] = (expectedGrade - float64(minScale)) / float64(maxScale-minScale)
+		}
 	case registry.KindRubric:
 		e.fillRubricResult(&res, tmpl, resp, rc)
 	case registry.KindPairwise:
@@ -432,10 +441,14 @@ func (e *Engine) fillRubricResult(res *Result, tmpl registry.MetricTemplate, res
 		// fraction (mean P(yes)) is kept alongside for calibration analysis.
 		frac := float64(passedCount) / float64(total)
 		overall := float32(float64(min) + frac*float64(max-min))
+		expectedFrac := sumPYes / float64(total)
 		res.Score = &overall
 		res.CustomOutput["overall_score"] = overall
 		res.CustomOutput["pass_fraction"] = frac
-		res.CustomOutput["expected_pass_fraction"] = sumPYes / float64(total)
+		res.CustomOutput["expected_pass_fraction"] = expectedFrac
+		res.CustomOutput["expected_grade"] = float64(min) + expectedFrac*float64(max-min)
+		res.CustomOutput["scale_min"] = min
+		res.CustomOutput["scale_max"] = max
 		res.Explanation = fmt.Sprintf("DiffusionGemma: %d/%d rubric criteria passed (score %.2f on %d-%d)", passedCount, total, overall, min, max)
 	}
 }
@@ -851,6 +864,15 @@ func fillPrebuiltDiffusionResult(res *Result, tmpl registry.MetricTemplate, resp
 		res.CustomOutput["score"] = expected
 		res.CustomOutput["argmax_level"] = ans.Level
 		recordAnswer(res.CustomOutput, ans)
+		expectedGrade := expected
+		if eg, ok := ExpectedGradeFromProbabilities(ans.Probabilities); ok {
+			expectedGrade = eg
+		}
+		res.CustomOutput["expected_grade"] = expectedGrade
+		maxVal := def.levels[len(def.levels)-1].value
+		if maxVal > min {
+			res.CustomOutput["expected_grade_normalized"] = (expectedGrade - float64(min)) / float64(maxVal-min)
+		}
 	default:
 		return fmt.Errorf("eval: prebuilt metric %q is not pointwise", metric)
 	}
