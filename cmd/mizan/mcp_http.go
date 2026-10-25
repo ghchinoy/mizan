@@ -110,7 +110,7 @@ func newMcpHTTPCmd() *cobra.Command {
 
 			// Origin verification is OFF by default in go-sdk v1.7.0; wrap the handler
 			// with cross-origin protection (defense-in-depth against DNS-rebinding).
-			var mcpHandler http.Handler = http.NewCrossOriginProtection().Handler(streamable)
+			mcpHandler := http.NewCrossOriginProtection().Handler(streamable)
 			if auth != nil {
 				mcpHandler = auth.requireBearer(mcpHandler)
 			}
