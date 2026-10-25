@@ -106,6 +106,126 @@ func TestExpectedGradeFromProbabilities(t *testing.T) {
 			t.Error("non-numeric map: want ok=false")
 		}
 	})
+
+	t.Run("numeric_mass_ratio_and_fractional_cases", func(t *testing.T) {
+		cases := []struct {
+			name   string
+			probs  map[string]float64
+			wantOK bool
+			want   float64
+		}{
+			{
+				name:   "dominant_non_numeric_with_tail_1",
+				probs:  map[string]float64{"It": 0.999, "1": 0.001},
+				wantOK: false,
+			},
+			{
+				name:   "dominant_non_numeric_with_tail_5",
+				probs:  map[string]float64{"It": 0.999, "5": 0.001},
+				wantOK: false,
+			},
+			{
+				name:   "truncated_subthreshold_numeric_tail",
+				probs:  map[string]float64{"5": 0.001},
+				wantOK: false,
+			},
+			{
+				name:   "unnormalized_low_numeric_share",
+				probs:  map[string]float64{"It": 1.5, "5": 0.6},
+				wantOK: false,
+			},
+			{
+				name:   "dominant_numeric_with_minor_chat_token",
+				probs:  map[string]float64{"5": 0.60, "4": 0.35, "It": 0.05},
+				wantOK: true,
+				want:   (5.0*0.60 + 4.0*0.35) / 0.95,
+			},
+			{
+				name:   "fractional_unit_interval_grades",
+				probs:  map[string]float64{"0.2": 0.4, "0.8": 0.6},
+				wantOK: true,
+				want:   0.56,
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				got, ok := ExpectedGradeFromProbabilities(tc.probs)
+				if ok != tc.wantOK {
+					t.Fatalf("ExpectedGradeFromProbabilities(%v) ok = %v, want %v (got=%.6f)", tc.probs, ok, tc.wantOK, got)
+				}
+				if tc.wantOK && math.Abs(got-tc.want) > 1e-9 {
+					t.Errorf("ExpectedGradeFromProbabilities(%v) = %.10f, want %.10f", tc.probs, got, tc.want)
+				}
+			})
+		}
+
+		// Verify ResolveExpectedGrade falls back cleanly to discrete Score when numeric mass is insufficient.
+		score1 := float32(1.0)
+		eg, fromProb := ResolveExpectedGrade(&score1, map[string]any{
+			"probabilities": map[string]float64{"It": 0.999, "1": 0.001},
+		})
+		if fromProb || math.Abs(eg-1.0) > 1e-9 {
+			t.Errorf("ResolveExpectedGrade dominant non-numeric = (%.6f, %v), want (1.0, false)", eg, fromProb)
+		}
+	})
+}
+
+func TestInferRubricScaleAndNormalizedExpectedGrade(t *testing.T) {
+	// Fractional unit-interval probability keys {"0.2": 0.4, "0.8": 0.6} have maxVal=0.8 < 1.0
+	// and must still infer the [0.0, 1.0] scale, yielding normalized expected grade 0.56.
+	fracCustom := map[string]any{
+		"probabilities": map[string]float64{"0.2": 0.4, "0.8": 0.6},
+	}
+	minS, maxS, ok := inferRubricScale(nil, fracCustom)
+	if !ok || minS != 0.0 || maxS != 1.0 {
+		t.Fatalf("inferRubricScale(fractional [0.2, 0.8]) = (%.2f, %.2f, %v), want (0.0, 1.0, true)", minS, maxS, ok)
+	}
+	norm, ok := NormalizedExpectedGrade(nil, fracCustom)
+	if !ok || math.Abs(norm-0.56) > 1e-9 {
+		t.Fatalf("NormalizedExpectedGrade(fractional [0.2, 0.8]) = (%.6f, %v), want (0.56, true)", norm, ok)
+	}
+
+	// Verify runDiffusion score path also normalizes [0.0, 1.0] fractional grades to 0.56.
+	fd := &fakeDiffusionClient{
+		resp: &diffusion.StructuredDecisionResponse{
+			Answers: map[string]diffusion.QuestionAnswer{
+				"score": {
+					Type:          "score",
+					Level:         "0.8",
+					Score:         0.56,
+					Confidence:    0.60,
+					Probabilities: map[string]float64{"0.2": 0.4, "0.8": 0.6},
+				},
+			},
+		},
+	}
+	eng := NewEngine(&evaltest.FakeEvaluationClient{}, "proj-123", "us-central1", WithDiffusionClient(fd))
+	res, err := eng.Run(context.Background(), registry.MetricTemplate{
+		ID:                   "quality/prob",
+		Kind:                 registry.KindScore,
+		MetricPromptTemplate: "Probability score: {{response}}",
+	}, Instance{
+		Fields: map[string]AssetRef{"response": {Modality: registry.ModalityText, Text: "Test."}},
+	}, WithEngine("diffusion"))
+	if err != nil {
+		t.Fatalf("Run fractional score: %v", err)
+	}
+	if gotNorm, ok := res.CustomOutput["expected_grade_normalized"].(float64); !ok || math.Abs(gotNorm-0.56) > 1e-9 {
+		t.Errorf("expected_grade_normalized = %v, want 0.56", res.CustomOutput["expected_grade_normalized"])
+	}
+
+	// Verify 0..1 vs 1..5 rubric scale inference from discrete score and expected_pass_fraction.
+	s04 := float32(0.4)
+	if eg, ok := ResolveExpectedGrade(&s04, map[string]any{"expected_pass_fraction": 0.42}); !ok || math.Abs(eg-0.42) > 1e-6 {
+		t.Errorf("score=0.4 epf=0.42 -> (%.6f, %v), want (0.42, true)", eg, ok)
+	}
+	s10 := float32(1.0)
+	if eg, ok := ResolveExpectedGrade(&s10, map[string]any{"expected_pass_fraction": 0.92}); !ok || math.Abs(eg-0.92) > 1e-6 {
+		t.Errorf("score=1.0 epf=0.92 -> (%.6f, %v), want (0.92, true)", eg, ok)
+	}
+	if eg, ok := ResolveExpectedGrade(&s10, map[string]any{"expected_pass_fraction": 0.12}); !ok || math.Abs(eg-1.48) > 1e-6 {
+		t.Errorf("score=1.0 epf=0.12 -> (%.6f, %v), want (1.48, true)", eg, ok)
+	}
 }
 
 func TestCompareScoresTieBreakRubric3Of4Tie(t *testing.T) {
