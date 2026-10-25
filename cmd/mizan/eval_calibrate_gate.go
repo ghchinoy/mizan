@@ -24,6 +24,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -41,21 +42,23 @@ const (
 
 // CalibrateGateReport is the machine-readable output of `mizan eval calibrate-gate`.
 type CalibrateGateReport struct {
-	SchemaVersion      int                     `json:"schema_version"`
-	Inputs             []string                `json:"inputs"`
-	Suite              string                  `json:"suite,omitempty"`
-	Method             string                  `json:"method"`
-	Folds              int                     `json:"folds"`
-	CrossValidated     bool                    `json:"cross_validated"`
-	Seed               int64                   `json:"seed"`
-	TargetRisk         float64                 `json:"target_risk"`
-	McNemarAlpha       float64                 `json:"mcnemar_alpha"`
-	TotalItems         int                     `json:"total_items"`
-	PairedScoredItems  int                     `json:"paired_scored_items"`
-	Baseline           GateBaselineSummary     `json:"baseline"`
-	Recommended        GateCalibrationResult   `json:"recommended"`
-	Alternatives       []GateCalibrationResult `json:"alternatives,omitempty"`
-	RecommendedCLIFlag string                  `json:"recommended_cli_flag"`
+	SchemaVersion              int                     `json:"schema_version"`
+	Inputs                     []string                `json:"inputs"`
+	Suite                      string                  `json:"suite,omitempty"`
+	Method                     string                  `json:"method"`
+	Folds                      int                     `json:"folds"`
+	CrossValidated             bool                    `json:"cross_validated"`
+	Seed                       int64                   `json:"seed"`
+	TargetRisk                 float64                 `json:"target_risk"`
+	McNemarAlpha               float64                 `json:"mcnemar_alpha"`
+	TotalItems                 int                     `json:"total_items"`
+	PairedScoredItems          int                     `json:"paired_scored_items"`
+	Baseline                   GateBaselineSummary     `json:"baseline"`
+	Recommended                GateCalibrationResult   `json:"recommended"`
+	Alternatives               []GateCalibrationResult `json:"alternatives,omitempty"`
+	CascadeHesitationThreshold float64                 `json:"cascade_hesitation_threshold"`
+	RecommendedCLIFlagMethod   string                  `json:"recommended_cli_flag_method,omitempty"`
+	RecommendedCLIFlag         string                  `json:"recommended_cli_flag"`
 }
 
 // GateBaselineSummary reports uncalibrated accuracy and Paired McNemar parity
@@ -97,15 +100,17 @@ type GateOperatingPoint struct {
 // GateCalibrationResult holds full-sample, out-of-fold CV, and Pareto curve
 // metrics for one uncertainty scoring method.
 type GateCalibrationResult struct {
-	Method            string               `json:"method"`
-	ConformalQuantile *float64             `json:"conformal_quantile,omitempty"`
-	FullSample        GateOperatingPoint   `json:"full_sample"`
-	OutOfFold         GateOperatingPoint   `json:"out_of_fold"`
-	FoldThresholds    []float64            `json:"fold_thresholds,omitempty"`
-	MeanFoldThreshold *float64             `json:"mean_fold_threshold,omitempty"`
-	MinFoldThreshold  *float64             `json:"min_fold_threshold,omitempty"`
-	MaxFoldThreshold  *float64             `json:"max_fold_threshold,omitempty"`
-	Sweep             []GateOperatingPoint `json:"sweep"`
+	Method              string               `json:"method"`
+	ConformalQuantile   *float64             `json:"conformal_quantile,omitempty"`
+	FullSample          GateOperatingPoint   `json:"full_sample"`
+	OutOfFold           GateOperatingPoint   `json:"out_of_fold"`
+	FoldThresholds      []float64            `json:"fold_thresholds,omitempty"`
+	MeanFoldThreshold   *float64             `json:"mean_fold_threshold,omitempty"`
+	MinFoldThreshold    *float64             `json:"min_fold_threshold,omitempty"`
+	MaxFoldThreshold    *float64             `json:"max_fold_threshold,omitempty"`
+	InfeasibleFolds     int                  `json:"infeasible_folds"`
+	ZeroEscalationFolds int                  `json:"zero_escalation_folds,omitempty"`
+	Sweep               []GateOperatingPoint `json:"sweep"`
 }
 
 type calibrateGateOptions struct {
@@ -289,22 +294,29 @@ func runCalibrateGate(o calibrateGateOptions) (CalibrateGateReport, error) {
 
 	baseline := summarizeGateBaseline(paired, engineA, engineB, o.mcnemarAlpha, o.bootstrapIters, o.seed)
 
+	hesScores := make([]float64, len(paired))
+	for i, it := range paired {
+		hesScores[i] = it.hesitation
+	}
+
 	var (
 		rec          GateCalibrationResult
+		hesRes       GateCalibrationResult
 		alternatives []GateCalibrationResult
 		crossVal     bool
 	)
 	switch o.method {
 	case gateMethodHesitation:
-		var cv bool
-		rec, cv = calibrateSingleMethod(paired, gateMethodHesitation, o)
-		crossVal = cv
+		hesRes, crossVal = calibrateSingleMethod(paired, gateMethodHesitation, o)
+		rec = hesRes
 	case gateMethodConformal:
-		var cv bool
-		rec, cv = calibrateSingleMethod(paired, gateMethodConformal, o)
-		crossVal = cv
+		rec, crossVal = calibrateSingleMethod(paired, gateMethodConformal, o)
+		// compare-engines --engine-b cascade gates on Shannon hesitation; calibrate
+		// hesitation alongside conformal so RecommendedCLIFlag stays on the entropy scale.
+		hesRes, _ = calibrateSingleMethod(paired, gateMethodHesitation, o)
 	case gateMethodBoth:
-		hesRes, cvH := calibrateSingleMethod(paired, gateMethodHesitation, o)
+		var cvH, cvC bool
+		hesRes, cvH = calibrateSingleMethod(paired, gateMethodHesitation, o)
 		confRes, cvC := calibrateSingleMethod(paired, gateMethodConformal, o)
 		crossVal = cvH || cvC
 		if prefersConformalOverHesitation(confRes, hesRes) {
@@ -316,22 +328,26 @@ func runCalibrateGate(o calibrateGateOptions) (CalibrateGateReport, error) {
 		}
 	}
 
+	cliTauStr := formatThresholdForCLI(hesRes.FullSample.Threshold, hesScores)
+
 	return CalibrateGateReport{
-		SchemaVersion:      calibrateGateSchemaVersion,
-		Inputs:             o.inputs,
-		Suite:              o.suitePath,
-		Method:             o.method,
-		Folds:              o.folds,
-		CrossValidated:     crossVal,
-		Seed:               o.seed,
-		TargetRisk:         o.targetRisk,
-		McNemarAlpha:       o.mcnemarAlpha,
-		TotalItems:         totalItems,
-		PairedScoredItems:  len(paired),
-		Baseline:           baseline,
-		Recommended:        rec,
-		Alternatives:       alternatives,
-		RecommendedCLIFlag: fmt.Sprintf("--cascade-threshold %.4f", rec.FullSample.Threshold),
+		SchemaVersion:              calibrateGateSchemaVersion,
+		Inputs:                     o.inputs,
+		Suite:                      o.suitePath,
+		Method:                     o.method,
+		Folds:                      o.folds,
+		CrossValidated:             crossVal,
+		Seed:                       o.seed,
+		TargetRisk:                 o.targetRisk,
+		McNemarAlpha:               o.mcnemarAlpha,
+		TotalItems:                 totalItems,
+		PairedScoredItems:          len(paired),
+		Baseline:                   baseline,
+		Recommended:                rec,
+		Alternatives:               alternatives,
+		CascadeHesitationThreshold: hesRes.FullSample.Threshold,
+		RecommendedCLIFlagMethod:   gateMethodHesitation,
+		RecommendedCLIFlag:         fmt.Sprintf("--cascade-threshold %s", cliTauStr),
 	}, nil
 }
 
@@ -550,13 +566,27 @@ func computeHesitationSignal(run EngineRun) float64 {
 			return clampUnit(rawH)
 		}
 		if probs := extractProbabilityValues(run.Custom["probabilities"]); len(probs) >= 2 {
-			var h float64
+			var sum float64
+			var posCount int
 			for _, p := range probs {
 				if p > 0 {
-					h -= p * math.Log(p)
+					sum += p
+					posCount++
 				}
 			}
-			return clampUnit(h / math.Log(float64(len(probs))))
+			if sum > 0 {
+				if posCount <= 1 {
+					return 0.0
+				}
+				var h float64
+				for _, p := range probs {
+					if p > 0 {
+						pn := p / sum
+						h -= pn * math.Log(pn)
+					}
+				}
+				return clampUnit(h / math.Log(float64(posCount)))
+			}
 		}
 		if per, ok := run.Custom["per_criterion"].([]any); ok && len(per) > 0 {
 			var sumEnt float64
@@ -703,6 +733,9 @@ func asGateFloat(v any) (float64, bool) {
 		return float64(x), true
 	case int64:
 		return float64(x), true
+	case json.Number:
+		f, err := x.Float64()
+		return f, err == nil && !math.IsNaN(f) && !math.IsInf(f, 0)
 	default:
 		return 0, false
 	}
@@ -817,33 +850,53 @@ func calibrateSingleMethod(items []calibrationItem, method string, o calibrateGa
 		}
 	}
 
-	var meanTau, minTau, maxTau float64
+	meanTau, minTau, maxTau, infeasibleFolds := summarizeFoldThresholds(foldTaus)
+
+	oofPoint := summarizeEscalationDecisions(items, oofEscalated, meanTau, o.targetRisk, o.mcnemarAlpha, o.bootstrapIters, o.seed+2)
+
+	return GateCalibrationResult{
+		Method:              method,
+		ConformalQuantile:   conformalQ,
+		FullSample:          fullPoint,
+		OutOfFold:           oofPoint,
+		FoldThresholds:      foldTaus,
+		MeanFoldThreshold:   finite(meanTau),
+		MinFoldThreshold:    finite(minTau),
+		MaxFoldThreshold:    finite(maxTau),
+		InfeasibleFolds:     infeasibleFolds,
+		ZeroEscalationFolds: infeasibleFolds,
+		Sweep:               sweep,
+	}, true
+}
+
+func summarizeFoldThresholds(foldTaus []float64) (meanTau, minTau, maxTau float64, infeasibleFolds int) {
+	if len(foldTaus) == 0 {
+		return 0, 0, 0, 0
+	}
 	minTau = foldTaus[0]
 	maxTau = foldTaus[0]
+	var activeSum float64
+	var activeCount int
 	for _, t := range foldTaus {
-		meanTau += t
 		if t < minTau {
 			minTau = t
 		}
 		if t > maxTau {
 			maxTau = t
 		}
+		if math.IsNaN(t) || math.IsInf(t, 0) || t > 1.0 || t < 0.0 {
+			infeasibleFolds++
+		} else {
+			activeSum += t
+			activeCount++
+		}
 	}
-	meanTau /= float64(effFolds)
-
-	oofPoint := summarizeEscalationDecisions(items, oofEscalated, meanTau, o.targetRisk, o.mcnemarAlpha, o.bootstrapIters, o.seed+2)
-
-	return GateCalibrationResult{
-		Method:            method,
-		ConformalQuantile: conformalQ,
-		FullSample:        fullPoint,
-		OutOfFold:         oofPoint,
-		FoldThresholds:    foldTaus,
-		MeanFoldThreshold: finite(meanTau),
-		MinFoldThreshold:  finite(minTau),
-		MaxFoldThreshold:  finite(maxTau),
-		Sweep:             sweep,
-	}, true
+	if activeCount > 0 {
+		meanTau = activeSum / float64(activeCount)
+	} else {
+		meanTau = noEscalationThreshold
+	}
+	return meanTau, minTau, maxTau, infeasibleFolds
 }
 
 func candidateThresholdGrid(scores []float64, extra *float64) []float64 {
@@ -956,7 +1009,7 @@ func buildSweepCurve(items []calibrationItem, scores []float64, optimalTau float
 	sort.Slice(chosen, func(i, j int) bool { return chosen[i] > chosen[j] })
 	var taus []float64
 	for _, v := range chosen {
-		if len(taus) == 0 || math.Abs(taus[len(taus)-1]-v) > 1e-9 {
+		if len(taus) == 0 || math.Abs(taus[len(taus)-1]-v) > 1e-12 {
 			taus = append(taus, v)
 		}
 	}
@@ -965,6 +1018,44 @@ func buildSweepCurve(items []calibrationItem, scores []float64, optimalTau float
 		out = append(out, evaluateOperatingPoint(items, scores, tau, targetRisk, mcnemarAlpha, 0, 0))
 	}
 	return out
+}
+
+func formatThreshold(v float64) string {
+	if v == 0 {
+		return "0.0000"
+	}
+	return strconv.FormatFloat(v, 'g', 6, 64)
+}
+
+func formatThresholdForCLI(tau float64, scores []float64) string {
+	if tau <= 0 {
+		return "0.0000"
+	}
+	if tau >= noEscalationThreshold {
+		return "1.01"
+	}
+	lower := 0.0
+	for _, s := range scores {
+		if s < tau && s > lower {
+			lower = s
+		}
+	}
+	for _, prec := range []int{6, 8, 10, 12} {
+		cand := strconv.FormatFloat(tau, 'g', prec, 64)
+		if parsed, err := strconv.ParseFloat(cand, 64); err == nil && parsed > lower && parsed <= tau {
+			return cand
+		}
+		exp := math.Floor(math.Log10(tau))
+		scale := math.Pow10(prec - 1 - int(exp))
+		if scale > 0 && !math.IsInf(scale, 0) {
+			floored := math.Floor(tau*scale) / scale
+			candFloor := strconv.FormatFloat(floored, 'g', prec, 64)
+			if parsed, err := strconv.ParseFloat(candFloor, 64); err == nil && parsed > lower && parsed <= tau {
+				return candFloor
+			}
+		}
+	}
+	return strconv.FormatFloat(tau, 'g', -1, 64)
 }
 
 func renderCalibrateGateTable(w io.Writer, rep CalibrateGateReport) error {
@@ -1001,9 +1092,13 @@ func renderCalibrateGateTable(w io.Writer, rep CalibrateGateReport) error {
 	rec := rep.Recommended
 	fmt.Fprintln(tw, "\nRECOMMENDED GATE")
 	fmt.Fprintf(tw, "Method:\t%s\n", rec.Method)
-	fmt.Fprintf(tw, "Full-sample threshold:\t%.4f\n", rec.FullSample.Threshold)
+	if rec.Method == gateMethodConformal {
+		fmt.Fprintf(tw, "Full-sample threshold (offline 1-max_p):\t%s\n", formatThreshold(rec.FullSample.Threshold))
+	} else {
+		fmt.Fprintf(tw, "Full-sample threshold:\t%s\n", formatThreshold(rec.FullSample.Threshold))
+	}
 	if rec.MinFoldThreshold != nil && rec.MaxFoldThreshold != nil {
-		fmt.Fprintf(tw, "CV fold thresholds:\tmin=%.4f, max=%.4f\n", *rec.MinFoldThreshold, *rec.MaxFoldThreshold)
+		fmt.Fprintf(tw, "CV fold thresholds:\tmin=%s, max=%s\n", formatThreshold(*rec.MinFoldThreshold), formatThreshold(*rec.MaxFoldThreshold))
 	}
 	fmt.Fprintf(tw, "Full-sample escalation:\t%d/%d (%.1f%%)\n",
 		rec.FullSample.EscalationCount, rep.PairedScoredItems, 100*rec.FullSample.EscalationRate)
@@ -1021,8 +1116,8 @@ func renderCalibrateGateTable(w io.Writer, rep CalibrateGateReport) error {
 	fmt.Fprintln(tw, "\nPARETO SWEEP")
 	fmt.Fprintln(tw, "THRESHOLD\tESCALATION\tSELECTIVE RISK\tHYBRID ACC\tMCNEMAR P\tFEASIBLE")
 	for _, pt := range rec.Sweep {
-		fmt.Fprintf(tw, "%.4f\t%d/%d (%.1f%%)\t%.1f%%\t%.1f%%\t%.4f\t%s\n",
-			pt.Threshold,
+		fmt.Fprintf(tw, "%s\t%d/%d (%.1f%%)\t%.1f%%\t%.1f%%\t%.4f\t%s\n",
+			formatThreshold(pt.Threshold),
 			pt.EscalationCount, rep.PairedScoredItems, 100*pt.EscalationRate,
 			100*pt.SelectiveRisk,
 			gatePct(pt.HybridAccuracy),
@@ -1030,7 +1125,11 @@ func renderCalibrateGateTable(w io.Writer, rep CalibrateGateReport) error {
 			gateYesNo(pt.Feasible),
 		)
 	}
-	fmt.Fprintf(tw, "\nRecommended CLI flag:\t%s\n", rep.RecommendedCLIFlag)
+	if rec.Method == gateMethodConformal {
+		fmt.Fprintf(tw, "\nRecommended CLI flag (hesitation gate):\t%s\n", rep.RecommendedCLIFlag)
+	} else {
+		fmt.Fprintf(tw, "\nRecommended CLI flag:\t%s\n", rep.RecommendedCLIFlag)
+	}
 	return tw.Flush()
 }
 
