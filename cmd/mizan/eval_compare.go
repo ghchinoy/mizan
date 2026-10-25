@@ -165,6 +165,7 @@ type CompareRunMeta struct {
 	ThroughputPerSec  float64   `json:"throughput_items_per_sec"`
 	Serial            bool      `json:"serial_engines"`
 	ScoreTolerance    float64   `json:"score_tolerance"`
+	TieBreak          string    `json:"tie_break,omitempty"`
 	BootstrapIters    int       `json:"bootstrap_iters"`
 	BootstrapSeed     int64     `json:"bootstrap_seed"`
 	Notes             string    `json:"notes,omitempty"`
@@ -201,10 +202,11 @@ type CalibSummary struct {
 
 // ScoreSummary reports Likert agreement with gold for score-like kinds.
 type ScoreSummary struct {
-	N        int      `json:"n"`
-	MAE      *float64 `json:"mae"`
-	Spearman *float64 `json:"spearman"`
-	Pearson  *float64 `json:"pearson"`
+	N                 int      `json:"n"`
+	MAE               *float64 `json:"mae"`
+	Spearman          *float64 `json:"spearman"`
+	Pearson           *float64 `json:"pearson"`
+	UniquePredictions int      `json:"unique_predictions,omitempty"`
 }
 
 // PairedSummary compares the two engines on cases both scored.
@@ -258,6 +260,7 @@ type compareOptions struct {
 	serial           bool
 	workers          int
 	scoreTolerance   float64
+	tieBreak         string
 	bootstrapIters   int
 	bootstrapSeed    int64
 	limit            int
@@ -277,6 +280,7 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 	var (
 		metric            string
 		datasetPath       string
+		fromReport        string
 		outputFile        string
 		diffusionEndpoint string
 		diffusionBackend  string
@@ -288,18 +292,34 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 		o                 compareOptions
 	)
 	cmd := &cobra.Command{
-		Use:   "compare-engines (--metric <id> | --dataset <path.jsonl>) [--field key=value] [--file key=/path] [--engine-a vertex] [--engine-b diffusion|local|cascade|none]",
+		Use:   "compare-engines (--metric <id> | --dataset <path.jsonl> | --from-report <report.json>) [--field key=value] [--file key=/path] [--engine-a vertex] [--engine-b diffusion|local|cascade|none]",
 		Short: "Compare evaluation engines side-by-side (e.g. Vertex AI Gemini vs DiffusionGemma)",
 		Long: "Execute an evaluation template on two engines and compare their verdicts, latency and confidence.\n\n" +
 			"With --dataset <path.jsonl>, each engine is scored against the item's \"expected\" gold label\n" +
 			"(accuracy with a bootstrap 95% CI, calibration, Likert MAE/Spearman), then the engines are\n" +
 			"compared with each other (paired McNemar test, Cohen's kappa, agreement). Inter-engine agreement\n" +
 			"is secondary: two engines that are both wrong agree.\n\n" +
+			"With --from-report <report.json>, an existing batch comparison JSON report is re-scored offline\n" +
+			"(for example with --tie-break expected-grade) without requiring cloud credentials.\n\n" +
 			"Diffusion results must come from a structured-readout envelope; a free-form JSON reply (e.g.\n" +
 			"from raw vLLM) is an error unless --allow-diffusion-fallback is set.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if (metric == "") == (datasetPath == "") {
-				return fmt.Errorf("exactly one of --metric or --dataset is required")
+			modeCount := 0
+			for _, set := range []bool{metric != "", datasetPath != "", fromReport != ""} {
+				if set {
+					modeCount++
+				}
+			}
+			if modeCount != 1 {
+				return fmt.Errorf("exactly one of --metric, --dataset, or --from-report is required")
+			}
+			tbMode, ok := eval.ParseTieBreakMode(o.tieBreak)
+			if !ok {
+				return fmt.Errorf("invalid --tie-break %q (want none|expected-grade)", o.tieBreak)
+			}
+			o.tieBreak = string(tbMode)
+			if fromReport != "" {
+				return runCompareFromReport(cmd, fromReport, outputFile, o)
 			}
 			cfg, err := mustConfig()
 			if err != nil {
@@ -359,8 +379,9 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 		},
 	}
 	f := cmd.Flags()
-	f.StringVar(&metric, "metric", "", "template id (<namespace>/<slug>) (mutually exclusive with --dataset)")
+	f.StringVar(&metric, "metric", "", "template id (<namespace>/<slug>) (mutually exclusive with --dataset and --from-report)")
 	f.StringVar(&datasetPath, "dataset", "", "path to JSONL evaluation dataset to compare in batch")
+	f.StringVar(&fromReport, "from-report", "", "re-score an existing batch comparison JSON report offline (mutually exclusive with --metric and --dataset)")
 	f.StringVar(&outputFile, "output-file", "", "optional path to save the structured JSON benchmark report")
 	f.StringVar(&o.engineA, "engine-a", "vertex", "engine A: vertex (or genai), diffusion, or local (kind:computation only; credential-free)")
 	f.StringVar(&o.engineB, "engine-b", "diffusion", "engine B: vertex, diffusion, or local (kind:computation only; credential-free)")
@@ -377,6 +398,7 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 	f.BoolVar(&o.serial, "serial", false, "run engine A then engine B per case instead of concurrently (cleaner latency)")
 	f.IntVar(&o.workers, "workers", 4, "cases evaluated concurrently (dataset mode)")
 	f.Float64Var(&o.scoreTolerance, "score-tolerance", 0.5, "score/rubric cases count as correct when |prediction - expected| <= tolerance")
+	f.StringVar(&o.tieBreak, "tie-break", "none", "tie-breaking mode for score and rubric evaluations: none | expected-grade")
 	f.IntVar(&o.bootstrapIters, "bootstrap", 2000, "bootstrap resamples for 95% confidence intervals (0 disables)")
 	f.Int64Var(&o.bootstrapSeed, "seed", 20260925, "bootstrap RNG seed")
 	f.IntVar(&o.limit, "limit", 0, "evaluate at most N dataset items (0 = all)")
@@ -492,7 +514,11 @@ func executeSingleComparison(ctx context.Context, eng *eval.Engine, tmpl *regist
 		EngineB:  runB,
 	}
 	if runA.ok() && runB.ok() {
-		cmp.Agreement = checkAgreement(tmpl.Kind, resA, resB, o.scoreTolerance)
+		if o.tieBreak == string(eval.TieBreakExpectedGrade) && isContinuousTieBreakKind(tmpl.Kind) {
+			cmp.Agreement = checkAgreementRun(tmpl.Kind, runA, runB, o.scoreTolerance, o.tieBreak)
+		} else {
+			cmp.Agreement = checkAgreement(tmpl.Kind, resA, resB, o.scoreTolerance)
+		}
 		if runB.DurationMs > 0 {
 			cmp.SpeedupFactor = runA.DurationMs / runB.DurationMs
 		}
@@ -573,6 +599,9 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 		BootstrapIters:   o.bootstrapIters,
 		BootstrapSeed:    o.bootstrapSeed,
 		Notes:            o.notes,
+	}
+	if o.tieBreak == string(eval.TieBreakExpectedGrade) {
+		meta.TieBreak = o.tieBreak
 	}
 	if isDiffusionEngine(o.engineA) || isDiffusionEngine(o.engineB) || o.engineA == "cascade" || o.engineB == "cascade" {
 		meta.DiffusionEndpoint = cfg.DiffusionEndpoint
@@ -666,8 +695,8 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 					storeComparison(cmd, cfg, tmpl, inst, cmp, o, &storeMu)
 				}
 			}
-			scoreRun(&cmp.EngineA, tmpl.Kind, it.Expected, o.scoreTolerance)
-			scoreRun(&cmp.EngineB, tmpl.Kind, it.Expected, o.scoreTolerance)
+			scoreRunMode(&cmp.EngineA, tmpl.Kind, it.Expected, o.scoreTolerance, o.tieBreak)
+			scoreRunMode(&cmp.EngineB, tmpl.Kind, it.Expected, o.scoreTolerance, o.tieBreak)
 			cases[i] = CompareCaseResult{ID: it.ID, Tier: it.Tier, Category: it.Category, Expected: it.Expected, Comparison: cmp}
 
 			mu.Lock()
@@ -693,6 +722,87 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 	}
 	report := buildBatchReport(meta, cases, o)
 
+	if outputFile != "" {
+		outBytes, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal report: %w", err)
+		}
+		if err := os.WriteFile(outputFile, outBytes, 0o644); err != nil { //nolint:gosec // G306: a benchmark report meant to be shared/committed, not a secret
+			return fmt.Errorf("write output file %q: %w", outputFile, err)
+		}
+	}
+	if outputFormat == outputJSON {
+		return printJSON(cmd.OutOrStdout(), report)
+	}
+	return renderBatchReportTable(cmd.OutOrStdout(), report)
+}
+
+func runCompareFromReport(cmd *cobra.Command, reportPath, outputFile string, o compareOptions) error {
+	raw, err := os.ReadFile(reportPath) //nolint:gosec // G304: user-supplied CLI report path
+	if err != nil {
+		return fmt.Errorf("open report %q: %w", reportPath, err)
+	}
+	var rep CompareBatchReport
+	if err := json.Unmarshal(raw, &rep); err != nil {
+		return fmt.Errorf("parse report %q: %w", reportPath, err)
+	}
+	if len(rep.Cases) == 0 {
+		return fmt.Errorf("report %q contains no comparison cases", reportPath)
+	}
+	if o.limit > 0 && o.limit < len(rep.Cases) {
+		rep.Cases = rep.Cases[:o.limit]
+	}
+	if !cmd.Flags().Changed("engine-a") {
+		switch {
+		case rep.Meta.EngineA != "":
+			o.engineA = rep.Meta.EngineA
+		case rep.Cases[0].Comparison.EngineA.Engine != "":
+			o.engineA = rep.Cases[0].Comparison.EngineA.Engine
+		}
+	}
+	if !cmd.Flags().Changed("engine-b") {
+		switch {
+		case rep.Meta.EngineB != "":
+			o.engineB = rep.Meta.EngineB
+		case rep.Cases[0].Comparison.EngineB.Engine != "":
+			o.engineB = rep.Cases[0].Comparison.EngineB.Engine
+		}
+	}
+	if !cmd.Flags().Changed("score-tolerance") && rep.Meta.ScoreTolerance > 0 {
+		o.scoreTolerance = rep.Meta.ScoreTolerance
+	}
+	rep.Meta.EngineA = o.engineA
+	rep.Meta.EngineB = o.engineB
+	rep.Meta.ScoreTolerance = o.scoreTolerance
+	rep.Meta.BootstrapIters = o.bootstrapIters
+	rep.Meta.BootstrapSeed = o.bootstrapSeed
+	if o.tieBreak == string(eval.TieBreakExpectedGrade) {
+		rep.Meta.TieBreak = o.tieBreak
+	} else {
+		rep.Meta.TieBreak = ""
+	}
+	if o.notes != "" {
+		rep.Meta.Notes = o.notes
+	}
+
+	for i := range rep.Cases {
+		kind := registry.MetricKind(rep.Cases[i].Comparison.Kind)
+		rep.Cases[i].Comparison.EngineA.Correct = nil
+		rep.Cases[i].Comparison.EngineB.Correct = nil
+		scoreRunMode(&rep.Cases[i].Comparison.EngineA, kind, rep.Cases[i].Expected, o.scoreTolerance, o.tieBreak)
+		scoreRunMode(&rep.Cases[i].Comparison.EngineB, kind, rep.Cases[i].Expected, o.scoreTolerance, o.tieBreak)
+		if rep.Cases[i].Comparison.EngineA.ok() && rep.Cases[i].Comparison.EngineB.ok() {
+			rep.Cases[i].Comparison.Agreement = checkAgreementRun(
+				kind,
+				rep.Cases[i].Comparison.EngineA,
+				rep.Cases[i].Comparison.EngineB,
+				o.scoreTolerance,
+				o.tieBreak,
+			)
+		}
+	}
+
+	report := buildBatchReport(rep.Meta, rep.Cases, o)
 	if outputFile != "" {
 		outBytes, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
@@ -783,10 +893,23 @@ func predictionString(kind registry.MetricKind, r EngineRun) string {
 
 // scoreRun fills Prediction and, when a gold label is present, Correct.
 func scoreRun(r *EngineRun, kind registry.MetricKind, expected string, tol float64) {
+	scoreRunMode(r, kind, expected, tol, string(eval.TieBreakNone))
+}
+
+func scoreRunMode(r *EngineRun, kind registry.MetricKind, expected string, tol float64, tieBreak string) {
 	if !r.ok() || r.Skipped {
 		return
 	}
 	r.Prediction = predictionString(kind, *r)
+	if tieBreak == string(eval.TieBreakExpectedGrade) && isContinuousTieBreakKind(kind) && !isNativePairwiseRun(kind, *r) {
+		if eg, fromProb := eval.ResolveExpectedGrade(r.Score, r.Custom); fromProb {
+			r.Prediction = strconv.FormatFloat(eg, 'f', 4, 64)
+			if r.Custom == nil {
+				r.Custom = map[string]any{}
+			}
+			r.Custom["tie_break_score"] = eg
+		}
+	}
 	if expected == "" {
 		return
 	}
@@ -803,6 +926,18 @@ func scoreRun(r *EngineRun, kind registry.MetricKind, expected string, tol float
 	case registry.KindPairwise:
 		correct = normalizePairLabel(r.Selection) == normalizePairLabel(expected)
 	case registry.KindComputation, registry.KindPrebuilt:
+		if tieBreak == string(eval.TieBreakExpectedGrade) {
+			if _, isVerdict := parseVerdictLabel(expected); !isVerdict && !isPairwiseSelectionOnly(*r) {
+				want, err := strconv.ParseFloat(expected, 64)
+				eff, ok := effectiveRunScore(kind, *r, tieBreak)
+				if err != nil || !ok {
+					return
+				}
+				correct = math.Abs(eff-want) <= tol+1e-9
+				r.Correct = &correct
+				return
+			}
+		}
 		c, ok := scoreNativeRun(*r, expected, tol)
 		if !ok {
 			return
@@ -810,12 +945,42 @@ func scoreRun(r *EngineRun, kind registry.MetricKind, expected string, tol float
 		correct = c
 	default:
 		want, err := strconv.ParseFloat(expected, 64)
-		if err != nil || r.Score == nil {
+		eff, ok := effectiveRunScore(kind, *r, tieBreak)
+		if err != nil || !ok {
 			return
 		}
-		correct = math.Abs(float64(*r.Score)-want) <= tol+1e-9
+		correct = math.Abs(eff-want) <= tol+1e-9
 	}
 	r.Correct = &correct
+}
+
+func effectiveRunScore(kind registry.MetricKind, r EngineRun, tieBreak string) (float64, bool) {
+	if tieBreak == string(eval.TieBreakExpectedGrade) && isContinuousTieBreakKind(kind) {
+		if eg, fromProb := eval.ResolveExpectedGrade(r.Score, r.Custom); fromProb || r.Score != nil {
+			return eg, true
+		}
+	}
+	if r.Score != nil {
+		return float64(*r.Score), true
+	}
+	return 0, false
+}
+
+func isContinuousTieBreakKind(kind registry.MetricKind) bool {
+	switch kind {
+	case registry.KindScore, registry.KindPointwise, registry.KindRubric, registry.KindPrebuilt:
+		return true
+	default:
+		return false
+	}
+}
+
+func isPairwiseSelectionOnly(r EngineRun) bool {
+	return r.Score == nil && r.Selection != ""
+}
+
+func isNativePairwiseRun(kind registry.MetricKind, r EngineRun) bool {
+	return registry.IsNativeKind(kind) && isPairwiseSelectionOnly(r)
 }
 
 // scoreNativeRun grades a kind:computation / kind:prebuilt run against a gold
@@ -1022,9 +1187,9 @@ func summarizeEngine(name string, cases []CompareCaseResult, pick func(CompareCa
 			conf = append(conf, float64(*r.Confidence))
 			confCorrect = append(confCorrect, *r.Correct)
 		}
-		if r.Score != nil && kind != registry.KindBoul {
+		if eff, ok := effectiveRunScore(kind, r, o.tieBreak); ok && kind != registry.KindBoul && !isNativePairwiseRun(kind, r) {
 			if g, err := strconv.ParseFloat(c.Expected, 64); err == nil {
-				predNum = append(predNum, float64(*r.Score))
+				predNum = append(predNum, eff)
 				goldNum = append(goldNum, g)
 			}
 		}
@@ -1056,7 +1221,21 @@ func summarizeEngine(name string, cases []CompareCaseResult, pick func(CompareCa
 		for i := range predNum {
 			mae += math.Abs(predNum[i] - goldNum[i])
 		}
-		s.ScoreMetrics = &ScoreSummary{N: len(predNum), MAE: finite(mae / float64(len(predNum))), Spearman: finite(spearman(predNum, goldNum)), Pearson: finite(pearson(predNum, goldNum))}
+		var uniquePreds int
+		if o.tieBreak == string(eval.TieBreakExpectedGrade) {
+			seen := make(map[int64]struct{}, len(predNum))
+			for _, v := range predNum {
+				seen[int64(math.Round(v*1e6))] = struct{}{}
+			}
+			uniquePreds = len(seen)
+		}
+		s.ScoreMetrics = &ScoreSummary{
+			N:                 len(predNum),
+			MAE:               finite(mae / float64(len(predNum))),
+			Spearman:          finite(spearman(predNum, goldNum)),
+			Pearson:           finite(pearson(predNum, goldNum)),
+			UniquePredictions: uniquePreds,
+		}
 	}
 	if posN > 0 {
 		s.PositionConsis = finite(float64(posConsisent) / float64(posN))
@@ -1297,6 +1476,37 @@ func checkAgreement(kind registry.MetricKind, a, b eval.Result, tol float64) boo
 	default:
 		if a.Score != nil && b.Score != nil {
 			return math.Abs(float64(*a.Score-*b.Score)) <= tol+1e-9
+		}
+		return false
+	}
+}
+
+func checkAgreementRun(kind registry.MetricKind, a, b EngineRun, tol float64, tieBreak string) bool {
+	switch kind {
+	case registry.KindBoul:
+		if a.Passed != nil && b.Passed != nil {
+			return *a.Passed == *b.Passed
+		}
+		return false
+	case registry.KindChoice:
+		return a.Selection != "" && strings.EqualFold(a.Selection, b.Selection)
+	case registry.KindPairwise:
+		return a.Selection != "" && normalizePairLabel(a.Selection) == normalizePairLabel(b.Selection)
+	case registry.KindComputation, registry.KindPrebuilt:
+		if (a.Score == nil && a.Selection != "") || (b.Score == nil && b.Selection != "") {
+			return a.Selection != "" && normalizePairLabel(a.Selection) == normalizePairLabel(b.Selection)
+		}
+		sa, okA := effectiveRunScore(kind, a, tieBreak)
+		sb, okB := effectiveRunScore(kind, b, tieBreak)
+		if okA && okB {
+			return math.Abs(sa-sb) <= tol+1e-9
+		}
+		return false
+	default:
+		sa, okA := effectiveRunScore(kind, a, tieBreak)
+		sb, okB := effectiveRunScore(kind, b, tieBreak)
+		if okA && okB {
+			return math.Abs(sa-sb) <= tol+1e-9
 		}
 		return false
 	}
