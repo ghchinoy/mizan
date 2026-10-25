@@ -124,7 +124,7 @@ func assetRef(key string, v FieldValue, allowLocalFiles bool) (eval.AssetRef, er
 		return eval.AssetRef{Modality: registry.ModalityText, Text: v.Text}, nil
 	case v.File != "":
 		if !allowLocalFiles {
-			return eval.AssetRef{}, fmt.Errorf("field %q: local file inputs are disabled on this transport; use gcs: or text:", key)
+			return eval.AssetRef{}, fmt.Errorf("field %q: local file inputs are disabled on this transport; use gcs or text", key)
 		}
 		return eval.AssetRef{FilePath: v.File}, nil
 	default:
