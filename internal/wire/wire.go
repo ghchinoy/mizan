@@ -22,6 +22,7 @@
 package wire
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -182,7 +183,7 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 		return nil, nil, err
 	}
 
-	diffTimeout, err := time.ParseDuration(firstNonEmptyStr(cfg.DiffusionTimeout, "120s"))
+	diffTimeout, err := time.ParseDuration(cmp.Or(cfg.DiffusionTimeout, config.DefaultDiffusionTimeout))
 	if err != nil {
 		_ = client.Close()
 		_ = globalClient.Close()
@@ -246,13 +247,4 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 
 	engine := eval.NewEngine(client, cfg.ProjectID, cfg.Location, opts...)
 	return engine, closeFn, nil
-}
-
-func firstNonEmptyStr(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

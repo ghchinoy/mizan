@@ -201,3 +201,34 @@ func TestNewBearerAuthFailsClosedWithoutKey(t *testing.T) {
 		})
 	}
 }
+
+func TestIsLoopbackAddress(t *testing.T) {
+	cases := []struct {
+		addr string
+		want bool
+	}{
+		{"127.0.0.1", true},
+		{"127.0.0.2", true},
+		{"::1", true},
+		{"localhost", true},
+		{"LOCALHOST", true},
+		{"0.0.0.0", false},
+		{"::", false},
+		{"", false},
+		{"192.168.1.10", false},
+	}
+	for _, tc := range cases {
+		if got := isLoopbackAddress(tc.addr); got != tc.want {
+			t.Errorf("isLoopbackAddress(%q) = %v, want %v", tc.addr, got, tc.want)
+		}
+	}
+}
+
+func TestMcpHTTPDisableAuthNonLoopbackFailsClosed(t *testing.T) {
+	t.Setenv("DISABLE_AUTH", "true")
+	cmd := newMcpHTTPCmd()
+	cmd.SetArgs([]string{"--address", "0.0.0.0"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("newMcpHTTPCmd(--address 0.0.0.0) with DISABLE_AUTH=true = nil, want error")
+	}
+}

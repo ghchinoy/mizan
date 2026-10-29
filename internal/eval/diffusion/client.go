@@ -173,7 +173,8 @@ func (c *HTTPClient) Complete(ctx context.Context, req ChatCompletionRequest) (*
 		if err != nil {
 			return nil, nil, fmt.Errorf("diffusion: http request failed to %s: %w", endpoint, err)
 		}
-		bodyBytes, err = io.ReadAll(resp.Body)
+		const maxResponseBytes = 10 << 20 // 10 MiB cap on server response body
+		bodyBytes, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 		resp.Body.Close()
 		wallTime = time.Since(start)
 		if err != nil {
@@ -314,7 +315,7 @@ func ParseStructuredContentWithLogprobs(raw string, logprobs *ChoiceLogprobs) (*
 	}
 	resp = StructuredDecisionResponse{}
 
-	var rawMap map[string]interface{}
+	var rawMap map[string]any
 	if err := json.Unmarshal([]byte(clean), &rawMap); err == nil && len(rawMap) > 0 {
 		resp.Answers = make(map[string]QuestionAnswer)
 		if resp.Diagnostics.Questions == nil {

@@ -54,7 +54,7 @@ jobs:
       - name: Install govulncheck
         run: |
           # Pinned to a released tag for reproducibility; bump deliberately.
-          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: govulncheck

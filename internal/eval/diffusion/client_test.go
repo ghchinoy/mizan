@@ -200,6 +200,15 @@ func TestDecideMultimodalImage(t *testing.T) {
 	}
 }
 
+func TestBuildMultimodalContentRejectsGCSAndDirectories(t *testing.T) {
+	if _, err := BuildMultimodalContent("check", []string{"gs://bucket/img.png"}); err == nil {
+		t.Fatal("BuildMultimodalContent(\"gs://bucket/img.png\") = nil, want error")
+	}
+	if _, err := BuildMultimodalContent("check", []string{t.TempDir()}); err == nil {
+		t.Fatal("BuildMultimodalContent(dir) = nil, want error for non-regular file")
+	}
+}
+
 func TestDecideVLLMWithLogprobs(t *testing.T) {
 	mockResponse := ChatCompletionResponse{
 		ID:    "chatcmpl-vllm-789",

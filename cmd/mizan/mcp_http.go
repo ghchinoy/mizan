@@ -22,9 +22,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -84,6 +86,11 @@ func newMcpHTTPCmd() *cobra.Command {
 			authDisabled := os.Getenv("DISABLE_AUTH") == "true"
 			var auth *bearerAuth
 			if authDisabled {
+				if !isLoopbackAddress(address) {
+					return fmt.Errorf("DISABLE_AUTH=true is only permitted on a loopback address (127.0.0.1, ::1, localhost); "+
+						"got --address %q (set JWT_SIGNING_KEY >=%d bytes to bind non-loopback interfaces)",
+						address, minSigningKeyBytes)
+				}
 				fmt.Fprintln(cmd.ErrOrStderr(),
 					"mizan: warning: MCP HTTP authentication is DISABLED (DISABLE_AUTH=true); do not expose to public ingress")
 			} else {
@@ -110,7 +117,7 @@ func newMcpHTTPCmd() *cobra.Command {
 
 			// Origin verification is OFF by default in go-sdk v1.7.0; wrap the handler
 			// with cross-origin protection (defense-in-depth against DNS-rebinding).
-			var mcpHandler http.Handler = http.NewCrossOriginProtection().Handler(streamable)
+			mcpHandler := http.NewCrossOriginProtection().Handler(streamable)
 			if auth != nil {
 				mcpHandler = auth.requireBearer(mcpHandler)
 			}
@@ -163,4 +170,16 @@ func serveMcpHTTP(ctx context.Context, cmd *cobra.Command, server *http.Server) 
 		defer cancel()
 		return server.Shutdown(shutdownCtx)
 	}
+}
+
+// isLoopbackAddress reports whether addr is a loopback host ("localhost",
+// 127.0.0.0/8, or ::1). Non-loopback or wildcard addresses (e.g. 0.0.0.0, ::, "")
+// return false so DISABLE_AUTH=true cannot expose an unauthenticated server.
+func isLoopbackAddress(addr string) bool {
+	addr = strings.TrimSpace(addr)
+	if strings.EqualFold(addr, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(addr)
+	return ip != nil && ip.IsLoopback()
 }

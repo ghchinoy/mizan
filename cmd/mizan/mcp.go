@@ -54,10 +54,7 @@ func newMcpCmd() *cobra.Command {
 			"mizan_eval_run, and mizan_eval_pairwise — each mapping onto an existing\n" +
 			"internal method the CLI already calls. Both transports read the SAME\n" +
 			"configuration from the process environment (project/location/staging\n" +
-			"bucket); project and location are additionally overridable per call.\n\n" +
-			"Transports:\n" +
-			"  mizan mcp stdio   serve over stdio (no auth; for local subprocess clients)\n" +
-			"  mizan mcp http    serve over streamable HTTP (bearer-JWT auth)",
+			"bucket); project and location are additionally overridable per call.",
 		GroupID: groupMCP,
 	}
 	cmd.AddCommand(newMcpStdioCmd())

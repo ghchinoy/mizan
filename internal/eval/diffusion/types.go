@@ -41,8 +41,8 @@ type ChatCompletionRequest struct {
 
 // ChatMessage represents a single chat turn.
 type ChatMessage struct {
-	Role    string      `json:"role"`
-	Content interface{} `json:"content"`
+	Role    string `json:"role"`
+	Content any    `json:"content"`
 }
 
 // RawContent returns the content as a string if text, or marshals to JSON string.
@@ -321,8 +321,11 @@ type RequestStats struct {
 	Diagnostics  *Diagnostics
 }
 
+// maxDiffusionImageBytes caps local image files read into base64 data URIs (20 MiB).
+const maxDiffusionImageBytes = 20 << 20
+
 // BuildMultimodalContent converts text and image inputs into a valid OpenAI vision payload.
-func BuildMultimodalContent(textContent string, imageInputs []string) (interface{}, error) {
+func BuildMultimodalContent(textContent string, imageInputs []string) (any, error) {
 	if len(imageInputs) == 0 {
 		return textContent, nil
 	}
@@ -336,10 +339,27 @@ func BuildMultimodalContent(textContent string, imageInputs []string) (interface
 		}
 
 		var imageURI string
-		if strings.HasPrefix(img, "http://") || strings.HasPrefix(img, "https://") || strings.HasPrefix(img, "data:") {
+		switch {
+		case strings.HasPrefix(img, "http://"), strings.HasPrefix(img, "https://"), strings.HasPrefix(img, "data:"):
 			imageURI = img
-		} else {
-			fileData, err := os.ReadFile(img)
+		case strings.HasPrefix(img, "gs://"):
+			return nil, fmt.Errorf("diffusion: gs:// image URI %q is not supported directly; pass a local file, http(s) URL, or data: URI", img)
+		default:
+			resolved, err := filepath.EvalSymlinks(img)
+			if err != nil {
+				return nil, fmt.Errorf("diffusion: resolve image file %q: %w", img, err)
+			}
+			fi, err := os.Lstat(resolved)
+			if err != nil {
+				return nil, fmt.Errorf("diffusion: stat image file %q: %w", img, err)
+			}
+			if !fi.Mode().IsRegular() {
+				return nil, fmt.Errorf("diffusion: image path %q is not a regular file (mode %s)", img, fi.Mode().Type())
+			}
+			if fi.Size() > maxDiffusionImageBytes {
+				return nil, fmt.Errorf("diffusion: image file %q is %d bytes, exceeds %d-byte limit", img, fi.Size(), maxDiffusionImageBytes)
+			}
+			fileData, err := os.ReadFile(resolved)
 			if err != nil {
 				return nil, fmt.Errorf("diffusion: read image file %q: %w", img, err)
 			}

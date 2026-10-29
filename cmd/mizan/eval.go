@@ -514,7 +514,7 @@ func runComputationMetric(cmd *cobra.Command, cfg *config.Config, tmpl *registry
 		}
 	}
 
-	runOpts := []eval.RunOption{}
+	var runOpts []eval.RunOption
 	if engineName != "" {
 		runOpts = append(runOpts, eval.WithEngine(engineName))
 	}

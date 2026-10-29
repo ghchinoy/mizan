@@ -49,9 +49,13 @@ func TestAssetRefLocalFileGate(t *testing.T) {
 	if ref.FilePath != "/tmp/x.png" {
 		t.Errorf("file ref = %+v, want FilePath=/tmp/x.png", ref)
 	}
-	// gcs: unaffected by the gate.
+	// gcs: unaffected by the gate when valid gs:// URI.
 	if _, err := assetRef("response", FieldValue{GCS: "gs://b/o"}, false); err != nil {
 		t.Errorf("gcs: input should be unaffected by the gate: %v", err)
+	}
+	// gcs: rejects non-gs:// values so a local path cannot smuggle through v.GCS.
+	if _, err := assetRef("response", FieldValue{GCS: "/etc/passwd"}, false); err == nil {
+		t.Fatal("expected an error for a non-gs:// gcs input")
 	}
 }
 
