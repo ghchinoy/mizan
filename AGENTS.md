@@ -66,3 +66,17 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
   else "ERROR" end
   ```
 - **External API Verification**: Do not delegate live HTTP/API probes (such as Hugging Face Datasets Server or GitHub Release checks) to `research` subagents, as they lack `run_command` and `read_url_content` tools. Run `rtk curl` or `python3` probes directly.
+
+### Code Health, Linting & Security Audits
+- **`golangci-lint` Toolchain Parity**: If `golangci-lint` stalls after a `go.mod` `toolchain` upgrade (due to `GOCACHE` export-data mismatch with an older compiler), rebuild it under the active toolchain at the version pinned in `.github/workflows/ci.yml`:
+  ```bash
+  rtk go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+  rtk ~/go/bin/golangci-lint run ./...
+  ```
+- **Vulnerability Scanning (`govulncheck` & `docs-site`)**:
+  - Go: `rtk go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` (keep version synced with `.github/workflows/ci.yml`).
+  - Node (`docs-site/`): `rtk node ~/projects/agent-skills/plugins/repo-authoring/skills/node-security-audit/scripts/audit-repo.mjs .`
+- **Go Readability & Security Guardrails (`~/projects/agent-skills`)**:
+  - Prefer `any` over `interface{}`, `var s []T` over `s := []T{}`, and `cmp.Or` over custom `firstNonEmpty` helpers.
+  - Do not end error strings with punctuation (`:` or `.`), as enforced by `revive` (`error-strings`).
+  - **MCP & Asset Input Hygiene**: Validate `gs://` prefixes on GCS asset inputs (`internal/mcpserver/mapping.go`), enforce `EvalSymlinks` + `IsRegular()` + size caps on local file reads, and keep `DISABLE_AUTH=true` restricted to loopback addresses (`127.0.0.1`, `::1`, `localhost`) on `mizan mcp http`.
