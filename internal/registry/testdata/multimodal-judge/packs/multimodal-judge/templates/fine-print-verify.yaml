@@ -1,0 +1,35 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+  id: multimodal-judge/fine-print-verify
+  name: Synthetic Fine-Print Rubric
+  description: Synthetic rubric multimodal fixture.
+  version: 0.1.0
+  maintainers: [mizan-test]
+  license: Apache-2.0
+  tags: [multimodal, rubric]
+spec:
+  kind: rubric
+  modalities: [image, text]
+  inputs:
+    - name: image
+      modality: image
+      required: true
+    - name: prompt
+      modality: text
+      required: true
+    - name: response
+      modality: text
+      required: true
+  metricPromptTemplate: |
+    Verify extracted fine print in {{image}} for prompt {{prompt}}: {{response}}
+  systemInstruction: |
+    Do not guess illegible text.
+  rubricGroups:
+    legibility:
+      - "Values match visible characters in the image."
+    fidelity:
+      - "Units and qualifiers are preserved."
+  autorater:
+    model: gemini-3.5-flash
+    samplingCount: 1

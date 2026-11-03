@@ -1,0 +1,36 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+  id: multimodal-judge/visual-pairwise-preference
+  name: Synthetic Visual Pairwise Preference
+  description: Synthetic pairwise multimodal fixture.
+  version: 0.1.0
+  maintainers: [mizan-test]
+  license: Apache-2.0
+  tags: [multimodal, pairwise]
+spec:
+  kind: pairwise
+  modalities: [image, text]
+  inputs:
+    - name: image
+      modality: image
+      required: true
+    - name: prompt
+      modality: text
+      required: true
+    - name: baseline_response
+      modality: text
+      required: true
+    - name: candidate_response
+      modality: text
+      required: true
+  baselineFieldName: baseline_response
+  candidateFieldName: candidate_response
+  metricPromptTemplate: |
+    Compare {{baseline_response}} vs {{candidate_response}} on {{image}} for {{prompt}}.
+  systemInstruction: |
+    Prefer factual visual grounding.
+  autorater:
+    model: gemini-3.5-flash
+    samplingCount: 1
+    flipEnabled: true

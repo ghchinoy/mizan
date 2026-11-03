@@ -1,0 +1,31 @@
+apiVersion: mizan.dev/v1alpha1
+kind: MetricTemplate
+metadata:
+  id: multimodal-judge/som-ui-grounding
+  name: Synthetic SoM Grounding Choice
+  description: Synthetic choice multimodal fixture.
+  version: 0.1.0
+  maintainers: [mizan-test]
+  license: Apache-2.0
+  tags: [multimodal, choice]
+spec:
+  kind: choice
+  modalities: [image, text]
+  inputs:
+    - name: image
+      modality: image
+      required: true
+    - name: prompt
+      modality: text
+      required: true
+    - name: response
+      modality: text
+      required: true
+  choices: [EXACT_MATCH, ADJACENT_ELEMENT, WRONG_REGION, UNGROUNDED_ID]
+  metricPromptTemplate: |
+    Classify SoM mark grounding on {{image}} for {{prompt}}: {{response}}
+  systemInstruction: |
+    Check the tag ID in the image first.
+  autorater:
+    model: gemini-3.5-flash-lite
+    samplingCount: 1

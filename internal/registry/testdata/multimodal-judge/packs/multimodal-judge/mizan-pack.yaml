@@ -1,0 +1,10 @@
+apiVersion: mizan.dev/v1alpha1
+kind: Pack
+metadata:
+  name: multimodal-judge
+  version: 0.1.0
+  description: Synthetic multi-kind multimodal test fixture for registry validation and import coverage.
+  maintainers: [mizan-test]
+  license: Apache-2.0
+spec:
+  requiresApiVersion: mizan.dev/v1alpha1
