@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" role="img" aria-label="Mizan — precision evaluation scale and typed judgment primitives">
+  <defs>
+    <linearGradient id="mizan-tonal-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1b6ef3" />
+      <stop offset="55%" stop-color="#7cacf8" />
+      <stop offset="100%" stop-color="#ff8d41" />
+    </linearGradient>
+    <filter id="soft-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="7" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- GM3 dark surface container -->
+  <rect width="400" height="400" rx="40" fill="#15171b" stroke="#2b3037" stroke-width="2" />
+
+  <!-- Outer calibration ring & cardinal ticks -->
+  <circle cx="200" cy="200" r="146" fill="none" stroke="#2b3037" stroke-width="2.5" stroke-dasharray="7 8" />
+  <line x1="200" y1="44" x2="200" y2="58" stroke="#5f6368" stroke-width="2.5" stroke-linecap="round" />
+  <line x1="356" y1="200" x2="342" y2="200" stroke="#5f6368" stroke-width="2.5" stroke-linecap="round" />
+  <line x1="200" y1="356" x2="200" y2="342" stroke="#5f6368" stroke-width="2.5" stroke-linecap="round" />
+  <line x1="44" y1="200" x2="58" y2="200" stroke="#5f6368" stroke-width="2.5" stroke-linecap="round" />
+
+  <!-- Central fulcrum stem & base -->
+  <line x1="200" y1="96" x2="200" y2="306" stroke="#2b3037" stroke-width="4" stroke-linecap="round" />
+  <path d="M168 312 L232 312 L200 286 Z" fill="#23272d" stroke="#5f6368" stroke-width="2" stroke-linejoin="round" />
+
+  <!-- Suspension lines to the three typed primitives -->
+  <line x1="112" y1="138" x2="112" y2="206" stroke="#5f6368" stroke-width="2.2" />
+  <line x1="200" y1="156" x2="200" y2="222" stroke="#5f6368" stroke-width="2.2" />
+  <line x1="288" y1="138" x2="288" y2="206" stroke="#5f6368" stroke-width="2.2" />
+
+  <!-- Precision balance beam (Mizan) -->
+  <rect x="92" y="132" width="216" height="12" rx="6" fill="url(#mizan-tonal-grad)" />
+  <circle cx="112" cy="138" r="5" fill="#0f1013" />
+  <circle cx="288" cy="138" r="5" fill="#0f1013" />
+
+  <!-- Central pivot ring -->
+  <circle cx="200" cy="138" r="22" fill="url(#mizan-tonal-grad)" />
+  <circle cx="200" cy="138" r="9" fill="#0f1013" />
+
+  <!-- Three Typed Primitive Tiles: boul (left), choice (center), score (right) -->
+  <g filter="url(#soft-glow)">
+    <!-- boul: binary pass/fail proposition -->
+    <rect x="80" y="206" width="64" height="64" rx="14" fill="#1b6ef3" opacity="0.95" />
+    <!-- choice: discrete categorical routing -->
+    <rect x="168" y="222" width="64" height="64" rx="14" fill="#7cacf8" opacity="0.92" />
+    <!-- score: calibrated continuous scale -->
+    <rect x="256" y="206" width="64" height="64" rx="14" fill="#ff8d41" opacity="0.95" />
+  </g>
+
+  <!-- Crisp inner glyphs -->
+  <!-- boul checkmark -->
+  <path d="M98 239 L108 249 L127 228" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- choice discrete tracks -->
+  <rect x="183" y="239" width="34" height="5" rx="2.5" fill="#041e49" />
+  <rect x="183" y="251.5" width="24" height="5" rx="2.5" fill="#041e49" opacity="0.75" />
+  <rect x="183" y="264" width="30" height="5" rx="2.5" fill="#041e49" opacity="0.55" />
+
+  <!-- score ascending calibration bars -->
+  <rect x="273" y="246" width="7" height="12" rx="2.5" fill="#2c1600" opacity="0.7" />
+  <rect x="284.5" y="237" width="7" height="21" rx="2.5" fill="#2c1600" opacity="0.85" />
+  <rect x="296" y="226" width="7" height="32" rx="2.5" fill="#2c1600" />
+</svg>

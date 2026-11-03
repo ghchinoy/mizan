@@ -1,61 +1,122 @@
 ---
-title: Mizan
-description: Evaluate generative AI output — text, images, audio, video, and music — with LLM-as-a-judge metrics you can write down, rerun, and share.
+title: Mizan — Strongly-Typed LLM-as-a-Judge Evals
+description: Create, manage, share, and run Gemini LLM-as-a-Judge evaluation metrics — boul, choice, score, rubric, pairwise, and custom_schema — across text, image, audio, video, and music on Vertex AI.
 template: splash
 hero:
-  tagline: Turn the judgment you already make by eye into an explicit, repeatable, shareable check. Mizan runs LLM-as-a-judge evals on Google's Vertex AI across text, images, audio, video, and music.
+  title: 'Mizan — Strongly-Typed LLM-as-a-Judge Evals on Vertex AI'
+  tagline: Turn the judgment you already make by eye into an explicit, repeatable, shareable check. Author typed decision primitives (boul, choice, score) and native Vertex AI metrics across text, images, audio, video, and music—stored locally in pure-Go SQLite and shared as Git-native template packs.
+  image:
+    file: ../../assets/hero.svg
   actions:
-    - text: Read the user guide
+    - text: User Guide
       link: /mizan/guides/user-guide/
-      icon: right-arrow
+      icon: rocket
       variant: primary
-    - text: Read the blog
-      link: /mizan/blog/
+    - text: Build Evals Series
+      link: /mizan/blog-series/
       icon: open-book
-      variant: minimal
-    - text: View on GitHub
-      link: https://github.com/ghchinoy/mizan
-      icon: external
-      variant: minimal
+      variant: secondary
+    - text: Scenarios Guide
+      link: /mizan/guides/llm-as-judge-scenarios/
+      icon: approve-check
+      variant: secondary
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, Tabs, TabItem } from '@astrojs/starlight/components';
 
-## What is Mizan?
+## Choose Your Path
 
-Mizan is a command-line tool for **evaluating generative AI output** with an
-LLM-as-a-judge. You state the criteria a response has to meet, hand a response
-and those criteria to a judge model, and get back a score and an explanation you
-can store, rerun, and share. It runs on Google's Vertex AI Gen AI Evaluation
-Service across text, images, audio, video, and music.
-
-<CardGrid stagger>
-  <Card title="Four metric kinds" icon="approve-check">
-    **Pointwise** for one number and a reason, **rubric** for several named
-    criteria at once, **custom_schema** for typed structured output, and
-    **pairwise** to pick the stronger of two candidates.
+<CardGrid>
+  <Card title="Run your first eval" icon="rocket">
+    For builders getting started: install the CGO-free CLI, point it at a Google Cloud project, walk the local SQLite registry, and run end-to-end recipes across every metric kind. Start with the [User guide](/mizan/guides/user-guide/) and [Testing guide](/mizan/guides/testing-guide/).
   </Card>
-  <Card title="Written down, not by eye" icon="pencil">
-    Your standard lives in a template file you can commit, hand to a teammate, or
-    import — the criteria travel with the work instead of staying in one
-    reviewer's head.
+  <Card title="Pick the right judgment shape" icon="approve-check">
+    For teams turning fuzzy review criteria into deterministic checks: map each evaluation question to `boul`, `choice`, `score`, `rubric`, `pairwise`, or `custom_schema`. Read the [Scenarios guide](/mizan/guides/llm-as-judge-scenarios/) or [Three typed primitives](/mizan/blog/03c-three-typed-primitives/).
   </Card>
-  <Card title="Repeatable & stored" icon="list-format">
-    Runs are persisted by default, so `mizan results list` and
-    `mizan results show` let you look back at what you scored and why.
-  </Card>
-  <Card title="Start in ten minutes" icon="rocket">
-    `go install github.com/ghchinoy/mizan/cmd/mizan@v0.1.0`, point it at a Google
-    Cloud project, and run your first eval. See the
-    [user guide](/mizan/guides/user-guide/).
+  <Card title="Share packs & wire agents" icon="puzzle">
+    For teams standardizing quality bars: package metrics into credential-free validated template packs, operate Mizan from coding agents, or export rubrics to Stax. Explore [Contribute a template pack](/mizan/blog/04-contribute-a-template-pack/), [Agent skills](/mizan/guides/agent-skills/), and [Stax interop](/mizan/guides/stax-interop/).
   </Card>
 </CardGrid>
 
-## Where to go next
+---
 
-- **[User guide](/mizan/guides/user-guide/)** — install, configure, walk the
-  registry, and run evals end to end.
-- **[Blog](/mizan/blog/)** — the *Build Evals with Mizan* series, starting with
-  why evals matter and what an LLM-as-a-judge really is.
-- **[Source on GitHub](https://github.com/ghchinoy/mizan)** — the code, the
-  authoritative docs, and releases.
+## Core Capabilities
+
+<CardGrid stagger>
+  <Card title="Typed Decision Primitives (boul, choice, score)" icon="approve-check">
+    Answer software's three core evaluation questions without hand-rolling JSON schemas: **`boul`** for binary pass/fail propositions with confidence, **`choice`** for grammar-constrained categorical routing, and **`score`** for calibrated continuous grading. [How the primitives work →](/mizan/blog/03c-three-typed-primitives/)
+  </Card>
+  <Card title="Pointwise, Rubric, Pairwise & Custom Schema" icon="list-format">
+    Run Vertex AI `EvaluateInstances` **pointwise** metrics, multi-criterion **rubric** scorecards (with `--rubric-detail`), head-to-head **pairwise** (`BASELINE` / `CANDIDATE` / `TIE`) comparisons, and arbitrary **`custom_schema`** structured output.
+  </Card>
+  <Card title="Multimodal Across Five Modalities" icon="laptop">
+    Evaluate **text, images, audio, video, and music** with the same template contract. Pass `--file key=/path/to/asset` (auto-staged to your configured GCS bucket) or `--gcs key=gs://...` for pre-staged objects.
+  </Card>
+  <Card title="SQLite Provenance, Packs & Agent Skills" icon="document">
+    Every run persists its inputs, template snapshot, score, and explanation to a pure-Go SQLite store (`mizan results list|show`). Share standards via Git-native packs (`mizan pack init|add|validate`, `mizan registry import|export`), `mizan mcp`, and [Agent Skills](/mizan/guides/agent-skills/).
+  </Card>
+</CardGrid>
+
+---
+
+## Quickstart Workflows
+
+<Tabs>
+  <TabItem label="Typed Primitives (boul, choice, score)">
+    Install Mizan, configure your Vertex AI project, and run a strongly-typed boolean check with zero custom JSON schema boilerplate:
+
+    ```sh
+    # 1. Install the CGO-free Go binary and set your GCP project
+    go install github.com/ghchinoy/mizan/cmd/mizan@latest
+    mizan config set project-id <your-project-id>
+
+    # 2. Register a typed boolean proposition check (boul)
+    mizan registry create --id safety/pii-check --name "PII Check" \
+      --kind boul \
+      --prompt "Does this customer message contain unmasked PII or credit card numbers? {{message}}"
+
+    # 3. Evaluate an input (persisted automatically to the local results store)
+    mizan eval run --metric safety/pii-check \
+      --field message="My phone is 555-0199 and card is 4111-2222-3333-4444"
+    ```
+  </TabItem>
+
+  <TabItem label="Template Packs & Sharing">
+    Scaffold, author, validate (credential-free), and import shareable YAML metric packs:
+
+    ```sh
+    # 1. Scaffold a new pack namespace and export a local metric into it
+    mizan pack init packs/acme-support --name acme-support
+    mizan pack add packs/acme-support --from acme-support/reply-quality
+
+    # 2. Run the credential-free structural + placeholder validation gate
+    mizan pack validate packs/acme-support
+
+    # 3. Preview and import a pack into your local SQLite registry
+    mizan registry import packs/acme-support --dry-run
+    mizan registry import packs/acme-support
+    ```
+  </TabItem>
+
+  <TabItem label="Agent Skills & Structured JSON">
+    Drive Mizan from Claude Code or any `-o json`-aware coding agent using the shipped plugin marketplace:
+
+    ```sh
+    # Structured JSON output on stdout for scripts and skills (proven by drift tests)
+    mizan eval run --metric safety/pii-check \
+      --field message="Order #4821 shipped via UPS Ground." -o json
+
+    # Inspect stored evaluation runs and full provenance
+    mizan results list --limit 10 -o json
+    mizan results show <run-id>
+    ```
+  </TabItem>
+</Tabs>
+
+---
+
+## Read & Reference
+
+- **[Build Evals with Mizan](/mizan/blog-series/)** — walk the multi-part series in reading order, or browse newest-first on the [Blog](/mizan/blog/).
+- **[Architecture & Design](/mizan/reference/architecture-final/)** — single source of truth for module boundaries, engine dispatch, SQLite storage, and [Collaboration & Pack Design](/mizan/reference/collaboration-design/).
+- **[Roadmap](/mizan/guides/roadmap/)** — transparent boundary between what runs today and planned capabilities.

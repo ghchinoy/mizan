@@ -11,12 +11,20 @@ import starlightLinksValidator from 'starlight-links-validator';
 export default defineConfig({
   site: 'https://ghchinoy.github.io',
   base: '/mizan',
+  vite: {
+    build: {
+      cssTarget: 'esnext',
+    },
+  },
   integrations: [
     starlight({
       title: 'Mizan',
+      description:
+        'Create, manage, share, and run LLM-as-a-Judge evaluation metrics across text, image, audio, video, and music on Vertex AI.',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/ghchinoy/mizan' },
       ],
+      customCss: ['./src/styles/custom.css'],
       // Edit links point at the authoritative source in `docs/`, never the
       // generated copy under src/content/docs/. sync-docs.mjs also injects a
       // per-page `editUrl` so generated guides resolve to their real source file.
