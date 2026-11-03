@@ -16,6 +16,7 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -514,10 +515,9 @@ func executeSingleComparison(ctx context.Context, eng *eval.Engine, tmpl *regist
 		EngineB:  runB,
 	}
 	if runA.ok() && runB.ok() {
+		cmp.Agreement = checkAgreement(tmpl.Kind, resA, resB, o.scoreTolerance)
 		if o.tieBreak == string(eval.TieBreakExpectedGrade) && isContinuousTieBreakKind(tmpl.Kind) {
 			cmp.Agreement = checkAgreementRun(tmpl.Kind, runA, runB, o.scoreTolerance, o.tieBreak)
-		} else {
-			cmp.Agreement = checkAgreement(tmpl.Kind, resA, resB, o.scoreTolerance)
 		}
 		if runB.DurationMs > 0 {
 			cmp.SpeedupFactor = runA.DurationMs / runB.DurationMs
@@ -753,20 +753,10 @@ func runCompareFromReport(cmd *cobra.Command, reportPath, outputFile string, o c
 		rep.Cases = rep.Cases[:o.limit]
 	}
 	if !cmd.Flags().Changed("engine-a") {
-		switch {
-		case rep.Meta.EngineA != "":
-			o.engineA = rep.Meta.EngineA
-		case rep.Cases[0].Comparison.EngineA.Engine != "":
-			o.engineA = rep.Cases[0].Comparison.EngineA.Engine
-		}
+		o.engineA = cmp.Or(rep.Meta.EngineA, rep.Cases[0].Comparison.EngineA.Engine, o.engineA)
 	}
 	if !cmd.Flags().Changed("engine-b") {
-		switch {
-		case rep.Meta.EngineB != "":
-			o.engineB = rep.Meta.EngineB
-		case rep.Cases[0].Comparison.EngineB.Engine != "":
-			o.engineB = rep.Cases[0].Comparison.EngineB.Engine
-		}
+		o.engineB = cmp.Or(rep.Meta.EngineB, rep.Cases[0].Comparison.EngineB.Engine, o.engineB)
 	}
 	if !cmd.Flags().Changed("score-tolerance") && rep.Meta.ScoreTolerance > 0 {
 		o.scoreTolerance = rep.Meta.ScoreTolerance
@@ -776,10 +766,9 @@ func runCompareFromReport(cmd *cobra.Command, reportPath, outputFile string, o c
 	rep.Meta.ScoreTolerance = o.scoreTolerance
 	rep.Meta.BootstrapIters = o.bootstrapIters
 	rep.Meta.BootstrapSeed = o.bootstrapSeed
+	rep.Meta.TieBreak = ""
 	if o.tieBreak == string(eval.TieBreakExpectedGrade) {
 		rep.Meta.TieBreak = o.tieBreak
-	} else {
-		rep.Meta.TieBreak = ""
 	}
 	if o.notes != "" {
 		rep.Meta.Notes = o.notes

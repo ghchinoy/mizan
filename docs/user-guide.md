@@ -556,6 +556,29 @@ Experiment 07b):
   default thinking against budget 0.
 - **`--pairwise-genai`** judges pairwise templates with genai structured output
   instead of native `EvaluateInstances`, which has no thinking control.
+- **`--tie-break expected-grade`** (default `none`) resolves discrete integer
+  score/rubric ties using probability-weighted expected grades
+  $\sum g \cdot p_g / \sum p_g$ (recorded in `custom_output.expected_grade`),
+  improving Likert Spearman rank correlation while keeping top-level `score`
+  discrete. Pair with **`--from-report <report.json>`** to re-score an existing
+  batch comparison report offline without re-running model inference.
+
+#### Calibrating cascade thresholds (`mizan eval calibrate-gate`)
+
+Instead of guessing `--cascade-threshold`, use `mizan eval calibrate-gate` to
+compute a seeded K-fold cross-validated threshold offline from one or more batch
+comparison JSON reports or JSONL logs (pass `--suite <dataset.jsonl>` when gold
+labels are omitted from the log):
+
+```sh
+$ mizan eval calibrate-gate --input report.json --target-risk 0.05 --mcnemar-alpha 0.10
+```
+
+The sweep selects the largest threshold (minimum escalation rate) that satisfies
+selective risk $\le$ `--target-risk` on non-escalated fast predictions and exact
+two-sided Paired McNemar $p >$ `--mcnemar-alpha`. `--method` supports
+`hesitation` (Shannon entropy, default), `conformal` ($1 - \max p$), or `both`,
+and always emits a ready-to-use `--cascade-threshold <tau>` CLI flag.
 
 Genai results report token usage, including `thoughts_tokens` (thinking
 tokens, billed as output). Native `EvaluateInstances` results carry no token

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Added opt-in `--tie-break expected-grade` and credential-free `--from-report` re-scoring to `mizan eval compare-engines`, resolving discrete integer score/rubric ties via probability-weighted expected grades (`custom_output.expected_grade`) while keeping top-level `score` discrete (#120).
+- Added `mizan eval calibrate-gate` for seeded K-fold cross-validated cascade escalation threshold calibration under selective-risk (`--target-risk`) and exact Paired McNemar parity (`--mcnemar-alpha`) constraints (#121).
+- Documented `--tie-break expected-grade`, `--from-report`, and `mizan eval calibrate-gate` in [`docs/user-guide.md`](docs/user-guide.md).
+
 ## [0.3.2] - 2026-11-02
 
 ### Security

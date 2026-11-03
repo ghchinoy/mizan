@@ -76,10 +76,10 @@ func TestCalibrateGateCLIValidation(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			out, err := executeRoot(t, tc.args...)
 			if err == nil {
-				t.Fatalf("expected error containing %q, got nil (out=%q)", tc.wantErr, out)
+				t.Fatalf("executeRoot(%v) error = nil, want error containing %q (out=%q)", tc.args, tc.wantErr, out)
 			}
 			if !strings.Contains(err.Error(), tc.wantErr) {
-				t.Fatalf("error = %v, want substring %q", err, tc.wantErr)
+				t.Fatalf("executeRoot(%v) error = %v, want substring %q", tc.args, err, tc.wantErr)
 			}
 		})
 	}
@@ -104,19 +104,19 @@ func TestCalibrateGateRealToxicityAndInstructionFollowing(t *testing.T) {
 		t.Fatalf("unmarshal toxicity report: %v\nout=%s", err, out)
 	}
 	if toxRep.PairedScoredItems != 76 {
-		t.Fatalf("PairedScoredItems = %d, want 76", toxRep.PairedScoredItems)
+		t.Fatalf("calibrate-gate(%q) PairedScoredItems = %d, want 76", toxPath, toxRep.PairedScoredItems)
 	}
 	if toxRep.Baseline.ParityAchieved || toxRep.Baseline.McNemarP >= 0.10 {
-		t.Fatalf("expected uncalibrated toxicity run to fail parity (p < 0.10), got p=%.4f", toxRep.Baseline.McNemarP)
+		t.Fatalf("calibrate-gate(%q) Baseline.McNemarP = %.4f, want < 0.10", toxPath, toxRep.Baseline.McNemarP)
 	}
 	if !toxRep.Recommended.FullSample.Feasible {
-		t.Fatalf("expected feasible full-sample threshold, got %+v", toxRep.Recommended.FullSample)
+		t.Fatalf("calibrate-gate(%q) Recommended.FullSample = %+v, want Feasible=true", toxPath, toxRep.Recommended.FullSample)
 	}
 	if toxRep.Recommended.FullSample.McNemarP <= 0.10 {
-		t.Fatalf("expected calibrated McNemar p > 0.10, got %.4f", toxRep.Recommended.FullSample.McNemarP)
+		t.Fatalf("calibrate-gate(%q) Recommended.FullSample.McNemarP = %.4f, want > 0.10", toxPath, toxRep.Recommended.FullSample.McNemarP)
 	}
 	if toxRep.Recommended.FullSample.EscalationCount != 3 {
-		t.Fatalf("EscalationCount = %d, want 3 (3.95%% escalation)", toxRep.Recommended.FullSample.EscalationCount)
+		t.Fatalf("calibrate-gate(%q) EscalationCount = %d, want 3 (3.95%% escalation)", toxPath, toxRep.Recommended.FullSample.EscalationCount)
 	}
 	if !strings.HasPrefix(toxRep.RecommendedCLIFlag, "--cascade-threshold ") {
 		t.Fatalf("RecommendedCLIFlag = %q, want --cascade-threshold prefix", toxRep.RecommendedCLIFlag)
@@ -138,7 +138,7 @@ func TestCalibrateGateRealToxicityAndInstructionFollowing(t *testing.T) {
 		t.Fatalf("unmarshal toxicity risk report: %v", err)
 	}
 	if !toxRiskRep.Recommended.FullSample.Feasible || toxRiskRep.Recommended.FullSample.SelectiveRisk > 0.15+1e-9 {
-		t.Fatalf("expected selective risk <= 0.15, got %+v", toxRiskRep.Recommended.FullSample)
+		t.Fatalf("calibrate-gate(%q, --target-risk 0.15) Recommended.FullSample = %+v, want Feasible=true and SelectiveRisk <= 0.15", toxPath, toxRiskRep.Recommended.FullSample)
 	}
 
 	pairPath := filepath.Join("..", "..", "docs", "experiments", "judge-eval", "runs", "20260926", "j4_vs_j1_pairwise_instruction_following.json")
@@ -161,19 +161,19 @@ func TestCalibrateGateRealToxicityAndInstructionFollowing(t *testing.T) {
 		t.Fatalf("PairedScoredItems = %d, want 84", pairRep.PairedScoredItems)
 	}
 	if pairRep.Baseline.McNemarP >= 0.01 {
-		t.Fatalf("expected uncalibrated pairwise McNemar p < 0.01, got %.4f", pairRep.Baseline.McNemarP)
+		t.Fatalf("calibrate-gate(%q) Baseline.McNemarP = %.4f, want < 0.01", pairPath, pairRep.Baseline.McNemarP)
 	}
 	if !pairRep.Recommended.FullSample.Feasible {
-		t.Fatalf("expected feasible pairwise threshold, got %+v", pairRep.Recommended.FullSample)
+		t.Fatalf("calibrate-gate(%q) Recommended.FullSample = %+v, want Feasible=true", pairPath, pairRep.Recommended.FullSample)
 	}
 	if pairRep.Recommended.FullSample.SelectiveRisk > 0.10+1e-9 {
-		t.Fatalf("expected selective risk <= 0.10, got %.4f", pairRep.Recommended.FullSample.SelectiveRisk)
+		t.Fatalf("calibrate-gate(%q) Recommended.FullSample.SelectiveRisk = %.4f, want <= 0.10", pairPath, pairRep.Recommended.FullSample.SelectiveRisk)
 	}
 	if pairRep.Recommended.FullSample.McNemarP <= 0.10 {
-		t.Fatalf("expected calibrated McNemar p > 0.10, got %.4f", pairRep.Recommended.FullSample.McNemarP)
+		t.Fatalf("calibrate-gate(%q) Recommended.FullSample.McNemarP = %.4f, want > 0.10", pairPath, pairRep.Recommended.FullSample.McNemarP)
 	}
 	if pairRep.Recommended.FullSample.EscalationRate >= 0.35 {
-		t.Fatalf("expected escalation rate < 0.35, got %.4f", pairRep.Recommended.FullSample.EscalationRate)
+		t.Fatalf("calibrate-gate(%q) Recommended.FullSample.EscalationRate = %.4f, want < 0.35", pairPath, pairRep.Recommended.FullSample.EscalationRate)
 	}
 }
 
@@ -195,11 +195,11 @@ func TestCalibrateGateAlreadyAtParityZeroEscalation(t *testing.T) {
 		t.Fatalf("unmarshal groundedness report: %v", err)
 	}
 	if !rep.Baseline.ParityAchieved {
-		t.Fatalf("expected groundedness baseline parity achieved, got p=%.4f", rep.Baseline.McNemarP)
+		t.Fatalf("calibrate-gate(%q) Baseline.ParityAchieved = false (p=%.4f), want true", groundPath, rep.Baseline.McNemarP)
 	}
 	if rep.Recommended.FullSample.EscalationCount != 0 || rep.Recommended.FullSample.EscalationRate != 0 {
-		t.Fatalf("expected 0 escalations when baseline already satisfies parity, got count=%d rate=%.4f",
-			rep.Recommended.FullSample.EscalationCount, rep.Recommended.FullSample.EscalationRate)
+		t.Fatalf("calibrate-gate(%q) Escalation = (%d, %.4f), want (0, 0)",
+			groundPath, rep.Recommended.FullSample.EscalationCount, rep.Recommended.FullSample.EscalationRate)
 	}
 }
 
@@ -232,7 +232,7 @@ func TestCalibrateGateLegacyV1WithCalibrationSuiteAndBothMethods(t *testing.T) {
 		t.Fatalf("second run failed: %v", err)
 	}
 	if out1 != out2 {
-		t.Fatalf("expected byte-identical deterministic output across repeated seeded runs")
+		t.Fatalf("executeRoot(%v) produced non-deterministic output across repeated runs", args)
 	}
 
 	var rep CalibrateGateReport
@@ -240,22 +240,22 @@ func TestCalibrateGateLegacyV1WithCalibrationSuiteAndBothMethods(t *testing.T) {
 		t.Fatalf("unmarshal v1 calibration report: %v", err)
 	}
 	if rep.PairedScoredItems == 0 {
-		t.Fatalf("expected paired scored items > 0 after joining calibration_suite.jsonl")
+		t.Fatalf("calibrate-gate(%v) PairedScoredItems = 0, want > 0 after joining %q", args, suitePath)
 	}
 	if len(rep.Alternatives) != 1 {
-		t.Fatalf("expected 1 alternative method in --method both mode, got %d", len(rep.Alternatives))
+		t.Fatalf("calibrate-gate(%v) len(Alternatives) = %d, want 1", args, len(rep.Alternatives))
 	}
 	var sawConformal bool
 	for _, m := range append([]GateCalibrationResult{rep.Recommended}, rep.Alternatives...) {
 		if m.Method == gateMethodConformal {
 			sawConformal = true
 			if m.ConformalQuantile == nil || math.IsNaN(*m.ConformalQuantile) {
-				t.Fatalf("expected finite conformal_quantile when --target-risk > 0, got %v", m.ConformalQuantile)
+				t.Fatalf("calibrate-gate(%v) ConformalQuantile = %v, want finite value", args, m.ConformalQuantile)
 			}
 		}
 	}
 	if !sawConformal {
-		t.Fatalf("expected conformal result in report")
+		t.Fatalf("calibrate-gate(%v) omitted conformal method result", args)
 	}
 }
 
@@ -309,7 +309,7 @@ func TestCalibrateGateJSONLInputTableAndOutputFile(t *testing.T) {
 		t.Fatalf("PairedScoredItems = %d, want 6", rep.PairedScoredItems)
 	}
 	if rep.Recommended.FullSample.EscalationCount != 3 || rep.Recommended.FullSample.SelectiveRisk != 0 {
-		t.Fatalf("expected 3 high-entropy errors escalated with 0 selective risk, got %+v", rep.Recommended.FullSample)
+		t.Fatalf("calibrate-gate(%q) Recommended.FullSample = %+v, want EscalationCount=3 and SelectiveRisk=0", outFilePath, rep.Recommended.FullSample)
 	}
 }
 
@@ -414,7 +414,7 @@ func TestCalibrateGateGCEScientificThresholdFormattingAndCascadeFidelity(t *test
 		}
 	}
 	if zeroRows > 1 {
-		t.Fatalf("expected at most 1 true-zero sweep row labeled 0.0000, got %d:\n%s", zeroRows, tableOut)
+		t.Fatalf("calibrate-gate(%q, -o table) zero-threshold sweep rows = %d, want <= 1:\n%s", gcePath, zeroRows, tableOut)
 	}
 
 	// Synthetic 50-item sub-1e-4 round-trip: 13 uncertain items with hesitation ~1.77e-06..5.0e-05
@@ -431,13 +431,13 @@ func TestCalibrateGateGCEScientificThresholdFormattingAndCascadeFidelity(t *test
 				`{"id":"u-%02d","baseline_correct":true,"fast_correct":%v,"probabilities":{"PASS":%.12f,"FAIL":%.12f}}`,
 				i, fastCorr, 1.0-pFail, pFail,
 			))
-		} else {
-			pFail := 1.0e-8
-			lines = append(lines, fmt.Sprintf(
-				`{"id":"k-%02d","baseline_correct":true,"fast_correct":true,"probabilities":{"PASS":%.12f,"FAIL":%.12f}}`,
-				i, 1.0-pFail, pFail,
-			))
+			continue
 		}
+		pFail := 1.0e-8
+		lines = append(lines, fmt.Sprintf(
+			`{"id":"k-%02d","baseline_correct":true,"fast_correct":true,"probabilities":{"PASS":%.12f,"FAIL":%.12f}}`,
+			i, 1.0-pFail, pFail,
+		))
 	}
 	if err := os.WriteFile(sub50Path, []byte(strings.Join(lines, "\n")+"\n"), 0o600); err != nil {
 		t.Fatalf("write sub50 fixture: %v", err)
@@ -508,15 +508,15 @@ func TestCalibrateGateConformalAndBothEmitHesitationCompatibleCLIFlag(t *testing
 	bothRep := runMode("both")
 
 	if confRep.Recommended.Method != gateMethodConformal || confRep.Recommended.ConformalQuantile == nil {
-		t.Fatalf("expected conformal recommended summary with conformal_quantile, got %+v", confRep.Recommended)
+		t.Fatalf("runMode(%q) Recommended = %+v, want Method=conformal with non-nil ConformalQuantile", gateMethodConformal, confRep.Recommended)
 	}
 	if confRep.RecommendedCLIFlag != hesRep.RecommendedCLIFlag || bothRep.RecommendedCLIFlag != hesRep.RecommendedCLIFlag {
-		t.Fatalf("CLI flag mismatch across methods: hes=%q conf=%q both=%q",
+		t.Fatalf("runMode() CLI flags = (hes=%q, conf=%q, both=%q), want identical --cascade-threshold flags",
 			hesRep.RecommendedCLIFlag, confRep.RecommendedCLIFlag, bothRep.RecommendedCLIFlag)
 	}
 	if confRep.RecommendedCLIFlagMethod != gateMethodHesitation || bothRep.RecommendedCLIFlagMethod != gateMethodHesitation {
-		t.Fatalf("expected RecommendedCLIFlagMethod=hesitation, got conf=%q both=%q",
-			confRep.RecommendedCLIFlagMethod, bothRep.RecommendedCLIFlagMethod)
+		t.Fatalf("runMode() RecommendedCLIFlagMethod = (conf=%q, both=%q), want (%q, %q)",
+			confRep.RecommendedCLIFlagMethod, bothRep.RecommendedCLIFlagMethod, gateMethodHesitation, gateMethodHesitation)
 	}
 
 	cliTau, err := strconv.ParseFloat(strings.TrimPrefix(bothRep.RecommendedCLIFlag, "--cascade-threshold "), 64)

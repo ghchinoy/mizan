@@ -17,13 +17,14 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"math/rand/v2"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -173,6 +174,11 @@ func newEvalCalibrateGateCmd() *cobra.Command {
 			"(fast judge). The sweep selects the largest feasible threshold (minimum\n" +
 			"escalation rate) satisfying selective risk <= --target-risk (when set) and\n" +
 			"exact two-sided Paired McNemar p > --mcnemar-alpha.",
+		Example: `  # Calibrate hesitation threshold from a batch comparison report
+  mizan eval calibrate-gate --input report.json --target-risk 0.05 --mcnemar-alpha 0.10
+
+  # Compare hesitation vs. conformal gating and write JSON output
+  mizan eval calibrate-gate --input run1.json --input run2.json --method both -o json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := validateCalibrateGateOptions(&o); err != nil {
 				return err
@@ -188,7 +194,7 @@ func newEvalCalibrateGateCmd() *cobra.Command {
 				}
 				data = append(data, '\n')
 				if err := os.WriteFile(o.outputFile, data, 0o644); err != nil { //nolint:gosec // G306: CLI report output file is intended to be readable
-					return fmt.Errorf("write %s: %w", o.outputFile, err)
+					return fmt.Errorf("write %q: %w", o.outputFile, err)
 				}
 			}
 			if outputFormat == outputJSON {
@@ -274,22 +280,15 @@ func runCalibrateGate(o calibrateGateOptions) (CalibrateGateReport, error) {
 		}
 		totalItems += rawCount
 		paired = append(paired, items...)
-		if engineA == "" && engA != "" {
-			engineA = engA
-		}
-		if engineB == "" && engB != "" {
-			engineB = engB
-		}
+		engineA = cmp.Or(engineA, engA)
+		engineB = cmp.Or(engineB, engB)
 	}
 	if len(paired) == 0 {
 		return CalibrateGateReport{}, fmt.Errorf("no paired scored items found in input (pass --suite when gold labels are omitted)")
 	}
 
-	sort.SliceStable(paired, func(i, j int) bool {
-		if paired[i].id != paired[j].id {
-			return paired[i].id < paired[j].id
-		}
-		return paired[i].sourceOrder < paired[j].sourceOrder
+	slices.SortStableFunc(paired, func(a, b calibrationItem) int {
+		return cmp.Or(strings.Compare(a.id, b.id), cmp.Compare(a.sourceOrder, b.sourceOrder))
 	})
 
 	baseline := summarizeGateBaseline(paired, engineA, engineB, o.mcnemarAlpha, o.bootstrapIters, o.seed)
@@ -319,12 +318,11 @@ func runCalibrateGate(o calibrateGateOptions) (CalibrateGateReport, error) {
 		hesRes, cvH = calibrateSingleMethod(paired, gateMethodHesitation, o)
 		confRes, cvC := calibrateSingleMethod(paired, gateMethodConformal, o)
 		crossVal = cvH || cvC
+		rec = hesRes
+		alternatives = []GateCalibrationResult{confRes}
 		if prefersConformalOverHesitation(confRes, hesRes) {
 			rec = confRes
 			alternatives = []GateCalibrationResult{hesRes}
-		} else {
-			rec = hesRes
-			alternatives = []GateCalibrationResult{confRes}
 		}
 	}
 
@@ -367,7 +365,7 @@ func prefersConformalOverHesitation(conf, hes GateCalibrationResult) bool {
 func loadCalibrationSuiteMap(path string) (map[string]CompareDatasetItem, error) {
 	raw, err := os.ReadFile(path) //nolint:gosec // G304: user-supplied CLI suite path
 	if err != nil {
-		return nil, fmt.Errorf("read suite %s: %w", path, err)
+		return nil, fmt.Errorf("read suite %q: %w", path, err)
 	}
 	out := map[string]CompareDatasetItem{}
 	sc := bufio.NewScanner(bytes.NewReader(raw))
@@ -381,14 +379,14 @@ func loadCalibrationSuiteMap(path string) (map[string]CompareDatasetItem, error)
 		}
 		var item CompareDatasetItem
 		if err := json.Unmarshal(line, &item); err != nil {
-			return nil, fmt.Errorf("parse suite %s line %d: %w", path, lineNo, err)
+			return nil, fmt.Errorf("parse suite %q line %d: %w", path, lineNo, err)
 		}
 		if item.ID != "" {
 			out[item.ID] = item
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return nil, fmt.Errorf("scan suite %s: %w", path, err)
+		return nil, fmt.Errorf("scan suite %q: %w", path, err)
 	}
 	return out, nil
 }
@@ -396,11 +394,11 @@ func loadCalibrationSuiteMap(path string) (map[string]CompareDatasetItem, error)
 func loadCalibrationFile(path string, suite map[string]CompareDatasetItem, scoreTol float64, offset int) ([]calibrationItem, int, string, string, error) {
 	raw, err := os.ReadFile(path) //nolint:gosec // G304: user-supplied CLI input path
 	if err != nil {
-		return nil, 0, "", "", fmt.Errorf("read input %s: %w", path, err)
+		return nil, 0, "", "", fmt.Errorf("read input %q: %w", path, err)
 	}
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 {
-		return nil, 0, "", "", fmt.Errorf("input %s is empty", path)
+		return nil, 0, "", "", fmt.Errorf("input %q is empty", path)
 	}
 
 	var probe struct {
@@ -409,7 +407,7 @@ func loadCalibrationFile(path string, suite map[string]CompareDatasetItem, score
 	if trimmed[0] == '{' && json.Unmarshal(trimmed, &probe) == nil && probe.Cases != nil {
 		var rep CompareBatchReport
 		if err := json.Unmarshal(trimmed, &rep); err != nil {
-			return nil, 0, "", "", fmt.Errorf("parse batch report %s: %w", path, err)
+			return nil, 0, "", "", fmt.Errorf("parse batch report %q: %w", path, err)
 		}
 		items := make([]calibrationItem, 0, len(rep.Cases))
 		for idx, c := range rep.Cases {
@@ -443,15 +441,11 @@ func loadCalibrationFile(path string, suite map[string]CompareDatasetItem, score
 		if json.Unmarshal(line, &caseProbe) == nil && caseProbe.Comparison != nil {
 			var c CompareCaseResult
 			if err := json.Unmarshal(line, &c); err != nil {
-				return nil, 0, "", "", fmt.Errorf("parse case record %s line %d: %w", path, lineNo, err)
+				return nil, 0, "", "", fmt.Errorf("parse case record %q line %d: %w", path, lineNo, err)
 			}
 			if item, ok := caseToCalibrationItem(c, suite, scoreTol, offset+rawCount-1); ok {
-				if engA == "" {
-					engA = item.engineA
-				}
-				if engB == "" {
-					engB = item.engineB
-				}
+				engA = cmp.Or(engA, item.engineA)
+				engB = cmp.Or(engB, item.engineB)
 				items = append(items, item)
 			}
 			continue
@@ -459,14 +453,14 @@ func loadCalibrationFile(path string, suite map[string]CompareDatasetItem, score
 
 		var flat flatCalibrationRecord
 		if err := json.Unmarshal(line, &flat); err != nil {
-			return nil, 0, "", "", fmt.Errorf("parse jsonl %s line %d: %w", path, lineNo, err)
+			return nil, 0, "", "", fmt.Errorf("parse jsonl %q line %d: %w", path, lineNo, err)
 		}
 		if item, ok := flatToCalibrationItem(flat, suite, scoreTol, offset+rawCount-1); ok {
 			items = append(items, item)
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return nil, 0, "", "", fmt.Errorf("scan input %s: %w", path, err)
+		return nil, 0, "", "", fmt.Errorf("scan input %q: %w", path, err)
 	}
 	return items, rawCount, engA, engB, nil
 }
@@ -669,7 +663,7 @@ func extractProbabilityValues(raw any) []float64 {
 				keys = append(keys, k)
 			}
 		}
-		sort.Strings(keys)
+		slices.Sort(keys)
 		out := make([]float64, 0, len(keys))
 		for _, k := range keys {
 			out = append(out, m[k])
@@ -686,7 +680,7 @@ func extractProbabilityValues(raw any) []float64 {
 				pairs = append(pairs, kv{k: k, v: f})
 			}
 		}
-		sort.Slice(pairs, func(i, j int) bool { return pairs[i].k < pairs[j].k })
+		slices.SortFunc(pairs, func(a, b kv) int { return strings.Compare(a.k, b.k) })
 		out := make([]float64, 0, len(pairs))
 		for _, p := range pairs {
 			out = append(out, p.v)
@@ -878,23 +872,18 @@ func summarizeFoldThresholds(foldTaus []float64) (meanTau, minTau, maxTau float6
 	var activeSum float64
 	var activeCount int
 	for _, t := range foldTaus {
-		if t < minTau {
-			minTau = t
-		}
-		if t > maxTau {
-			maxTau = t
-		}
+		minTau = min(minTau, t)
+		maxTau = max(maxTau, t)
 		if math.IsNaN(t) || math.IsInf(t, 0) || t > 1.0 || t < 0.0 {
 			infeasibleFolds++
-		} else {
-			activeSum += t
-			activeCount++
+			continue
 		}
+		activeSum += t
+		activeCount++
 	}
+	meanTau = noEscalationThreshold
 	if activeCount > 0 {
 		meanTau = activeSum / float64(activeCount)
-	} else {
-		meanTau = noEscalationThreshold
 	}
 	return meanTau, minTau, maxTau, infeasibleFolds
 }
@@ -906,7 +895,7 @@ func candidateThresholdGrid(scores []float64, extra *float64) []float64 {
 	if extra != nil && !math.IsNaN(*extra) && !math.IsInf(*extra, 0) {
 		raw = append(raw, *extra)
 	}
-	sort.Slice(raw, func(i, j int) bool { return raw[i] > raw[j] })
+	slices.SortFunc(raw, func(a, b float64) int { return cmp.Compare(b, a) })
 	dedup := make([]float64, 0, len(raw))
 	for _, v := range raw {
 		if len(dedup) == 0 || math.Abs(dedup[len(dedup)-1]-v) > 1e-12 {
@@ -940,13 +929,12 @@ func summarizeEscalationDecisions(items []calibrationItem, escalated []bool, tau
 	var escCount, keptCount, keptErrors, hybridCorrect, onlyA, onlyHybrid int
 	hybridVec := make([]float64, n)
 	for i, it := range items {
-		var hCorr bool
+		hCorr := it.bCorrect
 		if escalated[i] {
 			escCount++
 			hCorr = it.aCorrect
 		} else {
 			keptCount++
-			hCorr = it.bCorrect
 			if !it.bCorrect {
 				keptErrors++
 			}
@@ -998,15 +986,16 @@ func buildSweepCurve(items []calibrationItem, scores []float64, optimalTau float
 	if conformalQ != nil {
 		chosen = append(chosen, *conformalQ)
 	}
-	if len(grid) <= maxInterior+2 {
+	switch {
+	case len(grid) <= maxInterior+2:
 		chosen = append(chosen, grid...)
-	} else {
+	default:
 		for k := 1; k <= maxInterior; k++ {
 			idx := k * (len(grid) - 1) / (maxInterior + 1)
 			chosen = append(chosen, grid[idx])
 		}
 	}
-	sort.Slice(chosen, func(i, j int) bool { return chosen[i] > chosen[j] })
+	slices.SortFunc(chosen, func(a, b float64) int { return cmp.Compare(b, a) })
 	var taus []float64
 	for _, v := range chosen {
 		if len(taus) == 0 || math.Abs(taus[len(taus)-1]-v) > 1e-12 {
@@ -1075,11 +1064,11 @@ func renderCalibrateGateTable(w io.Writer, rep CalibrateGateReport) error {
 		parityDesc = fmt.Sprintf("p > %.2f", rep.McNemarAlpha)
 	}
 	fmt.Fprintf(tw, "Constraints:\tselective risk %s, Paired McNemar %s\n", riskDesc, parityDesc)
+	validationDesc := fmt.Sprintf("in-sample sweep (folds=%d)", rep.Folds)
 	if rep.CrossValidated {
-		fmt.Fprintf(tw, "Validation:\t%d-fold seeded CV (seed=%d)\n", rep.Folds, rep.Seed)
-	} else {
-		fmt.Fprintf(tw, "Validation:\tin-sample sweep (folds=%d)\n", rep.Folds)
+		validationDesc = fmt.Sprintf("%d-fold seeded CV (seed=%d)", rep.Folds, rep.Seed)
 	}
+	fmt.Fprintf(tw, "Validation:\t%s\n", validationDesc)
 
 	fmt.Fprintln(tw, "\nUNCALIBRATED BASELINE")
 	fmt.Fprintf(tw, "Baseline (Engine A):\t%d/%d (%.1f%%)\n",
@@ -1092,11 +1081,11 @@ func renderCalibrateGateTable(w io.Writer, rep CalibrateGateReport) error {
 	rec := rep.Recommended
 	fmt.Fprintln(tw, "\nRECOMMENDED GATE")
 	fmt.Fprintf(tw, "Method:\t%s\n", rec.Method)
+	thresholdLabel := "Full-sample threshold"
 	if rec.Method == gateMethodConformal {
-		fmt.Fprintf(tw, "Full-sample threshold (offline 1-max_p):\t%s\n", formatThreshold(rec.FullSample.Threshold))
-	} else {
-		fmt.Fprintf(tw, "Full-sample threshold:\t%s\n", formatThreshold(rec.FullSample.Threshold))
+		thresholdLabel = "Full-sample threshold (offline 1-max_p)"
 	}
+	fmt.Fprintf(tw, "%s:\t%s\n", thresholdLabel, formatThreshold(rec.FullSample.Threshold))
 	if rec.MinFoldThreshold != nil && rec.MaxFoldThreshold != nil {
 		fmt.Fprintf(tw, "CV fold thresholds:\tmin=%s, max=%s\n", formatThreshold(*rec.MinFoldThreshold), formatThreshold(*rec.MaxFoldThreshold))
 	}
@@ -1125,11 +1114,11 @@ func renderCalibrateGateTable(w io.Writer, rep CalibrateGateReport) error {
 			gateYesNo(pt.Feasible),
 		)
 	}
+	flagLabel := "Recommended CLI flag"
 	if rec.Method == gateMethodConformal {
-		fmt.Fprintf(tw, "\nRecommended CLI flag (hesitation gate):\t%s\n", rep.RecommendedCLIFlag)
-	} else {
-		fmt.Fprintf(tw, "\nRecommended CLI flag:\t%s\n", rep.RecommendedCLIFlag)
+		flagLabel = "Recommended CLI flag (hesitation gate)"
 	}
+	fmt.Fprintf(tw, "\n%s:\t%s\n", flagLabel, rep.RecommendedCLIFlag)
 	return tw.Flush()
 }
 

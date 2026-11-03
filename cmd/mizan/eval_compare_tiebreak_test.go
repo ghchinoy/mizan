@@ -26,18 +26,18 @@ import (
 func TestInvalidTieBreakRejectedOffline(t *testing.T) {
 	out, err := executeRoot(t, "eval", "compare-engines", "--metric", "ns/m", "--tie-break", "bogus")
 	if err == nil {
-		t.Fatalf("expected error for invalid --tie-break, got nil (out=%q)", out)
+		t.Fatalf("executeRoot(eval compare-engines --tie-break bogus) error = nil, want invalid --tie-break error (out=%q)", out)
 	}
 	if !strings.Contains(err.Error(), "invalid --tie-break") {
-		t.Errorf("error = %v, want mention of invalid --tie-break", err)
+		t.Errorf("executeRoot(eval compare-engines --tie-break bogus) error = %v, want mention of invalid --tie-break", err)
 	}
 
 	out, err = executeRoot(t, "eval", "compare-engines", "--metric", "ns/m", "--from-report", "some.json")
 	if err == nil {
-		t.Fatalf("expected mutual exclusivity error, got nil (out=%q)", out)
+		t.Fatalf("executeRoot(eval compare-engines --metric ns/m --from-report some.json) error = nil, want mutual exclusivity error (out=%q)", out)
 	}
 	if !strings.Contains(err.Error(), "exactly one of --metric, --dataset, or --from-report is required") {
-		t.Errorf("error = %v", err)
+		t.Errorf("executeRoot(eval compare-engines --metric ns/m --from-report some.json) error = %v, want mutual exclusivity error", err)
 	}
 }
 

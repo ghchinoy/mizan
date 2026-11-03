@@ -58,7 +58,7 @@ func TestExpectedGradeFromProbabilities(t *testing.T) {
 		}
 		want := 0.05*1 + 0.10*2 + 0.15*3 + 0.30*4 + 0.40*5
 		if math.Abs(got-want) > 1e-9 {
-			t.Errorf("got %.6f, want %.6f", got, want)
+			t.Errorf("ExpectedGradeFromProbabilities(%v) = %.6f, want %.6f", probs, got, want)
 		}
 	})
 
@@ -76,7 +76,7 @@ func TestExpectedGradeFromProbabilities(t *testing.T) {
 		}
 		want := -0.20 - 0.20 + 0.15 + 0.10
 		if math.Abs(got-want) > 1e-9 {
-			t.Errorf("got %.6f, want %.6f", got, want)
+			t.Errorf("ExpectedGradeFromProbabilities(%v) = %.6f, want %.6f", probs, got, want)
 		}
 	})
 
@@ -94,7 +94,7 @@ func TestExpectedGradeFromProbabilities(t *testing.T) {
 			t.Fatal("ExpectedGradeFromProbabilities returned ok=false")
 		}
 		if math.Abs(got-2.0) > 1e-4 {
-			t.Errorf("got %.8f, want ~2.0", got)
+			t.Errorf("ExpectedGradeFromProbabilities(%v) = %.8f, want ~2.0", probs, got)
 		}
 	})
 
@@ -264,7 +264,7 @@ func TestCompareScoresTieBreakRubric3Of4Tie(t *testing.T) {
 	// Item A: mean P(yes) = 0.835 -> 1 + 0.835*4 = 4.34
 	// Item B: mean P(yes) = 0.405 -> 1 + 0.405*4 = 2.62
 	if math.Abs(egA-4.34) > 1e-6 || math.Abs(egB-2.62) > 1e-6 {
-		t.Fatalf("expected grades = (%.4f, %.4f), want (4.3400, 2.6200)", egA, egB)
+		t.Fatalf("ResolveExpectedGrade(A, B) = (%.4f, %.4f), want (4.3400, 2.6200)", egA, egB)
 	}
 	if cmp := CompareScoresTieBreak(&tiedScoreA, customA, &tiedScoreB, customB, 1e-6); cmp != 1 {
 		t.Errorf("CompareScoresTieBreak(A, B) = %d, want +1", cmp)
@@ -294,7 +294,7 @@ func TestExpectedPassFractionLegacyConfidenceFallback(t *testing.T) {
 	}
 	passed, total, epf, ok := ExpectedPassFractionFromCriteria(crit)
 	if !ok || passed != 1 || total != 2 {
-		t.Fatalf("got passed=%d total=%d ok=%v, want 1, 2, true", passed, total, ok)
+		t.Fatalf("ExpectedPassFractionFromCriteria(%v) = (passed=%d, total=%d, ok=%v), want (1, 2, true)", crit, passed, total, ok)
 	}
 	// Item 0 failed with 0.90 confidence -> P(yes)=0.10; Item 1 passed with 0.80 -> P(yes)=0.80; mean=0.45.
 	if math.Abs(epf-0.45) > 1e-9 {

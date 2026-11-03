@@ -115,12 +115,12 @@ func ExpectedPassFractionFromCriteria(perCriterion []any) (passed, total int, ex
 		conf, hasConf := customFloat(m["confidence"])
 		if hasPassed && hasConf && conf >= 0 && conf <= 1 {
 			total++
+			pYes := 1.0 - conf
 			if critPassed {
 				passed++
-				sumPYes += conf
-			} else {
-				sumPYes += 1.0 - conf
+				pYes = conf
 			}
+			sumPYes += pYes
 		}
 	}
 	if total == 0 {
