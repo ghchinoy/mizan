@@ -41,26 +41,32 @@ const show = Boolean(series) && seriesOrder !== undefined;
   .series-banner {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem;
-    margin-block: 0 1.5rem;
-    padding: 0.6rem 0.9rem;
-    border: 1px solid var(--sl-color-gray-5);
-    border-inline-start: 3px solid var(--sl-color-accent);
-    border-radius: 0.5rem;
-    background: var(--sl-color-gray-6, var(--sl-color-bg-nav));
+    align-items: center;
+    gap: 0.6rem;
+    margin-block: 0.85rem 1.5rem;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-md);
+    background: var(--md-sys-color-surface-container-low);
     font-size: var(--sl-text-sm);
   }
   .series-banner__label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.6rem;
+    border-radius: 999px;
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-accent-high);
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    font-size: var(--sl-text-xs);
     font-weight: 600;
-    color: var(--sl-color-accent-high);
   }
   .series-banner__title {
-    font-weight: 600;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface);
   }
   .series-banner__part {
-    color: var(--sl-color-gray-3);
+    color: var(--md-sys-color-on-surface-variant);
   }
 </style>
