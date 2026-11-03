@@ -92,7 +92,10 @@ stderr). Reason over the parsed array — match on `Namespace`, `Kind` (prefer
 "these existing templates already cover concern X; reuse or extend them." Note
 there is **no `--tag` filter** on `registry list` (tag-filtered discovery is a
 separate, out-of-scope capability); filter client-side over the JSON you parsed.
-Let the user decide what to reuse vs. what to newly generate.
+Let the user decide what to reuse vs. what to newly generate. When a mizan MCP
+server is available, an MCP client can use the read-only `mizan_list_metrics` tool
+for this browse/discovery step (and `mizan_get_metric` to inspect a specific
+template); generation and freeze stay on the CLI.
 
 ## Step 3 — GENERATE a draft rubric (one live call; needs ADC)
 

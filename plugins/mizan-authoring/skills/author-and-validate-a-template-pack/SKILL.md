@@ -41,6 +41,11 @@ credentials, and re-implements no CLI logic.
 
 ## The authoring loop (steps 1–5 are creds-free)
 
+For the browse/discovery step — checking which templates already exist before you
+author, or inspecting one — an MCP client can use the read-only `mizan_list_metrics`
+/ `mizan_get_metric` tools when a mizan MCP server is available; authoring itself
+(create / validate / import) stays on the CLI below.
+
 ### Step 1 — Scaffold the pack
 
 ```bash
