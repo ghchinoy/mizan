@@ -43,16 +43,23 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 
 ## Mizan & Mizan-Templates Development Guidelines
 
+### Repository Boundary: Code (`mizan`) vs. Template Packs (`mizan-templates`)
+- **Never Create Top-Level `packs/` in `ghchinoy/mizan`**: `ghchinoy/mizan` contains the CLI, MCP server, desktop app, and evaluation/validation engine only. Canonical, shareable `MetricTemplate` and `EvalSet` packs live **exclusively** in [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates) under `packs/<namespace>/` and must be opened as PRs there.
+- **Where Pack Files Are Allowed in `ghchinoy/mizan`**: Only minimal, synthetic unit-test fixtures under `internal/registry/testdata/` belong in this repo. Never couple Go tests in `internal/` to real packs via `../../packs/...`.
+- **Split Mixed Contributions**: If a task spans both a new/updated template pack and CLI/validator/engine code (e.g., new `ValidatePack` checks), split them into separate PRs:
+  1. Pack PR against `ghchinoy/mizan-templates` (place sample `compare-engines --dataset` JSONL files under `packs/<pack>/examples/` rather than `fixtures/`, and pin `gemini-3.5-flash` or `gemini-3.5-flash-lite` — never retired `gemini-2.x`).
+  2. Focused code/test PR(s) against `ghchinoy/mizan` (keeping validator contract changes separate from `testdata` coverage).
+
 ### CLI Binary & Environment
 - **Binary Path**: Always use the repo-local binary `./bin/mizan` (rebuild via `rtk go build -o bin/mizan ./cmd/mizan`) rather than a global `mizan` on `$PATH`, which may lag behind recent commands such as `mizan pack`.
 - **Vertex AI Project**: Set `MIZAN_PROJECT_ID=<your-gcp-project-id>` (or pass `--project <your-gcp-project-id>`) when running live `mizan eval run` or `mizan eval compare-engines` commands.
 - **Secrets & `.env`**: Hugging Face credentials (`HF_TOKEN`) and local secrets live in `.env`. Ensure `.env` and `.env.*` remain in `.gitignore` across both `mizan` and `../mizan-templates`.
 
 ### Structured Evaluation Primitives (`boul`, `choice`, `score`)
-- **Default Model**: Use `gemini-3.5-flash-lite` as the default `spec.model.name` for `boul`, `choice`, and `score` templates unless a benchmark demonstrates a clear multi-class taxonomy advantage for `gemini-3.8-flash`.
+- **Default Model**: Use `gemini-3.5-flash-lite` as the default `spec.autorater.model` for `boul`, `choice`, and `score` templates unless a benchmark demonstrates a clear multi-class taxonomy advantage for `gemini-3.8-flash` (or `gemini-3.5-flash` for dense multimodal grounding). Never pin retired `gemini-2.x` models.
 - **Vertex Routing**: `boul`, `choice`, and `score` templates use direct `google.golang.org/genai` structured JSON output and automatically upgrade `us-central1` to `location=global` for `gemini-3.x` preview availability. Note that `autorater.samplingCount` is not applied on this path.
 - **Polarity Convention for Detectors**: For `boul` templates that detect a condition (e.g., toxicity, prompt injection, trajectory drift), define `passed: true` to mean *"the proposition holds / condition is detected"* so boolean verdicts align directly with dataset ground-truth labels.
-- **Template Pack Workflow**: Validate packs in `../mizan-templates` with `./bin/mizan pack validate ../mizan-templates` and sync into the local SQLite registry with `./bin/mizan pack import ../mizan-templates/packs/<pack> --strategy overwrite`.
+- **Template Pack Workflow**: Validate packs in `../mizan-templates` with `./bin/mizan pack validate ../mizan-templates` and sync into the local SQLite registry with `./bin/mizan registry import ../mizan-templates/packs/<pack> --strategy overwrite`.
 
 ### Benchmarking & `jq` Post-Processing
 - **`compare-engines` Output (schema v2)**: with `--dataset`, each engine is scored against the item's gold `expected` label first (`engine_a/engine_b.accuracy` + bootstrap CI, calibration, Likert MAE/Spearman), then paired (`paired`: McNemar, kappa, agreement). Inter-engine agreement is secondary: two wrong engines agree. Per-case engine errors are recorded (not fatal); re-run failed items with `scripts/judge-eval/retry_errors.sh` instead of dropping them (failures correlate with hard/long items).

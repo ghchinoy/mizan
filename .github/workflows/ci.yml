@@ -36,6 +36,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Pack boundary check (no top-level packs/)
+        run: |
+          if [ -d packs ]; then
+            echo "::error::Top-level packs/ belongs in github.com/ghchinoy/mizan-templates, not ghchinoy/mizan (keep synthetic unit-test fixtures under internal/registry/testdata/)."
+            exit 1
+          fi
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
