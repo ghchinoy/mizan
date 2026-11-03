@@ -1,25 +1,16 @@
 apiVersion: mizan.dev/v1alpha1
 kind: MetricTemplate
-
 metadata:
   id: multimodal-judge/fine-print-verify
-  name: Fine-Print Visual Verification
-  description: >
-    Verifies whether dense small-text claims extracted from an image (such as
-    shelf price tags, nutrition tables, receipts, or regulatory disclaimers)
-    are visually legible, faithful to the pixels, and free of hallucinated numbers.
+  name: Synthetic Fine-Print Rubric
+  description: Synthetic rubric multimodal fixture.
   version: 0.1.0
-  authors:
-    - name: Jigyasu Juneja (@jigyasujuneja)
-  maintainers:
-    - jigyasujuneja
+  maintainers: [mizan-test]
   license: Apache-2.0
-  tags: [multimodal, ocr, grounding, fine-print, rubric]
-
+  tags: [multimodal, rubric]
 spec:
   kind: rubric
   modalities: [image, text]
-
   inputs:
     - name: image
       modality: image
@@ -30,35 +21,15 @@ spec:
     - name: response
       modality: text
       required: true
-
   metricPromptTemplate: |
-    You are a multimodal visual audit judge inspecting fine print in an image.
-
-    Source image:
-    {{image}}
-
-    User prompt:
-    {{prompt}}
-
-    Candidate response under evaluation:
-    {{response}}
-
-    Evaluate the candidate response strictly against the visible characters,
-    digits, units, and qualifier clauses in the source image.
-
+    Verify extracted fine print in {{image}} for prompt {{prompt}}: {{response}}
   systemInstruction: |
-    Do not guess illegible text from prior product knowledge. Penalize any digit,
-    currency symbol, unit, percentage, or footnote claim that is not directly
-    supported by visible pixels in the image.
-
+    Do not guess illegible text.
   rubricGroups:
-    visual_legibility:
-      - "Quoted strings, prices, and numeric values in the response correspond to legible characters in the image."
-      - "When relevant fine print in the image is occluded, cropped, or too blurry to read, the response explicitly states that limitation rather than guessing."
-    numeric_and_unit_fidelity:
-      - "Numbers, decimals, dates, and measurement units match the image without transposition or rounding distortion."
-      - "Qualifiers, footnotes, or conditional clauses attached to a headline figure in the image are preserved accurately."
-
+    legibility:
+      - "Values match visible characters in the image."
+    fidelity:
+      - "Units and qualifiers are preserved."
   autorater:
     model: gemini-3.5-flash
     samplingCount: 1

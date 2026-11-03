@@ -2,14 +2,11 @@ apiVersion: mizan.dev/v1alpha1
 kind: EvalSet
 metadata:
   id: multimodal-judge/multimodal-judge-core
-  name: Multimodal Judge Core Evaluation Suite
-  description: >
-    Core four-dimension multimodal evaluation suite covering fine-print visual
-    verification, Set-of-Mark UI grounding, visual pairwise preference, and
-    untrusted OCR prompt-injection quarantine.
+  name: Synthetic Multimodal Core Suite
+  description: Synthetic four-kind multimodal suite fixture.
   version: 0.1.0
   assetClass: multimodal-response
-  tags: [multimodal, grounding, ui, safety, suite]
+  tags: [multimodal, test]
 spec:
   members:
     - metric: multimodal-judge/fine-print-verify
@@ -22,7 +19,7 @@ spec:
       weight: 1.5
   aggregation:
     method: weighted-mean
-    threshold: 0.85
+    threshold: 2.2
     gate: true
   display:
     order: as-listed

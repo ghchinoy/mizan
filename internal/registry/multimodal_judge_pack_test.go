@@ -17,7 +17,6 @@ package registry_test
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -32,24 +31,24 @@ func TestMultimodalJudgePackValidateClean(t *testing.T) {
 	packDir := filepath.Join("testdata", "multimodal-judge", "packs", "multimodal-judge")
 	rep, err := registry.ValidatePack(packDir)
 	if err != nil {
-		t.Fatalf("ValidatePack(%s): %v", packDir, err)
+		t.Fatalf("ValidatePack(%q): %v", packDir, err)
 	}
 	if rep.Errors() != 0 || rep.Warnings() != 0 {
-		t.Fatalf("ValidatePack(%s) findings = %+v (want 0 errors, 0 warnings)", packDir, rep.Findings)
+		t.Fatalf("ValidatePack(%q) findings = %+v, want 0 errors and 0 warnings", packDir, rep.Findings)
 	}
 	if len(rep.Templates) != 4 {
-		t.Fatalf("ValidatePack(%s) templates = %d, want 4", packDir, len(rep.Templates))
+		t.Fatalf("ValidatePack(%q) templates = %d, want 4", packDir, len(rep.Templates))
 	}
 
 	treeRoot := filepath.Join("testdata", "multimodal-judge")
 	rootRep, err := registry.ValidatePack(treeRoot)
 	if err != nil {
-		t.Fatalf("ValidatePack(%s): %v", treeRoot, err)
+		t.Fatalf("ValidatePack(%q): %v", treeRoot, err)
 	}
 	if rootRep.Errors() != 0 || rootRep.Warnings() != 0 {
-		t.Fatalf("ValidatePack(%s) findings = %+v (want 0 errors, 0 warnings)", treeRoot, rootRep.Findings)
+		t.Fatalf("ValidatePack(%q) findings = %+v, want 0 errors and 0 warnings", treeRoot, rootRep.Findings)
 	}
-	found := map[string]bool{}
+	found := make(map[string]bool, len(rootRep.Templates))
 	for _, tmpl := range rootRep.Templates {
 		found[tmpl.ID] = true
 	}
@@ -61,62 +60,67 @@ func TestMultimodalJudgePackValidateClean(t *testing.T) {
 	}
 	for _, id := range wantIDs {
 		if !found[id] {
-			t.Errorf("pack-tree ValidatePack did not discover template %q", id)
+			t.Errorf("ValidatePack(%q) did not discover template %q", treeRoot, id)
 		}
 	}
 }
 
 func TestMultimodalJudgePackImportEvalSetAndGoldenFixtures(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	packDir := filepath.Join("testdata", "multimodal-judge", "packs", "multimodal-judge")
 
 	dbPath := filepath.Join(t.TempDir(), "registry.db")
 	store, err := sqlite.Open(dbPath)
 	if err != nil {
-		t.Fatalf("sqlite.Open: %v", err)
+		t.Fatalf("sqlite.Open(%q): %v", dbPath, err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
 	svc := registry.NewService(store)
 	impRep, err := svc.Import(ctx, packDir, registry.ImportOptions{})
 	if err != nil {
-		t.Fatalf("Service.Import(%s): %v", packDir, err)
+		t.Fatalf("Service.Import(%q): %v", packDir, err)
 	}
 	if impRep.Inserted != 4 || impRep.Conflicted != 0 || impRep.Skipped != 0 {
-		t.Fatalf("ImportReport = %+v, want 4 inserted, 0 conflicted, 0 skipped", impRep)
+		t.Fatalf("Service.Import(%q) = %+v, want 4 inserted, 0 conflicted, 0 skipped", packDir, impRep)
 	}
 
 	reimpRep, err := svc.Import(ctx, packDir, registry.ImportOptions{})
 	if err != nil {
-		t.Fatalf("idempotent re-import: %v", err)
+		t.Fatalf("Service.Import(%q) idempotent re-import: %v", packDir, err)
 	}
 	if reimpRep.Unchanged != 4 || reimpRep.Inserted != 0 || reimpRep.Conflicted != 0 {
-		t.Fatalf("re-import = %+v, want 4 unchanged", reimpRep)
+		t.Fatalf("Service.Import(%q) re-import = %+v, want 4 unchanged", packDir, reimpRep)
 	}
 
-	evalSetBytes, err := os.ReadFile(filepath.Join(packDir, "evalsets", "multimodal-judge-core.yaml"))
+	evalSetPath := filepath.Join(packDir, "evalsets", "multimodal-judge-core.yaml")
+	evalSetBytes, err := os.ReadFile(evalSetPath)
 	if err != nil {
-		t.Fatalf("read evalset manifest: %v", err)
+		t.Fatalf("os.ReadFile(%q): %v", evalSetPath, err)
 	}
 	doc, err := pack.ParseEvalSet(evalSetBytes)
 	if err != nil {
-		t.Fatalf("ParseEvalSet: %v", err)
+		t.Fatalf("pack.ParseEvalSet(%q): %v", evalSetPath, err)
 	}
 	if doc.Metadata.ID != "multimodal-judge/multimodal-judge-core" {
-		t.Fatalf("EvalSet ID = %q, want multimodal-judge/multimodal-judge-core", doc.Metadata.ID)
+		t.Fatalf("ParseEvalSet(%q) ID = %q, want %q", evalSetPath, doc.Metadata.ID, "multimodal-judge/multimodal-judge-core")
 	}
 	if len(doc.Spec.Members) != 4 {
-		t.Fatalf("EvalSet members = %d, want 4", len(doc.Spec.Members))
+		t.Fatalf("ParseEvalSet(%q) members = %d, want 4", evalSetPath, len(doc.Spec.Members))
+	}
+	if doc.Spec.Aggregation == nil || doc.Spec.Aggregation.Threshold == nil || *doc.Spec.Aggregation.Threshold != 2.2 {
+		t.Fatalf("ParseEvalSet(%q) threshold = %+v, want 2.2", evalSetPath, doc.Spec.Aggregation)
 	}
 	for _, m := range doc.Spec.Members {
 		if _, err := svc.Get(ctx, m.Metric); err != nil {
-			t.Fatalf("EvalSet member %q missing after import: %v", m.Metric, err)
+			t.Fatalf("svc.Get(%q) for EvalSet member after import: %v", m.Metric, err)
 		}
 	}
 
-	fixtureBytes, err := os.ReadFile(filepath.Join(packDir, "examples", "golden_evalset.jsonl"))
+	fixturePath := filepath.Join(packDir, "examples", "golden_evalset.jsonl")
+	fixtureBytes, err := os.ReadFile(fixturePath)
 	if err != nil {
-		t.Fatalf("read golden_evalset.jsonl: %v", err)
+		t.Fatalf("os.ReadFile(%q): %v", fixturePath, err)
 	}
 	type fixtureRow struct {
 		ID       string            `json:"id"`
@@ -124,50 +128,52 @@ func TestMultimodalJudgePackImportEvalSetAndGoldenFixtures(t *testing.T) {
 		Tier     string            `json:"tier"`
 		Category string            `json:"category"`
 		GCS      map[string]string `json:"gcs"`
+		Files    map[string]string `json:"files"`
 		Fields   map[string]string `json:"fields"`
 		Expected any               `json:"expected"`
 	}
 	sc := bufio.NewScanner(bytes.NewReader(fixtureBytes))
 	var rowCount int
-	perMetric := map[string]int{}
+	perMetric := make(map[string]int)
 	for sc.Scan() {
 		line := bytes.TrimSpace(sc.Bytes())
 		if len(line) == 0 {
 			continue
 		}
 		rowCount++
-		var r fixtureRow
-		if err := json.Unmarshal(line, &r); err != nil {
-			t.Fatalf("line %d invalid JSON: %v", rowCount, err)
+		var row fixtureRow
+		if err := json.Unmarshal(line, &row); err != nil {
+			t.Fatalf("json.Unmarshal(%q line %d): %v", fixturePath, rowCount, err)
 		}
-		if r.ID == "" || r.Expected == nil {
-			t.Fatalf("line %d missing id or expected: %+v", rowCount, r)
+		if row.ID == "" || row.Expected == nil {
+			t.Fatalf("%q line %d = %+v, want non-empty id and expected", fixturePath, rowCount, row)
 		}
-		tmpl, err := svc.Get(ctx, r.Metric)
+		tmpl, err := svc.Get(ctx, row.Metric)
 		if err != nil {
-			t.Fatalf("line %d metric %q not in imported registry: %v", rowCount, r.Metric, err)
+			t.Fatalf("svc.Get(%q) on line %d: %v", row.Metric, rowCount, err)
 		}
 		for _, in := range tmpl.Inputs {
 			if !in.Required {
 				continue
 			}
-			_, inText := r.Fields[in.Name]
-			_, inGCS := r.GCS[in.Name]
-			if !inText && !inGCS {
-				t.Errorf("fixture %s (%s) missing required input %q", r.ID, r.Metric, in.Name)
+			_, inText := row.Fields[in.Name]
+			_, inFile := row.Files[in.Name]
+			_, inGCS := row.GCS[in.Name]
+			if !inText && !inFile && !inGCS {
+				t.Errorf("fixture %q (%q) missing required input %q", row.ID, row.Metric, in.Name)
 			}
 		}
-		perMetric[r.Metric]++
+		perMetric[row.Metric]++
 	}
 	if err := sc.Err(); err != nil {
-		t.Fatalf("scan golden_evalset.jsonl: %v", err)
+		t.Fatalf("bufio.Scanner(%q): %v", fixturePath, err)
 	}
 	if rowCount != 8 {
-		t.Fatalf("golden_evalset.jsonl rows = %d, want 8", rowCount)
+		t.Fatalf("%q rowCount = %d, want 8", fixturePath, rowCount)
 	}
 	for _, m := range doc.Spec.Members {
 		if perMetric[m.Metric] != 2 {
-			t.Errorf("fixture count for %s = %d, want 2", m.Metric, perMetric[m.Metric])
+			t.Errorf("perMetric[%q] = %d, want 2", m.Metric, perMetric[m.Metric])
 		}
 	}
 }
