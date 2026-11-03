@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "mizan-authoring",
-  "version": "0.1.0",
-  "description": "Author metric-template packs for Mizan from an agent: scaffold a pack, create rubric/pointwise/pairwise/custom_schema templates via the mizan CLI, validate the pack creds-free (the CI PR gate), and run the export->PR->import collaborator loop; and generate a rubric from a brand book (suggest-first, agent-side synthesis) then freeze it into the registry. Use when you need to author, package, validate, or share a Mizan metric template or template pack, or to generate evaluation rubrics from a brand book or guidance document.",
+  "version": "0.1.1",
+  "description": "Author metric-template packs for Mizan from an agent: scaffold a pack, create boul/choice/score/rubric/pointwise/pairwise/custom_schema/heuristic templates via the mizan CLI, validate the pack creds-free (the CI PR gate), and run the export->PR->import collaborator loop; and generate a rubric from a brand book (suggest-first, agent-side synthesis) then freeze it into the registry. Use when you need to author, package, validate, or share a Mizan metric template or template pack, or to generate evaluation rubrics from a brand book or guidance document.",
   "author": {
     "name": "ghchinoy",
     "url": "https://github.com/ghchinoy"

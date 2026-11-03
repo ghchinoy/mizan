@@ -24,7 +24,6 @@ McNemar p-value. Use it to answer "did the new image regress?" on identical item
 
 import argparse
 import glob
-import json
 import math
 import os
 import sys

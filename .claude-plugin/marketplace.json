@@ -12,7 +12,7 @@
     {
       "name": "mizan-eval",
       "source": "./plugins/mizan-eval",
-      "description": "Run a single or pairwise Mizan evaluation against a metric template and explain the verdict.",
+      "description": "Run Mizan evaluations from an agent: score a single response or compare two responses against a metric template via the mizan CLI, reasoning over the -o json result. Use when you need to evaluate an asset/response against guidance and explain the verdict.",
       "skills": [
         "./skills/run-eval",
         "./skills/run-eval-set"
@@ -21,7 +21,7 @@
     {
       "name": "mizan-results",
       "source": "./plugins/mizan-results",
-      "description": "Turn stored Mizan eval results into a single self-contained, standalone HTML report (summary, score distribution, per-metric trend) from `results list -o json`, and triage a single past run (provenance, verdict explanation, next steps) from `results show`/`results list -o json`.",
+      "description": "Turn stored Mizan eval results into a self-contained, standalone HTML report from an agent: query results via the mizan CLI over -o json, aggregate client-side, and render a single offline report.html. Use when you need to review, summarize, or visualize past evaluation results as an HTML report.",
       "skills": [
         "./skills/report-to-html",
         "./skills/triage-a-result"
@@ -30,7 +30,7 @@
     {
       "name": "mizan-setup",
       "source": "./plugins/mizan-setup",
-      "description": "Configure Mizan for first use: inspect the resolved configuration via `config show -o json`, persist project/location/default-model/results-store settings with `config set`, confirm the build with `version`, and check (never store) Application Default Credentials.",
+      "description": "Configure Mizan for first use from an agent: inspect the resolved configuration via the mizan CLI over -o json, persist project/location/default-model/results-store settings with `config set`, verify the CLI build with `version`, and check (never store) Application Default Credentials. Use when you need to set up or verify a Mizan environment before running live evaluations.",
       "skills": [
         "./skills/configure-mizan"
       ]
@@ -38,7 +38,7 @@
     {
       "name": "mizan-authoring",
       "source": "./plugins/mizan-authoring",
-      "description": "Author, validate (creds-free), and share Mizan metric-template packs: scaffold a pack, create templates via the mizan CLI, run `pack validate` (the CI PR gate), and the export->PR->import collaborator loop; plus generate a rubric from a brand book (suggest-first, agent-side synthesis) and freeze it into the registry.",
+      "description": "Author metric-template packs for Mizan from an agent: scaffold a pack, create boul/choice/score/rubric/pointwise/pairwise/custom_schema/heuristic templates via the mizan CLI, validate the pack creds-free (the CI PR gate), and run the export->PR->import collaborator loop; and generate a rubric from a brand book (suggest-first, agent-side synthesis) then freeze it into the registry. Use when you need to author, package, validate, or share a Mizan metric template or template pack, or to generate evaluation rubrics from a brand book or guidance document.",
       "skills": [
         "./skills/author-and-validate-a-template-pack",
         "./skills/rubric-generate-from-brand-book",
@@ -48,7 +48,7 @@
     {
       "name": "mizan-mcp",
       "source": "./plugins/mizan-mcp",
-      "description": "Expose the Mizan eval engine to agents and MCP clients as callable tools via the `mizan mcp` server: registers a local stdio MCP server (`mizan mcp stdio`) advertising mizan_list_metrics, mizan_get_metric (read-only), mizan_eval_run, and mizan_eval_pairwise, plus an agent-in-the-loop eval skill that discovers a judge, runs it, and reads the persisted runId returned inline.",
+      "description": "Expose the Mizan eval engine to agents and MCP clients as callable tools via the `mizan mcp` server. Registers a local stdio MCP server (`mizan mcp stdio`) advertising four tools — mizan_list_metrics, mizan_get_metric (read-only), mizan_eval_run, and mizan_eval_pairwise — plus an agent-in-the-loop eval skill. Use when an agent should discover a judge and run an evaluation over MCP rather than shelling out to the CLI.",
       "skills": [
         "./skills/evaluate-with-mcp"
       ]

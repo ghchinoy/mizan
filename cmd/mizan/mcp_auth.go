@@ -40,6 +40,8 @@ const minSigningKeyBytes = 32
 // bearerAuth gates HTTP ingress behind a valid HS256-signed Bearer JWT.
 type bearerAuth struct {
 	signingKey []byte
+	audience   string
+	issuer     string
 }
 
 // newBearerAuth builds the bearer gate from the HMAC signing key in
@@ -54,7 +56,11 @@ func newBearerAuth() (*bearerAuth, error) {
 		return nil, fmt.Errorf("JWT_SIGNING_KEY must be set (>=%d bytes) to serve MCP over HTTP; "+
 			"set DISABLE_AUTH=true only for loopback-bound local development", minSigningKeyBytes)
 	}
-	return &bearerAuth{signingKey: key}, nil
+	return &bearerAuth{
+		signingKey: key,
+		audience:   strings.TrimSpace(os.Getenv("MIZAN_MCP_JWT_AUDIENCE")),
+		issuer:     strings.TrimSpace(os.Getenv("MIZAN_MCP_JWT_ISSUER")),
+	}, nil
 }
 
 // requireBearer wraps next behind HS256 Bearer-JWT validation. A missing or
@@ -75,12 +81,19 @@ func (a *bearerAuth) requireBearer(next http.Handler) http.Handler {
 			return
 		}
 
+		opts := []jwt.ParserOption{
+			jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+			jwt.WithExpirationRequired(),
+		}
+		if a.audience != "" {
+			opts = append(opts, jwt.WithAudience(a.audience))
+		}
+		if a.issuer != "" {
+			opts = append(opts, jwt.WithIssuer(a.issuer))
+		}
 		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-			}
 			return a.signingKey, nil
-		}, jwt.WithExpirationRequired())
+		}, opts...)
 		if err != nil || !token.Valid {
 			a.respondUnauthorized(w, "invalid_token", "access token is invalid or expired")
 			return

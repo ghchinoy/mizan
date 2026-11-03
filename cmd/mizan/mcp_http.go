@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -122,17 +123,20 @@ func newMcpHTTPCmd() *cobra.Command {
 				mcpHandler = auth.requireBearer(mcpHandler)
 			}
 
+			const maxMcpRequestBytes = 4 << 20 // 4 MiB cap on MCP HTTP JSON-RPC payloads
 			mux := http.NewServeMux()
 			mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = fmt.Fprintln(w, "ok")
 			})
-			mux.Handle("/", mcpHandler)
+			mux.Handle("/", http.MaxBytesHandler(mcpHandler, maxMcpRequestBytes))
 
 			server := &http.Server{
-				Addr:              fmt.Sprintf("%s:%d", address, port),
+				Addr:              net.JoinHostPort(address, strconv.Itoa(port)),
 				Handler:           mux,
 				ReadHeaderTimeout: 10 * time.Second,
+				IdleTimeout:       60 * time.Second,
+				MaxHeaderBytes:    1 << 20,
 			}
 			return serveMcpHTTP(cmd.Context(), cmd, server)
 		},

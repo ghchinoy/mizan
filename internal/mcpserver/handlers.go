@@ -21,11 +21,13 @@ package mcpserver
 // (IsError=true) at the SDK boundary.
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/registry"
 	"github.com/ghchinoy/mizan/internal/results"
@@ -46,9 +48,15 @@ func storeDefault(store *bool) bool {
 
 // list backs mizan_list_metrics -> registry.Service.List.
 func (h *handlers) list(ctx context.Context, in ListMetricsIn) (ListMetricsOut, error) {
+	if in.Limit < 0 {
+		return ListMetricsOut{}, fmt.Errorf("limit must be >= 0 (got %d)", in.Limit)
+	}
 	ts, err := h.deps.Registry.List(ctx, listFilter(in))
 	if err != nil {
 		return ListMetricsOut{}, err
+	}
+	if in.Limit > 0 && len(ts) > in.Limit {
+		ts = ts[:in.Limit]
 	}
 	out := ListMetricsOut{Metrics: make([]MetricSummary, 0, len(ts))}
 	for _, t := range ts {
@@ -76,6 +84,12 @@ func (h *handlers) get(ctx context.Context, in GetMetricIn) (GetMetricOut, error
 // returned close func the caller MUST defer). When an override is requested but no
 // factory is configured it returns a tool error (design §8 Q5).
 func (h *handlers) engineForCall(ctx context.Context, project, location string) (*eval.Engine, func() error, error) {
+	if err := config.ValidateProjectID(project); err != nil {
+		return nil, nil, err
+	}
+	if err := config.ValidateLocation(location); err != nil {
+		return nil, nil, err
+	}
 	if project == "" && location == "" {
 		return h.deps.Engine, nil, nil
 	}
@@ -86,6 +100,21 @@ func (h *handlers) engineForCall(ctx context.Context, project, location string) 
 		return nil, nil, fmt.Errorf("per-call project/location override is not supported by this server configuration")
 	}
 	return h.deps.EngineFor(ctx, project, location)
+}
+
+func (h *handlers) validateModelAccess(model string) error {
+	if err := eval.ValidateModel(model); err != nil {
+		return err
+	}
+	if proj, loc, ok := eval.ParseFullModelResource(model); ok {
+		if proj != "" && !h.projectAllowed(proj) {
+			return fmt.Errorf("model resource project %q is not in the allowed-projects list for this server", proj)
+		}
+		if err := config.ValidateLocation(loc); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // projectAllowed reports whether a per-call project override is permitted. An
@@ -108,6 +137,9 @@ func (h *handlers) projectAllowed(project string) bool {
 // project/location override), run it, and (by default) persist the run and return
 // its runId. The model override is applied via eval.WithModel.
 func (h *handlers) run(ctx context.Context, in EvalRunIn) (EvalRunOut, error) {
+	if err := h.validateModelAccess(in.Model); err != nil {
+		return EvalRunOut{}, err
+	}
 	tmpl, err := h.deps.Registry.Get(ctx, in.Metric)
 	if err != nil {
 		return EvalRunOut{}, err
@@ -129,7 +161,7 @@ func (h *handlers) run(ctx context.Context, in EvalRunIn) (EvalRunOut, error) {
 	}
 	out := runOutput(res)
 	if storeDefault(in.Store) {
-		runID, warn := h.record(ctx, "eval run", *tmpl, inst, res)
+		runID, warn := h.record(ctx, "eval run", in.Project, in.Location, *tmpl, inst, res)
 		if warn != "" {
 			out.Warnings = append(out.Warnings, warn)
 		}
@@ -142,6 +174,9 @@ func (h *handlers) run(ctx context.Context, in EvalRunIn) (EvalRunOut, error) {
 // under the template's Baseline/CandidateFieldName, validate, select the engine
 // (default or request-scoped per-call override), run, and (by default) persist.
 func (h *handlers) pairwise(ctx context.Context, in EvalPairwiseIn) (EvalPairwiseOut, error) {
+	if err := h.validateModelAccess(in.Model); err != nil {
+		return EvalPairwiseOut{}, err
+	}
 	tmpl, err := h.deps.Registry.Get(ctx, in.Metric)
 	if err != nil {
 		return EvalPairwiseOut{}, err
@@ -180,7 +215,7 @@ func (h *handlers) pairwise(ctx context.Context, in EvalPairwiseIn) (EvalPairwis
 	}
 	out := pairwiseOutput(res)
 	if storeDefault(in.Store) {
-		runID, warn := h.record(ctx, "eval pairwise", *tmpl, inst, res)
+		runID, warn := h.record(ctx, "eval pairwise", in.Project, in.Location, *tmpl, inst, res)
 		if warn != "" {
 			out.Warnings = append(out.Warnings, warn)
 		}
@@ -213,7 +248,7 @@ func requirePairwiseFields(tmpl registry.MetricTemplate, inst eval.Instance) err
 // run id. Store failure is NON-fatal (mirrors the CLI storeResult policy): it
 // returns an empty runId plus a warning string the caller surfaces in the tool
 // output's warnings, rather than failing the eval.
-func (h *handlers) record(ctx context.Context, command string, tmpl registry.MetricTemplate, inst eval.Instance, res eval.Result) (runID string, warning string) {
+func (h *handlers) record(ctx context.Context, command, projectOverride, locationOverride string, tmpl registry.MetricTemplate, inst eval.Instance, res eval.Result) (runID string, warning string) {
 	if h.deps.Results == nil {
 		return "", "result not persisted: results store not configured"
 	}
@@ -229,11 +264,13 @@ func (h *handlers) record(ctx context.Context, command string, tmpl registry.Met
 		}
 	}
 	host, _ := os.Hostname()
-	var projectID, location string
+	var cfgProject, cfgLocation string
 	if h.deps.Config != nil {
-		projectID = h.deps.Config.ProjectID
-		location = h.deps.Config.Location
+		cfgProject = h.deps.Config.ProjectID
+		cfgLocation = h.deps.Config.Location
 	}
+	projectID := cmp.Or(projectOverride, cfgProject)
+	location := cmp.Or(locationOverride, cfgLocation)
 	stored, err := h.deps.Results.Record(ctx, results.RecordInput{
 		Command:   command,
 		ProjectID: projectID,

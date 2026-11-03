@@ -8,9 +8,6 @@
 *.exe
 *.test
 *.out
-# `go build ./cmd/mizan` output at repo root
-/mizan
-/mizan-desktop
 
 # Wails / frontend build artifacts
 frontend/dist/
@@ -33,3 +30,15 @@ docs/project-log/
 
 # Experiment 07 suites are rebuilt from upstream (some CC-BY-NC); only the manifest is committed.
 /docs/experiments/judge-eval/suites/
+
+# Local Beads / Dolt issue tracker state
+.beads/
+.dolt/
+
+# Graphviz / intermediate diagram renders
+*.png
+*.svg
+
+# Python bytecode
+__pycache__/
+*.pyc

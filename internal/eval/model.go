@@ -20,6 +20,7 @@ package eval
 // pre-flight echo (WI-F7).
 
 import (
+	"cmp"
 	"fmt"
 	"regexp"
 	"strings"
@@ -70,16 +71,7 @@ const GenaiLocation = globalLocation
 // an empty template model: it inherits the config default or the built-in
 // instead.
 func (e *Engine) resolveModel(tmpl registry.MetricTemplate, override string) string {
-	return firstNonEmptyModel(override, tmpl.AutoraterModel, e.defaultModel, BuiltinDefaultModel)
-}
-
-func firstNonEmptyModel(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
+	return cmp.Or(override, tmpl.AutoraterModel, e.defaultModel, BuiltinDefaultModel)
 }
 
 // Model-source labels for AppliedAutorater.ModelSource, one per branch of the
@@ -166,8 +158,7 @@ func ValidateModel(model string) error {
 	case model == "":
 		return nil
 	case strings.HasPrefix(model, "projects/"):
-		// Fully-qualified project-scoped resource name: trusted structured id.
-		return nil
+		return validateFullModelResource(model)
 	case strings.HasPrefix(model, "publishers/"):
 		// Recognized publisher-relative form: validate its trailing bare id.
 		return validateBareModelID(bareModelID(model))
@@ -178,14 +169,43 @@ func ValidateModel(model string) error {
 	}
 }
 
-// parseFullModelResource extracts the project and location embedded in a
+// validateFullModelResource checks that a "projects/..." model id conforms to
+// "projects/<project>/locations/<location>/publishers/<publisher>/models/<id>"
+// or "projects/<project>/locations/<location>/models/<id>" with safe segments.
+func validateFullModelResource(model string) error {
+	parts := strings.Split(model, "/")
+	switch len(parts) {
+	case 8:
+		if parts[0] != "projects" || parts[2] != "locations" || parts[4] != "publishers" || parts[6] != "models" {
+			return fmt.Errorf("eval: invalid autorater model resource %q: expected projects/<project>/locations/<location>/publishers/<publisher>/models/<id>", model)
+		}
+		for _, idx := range []int{1, 3, 5, 7} {
+			if !bareModelPattern.MatchString(parts[idx]) {
+				return fmt.Errorf("eval: invalid autorater model resource %q: invalid segment %q", model, parts[idx])
+			}
+		}
+		return nil
+	case 6:
+		if parts[0] != "projects" || parts[2] != "locations" || parts[4] != "models" {
+			return fmt.Errorf("eval: invalid autorater model resource %q: expected projects/<project>/locations/<location>/models/<id>", model)
+		}
+		for _, idx := range []int{1, 3, 5} {
+			if !bareModelPattern.MatchString(parts[idx]) {
+				return fmt.Errorf("eval: invalid autorater model resource %q: invalid segment %q", model, parts[idx])
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("eval: invalid autorater model resource %q: expected projects/<project>/locations/<location>/publishers/<publisher>/models/<id>", model)
+	}
+}
+
+// ParseFullModelResource extracts the project and location embedded in a
 // fully-qualified "projects/<p>/locations/<l>/..." model resource name. The
 // native path passes such an id through untouched (expandAutoraterModel), so
 // those embedded values — not the engine's configured project/location — are
-// what the API will actually call. The pre-flight echo (WI-F7) uses this so its
-// displayed location reflects a fully-qualified template/flag model. Returns
-// ok=false for any non-fully-qualified id.
-func parseFullModelResource(model string) (project, location string, ok bool) {
+// what the API will actually call. Returns ok=false for any non-fully-qualified id.
+func ParseFullModelResource(model string) (project, location string, ok bool) {
 	if !strings.HasPrefix(model, "projects/") {
 		return "", "", false
 	}
@@ -195,6 +215,10 @@ func parseFullModelResource(model string) (project, location string, ok bool) {
 		return parts[1], parts[3], true
 	}
 	return "", "", false
+}
+
+func parseFullModelResource(model string) (project, location string, ok bool) {
+	return ParseFullModelResource(model)
 }
 
 // ResolvedTarget describes the project/location/model an eval WILL call, after

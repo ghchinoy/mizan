@@ -1940,6 +1940,14 @@ the eval:
    Alternatively, run the eval in the project that owns the bucket, or stage the
    asset into a bucket in the eval project.
 
+## Non-interactive & automation conventions
+
+For CI pipelines and autonomous agents driving `mizan`:
+
+- **Structured JSON & bounded lists**: `mizan registry list --limit <N> -o json` bounds list output and emits `[]` rather than `null` when empty. `mizan registry delete <id> --dry-run -o json` previews deletion without mutating the registry.
+- **Plain, ANSI-free text**: All human-readable CLI output is plain, ANSI-free, non-interactive text (`NO_COLOR` / non-TTY safe by default).
+- **MCP HTTP JWT hardening**: When serving `mizan mcp http` with `JWT_SIGNING_KEY`, tokens must use `HS256` and carry `exp`; optionally set `MIZAN_MCP_JWT_AUDIENCE` and `MIZAN_MCP_JWT_ISSUER` to enforce `aud` and `iss` claims, and `MIZAN_MCP_ALLOWED_PROJECTS` to restrict per-call project and model resource overrides.
+
 ## Coming soon / roadmap
 
 Batch evaluation and the desktop app are **not usable end-to-end via the CLI**

@@ -74,6 +74,9 @@ func ResolveAuth(mode, baseURL, static string) (TokenSource, error) {
 	case AuthNone:
 		return nil, nil
 	case AuthAccessToken:
+		if !isRemoteHTTPS(baseURL) {
+			return nil, fmt.Errorf("diffusion: access-token auth requires a remote https endpoint (got %q)", baseURL)
+		}
 		return &adcTokenSource{kind: AuthAccessToken}, nil
 	case AuthIDToken:
 		return &adcTokenSource{kind: AuthIDToken, audience: origin(baseURL)}, nil
@@ -194,6 +197,7 @@ func refreshAuthorizedUser(ctx context.Context) (access, id string, ok bool) {
 		return "", "", false
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "mizan/1.0")
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
 		return "", "", false

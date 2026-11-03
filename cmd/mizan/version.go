@@ -28,9 +28,12 @@ import (
 // --output flag: `--output json` emits the structured version.Info.
 func newVersionCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "version",
-		Short: "Print mizan version, git commit, and build date",
-		Args:  cobra.NoArgs,
+		Use:     "version",
+		GroupID: groupConfig,
+		Short:   "Print mizan version, git commit, and build date",
+		Long:    "Print the mizan CLI build version, git commit SHA, and build timestamp.",
+		Example: "  mizan version\n  mizan version -o json",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			info := version.Get()
 			w := cmd.OutOrStdout()

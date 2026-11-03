@@ -86,7 +86,7 @@ type harness struct {
 // SQLite store.
 func newHarness(t *testing.T, fake *evaltest.FakeEvaluationClient) harness {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	regStore, err := registrysqlite.Open(filepath.Join(t.TempDir(), "registry.db"))
 	if err != nil {
@@ -321,15 +321,14 @@ func TestEvalRunUsesEngineForOnOverride(t *testing.T) {
 	var closed bool
 	hz.h.deps.EngineFor = func(_ context.Context, project, location string) (*eval.Engine, func() error, error) {
 		gotProject, gotLocation = project, location
-		return eval.NewEngine(factoryFake, "proj2", "us-east1"), func() error { closed = true; return nil }, nil
+		return eval.NewEngine(factoryFake, "proj-2", "us-east1"), func() error { closed = true; return nil }, nil
 	}
 
-	out, err := hz.h.run(context.Background(), EvalRunIn{
+	out, err := hz.h.run(t.Context(), EvalRunIn{
 		Metric:   pointwiseID,
 		Fields:   map[string]FieldValue{"response": {Text: "x"}},
-		Project:  "proj2",
+		Project:  "proj-2",
 		Location: "us-east1",
-		Store:    boolPtr(false),
 	})
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -337,8 +336,15 @@ func TestEvalRunUsesEngineForOnOverride(t *testing.T) {
 	if out.Score == nil || *out.Score != 9.9 {
 		t.Errorf("score = %v, want 9.9 (factory-built engine)", out.Score)
 	}
-	if gotProject != "proj2" || gotLocation != "us-east1" {
-		t.Errorf("factory got project=%q location=%q, want proj2/us-east1", gotProject, gotLocation)
+	if gotProject != "proj-2" || gotLocation != "us-east1" {
+		t.Errorf("factory got project=%q location=%q, want proj-2/us-east1", gotProject, gotLocation)
+	}
+	stored, err := hz.results.Get(t.Context(), out.RunID)
+	if err != nil {
+		t.Fatalf("results.Get(%q): %v", out.RunID, err)
+	}
+	if stored.Invocation.ProjectID != "proj-2" || stored.Invocation.Location != "us-east1" {
+		t.Errorf("stored provenance = (%q, %q), want (%q, %q)", stored.Invocation.ProjectID, stored.Invocation.Location, "proj-2", "us-east1")
 	}
 	if !closed {
 		t.Error("closeFn was not invoked")
@@ -367,11 +373,46 @@ func TestEvalPairwiseNonPairwiseMetricIsToolError(t *testing.T) {
 	fake := (&evaltest.FakeEvaluationClient{}).PushResponse(
 		evaltest.NewPointwiseResponse(1.0, "x"))
 	hz := newHarness(t, fake)
-	if _, err := hz.h.pairwise(context.Background(), EvalPairwiseIn{
+	if _, err := hz.h.pairwise(t.Context(), EvalPairwiseIn{
 		Metric:    pointwiseID, // not a pairwise metric
 		Baseline:  FieldValue{Text: "a"},
 		Candidate: FieldValue{Text: "b"},
 	}); err == nil {
-		t.Fatal("expected an error when the metric is not pairwise")
+		t.Fatal("pairwise(non-pairwise) = nil, want error")
+	}
+}
+
+func TestEvalRunBlocksModelProjectAllowlistBypassAndInvalidInputs(t *testing.T) {
+	hz := newHarness(t, &evaltest.FakeEvaluationClient{})
+	hz.h.deps.AllowedProjects = []string{"allowed-proj"}
+
+	// Full model resource referencing a forbidden project must be rejected.
+	if _, err := hz.h.run(t.Context(), EvalRunIn{
+		Metric: pointwiseID,
+		Fields: map[string]FieldValue{"response": {Text: "x"}},
+		Model:  "projects/forbidden-proj/locations/us-central1/publishers/google/models/gemini-2.5-flash",
+	}); err == nil {
+		t.Fatal("run(forbidden model project) = nil, want error")
+	}
+
+	// Malformed project id must be rejected.
+	if _, err := hz.h.run(t.Context(), EvalRunIn{
+		Metric:  pointwiseID,
+		Fields:  map[string]FieldValue{"response": {Text: "x"}},
+		Project: "BAD_PROJ!",
+	}); err == nil {
+		t.Fatal("run(invalid project) = nil, want error")
+	}
+
+	// Limit parameter in list.
+	out, err := hz.h.list(t.Context(), ListMetricsIn{Limit: 1})
+	if err != nil {
+		t.Fatalf("list(limit=1): %v", err)
+	}
+	if len(out.Metrics) != 1 {
+		t.Errorf("len(list(limit=1)) = %d, want 1", len(out.Metrics))
+	}
+	if _, err := hz.h.list(t.Context(), ListMetricsIn{Limit: -1}); err == nil {
+		t.Fatal("list(limit=-1) = nil, want error")
 	}
 }

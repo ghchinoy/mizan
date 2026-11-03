@@ -19,6 +19,7 @@
 package config
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net"
@@ -119,16 +120,16 @@ func LoadConfig() (*Config, error) {
 	emitUnknownEnvWarnings(os.Stderr)
 
 	c := &Config{
-		ProjectID:            firstNonEmpty(os.Getenv("MIZAN_PROJECT_ID"), os.Getenv("PROJECT_ID")),
-		Location:             firstNonEmpty(os.Getenv("MIZAN_LOCATION"), os.Getenv("LOCATION"), DefaultLocation),
-		StagingBucket:        strings.TrimPrefix(firstNonEmpty(os.Getenv("MIZAN_STAGING_BUCKET"), os.Getenv("GENMEDIA_BUCKET")), "gs://"),
-		APIEndpoint:          firstNonEmpty(os.Getenv("MIZAN_API_ENDPOINT"), os.Getenv("VERTEX_API_ENDPOINT")),
-		DiffusionEndpoint:    firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_ENDPOINT"), DefaultDiffusionEndpoint),
-		DiffusionModel:       firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_MODEL"), DefaultDiffusionModel),
+		ProjectID:            cmp.Or(os.Getenv("MIZAN_PROJECT_ID"), os.Getenv("PROJECT_ID")),
+		Location:             cmp.Or(os.Getenv("MIZAN_LOCATION"), os.Getenv("LOCATION"), DefaultLocation),
+		StagingBucket:        strings.TrimPrefix(cmp.Or(os.Getenv("MIZAN_STAGING_BUCKET"), os.Getenv("GENMEDIA_BUCKET")), "gs://"),
+		APIEndpoint:          cmp.Or(os.Getenv("MIZAN_API_ENDPOINT"), os.Getenv("VERTEX_API_ENDPOINT")),
+		DiffusionEndpoint:    cmp.Or(os.Getenv("MIZAN_DIFFUSION_ENDPOINT"), DefaultDiffusionEndpoint),
+		DiffusionModel:       cmp.Or(os.Getenv("MIZAN_DIFFUSION_MODEL"), DefaultDiffusionModel),
 		DiffusionBackend:     os.Getenv("MIZAN_DIFFUSION_BACKEND"),
-		DiffusionAuth:        firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_AUTH"), DefaultDiffusionAuth),
-		DiffusionTimeout:     firstNonEmpty(os.Getenv("MIZAN_DIFFUSION_TIMEOUT"), DefaultDiffusionTimeout),
-		DefaultTemplatesRepo: firstNonEmpty(os.Getenv("MIZAN_TEMPLATES_REPO"), DefaultTemplatesRepo),
+		DiffusionAuth:        cmp.Or(os.Getenv("MIZAN_DIFFUSION_AUTH"), DefaultDiffusionAuth),
+		DiffusionTimeout:     cmp.Or(os.Getenv("MIZAN_DIFFUSION_TIMEOUT"), DefaultDiffusionTimeout),
+		DefaultTemplatesRepo: cmp.Or(os.Getenv("MIZAN_TEMPLATES_REPO"), DefaultTemplatesRepo),
 		// DefaultModel is intentionally left empty when unset: the eval engine's
 		// precedence chain (flag > template > config default > built-in) treats an
 		// empty value as "fall through to the built-in", so no default is baked in
@@ -142,16 +143,16 @@ func LoadConfig() (*Config, error) {
 		DefaultLicense: os.Getenv("MIZAN_DEFAULT_LICENSE"),
 	}
 
-	c.RegistryDBPath = firstNonEmpty(os.Getenv("MIZAN_REGISTRY_DB"), defaultDBPath())
-	c.PackCacheDir = firstNonEmpty(os.Getenv("MIZAN_PACK_CACHE"), defaultPackCacheDir())
+	c.RegistryDBPath = cmp.Or(os.Getenv("MIZAN_REGISTRY_DB"), defaultDBPath())
+	c.PackCacheDir = cmp.Or(os.Getenv("MIZAN_PACK_CACHE"), defaultPackCacheDir())
 
 	// Eval results store (design/eval-results-store-design.md §4.4/§4.5). The
 	// results DB is a SEPARATE file from registry.db with its own lifecycle. Only
 	// "sqlite" is implemented in Phase 1; "firestore" is a visible deferred leg
 	// (wire.OpenResultService returns a clear not-implemented error).
-	c.ResultsBackend = firstNonEmpty(os.Getenv("MIZAN_RESULTS_BACKEND"), "sqlite")
-	c.ResultsDBPath = firstNonEmpty(os.Getenv("MIZAN_RESULTS_DB"), defaultResultsDBPath())
-	c.ResultsRetention = firstNonEmpty(os.Getenv("MIZAN_RESULTS_RETENTION"), "hybrid")
+	c.ResultsBackend = cmp.Or(os.Getenv("MIZAN_RESULTS_BACKEND"), "sqlite")
+	c.ResultsDBPath = cmp.Or(os.Getenv("MIZAN_RESULTS_DB"), defaultResultsDBPath())
+	c.ResultsRetention = cmp.Or(os.Getenv("MIZAN_RESULTS_RETENTION"), "hybrid")
 
 	c.Sources = resolveSources(realEnv, fileVars)
 
@@ -450,13 +451,4 @@ func defaultPackCacheDir() string {
 		return filepath.Join("mizan", "packs")
 	}
 	return filepath.Join(dir, "mizan", "packs")
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
 }

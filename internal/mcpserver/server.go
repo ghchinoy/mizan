@@ -81,6 +81,13 @@ func NewServer(deps Deps) *mcp.Server {
 
 	h := &handlers{deps: deps}
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
+	nonDestructiveOpenWorld := false
+	openWorld := true
+	evalAnnotations := &mcp.ToolAnnotations{
+		ReadOnlyHint:    false,
+		DestructiveHint: &nonDestructiveOpenWorld,
+		OpenWorldHint:   &openWorld,
+	}
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "mizan_list_metrics",
@@ -97,11 +104,13 @@ func NewServer(deps Deps) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "mizan_eval_run",
 		Description: "Run a mizan metric against an instance built from named fields and return the score/explanation. Persists the run by default and returns its runId.",
+		Annotations: evalAnnotations,
 	}, h.evalRun)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "mizan_eval_pairwise",
 		Description: "Run a mizan pairwise metric comparing a baseline against a candidate and return the winner (BASELINE|CANDIDATE|TIE). Persists the run by default and returns its runId.",
+		Annotations: evalAnnotations,
 	}, h.evalPairwise)
 
 	return s

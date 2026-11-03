@@ -93,8 +93,9 @@ def fetch_all(dataset, config, split, max_rows=None):
     Row indices are positions in the split either way, so manifests agree.
     """
     try:
-        import pyarrow.parquet as pq  # noqa: PLC0415 - optional dependency
         import io  # noqa: PLC0415
+
+        import pyarrow.parquet as pq  # noqa: PLC0415 - optional dependency
     except ImportError:
         pq = None
     if pq is not None:

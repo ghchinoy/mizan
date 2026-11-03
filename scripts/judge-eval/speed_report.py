@@ -26,7 +26,6 @@ Billing Catalog and the Vertex pricing pages on 2026-09-29; see PRICES.
 import argparse
 import glob
 import json
-import math
 import os
 import statistics
 import sys
@@ -85,7 +84,7 @@ def main():
             rs = {r["level"]: r for r in sweep if r["target"] == t and r["suite"] == s}
             if not rs:
                 continue
-            cells = [f"{rs[l]['items_per_s']:.1f}" if l in rs else "-" for l in (1, 4, 8, 16, 32)]
+            cells = [f"{rs[lvl]['items_per_s']:.1f}" if lvl in rs else "-" for lvl in (1, 4, 8, 16, 32)]
             lo, hi = rs.get(1), rs.get(32)
             errs = sum(r["errors"] for r in rs.values())
             n = sum(r["n"] for r in rs.values())
@@ -145,9 +144,14 @@ def main():
         pa = [(x, y) for x, y in zip(A, B) if x.get("correct") is not None and y.get("correct") is not None]
         oa = sum(1 for x, y in pa if x["correct"] and not y["correct"])
         ob = sum(1 for x, y in pa if y["correct"] and not x["correct"])
-        acc = lambda rs: 100 * sum(1 for r in rs if r.get("correct")) / max(1, sum(1 for r in rs if r.get("correct") is not None))
-        lat = lambda rs: pct([r["duration_ms"] for r in rs if not r.get("error")], .5)
-        th = lambda rs: statistics.mean([(r.get("tokens") or {}).get("thoughts_tokens", 0) for r in rs if r.get("tokens")] or [0])
+        def acc(rs):
+            return 100 * sum(1 for r in rs if r.get("correct")) / max(1, sum(1 for r in rs if r.get("correct") is not None))
+
+        def lat(rs):
+            return pct([r["duration_ms"] for r in rs if not r.get("error")], 0.5)
+
+        def th(rs):
+            return statistics.mean([(r.get("tokens") or {}).get("thoughts_tokens", 0) for r in rs if r.get("tokens")] or [0])
         for side, rs in (("default", A), ("zero", B)):
             tk = [r["tokens"] for r in rs if r.get("tokens")]
             if tk:

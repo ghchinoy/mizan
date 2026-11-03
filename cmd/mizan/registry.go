@@ -724,8 +724,9 @@ func newRegistryImportCmd() *cobra.Command {
 func newRegistryCreateCmd() *cobra.Command {
 	var f templateFlags
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a metric template",
+		Use:     "create",
+		Short:   "Create a metric template",
+		Example: "  mizan registry create --id custom/conciseness --kind score --prompt 'Grade conciseness: {{response}}' --input response:text:true",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if f.id == "" {
 				return fmt.Errorf("--id is required")
@@ -773,11 +774,16 @@ func newRegistryListCmd() *cobra.Command {
 		namespace string
 		kind      string
 		tags      []string
+		limit     int
 	)
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List metric templates",
+		Use:     "list",
+		Short:   "List metric templates",
+		Example: "  mizan registry list\n  mizan registry list --kind boul --limit 20 -o json",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if limit < 0 {
+				return fmt.Errorf("--limit must be >= 0 (got %d)", limit)
+			}
 			cfg, err := mustConfig()
 			if err != nil {
 				return err
@@ -806,20 +812,25 @@ func newRegistryListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if limit > 0 && len(ts) > limit {
+				ts = ts[:limit]
+			}
 			return renderTemplateList(cmd.OutOrStdout(), ts)
 		},
 	}
 	cmd.Flags().StringVar(&namespace, "namespace", "", "filter by id namespace prefix")
 	cmd.Flags().StringVar(&kind, "kind", "", "filter by metric kind (accepts single|pointwise, compare|pairwise, rubric, custom_schema)")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "filter to templates carrying ALL given tags (repeatable)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of templates to return (0 = all)")
 	return cmd
 }
 
 func newRegistryGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get <id>",
-		Short: "Show a metric template",
-		Args:  cobra.ExactArgs(1),
+		Use:     "get <id>",
+		Short:   "Show a metric template",
+		Example: "  mizan registry get brand/brand_voice_alignment\n  mizan registry get brand/brand_voice_alignment -o json",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := mustConfig()
 			if err != nil {
@@ -844,9 +855,10 @@ func newRegistryGetCmd() *cobra.Command {
 func newRegistryUpdateCmd() *cobra.Command {
 	var f templateFlags
 	cmd := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a metric template",
-		Args:  cobra.ExactArgs(1),
+		Use:     "update <id>",
+		Short:   "Update a metric template",
+		Example: "  mizan registry update custom/conciseness --description 'Updated grading rubric'",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := mustConfig()
 			if err != nil {
@@ -883,10 +895,12 @@ func newRegistryUpdateCmd() *cobra.Command {
 }
 
 func newRegistryDeleteCmd() *cobra.Command {
+	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a metric template",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <id>",
+		Short:   "Delete a metric template",
+		Example: "  mizan registry delete custom/conciseness --dry-run\n  mizan registry delete custom/conciseness -o json",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := mustConfig()
 			if err != nil {
@@ -898,12 +912,26 @@ func newRegistryDeleteCmd() *cobra.Command {
 			}
 			defer func() { _ = closeSvc() }()
 
+			if dryRun {
+				if _, err := svc.Get(cmd.Context(), args[0]); err != nil {
+					return err
+				}
+				if outputFormat == outputJSON {
+					return printJSON(cmd.OutOrStdout(), map[string]any{"id": args[0], "deleted": false, "dry_run": true})
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "dry run: would delete %s\n", args[0])
+				return nil
+			}
 			if err := svc.Delete(cmd.Context(), args[0]); err != nil {
 				return err
+			}
+			if outputFormat == outputJSON {
+				return printJSON(cmd.OutOrStdout(), map[string]any{"id": args[0], "deleted": true})
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "verify the template exists without deleting it")
 	return cmd
 }

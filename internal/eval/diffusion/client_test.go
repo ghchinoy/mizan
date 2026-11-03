@@ -15,7 +15,6 @@
 package diffusion
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -87,17 +86,17 @@ func TestDecideBoul(t *testing.T) {
 	schema := `{"questions": [{"id": "verdict", "type": "boolean"}]}`
 	state := "The input text is safe."
 
-	resp, stats, err := c.Decide(context.Background(), schema, state)
+	resp, stats, err := c.Decide(t.Context(), schema, state)
 	if err != nil {
 		t.Fatalf("Decide: %v", err)
 	}
 
 	ans, ok := resp.Answers["verdict"]
 	if !ok {
-		t.Fatalf("missing 'verdict' in answers")
+		t.Fatalf("missing %q in answers", "verdict")
 	}
 	if ans.Label != "yes" {
-		t.Errorf("Label = %q, want 'yes'", ans.Label)
+		t.Errorf("Label = %q, want %q", ans.Label, "yes")
 	}
 	if ans.Confidence != 0.985 {
 		t.Errorf("Confidence = %v, want 0.985", ans.Confidence)
@@ -146,14 +145,14 @@ func TestDecideChoice(t *testing.T) {
 
 	c := NewClient(server.URL+"/v1", "diffgemma-26b-a4b-it-q4", 5*time.Second)
 
-	resp, _, err := c.Decide(context.Background(), "{}", "state")
+	resp, _, err := c.Decide(t.Context(), "{}", "state")
 	if err != nil {
 		t.Fatalf("Decide: %v", err)
 	}
 
 	ans := resp.Answers["category"]
 	if ans.Choice != "billing" {
-		t.Errorf("Choice = %q, want 'billing'", ans.Choice)
+		t.Errorf("Choice = %q, want %q", ans.Choice, "billing")
 	}
 	if ans.Probabilities["billing"] != 0.991 {
 		t.Errorf("Probabilities[billing] = %v, want 0.991", ans.Probabilities["billing"])
@@ -184,7 +183,7 @@ func TestDecideMultimodalImage(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL+"/v1", "diffgemma-26b-a4b-it-q4", 5*time.Second)
-	_, _, err := c.Decide(context.Background(), "{}", "check image", imgPath)
+	_, _, err := c.Decide(t.Context(), "{}", "check image", imgPath)
 	if err != nil {
 		t.Fatalf("Decide with image: %v", err)
 	}
@@ -247,22 +246,79 @@ func TestDecideVLLMWithLogprobs(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL+"/v1", "nvidia/diffusiongemma-26B-A4B-it-NVFP4", 5*time.Second)
-	resp, _, err := c.Decide(context.Background(), "{}", "state")
+	resp, _, err := c.Decide(t.Context(), "{}", "state")
 	if err != nil {
 		t.Fatalf("Decide: %v", err)
 	}
 
 	ans, ok := resp.Answers["selection"]
 	if !ok {
-		t.Fatalf("missing 'selection' in answers")
+		t.Fatalf("missing %q in answers", "selection")
 	}
 	if ans.Choice != "billing" {
-		t.Errorf("Choice = %q, want 'billing'", ans.Choice)
+		t.Errorf("Choice = %q, want %q", ans.Choice, "billing")
 	}
 	if ans.Confidence < 0.94 || ans.Confidence > 0.96 {
 		t.Errorf("Confidence = %v, want ~0.95", ans.Confidence)
 	}
 	if ans.Entropy <= 0 {
 		t.Errorf("Entropy = %v, want > 0", ans.Entropy)
+	}
+}
+
+func TestIsVertexEndpointURLAndResolveAuth(t *testing.T) {
+	tests := []struct {
+		url      string
+		wantVert bool
+	}{
+		{"https://12345.us-central1-6789.prediction.vertexai.goog/v1/projects/p/locations/us-central1/endpoints/1", true},
+		{"https://us-central1-aiplatform.googleapis.com/v1/projects/p/locations/us-central1/endpoints/1:invoke", true},
+		{"http://12345.us-central1-6789.prediction.vertexai.goog/v1", false},
+		{"http://attacker.example/invoke", false},
+		{"https://attacker.example/invoke", false},
+		{"http://127.0.0.1:8080/v1", false},
+	}
+	for _, tc := range tests {
+		if got := IsVertexEndpointURL(tc.url); got != tc.wantVert {
+			t.Errorf("IsVertexEndpointURL(%q) = %v, want %v", tc.url, got, tc.wantVert)
+		}
+	}
+
+	// Auto mode on attacker /invoke must not select ADC access-token auth.
+	ts, err := ResolveAuth(AuthAuto, "http://attacker.example/invoke", "")
+	if err != nil {
+		t.Fatalf("ResolveAuth(auto, http://attacker.example/invoke) = %v", err)
+	}
+	if ts != nil {
+		t.Fatalf("ResolveAuth(auto, http://attacker.example/invoke) = %T, want nil", ts)
+	}
+
+	// Explicit access-token auth must reject non-HTTPS endpoints.
+	if _, err := ResolveAuth(AuthAccessToken, "http://127.0.0.1:8080/v1", ""); err == nil {
+		t.Fatal("ResolveAuth(access-token, http://127.0.0.1:8080/v1) = nil, want error")
+	}
+}
+
+func TestClientCheckRedirectStripsAuthOnCrossHost(t *testing.T) {
+	var leakedAuth string
+	targetSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		leakedAuth = r.Header.Get("Authorization")
+		_ = json.NewEncoder(w).Encode(ChatCompletionResponse{
+			Choices: []ChatChoice{{Message: ChatMessage{Content: `{"answers":{"ok":{"type":"boolean","label":"yes"}}}`}}},
+		})
+	}))
+	defer targetSrv.Close()
+
+	redirectSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, targetSrv.URL+"/v1/chat/completions", http.StatusFound)
+	}))
+	defer redirectSrv.Close()
+
+	c := NewClient(redirectSrv.URL+"/v1", "test", 5*time.Second).WithAuthToken("secret-token")
+	if _, _, err := c.Decide(t.Context(), "{}", "ping"); err != nil {
+		t.Fatalf("Decide: %v", err)
+	}
+	if leakedAuth != "" {
+		t.Errorf("cross-host redirect leaked Authorization header = %q, want empty", leakedAuth)
 	}
 }

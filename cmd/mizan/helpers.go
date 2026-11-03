@@ -147,6 +147,9 @@ func renderTemplate(w io.Writer, t *registry.MetricTemplate) error {
 // renderTemplateList prints a table (or JSON array) of templates.
 func renderTemplateList(w io.Writer, ts []registry.MetricTemplate) error {
 	if outputFormat == outputJSON {
+		if ts == nil {
+			ts = make([]registry.MetricTemplate, 0)
+		}
 		return printJSON(w, ts)
 	}
 	tw := newTabWriter(w)

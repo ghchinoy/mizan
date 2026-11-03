@@ -56,7 +56,8 @@ def items_for(level):
 
 
 def cycled(suite, n, path):
-    rows = [json.loads(l) for l in open(os.path.join(SUITES, suite + ".jsonl")) if l.strip()]
+    with open(os.path.join(SUITES, suite + ".jsonl")) as f_in:
+        rows = [json.loads(line) for line in f_in if line.strip()]
     with open(path, "w") as f:
         for i in range(n):
             r = dict(rows[i % len(rows)])
@@ -151,13 +152,15 @@ def main():
                     break
                 time.sleep(a.cooldown)
     # markdown table
+    def fmt_val(v, fmt="{:.0f}"):
+        return "-" if v is None else fmt.format(v)
+
     lines = ["| Target | Suite | Concurrency | n | items/s | p50 ms | p95 ms | p99 ms | server p50 | errors | accuracy | replicas |",
              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
-        f = lambda v, fmt="{:.0f}": "-" if v is None else fmt.format(v)
         rep = "" if r["replicas_before"] is None else f"{r['replicas_before']}→{r['replicas_after']}"
-        lines.append(f"| {r['target']} | {r['suite']} | {r['level']} | {r['n']} | {r['items_per_s']:.2f} | {f(r['p50_ms'])} | {f(r['p95_ms'])} | {f(r['p99_ms'])} | "
-                     f"{f(r['server_p50_ms'])} | {r['errors']} | {f(r['accuracy'], '{:.2f}')} | {rep} |")
+        lines.append(f"| {r['target']} | {r['suite']} | {r['level']} | {r['n']} | {r['items_per_s']:.2f} | {fmt_val(r['p50_ms'])} | {fmt_val(r['p95_ms'])} | {fmt_val(r['p99_ms'])} | "
+                     f"{fmt_val(r['server_p50_ms'])} | {r['errors']} | {fmt_val(r['accuracy'], '{:.2f}')} | {rep} |")
     open(os.path.join(a.out, "sweep.md"), "w").write("\n".join(lines) + "\n")
     print("\n".join(lines))
 

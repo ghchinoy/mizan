@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Astro Starlight docs site for ghchinoy/mizan (Phase 1 vertical slice).",
+  "engines": {
+    "node": ">=22.23.4"
+  },
   "scripts": {
     "sync-docs": "node scripts/sync-docs.mjs",
     "predev": "node scripts/sync-docs.mjs",
@@ -15,11 +18,11 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/starlight": "0.42.6",
-    "astro": "7.4.2",
+    "@astrojs/starlight": "0.42.8",
+    "astro": "7.4.5",
     "github-slugger": "2.0.0",
-    "starlight-blog": "0.29.0",
-    "starlight-links-validator": "0.26.0"
+    "starlight-blog": "0.30.2",
+    "starlight-links-validator": "0.27.0"
   },
   "devDependencies": {
     "yaml": "2.9.1",

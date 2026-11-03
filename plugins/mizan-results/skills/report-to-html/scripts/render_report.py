@@ -42,9 +42,9 @@ never string-interpolated.
 import argparse
 import datetime
 import json
-import math
 import os
 import sys
+from typing import Any
 
 PLACEHOLDER = "__MIZAN_REPORT_DATA__"
 
@@ -176,7 +176,32 @@ def _normalize_server_trend(rows):
     return out
 
 
-def _score(rec):
+def _pass_verdict(rec: dict[str, Any], threshold: float) -> bool | None:
+    """Resolve pass/fail verdict from explicit boolean Passed, CustomOutput, or score threshold."""
+    out = rec.get("Outcome") or {}
+    explicit = out.get("Passed")
+    if isinstance(explicit, bool):
+        return explicit
+    custom_out = out.get("CustomOutput")
+    if isinstance(custom_out, dict) and isinstance(custom_out.get("passed"), bool):
+        return custom_out["passed"]
+    sc = _score(rec)
+    return None if sc is None else (sc >= threshold)
+
+
+def _choice_verdict(out: dict[str, Any]) -> str:
+    """Resolve pairwise or discrete choice selection label."""
+    if out.get("PairwiseChoice"):
+        return str(out["PairwiseChoice"])
+    if out.get("ChoiceSelection"):
+        return str(out["ChoiceSelection"])
+    custom_out = out.get("CustomOutput")
+    if isinstance(custom_out, dict) and custom_out.get("selection"):
+        return str(custom_out["selection"])
+    return ""
+
+
+def _score(rec: dict[str, Any]) -> float | None:
     """Return the numeric Outcome.Score as a float, or None."""
     out = rec.get("Outcome") or {}
     s = out.get("Score")
@@ -319,21 +344,25 @@ def build_model(results, threshold, title=None, filters_note=None,
         tmpl = rec.get("Template") or {}
         auto = rec.get("Autorater") or {}
         sc = _score(rec)
-        passed = None if sc is None else (sc >= threshold)
+        passed = _pass_verdict(rec, threshold)
+        choice = _choice_verdict(out)
         dur_ns = out.get("DurationNS")
         dur_ms = None if dur_ns in (None, 0) else _round(dur_ns / 1e6, 1)
         tu = out.get("TokenUsage")
         tokens = None
         if tu:
-            tokens = "prompt=%s candidates=%s total=%s" % (
-                tu.get("PromptTokens"), tu.get("CandidatesTokens"), tu.get("TotalTokens"))
+            tokens = (
+                f"prompt={tu.get('PromptTokens')} "
+                f"candidates={tu.get('CandidatesTokens')} "
+                f"total={tu.get('TotalTokens')}"
+            )
         rows.append({
             "run_id": rec.get("RunID") or "",
             "run_at": rec.get("RunAt") or "",
             "metric": (tmpl.get("ID") or "") + ("@" + tmpl.get("Version") if tmpl.get("Version") else ""),
             "score": _round(sc) if sc is not None else None,
             "passed": passed,
-            "choice": out.get("PairwiseChoice") or "",
+            "choice": choice,
             "model": auto.get("Model") or "",
             "explanation": out.get("Explanation") or "",
             "warnings": out.get("Warnings") or [],
@@ -371,10 +400,10 @@ def _embed(model):
 
 
 def render(model, template_path):
-    with open(template_path, "r", encoding="utf-8") as f:
+    with open(template_path, encoding="utf-8") as f:
         template = f.read()
     if PLACEHOLDER not in template:
-        raise ValueError("template is missing the %s placeholder" % PLACEHOLDER)
+        raise ValueError(f"template is missing the {PLACEHOLDER} placeholder")
     return template.replace(PLACEHOLDER, _embed(model))
 
 
@@ -401,7 +430,7 @@ def main(argv=None):
     try:
         results = _load_results(args.input)
     except (OSError, ValueError, json.JSONDecodeError) as e:
-        print("error reading results JSON: %s" % e, file=sys.stderr)
+        print(f"error reading results JSON: {e}", file=sys.stderr)
         return 1
 
     # Optional server-computed enrichment. These NEVER fail the run: a missing,

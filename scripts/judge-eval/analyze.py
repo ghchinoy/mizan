@@ -135,7 +135,7 @@ def load_merged(path):
 
 
 def side_stats(cases, side):
-    corr, lat, errs, conf, correct_conf, pred, gold = [], [], 0, [], [], [], []
+    corr, lat, errs, pred, gold = [], [], 0, [], []
     for c in cases:
         r = c["comparison"][f"engine_{side}"]
         if r.get("error"):
@@ -249,13 +249,15 @@ def main():
     def ci(c):
         return "" if not c else f" [{100 * c[0]:.0f}-{100 * c[1]:.0f}]"
 
+    def fmt_c(c):
+        return "-" if not c else f"{pct(c['accuracy'])}{ci(c['ci95'])} ({100 * c['escalated_pct']:.0f}%)"
+
     lines = ["| Run | Suite | n | Engine A | Acc A [95% CI] | p50 A | Engine B | Acc B [95% CI] | p50 B | Only A / only B right | McNemar p | Cascade h16 (esc%) | Cascade h35 (esc%) |",
              "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         a, b, p = r["engines"]["a"], r["engines"]["b"], r["paired"]
         c16 = r.get("cascade", {}).get("h16")
         c35 = r.get("cascade", {}).get("h35")
-        fmt_c = lambda c: "-" if not c else f"{pct(c['accuracy'])}{ci(c['ci95'])} ({100 * c['escalated_pct']:.0f}%)"
         mp = p.get("mcnemar_exact_p")
         rt = f" (+{r['retried_items']} retried)" if r.get("retried_items") else ""
         lines.append(f"| {r['run']}{rt} | {r['suite']} | {r['n']} | {a['label']} | {pct(a['accuracy'])}{ci(a['ci95'])}{' (err ' + str(a['errors']) + ')' if a['errors'] else ''} | {a['p50_ms']:.0f} | "

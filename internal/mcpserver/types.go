@@ -36,6 +36,7 @@ type ListMetricsIn struct {
 	Kinds      []string `json:"kinds,omitempty" jsonschema:"filter to metrics of any of these kinds (pointwise|pairwise|rubric|custom_schema|boul|choice|score|...)"`
 	Tags       []string `json:"tags,omitempty" jsonschema:"filter to metrics carrying ALL of these tags"`
 	Namespace  string   `json:"namespace,omitempty" jsonschema:"filter to metrics whose id namespace prefix equals this value"`
+	Limit      int      `json:"limit,omitempty" jsonschema:"maximum number of metrics to return (0 returns all)"`
 }
 
 // MetricSummary is the per-metric projection returned by mizan_list_metrics.

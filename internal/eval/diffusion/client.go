@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -66,9 +67,26 @@ func NewClient(baseURL, defaultModel string, timeout time.Duration) *HTTPClient 
 		timeout = 120 * time.Second
 	}
 
+	hc := &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("diffusion: stopped after 10 redirects")
+			}
+			prev := via[len(via)-1]
+			if prev.URL.Scheme == "https" && req.URL.Scheme != "https" {
+				return fmt.Errorf("diffusion: refusing redirect from https to %s", req.URL.Scheme)
+			}
+			if !strings.EqualFold(req.URL.Host, prev.URL.Host) {
+				req.Header.Del("Authorization")
+			}
+			return nil
+		},
+	}
+
 	return &HTTPClient{
 		BaseURL:    baseURL,
-		HTTP:       &http.Client{Timeout: timeout},
+		HTTP:       hc,
 		Model:      defaultModel,
 		MaxRetries: 3,
 	}
@@ -92,10 +110,16 @@ func (c *HTTPClient) WithBackend(backend string) *HTTPClient {
 	return c
 }
 
-// IsVertexEndpointURL reports whether u targets a Vertex AI dedicated endpoint.
+// IsVertexEndpointURL reports whether u targets a Vertex AI dedicated endpoint
+// over HTTPS (*.prediction.vertexai.goog or *.googleapis.com).
 func IsVertexEndpointURL(u string) bool {
-	l := strings.ToLower(u)
-	return strings.Contains(l, ".prediction.vertexai.goog") || strings.Contains(l, "/invoke")
+	p, err := url.Parse(strings.TrimSpace(u))
+	if err != nil || p.Scheme != "https" || p.Host == "" {
+		return false
+	}
+	h := strings.ToLower(p.Hostname())
+	return strings.HasSuffix(h, ".prediction.vertexai.goog") ||
+		strings.HasSuffix(h, ".googleapis.com")
 }
 
 // ChatCompletionsURL resolves the chat-completions URL for BaseURL.
@@ -158,6 +182,7 @@ func (c *HTTPClient) Complete(ctx context.Context, req ChatCompletionRequest) (*
 			return nil, nil, fmt.Errorf("diffusion: create http request: %w", err)
 		}
 		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("User-Agent", "mizan/1.0")
 		if c.Backend != "" {
 			httpReq.Header.Set("X-DGem-Backend", c.Backend)
 		}
@@ -183,7 +208,7 @@ func (c *HTTPClient) Complete(ctx context.Context, req ChatCompletionRequest) (*
 		if (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusServiceUnavailable) && attempt < c.MaxRetries {
 			retries++
 			backoff := time.Duration(250*(1<<attempt)) * time.Millisecond
-			backoff += time.Duration(rand.Int63n(int64(backoff / 2))) //nolint:gosec // G404: retry jitter, not security-sensitive
+			backoff += time.Duration(rand.Int64N(int64(backoff / 2))) //nolint:gosec // G404: retry jitter, not security-sensitive
 			select {
 			case <-ctx.Done():
 				return nil, nil, ctx.Err()
