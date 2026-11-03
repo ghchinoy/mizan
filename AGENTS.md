@@ -39,13 +39,14 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
 - In command chains, prefix each segment: `rtk git add . && rtk git commit -m "msg"`
 - For debugging, use raw command without rtk prefix
 - `rtk proxy <cmd>` runs command without filtering but tracks usage
+- If `rtk` returns `operation not permitted` inside the sandbox (e.g., after a harness restart), fall back to raw commands inside the sandbox rather than escalating read-only steps to `BypassSandbox: true`.
 <!-- /headroom:rtk-instructions -->
 
 ## Mizan & Mizan-Templates Development Guidelines
 
 ### Repository Boundary: Code (`mizan`) vs. Template Packs (`mizan-templates`)
 - **Never Create Top-Level `packs/` in `ghchinoy/mizan`**: `ghchinoy/mizan` contains the CLI, MCP server, desktop app, and evaluation/validation engine only. Canonical, shareable `MetricTemplate` and `EvalSet` packs live **exclusively** in [`github.com/ghchinoy/mizan-templates`](https://github.com/ghchinoy/mizan-templates) under `packs/<namespace>/` and must be opened as PRs there.
-- **Where Pack Files Are Allowed in `ghchinoy/mizan`**: Only minimal, synthetic unit-test fixtures under `internal/registry/testdata/` belong in this repo. Never couple Go tests in `internal/` to real packs via `../../packs/...`.
+- **Where Pack Files Are Allowed in `ghchinoy/mizan`**: Only minimal, synthetic unit-test fixtures under `internal/registry/testdata/` belong in this repo (strip human `README.md` prose and use `t.Context()` in tests). Never place new fixtures directly under `internal/registry/testdata/packs/`, because `import_test.go` and `sync_test.go` assert exact single-template counts on `"testdata"` (`testdata/packs/google-brand`); instead isolate new synthetic pack trees under `internal/registry/testdata/<fixture>/packs/<ns>/`. Never couple Go tests in `internal/` to real packs via `../../packs/...`.
 - **Split Mixed Contributions**: If a task spans both a new/updated template pack and CLI/validator/engine code (e.g., new `ValidatePack` checks), split them into separate PRs:
   1. Pack PR against `ghchinoy/mizan-templates` (place sample `compare-engines --dataset` JSONL files under `packs/<pack>/examples/` rather than `fixtures/`, and pin `gemini-3.5-flash` or `gemini-3.5-flash-lite` — never retired `gemini-2.x`).
   2. Focused code/test PR(s) against `ghchinoy/mizan` (keeping validator contract changes separate from `testdata` coverage).
@@ -80,9 +81,10 @@ rtk pip list            rtk pnpm install        rtk npm run <script>
   rtk go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
   rtk ~/go/bin/golangci-lint run ./...
   ```
-- **Vulnerability Scanning (`govulncheck` & `docs-site`)**:
+- **Vulnerability Scanning & `docs-site` Builds**:
   - Go: `rtk go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...` (keep version synced with `.github/workflows/ci.yml`).
   - Node (`docs-site/`): `rtk node ~/projects/agent-skills/plugins/repo-authoring/skills/node-security-audit/scripts/audit-repo.mjs .`
+  - Sandboxed Astro build (`docs-site/`): pass `ASTRO_TELEMETRY_DISABLED=1 npm run build --prefix docs-site` so `@astrojs/telemetry` does not fail with `EPERM` attempting to write `~/Library/Preferences/astro/config.json`.
 - **Go Readability & Security Guardrails (`~/projects/agent-skills`)**:
   - Prefer `any` over `interface{}`, `var s []T` over `s := []T{}`, and `cmp.Or` over custom `firstNonEmpty` helpers.
   - Do not end error strings with punctuation (`:` or `.`), as enforced by `revive` (`error-strings`).
