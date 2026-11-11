@@ -32,7 +32,10 @@ type AppliedAutorater struct {
 	// Resolve (the resolved/predicted route from the model-precedence + R-GLOBAL
 	// prefix decision), NOT a post-retry observation. A global-only judge discovered
 	// only via the run-time retry (not in the prefix table) is not reflected here.
-	EffectiveHost string `json:"effective_host,omitempty"`
-	Location      string `json:"location,omitempty"`     // region the call targeted (e.g. "us-central1" or "global")
-	ModelSource   string `json:"model_source,omitempty"` // "flag" | "template" | "config-default" | "builtin" (WHY this model)
+	EffectiveHost    string   `json:"effective_host,omitempty"`
+	Location         string   `json:"location,omitempty"`          // region the call targeted (e.g. "us-central1" or "global")
+	ModelSource      string   `json:"model_source,omitempty"`      // "flag" | "engine-override" | "template" | "config-default" | "builtin"
+	Backend          string   `json:"backend,omitempty"`           // "vertex" | "gemini-api" | "enterprise" | "custom"
+	ModelVersion     string   `json:"model_version,omitempty"`     // provider-reported modelVersion when available
+	EffectiveChoices []string `json:"effective_choices,omitempty"` // resolved choice enum on KindChoice runs
 }

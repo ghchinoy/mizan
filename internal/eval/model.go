@@ -71,29 +71,26 @@ const GenaiLocation = globalLocation
 // an empty template model: it inherits the config default or the built-in
 // instead.
 func (e *Engine) resolveModel(tmpl registry.MetricTemplate, override string) string {
-	return cmp.Or(override, tmpl.AutoraterModel, e.defaultModel, BuiltinDefaultModel)
+	return cmp.Or(override, e.modelOverride, tmpl.AutoraterModel, e.defaultModel, BuiltinDefaultModel)
 }
 
 // Model-source labels for AppliedAutorater.ModelSource, one per branch of the
 // resolveModel precedence chain (§4.3). Kept as consts so callers and tests name
 // the same string.
 const (
-	modelSourceFlag          = "flag"
-	modelSourceTemplate      = "template"
-	modelSourceConfigDefault = "config-default"
-	modelSourceBuiltin       = "builtin"
+	modelSourceFlag           = "flag"
+	modelSourceEngineOverride = "engine-override"
+	modelSourceTemplate       = "template"
+	modelSourceConfigDefault  = "config-default"
+	modelSourceBuiltin        = "builtin"
 )
 
-// modelSource classifies WHY the resolved model was chosen, mirroring EXACTLY the
-// precedence firstNonEmptyModel applies in resolveModel
-// (flag > template > config default-model > built-in). It is a pure function so
-// the "why" label stays in ONE place with the precedence it describes and can be
-// unit-tested across all four branches. It takes the same first-three inputs as
-// resolveModel; the fourth (BuiltinDefaultModel) is the implicit final fallback.
-func modelSource(override, templateModel, configDefault string) string {
+func modelSource(override, engineOverride, templateModel, configDefault string) string {
 	switch {
 	case override != "":
 		return modelSourceFlag
+	case engineOverride != "":
+		return modelSourceEngineOverride
 	case templateModel != "":
 		return modelSourceTemplate
 	case configDefault != "":
@@ -162,6 +159,12 @@ func ValidateModel(model string) error {
 	case strings.HasPrefix(model, "publishers/"):
 		// Recognized publisher-relative form: validate its trailing bare id.
 		return validateBareModelID(bareModelID(model))
+	case strings.HasPrefix(model, "models/"):
+		parts := strings.Split(model, "/")
+		if len(parts) != 2 {
+			return fmt.Errorf("eval: invalid autorater model id %q: expected \"models/<id>\"", model)
+		}
+		return validateBareModelID(parts[1])
 	case strings.Contains(model, "/"):
 		return fmt.Errorf("eval: invalid autorater model id %q: a bare model id must not contain '/'; use a plain id such as %q, a \"publishers/google/models/<id>\" form, or a full \"projects/.../models/<id>\" resource name", model, BuiltinDefaultModel)
 	default:
@@ -264,12 +267,9 @@ func (e *Engine) Resolve(tmpl registry.MetricTemplate, override string, rubricDe
 		Model:    bareModelID(model),
 		Path:     "native",
 	}
-	if tmpl.Kind == registry.KindCustomSchema || tmpl.Kind == registry.KindBoul || tmpl.Kind == registry.KindChoice || tmpl.Kind == registry.KindScore || (rubricDetail && tmpl.Kind == registry.KindRubric) {
-		// The genai path is global regardless of a fully-qualified template
-		// model: genaiModelID reduces it to the bare id sent to the global
-		// client, so the location shown here is always GenaiLocation. A
-		// rubric-detail run takes this same genai/global path.
-		target.Location = GenaiLocation
+	genaiOnly := e.client == nil && e.genai != nil
+	if tmpl.Kind == registry.KindCustomSchema || tmpl.Kind == registry.KindBoul || tmpl.Kind == registry.KindChoice || tmpl.Kind == registry.KindScore || (rubricDetail && tmpl.Kind == registry.KindRubric) || (genaiOnly && tmpl.Kind != registry.KindPrebuilt) {
+		target.Location = cmp.Or(e.genaiLocation, GenaiLocation)
 		target.Path = "genai"
 		return target
 	}

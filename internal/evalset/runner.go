@@ -16,6 +16,9 @@ package evalset
 
 import (
 	"context"
+	"fmt"
+	"slices"
+	"sort"
 	"time"
 
 	"github.com/ghchinoy/mizan/internal/eval"
@@ -51,23 +54,31 @@ func New(tg TemplateGetter, mr MemberRunner) *Runner {
 
 // RunOptions configures a single set run.
 type RunOptions struct {
-	// Inputs are the SHARED set-level inputs, passed by identity to every member's
-	// instance (set input name == member placeholder name). Phase 1 does not
-	// resolve bind aliases.
+	// Inputs are the shared set-level inputs projected onto each member's
+	// expected placeholders via Member.Bind, Set.Inputs, and identity fallback.
 	Inputs map[string]eval.AssetRef
 	// Model is an optional per-run autorater model override applied to every
 	// member.
 	Model string
+	// RunOpts are optional per-run eval.RunOption values forwarded to every
+	// member execution alongside WithModel.
+	RunOpts []eval.RunOption
 	// FailFast, when true, aborts the run at the first member that errors or is
 	// missing; remaining members are recorded as Skipped. The default
 	// (continue-on-error) runs every member.
 	FailFast bool
 }
 
-// Run executes set.Members SEQUENTIALLY in order. For each member it resolves
-// the template (a resolution error -> Status:Missing), builds the member's
-// instance by identity binding (see instanceFor), and runs the engine (an engine
-// error -> Status:Errored). A successful run records Status:OK with the score.
+type preparedMember struct {
+	tmpl       *registry.MetricTemplate
+	resolveErr error
+	inst       eval.Instance
+}
+
+// Run executes set.Members SEQUENTIALLY in order. Before invoking the engine it
+// resolves member templates and projects opt.Inputs onto each member's expected
+// placeholders (failing pre-flight if a member's bind mapping is invalid or if a
+// supplied suite input is not referenced by any resolved member).
 //
 // FailFast breaks at the first errored/missing member (subsequent members are
 // Skipped). Continue-on-error is the default. The aggregate is computed over the
@@ -84,13 +95,46 @@ func (r *Runner) Run(ctx context.Context, set Set, opt RunOptions) (EvalSetResul
 		StartedAt:  started,
 	}
 
-	var runOpts []eval.RunOption
+	prepared := make([]preparedMember, len(set.Members))
+	suiteConsumed := make(map[string]bool, len(opt.Inputs))
+	resolvedCount := 0
+	for i, m := range set.Members {
+		tmpl, err := r.templates.Get(ctx, m.MetricID)
+		if err != nil {
+			prepared[i] = preparedMember{resolveErr: err}
+			continue
+		}
+		resolvedCount++
+		inst, consumed, projErr := projectMemberInstance(set, m, *tmpl, opt.Inputs)
+		if projErr != nil {
+			return EvalSetResult{}, projErr
+		}
+		for k := range consumed {
+			suiteConsumed[k] = true
+		}
+		prepared[i] = preparedMember{tmpl: tmpl, inst: inst}
+	}
+
+	if len(opt.Inputs) > 0 && resolvedCount > 0 {
+		var unconsumed []string
+		for k := range opt.Inputs {
+			if !suiteConsumed[k] {
+				unconsumed = append(unconsumed, k)
+			}
+		}
+		if len(unconsumed) > 0 {
+			sort.Strings(unconsumed)
+			return EvalSetResult{}, fmt.Errorf("evalset: suite %q input(s) %v are not referenced by any member placeholder or bind mapping (check for a typo)", set.ID, unconsumed)
+		}
+	}
+
+	runOpts := slices.Clone(opt.RunOpts)
 	if opt.Model != "" {
 		runOpts = append(runOpts, eval.WithModel(opt.Model))
 	}
 
 	aborted := false
-	for _, m := range set.Members {
+	for i, m := range set.Members {
 		mr := MemberResult{
 			MetricID: m.MetricID,
 			Weight:   m.Weight,
@@ -103,10 +147,10 @@ func (r *Runner) Run(ctx context.Context, set Set, opt RunOptions) (EvalSetResul
 			continue
 		}
 
-		tmpl, err := r.templates.Get(ctx, m.MetricID)
-		if err != nil {
+		pm := prepared[i]
+		if pm.resolveErr != nil {
 			mr.Status = Missing
-			mr.Error = err.Error()
+			mr.Error = pm.resolveErr.Error()
 			res.Members = append(res.Members, mr)
 			if opt.FailFast {
 				aborted = true
@@ -114,8 +158,7 @@ func (r *Runner) Run(ctx context.Context, set Set, opt RunOptions) (EvalSetResul
 			continue
 		}
 
-		inst := instanceFor(opt.Inputs)
-		out, err := r.engine.Run(ctx, *tmpl, inst, runOpts...)
+		out, err := r.engine.Run(ctx, *pm.tmpl, pm.inst, runOpts...)
 		if err != nil {
 			mr.Status = Errored
 			mr.Error = err.Error()

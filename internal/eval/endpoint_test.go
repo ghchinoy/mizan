@@ -14,10 +14,8 @@
 
 package eval
 
-// endpoint_test.go covers the raw host<->endpoint mapping that R-GLOBAL
-// deliberately left for R-GAPS (NewClient / endpointFor), plus the host-decides
-// behavior on the self-correcting global retry for a FULLY-QUALIFIED regional
-// autorater id.
+// endpoint_test.go covers the host-decides behavior on the self-correcting
+// global retry for a FULLY-QUALIFIED regional autorater id.
 
 import (
 	"context"
@@ -27,40 +25,6 @@ import (
 	"github.com/ghchinoy/mizan/internal/eval/evaltest"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
-
-// TestEndpointFor covers the location->host mapping NewClient dials:
-//   - "" and "global" -> the bare global host (the ONLY host that resolves a
-//     global-only autorater; spike-eval-region-autorater row 4a),
-//   - any region -> its regional host,
-//   - an explicit apiEndpoint override wins verbatim regardless of location.
-func TestEndpointFor(t *testing.T) {
-	tests := []struct {
-		name        string
-		location    string
-		apiEndpoint string
-		want        string
-	}{
-		{"empty location -> global host", "", "", "aiplatform.googleapis.com:443"},
-		{"global location -> global host", "global", "", "aiplatform.googleapis.com:443"},
-		{"regional us-central1", "us-central1", "", "us-central1-aiplatform.googleapis.com:443"},
-		{"regional europe-west4", "europe-west4", "", "europe-west4-aiplatform.googleapis.com:443"},
-		{"override wins over regional", "us-central1", "custom.example.com:443", "custom.example.com:443"},
-		{"override wins over global", "global", "custom.example.com:443", "custom.example.com:443"},
-		{"override wins over empty", "", "custom.example.com:443", "custom.example.com:443"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := endpointFor(tt.location, tt.apiEndpoint); got != tt.want {
-				t.Errorf("endpointFor(%q, %q) = %q, want %q", tt.location, tt.apiEndpoint, got, tt.want)
-			}
-		})
-	}
-}
-
-// NOTE: NewClient itself is intentionally NOT exercised here — constructing the
-// real *aiplatform.EvaluationClient resolves ADC credentials, which CI does not
-// have (creds-free by design). The credential-free part of NewClient — the raw
-// host mapping — is the pure endpointFor function covered by TestEndpointFor.
 
 // TestRoute_FullyQualifiedRegionalModel_GlobalRetrySucceeds documents the
 // host-decides behavior (R-GLOBAL review FYI): a FULLY-QUALIFIED regional

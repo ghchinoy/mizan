@@ -50,7 +50,7 @@ func TestLiveRubric(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	client, err := NewClient(ctx, location, "")
+	client, err := newLiveClient(ctx, location)
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}

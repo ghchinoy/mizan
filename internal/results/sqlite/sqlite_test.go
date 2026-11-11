@@ -21,6 +21,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -337,5 +339,63 @@ func TestFileMode(t *testing.T) {
 	}
 	if perm := fi.Mode().Perm(); perm != 0o600 {
 		t.Errorf("db file perm = %04o, want 0600", perm)
+	}
+}
+
+func TestConcurrentOpensReadOnlyAndOversizedJSONGuard(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "results.db")
+
+	const workers = 16
+	var wg sync.WaitGroup
+	errs := make(chan error, workers)
+	base := time.Date(2026, 11, 10, 12, 0, 0, 0, time.UTC)
+	for i := range workers {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			st, err := Open(path)
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer func() { _ = st.Close() }()
+			r := fullResult("01CONCURRENT0000000000000"+string(rune('A'+idx)), base.Add(time.Duration(idx)*time.Second))
+			if err := st.Put(t.Context(), &r); err != nil {
+				errs <- err
+				return
+			}
+			if _, err := st.List(t.Context(), results.ResultFilter{Limit: 5}); err != nil {
+				errs <- err
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("concurrent Open/Put/List failed: %v", err)
+	}
+
+	ro, err := Open("file:" + path + "?mode=ro")
+	if err != nil {
+		t.Fatalf("read-only Open on migrated results DB failed: %v", err)
+	}
+	if list, err := ro.List(t.Context(), results.ResultFilter{}); err != nil || len(list) != workers {
+		_ = ro.Close()
+		t.Fatalf("read-only List = %d, err = %v; want %d", len(list), err, workers)
+	}
+	_ = ro.Close()
+
+	rw, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopen rw: %v", err)
+	}
+	defer func() { _ = rw.Close() }()
+	oversized := `"` + strings.Repeat("z", maxJSONColumnBytes) + `"`
+	targetID := "01CONCURRENT0000000000000A"
+	if _, err := rw.db.ExecContext(t.Context(), `UPDATE results SET outcome = ? WHERE run_id = ?`, oversized, targetID); err != nil {
+		t.Fatalf("update oversized outcome: %v", err)
+	}
+	if _, err := rw.Get(t.Context(), targetID); err == nil || !strings.Contains(err.Error(), "cap") {
+		t.Fatalf("Get oversized column err = %v, want cap error", err)
 	}
 }

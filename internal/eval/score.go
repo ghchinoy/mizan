@@ -45,7 +45,7 @@ func generateScoreSchema() *genai.Schema {
 func (e *Engine) runScore(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	if len(tmpl.RubricGroups) > 0 {
 		min, max, scaleWarning := e.resolveRubricScale(tmpl, rc)
-		res, err := e.runRubricStructured(ctx, tmpl, inst, model, min, max)
+		res, err := e.runRubricStructured(ctx, tmpl, inst, model, min, max, rc)
 		if err == nil && scaleWarning != "" {
 			res.Warnings = append(res.Warnings, scaleWarning)
 		}
@@ -56,17 +56,17 @@ func (e *Engine) runScore(ctx context.Context, tmpl registry.MetricTemplate, ins
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}
 
-	prompt := tmpl.MetricPromptTemplate + "\n\nRate the input according to the instructions above."
+	directive := "Rate the input according to the instructions above."
 	if tmpl.RubricDetail != nil && tmpl.RubricDetail.Scale != nil {
 		// Declared scale: tell the judge the bounds so Vertex and diffusion
 		// answer on the same Likert range.
 		min, max, _ := e.resolveRubricScale(tmpl, rc)
-		prompt += fmt.Sprintf(" The score must be an integer from %d to %d.", min, max)
+		directive += fmt.Sprintf(" The score must be an integer from %d to %d.", min, max)
 	}
-	prompt += " Return a JSON object with \"score\" (number) and \"explanation\" (string)."
+	directive += " Return a JSON object with \"score\" (number) and \"explanation\" (string)."
 	schema := generateScoreSchema()
 
-	res, err := e.runGenaiStructured(ctx, tmpl, inst, prompt, schema, model)
+	res, err := e.runGenaiStructured(ctx, tmpl, inst, tmpl.MetricPromptTemplate, directive, schema, model, rc)
 	if err != nil {
 		return Result{}, err
 	}

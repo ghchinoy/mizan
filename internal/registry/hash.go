@@ -58,6 +58,15 @@ func canonicalizeJSON(s string) string {
 // preserves authored order, so the hash is stable across Marshal/Unmarshal
 // round-trips. A golden-hash test pins it so a future change that silently
 // shifts the hash is caught.
+// ContentHash returns a deterministic SHA-256 fingerprint ("sha256:<hex>")
+// over a template's canonicalized identity and spec fields.
+func ContentHash(t *MetricTemplate) string {
+	if t == nil {
+		return ""
+	}
+	return contentHash(t)
+}
+
 func contentHash(t *MetricTemplate) string {
 	type canonAuthor struct {
 		Name  string `json:"name"`

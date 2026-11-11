@@ -15,11 +15,13 @@
 package results
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/ghchinoy/mizan/internal/eval"
@@ -208,26 +210,38 @@ func (s *Service) buildInputs(inst eval.Instance) []StoredInput {
 		ref := inst.Fields[name]
 
 		// The "value" is the text for text fields, else the staged/local
-		// reference (gs:// URI preferred over a local path). Media bytes are never
-		// read here — the hash and reference are over the URI string.
-		var value, uri string
-		if ref.Modality == registry.ModalityText {
+		// reference (gs:// or https:// URI preferred over a local path). Raw inline
+		// media bytes are never persisted in SQLite JSON: Bytes and Items compute
+		// SHA-256 directly and force ModeReference when no text/URI string exists.
+		var value, uri, hash string
+		forceRef := false
+		switch {
+		case ref.Modality == registry.ModalityText:
 			value = ref.Text
-		} else {
-			uri = ref.GCSUri
-			if uri == "" {
-				uri = ref.FilePath
-			}
+			hash = sha256Hex(value)
+		case len(ref.Items) > 0:
+			hash = hashVariationItems(ref.Items)
+			forceRef = true
+		case len(ref.Bytes) > 0:
+			hash = sha256BytesHex(ref.Bytes)
+			forceRef = true
+		default:
+			uri = cmp.Or(ref.GCSUri, ref.URI, ref.FilePath)
 			value = uri
+			hash = sha256Hex(value)
 		}
 
 		si := StoredInput{
 			Field:       name,
 			Modality:    ref.Modality,
-			ContentHash: sha256Hex(value),
+			ContentHash: hash,
 			MimeType:    ref.MimeType,
 		}
-		si.Mode = s.policy.ModeFor(si)
+		if forceRef {
+			si.Mode = ModeReference
+		} else {
+			si.Mode = s.policy.ModeFor(si)
+		}
 		switch si.Mode {
 		case ModeInline:
 			si.Inline = value
@@ -330,6 +344,30 @@ func buildOutcome(res eval.Result) Outcome {
 
 // sha256Hex returns the lowercase hex SHA-256 of s.
 func sha256Hex(s string) string {
-	sum := sha256.Sum256([]byte(s))
+	return sha256BytesHex([]byte(s))
+}
+
+func sha256BytesHex(b []byte) string {
+	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+func hashVariationItems(items []eval.AssetRef) string {
+	var b strings.Builder
+	for i, item := range items {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(item.Label)
+		b.WriteByte(':')
+		switch {
+		case item.Modality == registry.ModalityText || (len(item.Bytes) == 0 && item.URI == "" && item.GCSUri == "" && item.FilePath == "" && item.Text != ""):
+			b.WriteString(sha256Hex(item.Text))
+		case len(item.Bytes) > 0:
+			b.WriteString(sha256BytesHex(item.Bytes))
+		default:
+			b.WriteString(sha256Hex(cmp.Or(item.GCSUri, item.URI, item.FilePath)))
+		}
+	}
+	return sha256Hex(b.String())
 }

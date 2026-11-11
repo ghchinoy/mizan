@@ -18,12 +18,24 @@ package eval
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	aiplatform "cloud.google.com/go/aiplatform/apiv1beta1"
+	"google.golang.org/api/option"
+
 	"github.com/ghchinoy/mizan/internal/registry"
 )
+
+func newLiveClient(ctx context.Context, location string) (*aiplatform.EvaluationClient, error) {
+	host := "aiplatform.googleapis.com:443"
+	if location != "" && location != "global" {
+		host = fmt.Sprintf("%s-aiplatform.googleapis.com:443", location)
+	}
+	return aiplatform.NewEvaluationClient(ctx, option.WithEndpoint(host))
+}
 
 // TestLivePointwiseText performs a real EvaluateInstances text-pointwise call.
 // It is guarded by the `integration` build tag and by PROJECT_ID being set;
@@ -46,7 +58,7 @@ func TestLivePointwiseText(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client, err := NewClient(ctx, location, "")
+	client, err := newLiveClient(ctx, location)
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}

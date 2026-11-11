@@ -355,3 +355,57 @@ func TestServiceRecordReferencePolicyDropsInline(t *testing.T) {
 		t.Errorf("ContentHash = %q, want sha256(secret)", si.ContentHash)
 	}
 }
+
+func TestServiceRecordBytesURIAndItemsInputs(t *testing.T) {
+	fs := &fakeStore{}
+	// Even under InlinePolicy, raw binary Bytes and variation Items must never
+	// dump binary bytes into StoredInput.Inline.
+	svc := NewService(fs, WithRetentionPolicy(InlinePolicy{}))
+	rawBytes := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A}
+
+	got, err := svc.Record(t.Context(), RecordInput{
+		Template: registry.MetricTemplate{ID: "ns/mm", Kind: registry.KindChoice},
+		Instance: eval.Instance{Fields: map[string]eval.AssetRef{
+			"bytes_img": {Modality: registry.ModalityImage, Bytes: rawBytes, MimeType: "image/png"},
+			"https_vid": {Modality: registry.ModalityVideo, URI: "https://cdn.example.com/v1.mp4", MimeType: "video/mp4"},
+			"vars": {
+				Modality: registry.ModalityVideo,
+				Items: []eval.AssetRef{
+					{Label: "cut_a", URI: "gs://bucket/a.mp4", MimeType: "video/mp4"},
+					{Label: "cut_b", Bytes: rawBytes, MimeType: "image/png"},
+				},
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Record() error = %v", err)
+	}
+	if len(got.Inputs) != 3 {
+		t.Fatalf("len(got.Inputs) = %d, want 3", len(got.Inputs))
+	}
+	byField := make(map[string]StoredInput, 3)
+	for _, in := range got.Inputs {
+		byField[in.Field] = in
+	}
+
+	bIn := byField["bytes_img"]
+	if bIn.Mode != ModeReference || bIn.Inline != "" || bIn.URI != "" {
+		t.Errorf("bytes_img StoredInput = %+v, want Mode=reference and empty Inline/URI", bIn)
+	}
+	if bIn.ContentHash != sha256BytesHex(rawBytes) {
+		t.Errorf("bytes_img ContentHash = %q, want %q", bIn.ContentHash, sha256BytesHex(rawBytes))
+	}
+
+	uIn := byField["https_vid"]
+	if uIn.ContentHash != sha256Hex("https://cdn.example.com/v1.mp4") {
+		t.Errorf("https_vid ContentHash = %q, want sha256 of URI", uIn.ContentHash)
+	}
+
+	vIn := byField["vars"]
+	if vIn.Mode != ModeReference || vIn.Inline != "" {
+		t.Errorf("vars StoredInput = %+v, want Mode=reference and empty Inline", vIn)
+	}
+	if vIn.ContentHash == "" {
+		t.Errorf("vars ContentHash is empty, want deterministic SHA-256")
+	}
+}

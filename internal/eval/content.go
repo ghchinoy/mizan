@@ -15,13 +15,18 @@
 package eval
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -63,17 +68,7 @@ var varPattern = regexp.MustCompile(`\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}`)
 // extractVars returns the unique {{var}} names referenced in s, in first-seen
 // order.
 func extractVars(s string) []string {
-	matches := varPattern.FindAllStringSubmatch(s, -1)
-	var out []string
-	seen := map[string]bool{}
-	for _, m := range matches {
-		name := m[1]
-		if !seen[name] {
-			seen[name] = true
-			out = append(out, name)
-		}
-	}
-	return out
+	return registry.ExtractPlaceholders(s)
 }
 
 // expandAutoraterModel converts a publisher-relative model id (the portable
@@ -132,12 +127,34 @@ func (e *Engine) toNativeFileDataPart(ctx context.Context, ref AssetRef) (*aipla
 	if isTextRef(ref) {
 		return &aiplatformpb.Part{Data: &aiplatformpb.Part_Text{Text: ref.Text}}, nil
 	}
+	if len(ref.Items) > 0 {
+		return nil, fmt.Errorf("eval: multi-asset variation lists require a structured genai kind (boul, choice, score, rubric, custom_schema) or genai engine")
+	}
+	if len(ref.Bytes) > 0 {
+		return nil, fmt.Errorf("eval: inline byte assets are not supported by native Vertex EvaluateInstances (use a gs:// URI or run a structured genai kind)")
+	}
+	if ref.VideoMeta != nil {
+		return nil, fmt.Errorf("eval: video metadata clip offsets are not supported by native Vertex EvaluateInstances (run a structured genai kind)")
+	}
 
-	uri := ref.GCSUri
+	rawURI := cmp.Or(ref.URI, ref.GCSUri)
+	if rawURI != "" && !strings.HasPrefix(rawURI, "gs://") {
+		return nil, fmt.Errorf("eval: native Vertex EvaluateInstances requires a gs:// URI, got %q (https:// URIs are supported only on the structured genai path)", rawURI)
+	}
+	if rawURI != "" && (ref.URI != "" || len(e.allowedGCSBuckets) > 0) {
+		if err := ValidateMediaURI(rawURI, e.allowedURIHosts, e.allowedGCSBuckets); err != nil {
+			return nil, err
+		}
+	}
+
+	uri := rawURI
 	mime := ref.MimeType
 
 	switch {
 	case ref.FilePath != "":
+		if !e.allowLocalFiles {
+			return nil, fmt.Errorf("eval: local file path %q is disabled on this evaluator (pass WithLocalFileAccess(true) or supply Bytes / URI)", ref.FilePath)
+		}
 		if e.stager == nil {
 			return nil, fmt.Errorf("eval: local asset %q requires GCS staging for native multimodal eval: %w", ref.FilePath, asset.ErrNoBucket)
 		}
@@ -146,18 +163,18 @@ func (e *Engine) toNativeFileDataPart(ctx context.Context, ref AssetRef) (*aipla
 			return nil, fmt.Errorf("eval: stage asset %q: %w", ref.FilePath, err)
 		}
 		uri, mime = res.GCSUri, res.MIME
-	case ref.GCSUri != "":
+	case rawURI != "":
 		// Pre-staged: no upload needed. Resolve MIME via the Stager when present
 		// (pass-through), else honor an explicit override or fall back to the
 		// object extension so a bucket is not required just to read a gs:// URI.
 		if e.stager != nil {
-			res, err := e.stager.Stage(ctx, asset.StageInput{GCSUri: ref.GCSUri, MIME: ref.MimeType})
+			res, err := e.stager.Stage(ctx, asset.StageInput{GCSUri: rawURI, MIME: ref.MimeType})
 			if err != nil {
-				return nil, fmt.Errorf("eval: resolve gs:// asset %q: %w", ref.GCSUri, err)
+				return nil, fmt.Errorf("eval: resolve gs:// asset %q: %w", rawURI, err)
 			}
 			uri, mime = res.GCSUri, res.MIME
 		} else if mime == "" {
-			mime = asset.DetectMIME(ref.GCSUri, nil)
+			mime = asset.DetectMIME(rawURI, nil)
 		}
 	default:
 		return nil, fmt.Errorf("eval: asset ref for a non-text field has no file path or gs:// URI")
@@ -172,20 +189,19 @@ func (e *Engine) toNativeFileDataPart(ctx context.Context, ref AssetRef) (*aipla
 	return &aiplatformpb.Part{Data: &aiplatformpb.Part_FileData{FileData: &aiplatformpb.FileData{FileUri: uri, MimeType: mime}}}, nil
 }
 
-// isTextRef reports whether ref is a plain text value (no file path or gs:// URI
-// and either an explicit text modality or a non-empty Text with no other data).
+// isTextRef reports whether ref is a plain text value (no file path, URI, inline
+// bytes, or variation items, and either an explicit text modality or unset).
 func isTextRef(ref AssetRef) bool {
-	if ref.FilePath != "" || ref.GCSUri != "" {
+	if ref.FilePath != "" || ref.GCSUri != "" || ref.URI != "" || len(ref.Bytes) > 0 || len(ref.Items) > 0 {
 		return false
 	}
 	return ref.Modality == "" || ref.Modality == registry.ModalityText
 }
 
-// isMediaRef reports whether ref must be materialized as a native FileData Part
-// (i.e. it names a non-text asset by local path, gs:// URI, or non-text
-// modality).
+// isMediaRef reports whether ref must be materialized as a media Part (non-text
+// asset by local path, URI, inline bytes, variation items, or non-text modality).
 func isMediaRef(ref AssetRef) bool {
-	if ref.FilePath != "" || ref.GCSUri != "" {
+	if ref.FilePath != "" || ref.GCSUri != "" || ref.URI != "" || len(ref.Bytes) > 0 || len(ref.Items) > 0 {
 		return true
 	}
 	return ref.Modality != "" && ref.Modality != registry.ModalityText
@@ -262,37 +278,197 @@ func buildJSONInstanceKeys(keys []string, inst Instance) (string, error) {
 	return string(b), nil
 }
 
+var cgnatPrefix = netip.MustParsePrefix("100.64.0.0/10")
+
+// ValidateMediaURI validates a gs:// or https:// media URI against SSRF rules
+// and optional host/bucket allowlists.
+func ValidateMediaURI(rawURI string, allowedHosts, allowedBuckets []string) error {
+	trimmed := strings.TrimSpace(rawURI)
+	if trimmed == "" {
+		return fmt.Errorf("eval: media URI is empty")
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return fmt.Errorf("eval: invalid media URI %q: %w", rawURI, err)
+	}
+	if u.User != nil {
+		return fmt.Errorf("eval: media URI %q must not contain userinfo credentials", rawURI)
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "gs":
+		bucket := u.Host
+		object := strings.TrimPrefix(u.Path, "/")
+		if bucket == "" || object == "" {
+			return fmt.Errorf("eval: gs:// media URI %q must include both bucket and object path (gs://bucket/object)", rawURI)
+		}
+		if len(allowedBuckets) > 0 && !slices.Contains(allowedBuckets, bucket) {
+			return fmt.Errorf("eval: gs:// bucket %q in %q is not in allowed buckets %v", bucket, rawURI, allowedBuckets)
+		}
+		return nil
+	case "https":
+		host := strings.ToLower(u.Hostname())
+		if host == "" {
+			return fmt.Errorf("eval: https:// media URI %q has an empty host", rawURI)
+		}
+		explicitlyAllowed := hostInAllowlist(host, allowedHosts)
+		if len(allowedHosts) > 0 && !explicitlyAllowed {
+			return fmt.Errorf("eval: https:// host %q in %q is not in allowed URI hosts %v", host, rawURI, allowedHosts)
+		}
+		if !explicitlyAllowed {
+			if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+				return fmt.Errorf("eval: https:// media URI %q targets loopback host %q (blocked for SSRF safety)", rawURI, host)
+			}
+			if ip, err := netip.ParseAddr(host); err == nil {
+				unmapped := ip.Unmap()
+				if unmapped.IsLoopback() || unmapped.IsPrivate() || unmapped.IsLinkLocalUnicast() ||
+					unmapped.IsLinkLocalMulticast() || unmapped.IsMulticast() || unmapped.IsUnspecified() ||
+					cgnatPrefix.Contains(unmapped) {
+					return fmt.Errorf("eval: https:// media URI %q targets non-public IP %q (blocked for SSRF safety)", rawURI, host)
+				}
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("eval: unsupported media URI scheme %q in %q (want gs:// or https://)", u.Scheme, rawURI)
+	}
+}
+
+func hostInAllowlist(host string, allowed []string) bool {
+	for _, h := range allowed {
+		if strings.EqualFold(strings.TrimSpace(h), host) {
+			return true
+		}
+	}
+	return false
+}
+
+// ValidateVideoMetadata validates clip offsets and FPS bounds on a
+// genai.VideoMetadata. Note that google.golang.org/genai serializes StartOffset
+// and EndOffset as whole seconds ("%.0fs"), so sub-second clip windows that
+// round to the same whole second collapse to a zero-length clip on the wire and
+// are rejected here.
+func ValidateVideoMetadata(vm *genai.VideoMetadata) error {
+	if vm == nil {
+		return nil
+	}
+	if vm.StartOffset < 0 {
+		return fmt.Errorf("eval: video StartOffset (%v) must be >= 0", vm.StartOffset)
+	}
+	if vm.EndOffset < 0 {
+		return fmt.Errorf("eval: video EndOffset (%v) must be >= 0", vm.EndOffset)
+	}
+	if vm.EndOffset > 0 {
+		if vm.StartOffset >= vm.EndOffset {
+			return fmt.Errorf("eval: video StartOffset (%v) must be strictly less than EndOffset (%v)", vm.StartOffset, vm.EndOffset)
+		}
+		if math.Round(vm.EndOffset.Seconds()) <= math.Round(vm.StartOffset.Seconds()) {
+			return fmt.Errorf("eval: video clip window [%v, %v] collapses to zero whole seconds when marshaled by google.golang.org/genai (use offsets separated by at least 1 whole second)", vm.StartOffset, vm.EndOffset)
+		}
+	}
+	if vm.FPS != nil && (*vm.FPS <= 0 || *vm.FPS > 24 || math.IsNaN(*vm.FPS) || math.IsInf(*vm.FPS, 0)) {
+		return fmt.Errorf("eval: video FPS (%v) must be in (0, 24]", *vm.FPS)
+	}
+	return nil
+}
+
+func cloneVideoMetadata(vm *genai.VideoMetadata) *genai.VideoMetadata {
+	if vm == nil {
+		return nil
+	}
+	cp := *vm
+	if vm.FPS != nil {
+		fps := *vm.FPS
+		cp.FPS = &fps
+	}
+	return &cp
+}
+
+func clonePartResolution(pr *genai.PartMediaResolution) *genai.PartMediaResolution {
+	if pr == nil {
+		return nil
+	}
+	cp := *pr
+	if pr.NumTokens != nil {
+		nt := *pr.NumTokens
+		cp.NumTokens = &nt
+	}
+	return &cp
+}
+
+func attachMediaDecorators(part *genai.Part, ref AssetRef) {
+	if ref.VideoMeta != nil {
+		part.VideoMetadata = cloneVideoMetadata(ref.VideoMeta)
+	}
+	if ref.PartResolution != nil {
+		part.MediaResolution = clonePartResolution(ref.PartResolution)
+	}
+}
+
+// toGenaiPart converts a single non-Items AssetRef into a *genai.Part,
+// returning the part, its resolved MIME type, its inline byte count (for
+// aggregate 20 MiB enforcement), or a validation error.
+func toGenaiPart(ref AssetRef, allowLocalFiles bool, allowedHosts, allowedBuckets []string) (*genai.Part, string, int64, error) {
+	if err := ValidateVideoMetadata(ref.VideoMeta); err != nil {
+		return nil, "", 0, err
+	}
+	switch {
+	case isTextRef(ref) && (ref.Modality == registry.ModalityText || ref.Text != ""):
+		return genai.NewPartFromText(ref.Text), "text/plain", 0, nil
+	case len(ref.Bytes) > 0:
+		if int64(len(ref.Bytes)) > maxInlineBytes {
+			return nil, "", 0, fmt.Errorf("eval: inline bytes asset is %d bytes, exceeds %d-byte limit; pass gs:// or https:// via URI or pre-upload via FromGenaiPart", len(ref.Bytes), maxInlineBytes)
+		}
+		mime := strings.TrimSpace(ref.MimeType)
+		if mime == "" {
+			mime = asset.DetectMIME("", ref.Bytes)
+		}
+		if mime == "" || mime == "application/octet-stream" {
+			return nil, "", 0, fmt.Errorf("eval: inline bytes asset: cannot resolve a media MIME type; supply an explicit MIME type")
+		}
+		part := genai.NewPartFromBytes(slices.Clone(ref.Bytes), mime)
+		attachMediaDecorators(part, ref)
+		return part, mime, int64(len(ref.Bytes)), nil
+	case ref.URI != "" || ref.GCSUri != "":
+		rawURI := strings.TrimSpace(cmp.Or(ref.URI, ref.GCSUri))
+		if err := ValidateMediaURI(rawURI, allowedHosts, allowedBuckets); err != nil {
+			return nil, "", 0, err
+		}
+		mime := strings.TrimSpace(ref.MimeType)
+		if mime == "" {
+			if u, err := url.Parse(rawURI); err == nil {
+				mime = asset.DetectMIME(u.Path, nil)
+			}
+		}
+		if mime == "" || mime == "application/octet-stream" {
+			return nil, "", 0, fmt.Errorf("eval: URI asset %q: cannot resolve a media MIME type; refusing to send (would be dropped)", rawURI)
+		}
+		part := genai.NewPartFromURI(rawURI, mime)
+		attachMediaDecorators(part, ref)
+		return part, mime, 0, nil
+	case ref.FilePath != "":
+		if !allowLocalFiles {
+			return nil, "", 0, fmt.Errorf("eval: local file path %q is disabled on this evaluator (pass WithLocalFileAccess(true) or supply Bytes / URI)", ref.FilePath)
+		}
+		data, mime, err := readInlineAsset(ref.FilePath, ref.MimeType)
+		if err != nil {
+			return nil, "", 0, err
+		}
+		part := genai.NewPartFromBytes(data, mime)
+		attachMediaDecorators(part, ref)
+		return part, mime, int64(len(data)), nil
+	default:
+		return nil, "", 0, fmt.Errorf("eval: asset ref has no text, bytes, file path, or media URI")
+	}
+}
+
 // toGenaiInlinePart converts an AssetRef into a genai Part for the custom_schema
 // path, which — unlike native EvaluateInstances — DOES accept inline bytes
 // (spike-core / spike-custom). It reads a local file's bytes and sends them
 // inline (no GCS staging needed on this path); a pre-staged gs:// URI is sent as
 // FileData. Text is sent as a text Part.
 func toGenaiInlinePart(ref AssetRef) (*genai.Part, error) {
-	switch {
-	case ref.Modality == registry.ModalityText || (ref.FilePath == "" && ref.GCSUri == "" && ref.Text != ""):
-		return genai.NewPartFromText(ref.Text), nil
-	case ref.GCSUri != "":
-		// Resolve MIME the same way native does (asset.DetectMIME on the object
-		// URI/extension) so a bare --gcs ref with no explicit MIME still attaches.
-		// Guard an unresolved/octet-stream type: a wrong or empty top-level type
-		// would be silently dropped downstream, so refuse loudly instead.
-		mime := ref.MimeType
-		if mime == "" {
-			mime = asset.DetectMIME(ref.GCSUri, nil)
-		}
-		if mime == "" || mime == "application/octet-stream" {
-			return nil, fmt.Errorf("eval: gs:// asset %q: cannot resolve a media MIME type; refusing to send (would be dropped)", ref.GCSUri)
-		}
-		return genai.NewPartFromURI(ref.GCSUri, mime), nil
-	case ref.FilePath != "":
-		data, mime, err := readInlineAsset(ref.FilePath, ref.MimeType)
-		if err != nil {
-			return nil, err
-		}
-		return genai.NewPartFromBytes(data, mime), nil
-	default:
-		return nil, fmt.Errorf("eval: asset ref has no text, file path, or gs:// URI")
-	}
+	part, _, _, err := toGenaiPart(ref, true, nil, nil)
+	return part, err
 }
 
 // readInlineAsset reads a local file's bytes for the genai inline path with the

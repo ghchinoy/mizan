@@ -64,9 +64,8 @@ type Member struct {
 	// Required marks a member whose non-OK outcome forces the set verdict to
 	// FAILED, regardless of the aggregate/threshold.
 	Required bool
-	// Bind is the RESERVED per-member placeholder binding (set input name ->
-	// member placeholder name). Phase 1 uses identity binding and carries this map
-	// without interpreting it; full bind-alias resolution is a later phase.
+	// Bind maps set input names to member placeholder names (setKey ->
+	// memberPlaceholder), overriding Set.Inputs for this member.
 	Bind map[string]string
 }
 

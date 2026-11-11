@@ -315,3 +315,27 @@ func TestNewEngine_NativeClientErrorPropagates(t *testing.T) {
 		t.Errorf("on error, engine and closeFn must be nil, got eng!=nil=%t closeFn!=nil=%t", eng != nil, closeFn != nil)
 	}
 }
+
+func TestEndpointFor(t *testing.T) {
+	tests := []struct {
+		name        string
+		location    string
+		apiEndpoint string
+		want        string
+	}{
+		{"empty location -> global host", "", "", "aiplatform.googleapis.com:443"},
+		{"global location -> global host", "global", "", "aiplatform.googleapis.com:443"},
+		{"regional us-central1", "us-central1", "", "us-central1-aiplatform.googleapis.com:443"},
+		{"regional europe-west4", "europe-west4", "", "europe-west4-aiplatform.googleapis.com:443"},
+		{"override wins over regional", "us-central1", "custom.example.com:443", "custom.example.com:443"},
+		{"override wins over global", "global", "custom.example.com:443", "custom.example.com:443"},
+		{"override wins over empty", "", "custom.example.com:443", "custom.example.com:443"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := endpointFor(tt.location, tt.apiEndpoint); got != tt.want {
+				t.Errorf("endpointFor(%q, %q) = %q, want %q", tt.location, tt.apiEndpoint, got, tt.want)
+			}
+		})
+	}
+}

@@ -29,7 +29,11 @@ import (
 	"os"
 	"time"
 
+	aiplatform "cloud.google.com/go/aiplatform/apiv1beta1"
+	"google.golang.org/api/option"
+
 	"github.com/ghchinoy/mizan/internal/asset"
+	assetgcs "github.com/ghchinoy/mizan/internal/asset/gcs"
 	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/eval"
 	"github.com/ghchinoy/mizan/internal/eval/diffusion"
@@ -49,16 +53,39 @@ type closableEvalClient interface {
 	Close() error
 }
 
+// NewEvaluationClient builds a live Vertex EvaluationClient targeting the
+// regional endpoint {location}-aiplatform.googleapis.com:443 (or the bare
+// global endpoint aiplatform.googleapis.com:443 when location is "" or
+// "global").
+func NewEvaluationClient(ctx context.Context, location, apiEndpoint string) (*aiplatform.EvaluationClient, error) {
+	if err := config.ValidateLocation(location); err != nil {
+		return nil, err
+	}
+	return aiplatform.NewEvaluationClient(ctx, option.WithEndpoint(endpointFor(location, apiEndpoint)))
+}
+
+// endpointFor computes the gRPC host:port NewEvaluationClient dials for a given
+// location.
+func endpointFor(location, apiEndpoint string) string {
+	if apiEndpoint != "" {
+		return apiEndpoint
+	}
+	if location == "" || location == "global" {
+		return "aiplatform.googleapis.com:443"
+	}
+	return fmt.Sprintf("%s-aiplatform.googleapis.com:443", location)
+}
+
 // newNativeClient and newGenaiClient are the seams NewEngine builds its clients
 // through. They are package-level vars ONLY so wire's unit tests can substitute
 // fakes and assert the config->client wiring — specifically the native-vs-global
 // endpoint selection (which location each native client is constructed for) and
 // that the genai client targets eval.GenaiLocation — without opening real gRPC
-// clients (which need ADC). Production always uses the eval constructors below;
+// clients (which need ADC). Production always uses the constructors below;
 // the wiring and its behavior are unchanged.
 var (
 	newNativeClient = func(ctx context.Context, location, apiEndpoint string) (closableEvalClient, error) {
-		return eval.NewClient(ctx, location, apiEndpoint)
+		return NewEvaluationClient(ctx, location, apiEndpoint)
 	}
 	newGenaiClient = func(ctx context.Context, projectID, location string) (eval.GenaiClient, error) {
 		return eval.NewGenaiClient(ctx, projectID, location)
@@ -227,7 +254,7 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 	// evals need no bucket); a multimodal native eval that needs staging then
 	// fails at Run time with a clear asset.ErrNoBucket message.
 	if cfg.StagingBucket != "" {
-		stager, err := asset.NewGCSStager(ctx, cfg.StagingBucket)
+		stager, err := assetgcs.NewGCSStager(ctx, cfg.StagingBucket)
 		if err != nil && !errors.Is(err, asset.ErrNoBucket) {
 			_ = closeClients()
 			return nil, nil, err
