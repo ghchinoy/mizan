@@ -31,22 +31,24 @@ import (
 // (flag > template > config default-model > built-in); assert each branch.
 func TestModelSource_AllBranches(t *testing.T) {
 	tests := []struct {
-		name          string
-		override      string
-		templateModel string
-		configDefault string
-		want          string
+		name           string
+		override       string
+		engineOverride string
+		templateModel  string
+		configDefault  string
+		want           string
 	}{
-		{"flag override wins over all", "gemini-flag", "gemini-tmpl", "gemini-cfg", modelSourceFlag},
-		{"template when no flag", "", "gemini-tmpl", "gemini-cfg", modelSourceTemplate},
-		{"config default when no flag/template", "", "", "gemini-cfg", modelSourceConfigDefault},
-		{"builtin when nothing else set", "", "", "", modelSourceBuiltin},
+		{"flag override wins over all", "gemini-flag", "gemini-eng", "gemini-tmpl", "gemini-cfg", modelSourceFlag},
+		{"engine override wins over template", "", "gemini-eng", "gemini-tmpl", "gemini-cfg", modelSourceEngineOverride},
+		{"template when no flag or engine override", "", "", "gemini-tmpl", "gemini-cfg", modelSourceTemplate},
+		{"config default when no flag/engine/template", "", "", "", "gemini-cfg", modelSourceConfigDefault},
+		{"builtin when nothing else set", "", "", "", "", modelSourceBuiltin},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := modelSource(tt.override, tt.templateModel, tt.configDefault); got != tt.want {
-				t.Errorf("modelSource(%q,%q,%q) = %q, want %q",
-					tt.override, tt.templateModel, tt.configDefault, got, tt.want)
+			if got := modelSource(tt.override, tt.engineOverride, tt.templateModel, tt.configDefault); got != tt.want {
+				t.Errorf("modelSource(%q,%q,%q,%q) = %q, want %q",
+					tt.override, tt.engineOverride, tt.templateModel, tt.configDefault, got, tt.want)
 			}
 		})
 	}
@@ -56,26 +58,28 @@ func TestModelSource_AllBranches(t *testing.T) {
 // from, so the label never disagrees with the model actually chosen.
 func TestModelSource_MatchesResolveModel(t *testing.T) {
 	cases := []struct {
-		name       string
-		defModel   string
-		override   string
-		tmplModel  string
-		wantModel  string
-		wantSource string
+		name           string
+		defModel       string
+		engineOverride string
+		override       string
+		tmplModel      string
+		wantModel      string
+		wantSource     string
 	}{
-		{"builtin", "", "", "", BuiltinDefaultModel, modelSourceBuiltin},
-		{"config-default", "gemini-cfg", "", "", "gemini-cfg", modelSourceConfigDefault},
-		{"template", "gemini-cfg", "", "gemini-tmpl", "gemini-tmpl", modelSourceTemplate},
-		{"flag", "gemini-cfg", "gemini-flag", "gemini-tmpl", "gemini-flag", modelSourceFlag},
+		{"builtin", "", "", "", "", BuiltinDefaultModel, modelSourceBuiltin},
+		{"config-default", "gemini-cfg", "", "", "", "gemini-cfg", modelSourceConfigDefault},
+		{"template", "gemini-cfg", "", "", "gemini-tmpl", "gemini-tmpl", modelSourceTemplate},
+		{"engine-override", "gemini-cfg", "gemini-eng", "", "gemini-tmpl", "gemini-eng", modelSourceEngineOverride},
+		{"flag", "gemini-cfg", "gemini-eng", "gemini-flag", "gemini-tmpl", "gemini-flag", modelSourceFlag},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			e := &Engine{defaultModel: tc.defModel}
+			e := &Engine{defaultModel: tc.defModel, modelOverride: tc.engineOverride}
 			tmpl := registry.MetricTemplate{AutoraterModel: tc.tmplModel}
 			if got := e.resolveModel(tmpl, tc.override); got != tc.wantModel {
 				t.Errorf("resolveModel = %q, want %q", got, tc.wantModel)
 			}
-			if got := modelSource(tc.override, tmpl.AutoraterModel, e.defaultModel); got != tc.wantSource {
+			if got := modelSource(tc.override, e.modelOverride, tmpl.AutoraterModel, e.defaultModel); got != tc.wantSource {
 				t.Errorf("modelSource = %q, want %q", got, tc.wantSource)
 			}
 		})

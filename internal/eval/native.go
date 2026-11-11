@@ -20,50 +20,11 @@ import (
 	"sort"
 	"strings"
 
-	aiplatform "cloud.google.com/go/aiplatform/apiv1beta1"
 	aiplatformpb "cloud.google.com/go/aiplatform/apiv1beta1/aiplatformpb"
-	"google.golang.org/api/option"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/ghchinoy/mizan/internal/config"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
-
-// NewClient builds a live EvaluationClient targeting the specific regional
-// endpoint {location}-aiplatform.googleapis.com:443. The "us" multi-region
-// endpoint 404s and must never be used (spike-core). Callers close the returned
-// client. The concrete *aiplatform.EvaluationClient satisfies EvaluationClient.
-func NewClient(ctx context.Context, location, apiEndpoint string) (*aiplatform.EvaluationClient, error) {
-	// Validate the location BEFORE it is concatenated into the regional host and
-	// handed to the ADC-authenticated transport: an unvalidated location can move
-	// the real authority to an attacker host and exfiltrate the bearer token
-	// (shared source-of-truth guard, same class as the endpoint allow-list).
-	// endpointFor already validates the apiEndpoint override at config load.
-	if err := config.ValidateLocation(location); err != nil {
-		return nil, err
-	}
-	return aiplatform.NewEvaluationClient(ctx, option.WithEndpoint(endpointFor(location, apiEndpoint)))
-}
-
-// endpointFor computes the gRPC host:port NewClient dials for a given location.
-// An explicit apiEndpoint override wins verbatim; otherwise "" and "global" map
-// to the bare global host aiplatform.googleapis.com:443 (the only host that
-// resolves a global-only autorater — spike-eval-region-autorater), and any other
-// location maps to its regional host {location}-aiplatform.googleapis.com:443.
-// The "us" multi-region endpoint 404s and must never be produced (spike-core).
-//
-// It is a pure function extracted from NewClient so this HOST mapping — the piece
-// R-GLOBAL deliberately left for R-GAPS — is unit-testable without opening a real
-// gRPC client (which would need ADC). NewClient's behavior is unchanged.
-func endpointFor(location, apiEndpoint string) string {
-	if apiEndpoint != "" {
-		return apiEndpoint
-	}
-	if location == "" || location == "global" {
-		return "aiplatform.googleapis.com:443"
-	}
-	return fmt.Sprintf("%s-aiplatform.googleapis.com:443", location)
-}
 
 // runPointwise materializes a PointwiseMetricSpec + instance + AutoraterConfig,
 // calls EvaluateInstances, and maps the response into a Result. Text instances

@@ -27,22 +27,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
-	// Registers the pure-Go "sqlite" driver with database/sql (side-effect
-	// import); no symbols are referenced directly.
-	_ "modernc.org/sqlite"
-
 	"github.com/ghchinoy/mizan/internal/registry"
+	"github.com/ghchinoy/mizan/internal/sqliteutil"
 )
 
 // Store is the SQLite-backed implementation of registry.Store.
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	fsPath string
 }
 
 var _ registry.Store = (*Store)(nil)
@@ -50,38 +46,13 @@ var _ registry.Store = (*Store)(nil)
 // Open returns a Store backed by the SQLite database at path. Parent
 // directories are created as needed. Pass ":memory:" for an ephemeral DB.
 func Open(path string) (*Store, error) {
-	if path != ":memory:" && path != "" {
-		if dir := filepath.Dir(path); dir != "" {
-			// 0700: the DB holds private template bodies; keep it owner-only.
-			if err := os.MkdirAll(dir, 0o700); err != nil {
-				return nil, fmt.Errorf("sqlite: create db dir: %w", err)
-			}
-		}
-	}
-	// modernc registers itself under the driver name "sqlite".
-	db, err := sql.Open("sqlite", path)
+	info, err := sqliteutil.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("sqlite: open: %w", err)
+		return nil, err
 	}
-	// Restrict the DB file to owner-only (modernc creates it 0644 by default).
-	// The file is created lazily, so touch it via a ping before chmod. Skip for
-	// the in-memory / anonymous DBs which have no file on disk.
-	if path != ":memory:" && path != "" {
-		if err := db.Ping(); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("sqlite: open: %w", err)
-		}
-		if err := os.Chmod(path, 0o600); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("sqlite: chmod db file: %w", err)
-		}
-	}
-	// A single connection avoids "database is locked" on file-backed DBs and is
-	// required for an in-memory DB to persist across statements.
-	db.SetMaxOpenConns(1)
-	s := &Store{db: db}
+	s := &Store{db: info.DB, fsPath: info.FSPath}
 	if err := s.migrate(context.Background()); err != nil {
-		_ = db.Close()
+		_ = info.DB.Close()
 		return nil, err
 	}
 	return s, nil
@@ -143,78 +114,76 @@ CREATE INDEX IF NOT EXISTS idx_metric_templates_source ON metric_templates(sourc
 	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&uv); err != nil {
 		return fmt.Errorf("sqlite: read user_version: %w", err)
 	}
+	if uv == 5 {
+		return nil
+	}
 
-	// Run the schema build, the v1→v2 column adds, and the version bump inside a
-	// SINGLE transaction so migration is atomic: SQLite DDL (CREATE/ALTER) and the
-	// user_version header write all participate in the transaction and roll back
-	// together on any failure. Without this, a crash after some ALTERs but before
-	// user_version=2 would leave the DB at v1 with columns already added, so the
-	// next Open re-runs the ALTERs and fails with "duplicate column name" — a
-	// bricked DB. With it, an interrupted migration rolls back cleanly to v1 and
-	// the next Open migrates fresh.
-	tx, err := s.db.BeginTx(ctx, nil)
+	conn, err := s.db.Conn(ctx)
 	if err != nil {
+		return fmt.Errorf("sqlite: acquire migration conn: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE;"); err != nil {
 		return fmt.Errorf("sqlite: begin migration: %w", err)
 	}
-	// Roll back on every non-commit path; a Rollback after a successful Commit is
-	// a harmless no-op (sql.ErrTxDone), so the flag keeps the happy path clean.
 	committed := false
 	defer func() {
 		if !committed {
-			_ = tx.Rollback()
+			_, _ = conn.ExecContext(context.Background(), "ROLLBACK;")
 		}
 	}()
 
-	// CREATE TABLE IF NOT EXISTS builds fresh DBs at the latest (v3) shape; it is a
-	// no-op for an existing table (which is missing the newer columns and needs the
-	// ALTERs below).
-	if _, err := tx.ExecContext(ctx, schema); err != nil {
+	// Re-read user_version inside BEGIN IMMEDIATE so concurrent migrators that
+	// waited for the write lock do not re-run ALTER TABLE DDL.
+	if err := conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&uv); err != nil {
+		return fmt.Errorf("sqlite: re-read user_version: %w", err)
+	}
+	if uv == 5 {
+		if _, err := conn.ExecContext(ctx, "COMMIT;"); err != nil {
+			return fmt.Errorf("sqlite: commit migration no-op: %w", err)
+		}
+		committed = true
+		return nil
+	}
+
+	if _, err := conn.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("sqlite: migrate base schema: %w", err)
 	}
-	// Existing v1 DBs: the table already exists WITHOUT the v2 columns → add them.
-	// ADD COLUMN is a cheap metadata-only op; existing rows take the 'null'
-	// default, which unmarshalIf reads back as nil — exactly what they returned
-	// before (they never held these fields). No data is rewritten or dropped.
 	if uv == 1 {
 		for _, alter := range []string{
 			"ALTER TABLE metric_templates ADD COLUMN rating_rubric     TEXT NOT NULL DEFAULT 'null'",
 			"ALTER TABLE metric_templates ADD COLUMN rubric_detail     TEXT NOT NULL DEFAULT 'null'",
 			"ALTER TABLE metric_templates ADD COLUMN rubric_provenance TEXT NOT NULL DEFAULT 'null'",
 		} {
-			if _, err := tx.ExecContext(ctx, alter); err != nil {
+			if _, err := conn.ExecContext(ctx, alter); err != nil {
 				return fmt.Errorf("sqlite: migrate v2 alter: %w", err)
 			}
 		}
 	}
-	// Existing v1/v2 DBs: add the B2 heuristic column (v3). Same additive, cheap,
-	// non-destructive pattern; existing rows take the 'null' default → nil spec.
 	if uv == 1 || uv == 2 {
-		if _, err := tx.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN heuristic TEXT NOT NULL DEFAULT 'null'"); err != nil {
+		if _, err := conn.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN heuristic TEXT NOT NULL DEFAULT 'null'"); err != nil {
 			return fmt.Errorf("sqlite: migrate v3 alter: %w", err)
 		}
 	}
-	// Existing v1/v2/v3 DBs: add the choices column (v4).
 	if uv >= 1 && uv <= 3 {
-		if _, err := tx.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN choices TEXT NOT NULL DEFAULT '[]'"); err != nil {
+		if _, err := conn.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN choices TEXT NOT NULL DEFAULT '[]'"); err != nil {
 			return fmt.Errorf("sqlite: migrate v4 alter: %w", err)
 		}
 	}
-	// Existing v1..v4 DBs: add the native_metric column (v5) carrying the
-	// kind:computation / kind:prebuilt NativeMetricSpec. Same additive, cheap,
-	// non-destructive pattern as the heuristic column; existing rows take the
-	// 'null' default, which unmarshalIf reads back as a nil spec.
 	if uv >= 1 && uv <= 4 {
-		if _, err := tx.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN native_metric TEXT NOT NULL DEFAULT 'null'"); err != nil {
+		if _, err := conn.ExecContext(ctx, "ALTER TABLE metric_templates ADD COLUMN native_metric TEXT NOT NULL DEFAULT 'null'"); err != nil {
 			return fmt.Errorf("sqlite: migrate v5 alter: %w", err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 5;"); err != nil {
+	if _, err := conn.ExecContext(ctx, "PRAGMA user_version = 5;"); err != nil {
 		return fmt.Errorf("sqlite: set user_version: %w", err)
 	}
-	if err := tx.Commit(); err != nil {
+	if _, err := conn.ExecContext(ctx, "COMMIT;"); err != nil {
 		return fmt.Errorf("sqlite: commit migration: %w", err)
 	}
 	committed = true
+	sqliteutil.ChmodSidecars(s.fsPath)
 	return nil
 }
 

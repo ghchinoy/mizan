@@ -14,7 +14,7 @@
 
 //go:build integration
 
-package asset
+package gcs
 
 import (
 	"context"
@@ -24,19 +24,12 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+
+	"github.com/ghchinoy/mizan/internal/asset"
 )
 
-// liveBucket is the provisioned Mizan staging bucket (bare name). It already
-// exists; lifecycle management is a non-goal.
 const liveBucket = "ghchinoy-genai-sa-mizan-staging"
 
-// TestGCSStager_LiveUpload uploads a small temp file to the real staging bucket,
-// asserts a gs:// URI comes back and the object exists, then cleans up.
-//
-// Gated on ADC being present (PROJECT_ID or GOOGLE_APPLICATION_CREDENTIALS /
-// metadata). Run with:
-//
-//	PROJECT_ID=ghchinoy-genai-sa go test -tags integration ./internal/asset/ -run Live -v
 func TestGCSStager_LiveUpload(t *testing.T) {
 	if os.Getenv("PROJECT_ID") == "" &&
 		os.Getenv("GOOGLE_CLOUD_PROJECT") == "" &&
@@ -44,11 +37,10 @@ func TestGCSStager_LiveUpload(t *testing.T) {
 		t.Skip("no ADC hint (PROJECT_ID / GOOGLE_CLOUD_PROJECT / GOOGLE_APPLICATION_CREDENTIALS); skipping live upload")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
-	bucket := os.Getenv("MIZAN_STAGING_BUCKET")
-	bucket = strings.TrimPrefix(bucket, "gs://")
+	bucket := strings.TrimPrefix(os.Getenv("MIZAN_STAGING_BUCKET"), "gs://")
 	if bucket == "" {
 		bucket = liveBucket
 	}
@@ -59,7 +51,6 @@ func TestGCSStager_LiveUpload(t *testing.T) {
 	}
 	defer s.Close()
 
-	// Small PNG-magic temp file.
 	f, err := os.CreateTemp(t.TempDir(), "mizan-live-*.png")
 	if err != nil {
 		t.Fatal(err)
@@ -70,7 +61,7 @@ func TestGCSStager_LiveUpload(t *testing.T) {
 	}
 	f.Close()
 
-	res, err := s.Stage(ctx, StageInput{LocalPath: f.Name()})
+	res, err := s.Stage(ctx, asset.StageInput{LocalPath: f.Name()})
 	if err != nil {
 		t.Fatalf("Stage: %v", err)
 	}
@@ -83,7 +74,6 @@ func TestGCSStager_LiveUpload(t *testing.T) {
 		t.Fatalf("MIME = %q, want image/png", res.MIME)
 	}
 
-	// Assert the object exists, then clean up.
 	object := strings.TrimPrefix(res.GCSUri, "gs://"+bucket+"/")
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -96,7 +86,6 @@ func TestGCSStager_LiveUpload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("object attrs (existence check) for %s: %v", res.GCSUri, err)
 	}
-	t.Logf("object exists: size=%d contentType=%s", attrs.Size, attrs.ContentType)
 	if attrs.ContentType != "image/png" {
 		t.Errorf("uploaded contentType = %q, want image/png", attrs.ContentType)
 	}
@@ -104,5 +93,4 @@ func TestGCSStager_LiveUpload(t *testing.T) {
 	if err := obj.Delete(ctx); err != nil {
 		t.Fatalf("cleanup delete %s: %v", res.GCSUri, err)
 	}
-	t.Logf("cleaned up: deleted %s", res.GCSUri)
 }

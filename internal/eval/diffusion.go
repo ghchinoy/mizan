@@ -15,6 +15,7 @@
 package eval
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -89,7 +90,7 @@ func (e *Engine) diffusionScoreLevels(tmpl registry.MetricTemplate, rc runConfig
 }
 
 // buildDiffusionSchema creates the DiffusionGemma decision schema based on template kind.
-func (e *Engine) buildDiffusionSchema(tmpl registry.MetricTemplate, rc runConfig) (string, error) {
+func (e *Engine) buildDiffusionSchema(tmpl registry.MetricTemplate, inst Instance, rc runConfig) (string, error) {
 	var questions []diffusion.QuestionSchema
 	instructions := "Evaluate the input and answer each question in the schema."
 	if tmpl.SystemInstruction != "" {
@@ -103,11 +104,12 @@ func (e *Engine) buildDiffusionSchema(tmpl registry.MetricTemplate, rc runConfig
 			Instructions: diffusionInstructionText(tmpl.MetricPromptTemplate),
 		})
 	case registry.KindChoice:
-		if len(tmpl.Choices) > 26 {
-			return "", fmt.Errorf("eval: diffusion choice slots support at most 26 options (template %q has %d)", tmpl.ID, len(tmpl.Choices))
+		choices, err := resolveEffectiveChoices(tmpl, inst, rc, 26)
+		if err != nil {
+			return "", err
 		}
 		var opts []diffusion.ChoiceOption
-		for _, c := range tmpl.Choices {
+		for _, c := range choices {
 			opts = append(opts, diffusion.ChoiceOption{Name: c})
 		}
 		questions = append(questions, diffusion.QuestionSchema{
@@ -243,10 +245,23 @@ func extractDiffusionInputs(template string, inst Instance) (string, []string, e
 		seen[name] = true
 		ref := inst.Fields[name]
 		if !isTextRef(ref) {
+			if len(ref.Items) > 0 {
+				return "", nil, fmt.Errorf("eval: diffusion engine does not support multi-asset variation lists in placeholder %q", name)
+			}
+			if len(ref.Bytes) > 0 {
+				return "", nil, fmt.Errorf("eval: diffusion engine does not support inline byte assets in placeholder %q (use a gs:// URI or local file)", name)
+			}
+			if ref.VideoMeta != nil {
+				return "", nil, fmt.Errorf("eval: diffusion engine does not support video clip metadata in placeholder %q", name)
+			}
+			rawURI := cmp.Or(ref.URI, ref.GCSUri)
 			if ref.FilePath != "" {
 				images = append(images, ref.FilePath)
-			} else if ref.GCSUri != "" {
-				images = append(images, ref.GCSUri)
+			} else if rawURI != "" {
+				if !strings.HasPrefix(rawURI, "gs://") {
+					return "", nil, fmt.Errorf("eval: diffusion engine requires gs:// URIs for remote media in placeholder %q, got %q", name, rawURI)
+				}
+				images = append(images, rawURI)
 			}
 			continue
 		}
@@ -282,7 +297,7 @@ func (e *Engine) decide(ctx context.Context, tmpl registry.MetricTemplate, inst 
 			stateText, err = buildPrebuiltDiffusionState(tmpl, inst)
 		}
 	} else {
-		schemaJSON, err = e.buildDiffusionSchema(tmpl, rc)
+		schemaJSON, err = e.buildDiffusionSchema(tmpl, inst, rc)
 		if err == nil {
 			stateText, images, err = extractDiffusionInputs(tmpl.MetricPromptTemplate, inst)
 		}

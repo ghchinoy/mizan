@@ -62,15 +62,18 @@ func applyThinking(ctx context.Context, cfg *genai.GenerateContentConfig) {
 }
 
 // runPairwiseGenai judges a pairwise template with genai structured output.
-func (e *Engine) runPairwiseGenai(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
+func (e *Engine) runPairwiseGenai(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	if tmpl.MetricPromptTemplate == "" {
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}
+	if tmpl.BaselineFieldName == "" || tmpl.CandidateFieldName == "" {
+		return Result{}, fmt.Errorf("eval: pairwise template %q must set both baselineFieldName and candidateFieldName", tmpl.ID)
+	}
 	choices := []string{pairBaseline, pairCandidate, pairTie}
-	prompt := fmt.Sprintf("%s\n\nAnswer %s if the %q response is better, %s if the %q response is better, or %s if they are equally good. "+
+	directive := fmt.Sprintf("Answer %s if the %q response is better, %s if the %q response is better, or %s if they are equally good. "+
 		"Return a JSON object with \"selection\" (one of %v) and \"explanation\" (string).",
-		tmpl.MetricPromptTemplate, pairBaseline, tmpl.BaselineFieldName, pairCandidate, tmpl.CandidateFieldName, pairTie, choices)
-	res, err := e.runGenaiStructured(ctx, tmpl, inst, prompt, generateChoiceSchema(choices), model)
+		pairBaseline, tmpl.BaselineFieldName, pairCandidate, tmpl.CandidateFieldName, pairTie, choices)
+	res, err := e.runGenaiStructured(ctx, tmpl, inst, tmpl.MetricPromptTemplate, directive, generateChoiceSchema(choices), model, rc)
 	if err != nil {
 		return Result{}, err
 	}

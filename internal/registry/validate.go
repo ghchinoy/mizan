@@ -240,6 +240,82 @@ var semverPattern = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*
 // placeholderPattern matches a {{name}} placeholder (optionally spaced).
 var placeholderPattern = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_]+)\s*\}\}`)
 
+// ExtractPlaceholders returns the unique {{name}} placeholder identifiers
+// referenced in s, preserving first-seen order.
+func ExtractPlaceholders(s string) []string {
+	matches := placeholderPattern.FindAllStringSubmatch(s, -1)
+	var out []string
+	seen := make(map[string]bool, len(matches))
+	for _, m := range matches {
+		name := m[1]
+		if !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
+// ParseTemplateStrict validates a single MetricTemplate YAML document against
+// the strict embedded JSON Schema, identity, kind-specific, autorater, and
+// placeholder rules (steps 1-4 of ValidatePack), unmarshals it, and stamps its
+// canonical ContentHash.
+func ParseTemplateStrict(data []byte) (*MetricTemplate, error) {
+	if int64(len(data)) > MaxTemplateFileBytes {
+		return nil, fmt.Errorf("registry: template manifest is %d bytes, exceeds %d-byte cap", len(data), MaxTemplateFileBytes)
+	}
+	var rep Report
+	_ = validateTemplateManifest(&rep, "<memory>", data)
+	if errs := findingErrorMessages(rep.Findings); len(errs) > 0 {
+		return nil, fmt.Errorf("registry: invalid template manifest: %s", strings.Join(errs, "; "))
+	}
+	var tmpl *MetricTemplate
+	if len(rep.Templates) > 0 {
+		cp := rep.Templates[0]
+		tmpl = &cp
+	} else {
+		parsed, err := (YAMLCodec{}).Unmarshal(data)
+		if err != nil {
+			return nil, err
+		}
+		tmpl = parsed
+	}
+	tmpl.ContentHash = ContentHash(tmpl)
+	return tmpl, nil
+}
+
+// ParseEvalSetStrict validates a single EvalSet YAML document against the
+// strict embedded JSON Schema, identity, member, and aggregation rules, and
+// returns the parsed EvalSetDoc.
+func ParseEvalSetStrict(data []byte) (*pack.EvalSetDoc, error) {
+	if int64(len(data)) > MaxTemplateFileBytes {
+		return nil, fmt.Errorf("registry: evalset manifest is %d bytes, exceeds %d-byte cap", len(data), MaxTemplateFileBytes)
+	}
+	var rep Report
+	validateEvalSetManifest(&rep, "<memory>", data, map[string]bool{})
+	if errs := findingErrorMessages(rep.Findings); len(errs) > 0 {
+		return nil, fmt.Errorf("registry: invalid evalset manifest: %s", strings.Join(errs, "; "))
+	}
+	doc, err := pack.ParseEvalSet(data)
+	if err != nil {
+		return nil, err
+	}
+	if doc.Kind != "" && doc.Kind != pack.KindEvalSet {
+		return nil, fmt.Errorf("registry: unsupported manifest kind %q (want %q)", doc.Kind, pack.KindEvalSet)
+	}
+	return doc, nil
+}
+
+func findingErrorMessages(findings []Finding) []string {
+	var out []string
+	for _, f := range findings {
+		if f.Severity == SeverityError {
+			out = append(out, f.Message)
+		}
+	}
+	return out
+}
+
 // manifestHeader is the minimal shape read to dispatch a file on its kind.
 type manifestHeader struct {
 	APIVersion string `yaml:"apiVersion"`

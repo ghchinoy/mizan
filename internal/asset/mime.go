@@ -27,10 +27,12 @@ import (
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
-// sniffLen is the number of leading bytes DetectMIMEFile reads for content
+// SniffLen is the number of leading bytes DetectMIMEFile reads for content
 // sniffing. http.DetectContentType only ever inspects the first 512 bytes, and
 // the container magic numbers we check live well within that window.
-const sniffLen = 512
+const SniffLen = 512
+
+const sniffLen = SniffLen
 
 // extMIME is a curated extension -> MIME map for the media formats Mizan stages
 // for native multimodal eval. Because a mismatched MIME silently drops the
@@ -224,4 +226,14 @@ func ModalityForMIME(mimeType string) registry.Modality {
 	default:
 		return registry.ModalityText
 	}
+}
+
+// SafeExt returns the lower-cased file extension of localPath only when it is a
+// recognized media extension in extMIME; otherwise it returns "".
+func SafeExt(localPath string) string {
+	ext := strings.ToLower(filepath.Ext(localPath))
+	if _, ok := extMIME[ext]; ok {
+		return ext
+	}
+	return ""
 }

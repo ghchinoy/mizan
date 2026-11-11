@@ -24,6 +24,7 @@ package eval
 // native regional EvaluationClient (spike-core).
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -35,8 +36,66 @@ import (
 
 	"google.golang.org/genai"
 
+	"github.com/ghchinoy/mizan/internal/asset"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
+
+const maxVariationDescBytes = 256
+
+// FinishError reports that GenerateContent returned without a usable candidate
+// verdict due to prompt blocking, safety/recitation/max-tokens termination, or
+// an empty candidate list.
+type FinishError struct {
+	FinishReason  string
+	BlockReason   string
+	FinishMessage string
+	ResponseID    string
+	ModelVersion  string
+	TemplateID    string
+	Kind          registry.MetricKind
+	Model         string
+}
+
+func (e *FinishError) Error() string {
+	if e.BlockReason != "" {
+		if e.FinishMessage != "" {
+			return fmt.Sprintf("eval: %s (%s) model %q blocked prompt (block_reason=%s): %s", e.Kind, e.TemplateID, e.Model, e.BlockReason, e.FinishMessage)
+		}
+		return fmt.Sprintf("eval: %s (%s) model %q blocked prompt (block_reason=%s)", e.Kind, e.TemplateID, e.Model, e.BlockReason)
+	}
+	if e.FinishReason != "" {
+		if e.FinishMessage != "" {
+			return fmt.Sprintf("eval: %s (%s) model %q finished with %s: %s", e.Kind, e.TemplateID, e.Model, e.FinishReason, e.FinishMessage)
+		}
+		return fmt.Sprintf("eval: %s (%s) model %q finished with %s", e.Kind, e.TemplateID, e.Model, e.FinishReason)
+	}
+	return fmt.Sprintf("eval: %s (%s) model %q returned no candidates", e.Kind, e.TemplateID, e.Model)
+}
+
+func parseMediaResolution(res string) (genai.MediaResolution, error) {
+	switch strings.ToLower(strings.TrimSpace(res)) {
+	case "":
+		return "", nil
+	case "low":
+		return genai.MediaResolutionLow, nil
+	case "medium":
+		return genai.MediaResolutionMedium, nil
+	case "high":
+		return genai.MediaResolutionHigh, nil
+	default:
+		return "", fmt.Errorf("eval: invalid media resolution %q (want \"low\", \"medium\", or \"high\")", res)
+	}
+}
+
+func hasControlChars(s string) bool {
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+		if b <= 0x1f || b == 0x7f {
+			return true
+		}
+	}
+	return false
+}
 
 // retryPolicy controls the exponential-backoff retry for genai calls. Only
 // RESOURCE_EXHAUSTED (HTTP 429) is retried; every other error fails fast
@@ -59,6 +118,15 @@ func (g genaiModels) GenerateContent(ctx context.Context, model string, contents
 	return g.c.Models.GenerateContent(ctx, model, contents, config)
 }
 
+// WrapGenaiClient adapts a caller-constructed *genai.Client (Vertex AI, Gemini
+// Developer API, or Enterprise backend) to Mizan's GenaiClient seam.
+func WrapGenaiClient(c *genai.Client) (GenaiClient, error) {
+	if c == nil || c.Models == nil {
+		return nil, fmt.Errorf("eval: genai.Client and its Models service must be non-nil")
+	}
+	return genaiModels{c: c}, nil
+}
+
 // NewGenaiClient builds a live GenaiClient on the Vertex AI backend at
 // location=global (spike-custom). ADC is used for auth. The returned value
 // satisfies the GenaiClient seam and is passed via eval.WithGenaiClient from the
@@ -79,11 +147,12 @@ func NewGenaiClient(ctx context.Context, projectID, location string) (GenaiClien
 }
 
 // runCustomSchema materializes the genai custom_schema path: it renders the
-// prompt (text placeholders substituted inline, non-text assets sent as inline
-// Parts), maps the template's ResponseSchema into a *genai.Schema, calls
-// GenerateContent with strict JSON output and exponential backoff, and parses
-// the JSON response into Result.CustomOutput (with the raw text in RawOutput).
-func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
+// prompt (text placeholders substituted inline, non-text assets placed as
+// Media-Preamble-First Parts), maps the template's ResponseSchema into a
+// *genai.Schema, calls GenerateContent with strict JSON output and exponential
+// backoff, and parses the JSON response into Result.CustomOutput (with the raw
+// text in RawOutput).
+func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	// Guard the genai client FIRST so the error precedence is unchanged from
 	// before the runGenaiStructured extraction (a missing client fails with the
 	// client error, ahead of prompt/schema validation).
@@ -102,31 +171,28 @@ func (e *Engine) runCustomSchema(ctx context.Context, tmpl registry.MetricTempla
 		return Result{}, err
 	}
 
-	return e.runGenaiStructured(ctx, tmpl, inst, tmpl.MetricPromptTemplate, schema, model)
+	return e.runGenaiStructured(ctx, tmpl, inst, tmpl.MetricPromptTemplate, "", schema, model, rc)
 }
 
-// runGenaiStructured is the shared genai structured-output core: it renders the
-// given prompt (text placeholders substituted inline, non-text assets as inline
-// Parts), calls GenerateContent with strict JSON output (the supplied schema) and
-// exponential backoff, and parses the JSON response into Result.CustomOutput
-// (raw text in RawOutput, token usage in Stats). Both the custom_schema path
-// (runCustomSchema) and the rubric-detail path (runRubricStructured) delegate
-// here so the single genai call site is not duplicated — the two callers differ
-// only in how they build the prompt and schema. prompt is the FULLY rendered
-// judge prompt (custom_schema passes the template verbatim; rubric-detail appends
-// its per-criterion instruction block); its {{placeholders}} are validated and
-// substituted from inst here.
-func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, prompt string, schema *genai.Schema, model string) (Result, error) {
+// runGenaiStructured is the shared genai structured-output core: it renders
+// promptTemplate (substituting text placeholders inline while placing labeled
+// media parts BEFORE the final rendered prompt + directiveSuffix), calls
+// GenerateContent with strict JSON output and exponential backoff, checks
+// FinishError before JSON decoding, and parses the JSON response into
+// Result.CustomOutput.
+func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, promptTemplate, directiveSuffix string, schema *genai.Schema, model string, rc runConfig) (Result, error) {
 	if e.genai == nil {
 		return Result{}, fmt.Errorf("eval: no genai client configured for structured output (wire WithGenaiClient)")
 	}
-
-	rendered, mediaParts, err := renderGenaiPrompt(prompt, inst)
+	mediaRes, err := parseMediaResolution(rc.mediaResolution)
 	if err != nil {
 		return Result{}, err
 	}
 
-	parts := append([]*genai.Part{genai.NewPartFromText(rendered)}, mediaParts...)
+	parts, err := e.buildGenaiParts(promptTemplate, directiveSuffix, inst)
+	if err != nil {
+		return Result{}, err
+	}
 	contents := []*genai.Content{genai.NewContentFromParts(parts, genai.RoleUser)}
 
 	cfg := &genai.GenerateContentConfig{
@@ -134,14 +200,56 @@ func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTem
 		ResponseSchema:   schema,
 		Temperature:      genai.Ptr[float32](0.0),
 	}
+	if mediaRes != "" {
+		cfg.MediaResolution = mediaRes
+	}
+	if rc.maxOutputTokens > 0 {
+		cfg.MaxOutputTokens = rc.maxOutputTokens
+	}
 	applyThinking(ctx, cfg)
+	// Note: SystemInstruction is literal judge persona text and is never
+	// placeholder-expanded.
 	if tmpl.SystemInstruction != "" {
 		cfg.SystemInstruction = genai.NewContentFromText(tmpl.SystemInstruction, genai.RoleUser)
 	}
 
-	resp, err := e.generateWithBackoff(ctx, genaiModelID(model), contents, cfg)
+	modelID := genaiModelID(model)
+	resp, attempts, retryBackoff, err := e.generateWithBackoff(ctx, tmpl, modelID, contents, cfg)
 	if err != nil {
-		return Result{}, err
+		return Result{Stats: Stats{Attempts: attempts, RetryBackoff: retryBackoff}}, err
+	}
+
+	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
+		return Result{}, &FinishError{
+			BlockReason:   string(resp.PromptFeedback.BlockReason),
+			FinishMessage: resp.PromptFeedback.BlockReasonMessage,
+			ResponseID:    resp.ResponseID,
+			ModelVersion:  resp.ModelVersion,
+			TemplateID:    tmpl.ID,
+			Kind:          tmpl.Kind,
+			Model:         modelID,
+		}
+	}
+	if len(resp.Candidates) == 0 {
+		return Result{}, &FinishError{
+			ResponseID:   resp.ResponseID,
+			ModelVersion: resp.ModelVersion,
+			TemplateID:   tmpl.ID,
+			Kind:         tmpl.Kind,
+			Model:        modelID,
+		}
+	}
+	cand := resp.Candidates[0]
+	if cand.FinishReason != "" && cand.FinishReason != genai.FinishReasonUnspecified && cand.FinishReason != genai.FinishReasonStop {
+		return Result{}, &FinishError{
+			FinishReason:  string(cand.FinishReason),
+			FinishMessage: cand.FinishMessage,
+			ResponseID:    resp.ResponseID,
+			ModelVersion:  resp.ModelVersion,
+			TemplateID:    tmpl.ID,
+			Kind:          tmpl.Kind,
+			Model:         modelID,
+		}
 	}
 
 	raw := resp.Text()
@@ -152,20 +260,17 @@ func (e *Engine) runGenaiStructured(ctx context.Context, tmpl registry.MetricTem
 	res := Result{
 		CustomOutput: out,
 		RawOutput:    []string{raw},
+		Stats: Stats{
+			Attempts:     attempts,
+			RetryBackoff: retryBackoff,
+			ResponseID:   resp.ResponseID,
+			ModelVersion: resp.ModelVersion,
+			FinishReason: string(cand.FinishReason),
+		},
 	}
-	// H3 (RFC-0001 §5.4): this is the genai/global structured path (location=global,
-	// no AutoraterConfig). SamplingCount/FlipEnabled are Vertex Eval Service
-	// (EvaluateInstances) features with no genai GenerateContent equivalent, so a
-	// template that sets them here has them silently dropped. Surface a NON-FATAL
-	// warning to make that asymmetry visible rather than silent. Both callers
-	// (runCustomSchema and runRubricStructured) route through here, so both paths
-	// get the warning; the native path (runPointwise/runRubric/runPairwise) does
-	// NOT come through here and continues to HONOR these fields.
 	res.Warnings = append(res.Warnings, genaiPathAutoraterWarnings(tmpl)...)
-	// Token usage is available ONLY on this genai path, from the response's
-	// UsageMetadata (WI-F4). The native EvaluateInstances response carries none,
-	// so Result.Stats.TokenUsage stays nil there.
 	if um := resp.UsageMetadata; um != nil {
+		res.Stats.CachedTokens = um.CachedContentTokenCount
 		res.Stats.TokenUsage = &TokenUsage{
 			PromptTokens:     um.PromptTokenCount,
 			CandidatesTokens: um.CandidatesTokenCount,
@@ -205,24 +310,26 @@ func genaiPathAutoraterWarnings(tmpl registry.MetricTemplate) []string {
 	return warnings
 }
 
-// generateWithBackoff calls GenerateContent, retrying only on
-// RESOURCE_EXHAUSTED with full-jitter exponential backoff, honoring ctx during
-// the sleep (spike-custom).
-func (e *Engine) generateWithBackoff(ctx context.Context, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+// generateWithBackoff calls GenerateContent, retrying on RESOURCE_EXHAUSTED and
+// transient 5xx/transport errors with full-jitter exponential backoff, honoring
+// ctx during sleeps.
+func (e *Engine) generateWithBackoff(ctx context.Context, tmpl registry.MetricTemplate, model string, contents []*genai.Content, cfg *genai.GenerateContentConfig) (*genai.GenerateContentResponse, int, time.Duration, error) {
 	pol := e.retry
 	if pol.maxAttempts <= 0 {
 		pol = defaultRetryPolicy()
 	}
 
+	kindLabel := cmp.Or(string(tmpl.Kind), "structured")
 	var lastErr error
+	var totalBackoff time.Duration
 	delay := pol.baseDelay
 	for attempt := 1; attempt <= pol.maxAttempts; attempt++ {
 		resp, err := e.genai.GenerateContent(ctx, model, contents, cfg)
 		if err == nil {
-			return resp, nil
+			return resp, attempt, totalBackoff, nil
 		}
 		if !isResourceExhausted(err) && !isTransientGenaiError(err) {
-			return nil, fmt.Errorf("eval: custom_schema generate (non-retryable): %w", err)
+			return nil, attempt, totalBackoff, fmt.Errorf("eval: %s (%s) generate (non-retryable): %w", kindLabel, tmpl.ID, err)
 		}
 		lastErr = err
 		if attempt == pol.maxAttempts {
@@ -233,15 +340,16 @@ func (e *Engine) generateWithBackoff(ctx context.Context, model string, contents
 		sleep := time.Duration(float64(delay) * (0.5 + 0.5*rand.Float64())) //nolint:gosec // G404: jitter for retry backoff, not security-sensitive
 		select {
 		case <-time.After(sleep):
+			totalBackoff += sleep
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, attempt, totalBackoff, ctx.Err()
 		}
 		delay *= 2
 		if delay > pol.maxDelay {
 			delay = pol.maxDelay
 		}
 	}
-	return nil, fmt.Errorf("eval: custom_schema generate: exhausted %d attempts: %w", pol.maxAttempts, lastErr)
+	return nil, pol.maxAttempts, totalBackoff, fmt.Errorf("eval: %s (%s) generate: exhausted %d attempts: %w", kindLabel, tmpl.ID, pol.maxAttempts, lastErr)
 }
 
 // isResourceExhausted reports whether err is a genai RESOURCE_EXHAUSTED / 429.
@@ -256,14 +364,13 @@ func isResourceExhausted(err error) bool {
 }
 
 // isTransientGenaiError reports server/transport failures worth retrying:
-// HTTP 500/503 (INTERNAL / UNAVAILABLE) and connection-level failures. The
-// latter were observed on 2026-09-26 when gemini-3.8-flash queued requests for
-// ~80 s under load and the connection was then reset by the peer; treating them
-// as fatal silently dropped ~14% of a benchmark's items.
+// HTTP 500/502/503/504 (INTERNAL / UNAVAILABLE / DEADLINE_EXCEEDED) and
+// connection-level failures.
 func isTransientGenaiError(err error) bool {
 	var apiErr genai.APIError
 	if errors.As(err, &apiErr) {
-		return apiErr.Code == 500 || apiErr.Code == 503 || apiErr.Status == "UNAVAILABLE" || apiErr.Status == "INTERNAL"
+		return apiErr.Code == 500 || apiErr.Code == 502 || apiErr.Code == 503 || apiErr.Code == 504 ||
+			apiErr.Status == "UNAVAILABLE" || apiErr.Status == "INTERNAL" || apiErr.Status == "DEADLINE_EXCEEDED"
 	}
 	msg := err.Error()
 	for _, s := range []string{"connection reset by peer", "unexpected EOF", "broken pipe", "http2: server sent GOAWAY", "connection refused"} {
@@ -274,9 +381,170 @@ func isTransientGenaiError(err error) bool {
 	return false
 }
 
+func resolvedModality(mod registry.Modality, mime string) string {
+	return cmp.Or(string(mod), string(asset.ModalityForMIME(mime)), "media")
+}
+
+func formatMediaHeader(mod, label, desc string) string {
+	if desc != "" {
+		return fmt.Sprintf("[%s %q — %s]:", mod, label, desc)
+	}
+	return fmt.Sprintf("[%s %q]:", mod, label)
+}
+
+func validateVariationDesc(desc, name string) error {
+	if len(desc) > maxVariationDescBytes {
+		return fmt.Errorf("eval: variation description in placeholder %q is %d bytes, exceeds %d-byte limit", name, len(desc), maxVariationDescBytes)
+	}
+	if hasControlChars(desc) {
+		return fmt.Errorf("eval: variation description in placeholder %q contains ASCII control characters", name)
+	}
+	return nil
+}
+
+// buildGenaiParts constructs the Media-Preamble-First []*genai.Part slice for
+// structured genai calls (RFC-0002 Option A):
+//
+//   - Zero media placeholders -> single [TextPart(finalText)] (byte-identical
+//     with historical text-only behavior).
+//   - >= 1 media placeholders -> [LabelPart_1, MediaPart_1, ..., LabelPart_N,
+//     MediaPart_N, TextPart(finalText)], deduplicating repeated {{var}}
+//     placeholders so media bytes/URIs are attached once.
+func (e *Engine) buildGenaiParts(promptTemplate, directiveSuffix string, inst Instance) ([]*genai.Part, error) {
+	vars := extractVars(promptTemplate)
+	var missing []string
+	for _, v := range vars {
+		if _, ok := inst.Fields[v]; !ok {
+			missing = append(missing, v)
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		return nil, fmt.Errorf("eval: instance is missing values for template variables %v", missing)
+	}
+
+	var (
+		preambleParts    []*genai.Part
+		totalInlineBytes int64
+		replaceErr       error
+		emittedMarkers   = make(map[string]string, len(vars))
+	)
+	rendered := varPattern.ReplaceAllStringFunc(promptTemplate, func(match string) string {
+		if replaceErr != nil {
+			return match
+		}
+		name := varPattern.FindStringSubmatch(match)[1]
+		if marker, ok := emittedMarkers[name]; ok {
+			return marker
+		}
+		ref := inst.Fields[name]
+		if isTextRef(ref) {
+			return ref.Text
+		}
+
+		if len(ref.Items) > 0 {
+			if len(ref.Items) > MaxVariations {
+				replaceErr = fmt.Errorf("eval: placeholder %q has %d variations, exceeds MaxVariations (%d)", name, len(ref.Items), MaxVariations)
+				return match
+			}
+			seenLabels := make(map[string]bool, len(ref.Items))
+			var quotedLabels []string
+			var groupMod string
+			for idx, item := range ref.Items {
+				if len(item.Items) > 0 {
+					replaceErr = fmt.Errorf("eval: nested variation lists in placeholder %q (index %d) are not supported", name, idx)
+					return match
+				}
+				lbl := item.Label
+				if strings.TrimSpace(lbl) == "" {
+					replaceErr = fmt.Errorf("eval: variation at index %d in placeholder %q has an empty ID", idx, name)
+					return match
+				}
+				if hasControlChars(lbl) {
+					replaceErr = fmt.Errorf("eval: variation ID %q in placeholder %q contains ASCII control characters", lbl, name)
+					return match
+				}
+				if seenLabels[lbl] {
+					replaceErr = fmt.Errorf("eval: duplicate variation ID %q in placeholder %q", lbl, name)
+					return match
+				}
+				seenLabels[lbl] = true
+				if err := validateVariationDesc(item.Description, name); err != nil {
+					replaceErr = err
+					return match
+				}
+				part, mime, inlineN, err := toGenaiPart(item, e.allowLocalFiles, e.allowedURIHosts, e.allowedGCSBuckets)
+				if err != nil {
+					replaceErr = err
+					return match
+				}
+				totalInlineBytes += inlineN
+				if totalInlineBytes > maxInlineBytes {
+					replaceErr = fmt.Errorf("eval: total inline media payload (%d bytes) exceeds %d-byte limit; pass gs:// or https:// via URI or pre-upload via FromGenaiPart", totalInlineBytes, maxInlineBytes)
+					return match
+				}
+				mod := resolvedModality(cmp.Or(item.Modality, ref.Modality), mime)
+				if groupMod == "" {
+					groupMod = mod
+				} else if groupMod != mod {
+					groupMod = "media"
+				}
+				preambleParts = append(preambleParts,
+					genai.NewPartFromText(formatMediaHeader(mod, lbl, item.Description)),
+					part,
+				)
+				quotedLabels = append(quotedLabels, fmt.Sprintf("%q", lbl))
+			}
+			marker := fmt.Sprintf("[attached %s variations: %s]", cmp.Or(groupMod, "media"), strings.Join(quotedLabels, ", "))
+			emittedMarkers[name] = marker
+			return marker
+		}
+
+		if err := validateVariationDesc(ref.Description, name); err != nil {
+			replaceErr = err
+			return match
+		}
+		lbl := cmp.Or(ref.Label, name)
+		if hasControlChars(lbl) {
+			replaceErr = fmt.Errorf("eval: media label %q in placeholder %q contains ASCII control characters", lbl, name)
+			return match
+		}
+		part, mime, inlineN, err := toGenaiPart(ref, e.allowLocalFiles, e.allowedURIHosts, e.allowedGCSBuckets)
+		if err != nil {
+			replaceErr = err
+			return match
+		}
+		totalInlineBytes += inlineN
+		if totalInlineBytes > maxInlineBytes {
+			replaceErr = fmt.Errorf("eval: total inline media payload (%d bytes) exceeds %d-byte limit; pass gs:// or https:// via URI or pre-upload via FromGenaiPart", totalInlineBytes, maxInlineBytes)
+			return match
+		}
+		mod := resolvedModality(ref.Modality, mime)
+		preambleParts = append(preambleParts,
+			genai.NewPartFromText(formatMediaHeader(mod, lbl, ref.Description)),
+			part,
+		)
+		marker := fmt.Sprintf("[attached %s: %q]", mod, name)
+		emittedMarkers[name] = marker
+		return marker
+	})
+	if replaceErr != nil {
+		return nil, replaceErr
+	}
+
+	finalText := rendered
+	if directiveSuffix != "" {
+		finalText = rendered + "\n\n" + directiveSuffix
+	}
+	if len(preambleParts) == 0 {
+		return []*genai.Part{genai.NewPartFromText(finalText)}, nil
+	}
+	return append(preambleParts, genai.NewPartFromText(finalText)), nil
+}
+
 // renderGenaiPrompt substitutes text placeholders inline and collects non-text
-// assets as separate inline Parts (genai accepts inline bytes). It validates
-// that every referenced variable has a value, failing fast before the API call.
+// assets as separate Parts (deduplicating repeated {{var}} placeholders and
+// inferring modality from resolved MIME when Modality is unset).
 func renderGenaiPrompt(template string, inst Instance) (string, []*genai.Part, error) {
 	vars := extractVars(template)
 	var missing []string
@@ -292,25 +560,29 @@ func renderGenaiPrompt(template string, inst Instance) (string, []*genai.Part, e
 
 	var mediaParts []*genai.Part
 	var replaceErr error
+	emitted := make(map[string]string, len(vars))
 	rendered := varPattern.ReplaceAllStringFunc(template, func(match string) string {
+		if replaceErr != nil {
+			return match
+		}
 		name := varPattern.FindStringSubmatch(match)[1]
+		if marker, ok := emitted[name]; ok {
+			return marker
+		}
 		ref := inst.Fields[name]
-		// Route on the asset SHAPE, not on Modality, mirroring the native path
-		// (isTextRef). A CLI --gcs/--file ref carries empty Modality by design
-		// (buildInstance leaves resolution to the engine); keying on Modality
-		// here collapsed such media refs to empty text — the Defect A silent
-		// drop. isTextRef returns false whenever a FilePath/GCSUri is set,
-		// regardless of Modality, so media now reaches toGenaiInlinePart.
 		if isTextRef(ref) {
 			return ref.Text
 		}
-		part, err := toGenaiInlinePart(ref)
+		part, mime, _, err := toGenaiPart(ref, true, nil, nil)
 		if err != nil {
 			replaceErr = err
 			return match
 		}
 		mediaParts = append(mediaParts, part)
-		return fmt.Sprintf("[attached %s: %q]", ref.Modality, name)
+		mod := resolvedModality(ref.Modality, mime)
+		marker := fmt.Sprintf("[attached %s: %q]", mod, name)
+		emitted[name] = marker
+		return marker
 	})
 	if replaceErr != nil {
 		return "", nil, replaceErr

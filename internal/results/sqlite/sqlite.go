@@ -28,21 +28,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	// Registers the pure-Go "sqlite" driver with database/sql (side-effect
-	// import); no symbols are referenced directly.
-	_ "modernc.org/sqlite"
-
 	"github.com/ghchinoy/mizan/internal/results"
+	"github.com/ghchinoy/mizan/internal/sqliteutil"
 )
 
 // Store is the SQLite-backed implementation of results.ResultStore.
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	fsPath string
 }
 
 var _ results.ResultStore = (*Store)(nil)
@@ -51,38 +47,13 @@ var _ results.ResultStore = (*Store)(nil)
 // are created as needed. Pass ":memory:" for an ephemeral DB. The results DB is a
 // SEPARATE file from the registry DB (own lifecycle/retention/backup).
 func Open(path string) (*Store, error) {
-	if path != ":memory:" && path != "" {
-		if dir := filepath.Dir(path); dir != "" {
-			// 0700: the DB holds recorded eval inputs/outputs; keep it owner-only.
-			if err := os.MkdirAll(dir, 0o700); err != nil {
-				return nil, fmt.Errorf("sqlite: create db dir: %w", err)
-			}
-		}
-	}
-	// modernc registers itself under the driver name "sqlite".
-	db, err := sql.Open("sqlite", path)
+	info, err := sqliteutil.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("sqlite: open: %w", err)
+		return nil, err
 	}
-	// Restrict the DB file to owner-only (modernc creates it 0644 by default).
-	// The file is created lazily, so touch it via a ping before chmod. Skip for
-	// the in-memory / anonymous DBs which have no file on disk.
-	if path != ":memory:" && path != "" {
-		if err := db.Ping(); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("sqlite: open: %w", err)
-		}
-		if err := os.Chmod(path, 0o600); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("sqlite: chmod db file: %w", err)
-		}
-	}
-	// A single connection avoids "database is locked" on file-backed DBs and is
-	// required for an in-memory DB to persist across statements.
-	db.SetMaxOpenConns(1)
-	s := &Store{db: db}
+	s := &Store{db: info.DB, fsPath: info.FSPath}
 	if err := s.migrate(context.Background()); err != nil {
-		_ = db.Close()
+		_ = info.DB.Close()
 		return nil, err
 	}
 	return s, nil
@@ -120,12 +91,52 @@ CREATE INDEX IF NOT EXISTS idx_results_template_id ON results(template_id);
 CREATE INDEX IF NOT EXISTS idx_results_namespace ON results(namespace);
 CREATE INDEX IF NOT EXISTS idx_results_scorecard ON results(scorecard_run_id);
 `
-	if _, err := s.db.ExecContext(ctx, "PRAGMA user_version = 1;"); err != nil {
-		return fmt.Errorf("sqlite: set user_version: %w", err)
+	var uv int
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&uv); err != nil {
+		return fmt.Errorf("sqlite: read user_version: %w", err)
 	}
-	if _, err := s.db.ExecContext(ctx, schema); err != nil {
+	if uv == 1 {
+		return nil
+	}
+
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return fmt.Errorf("sqlite: acquire migration conn: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if _, err := conn.ExecContext(ctx, "BEGIN IMMEDIATE;"); err != nil {
+		return fmt.Errorf("sqlite: begin migration: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_, _ = conn.ExecContext(context.Background(), "ROLLBACK;")
+		}
+	}()
+
+	if err := conn.QueryRowContext(ctx, "PRAGMA user_version").Scan(&uv); err != nil {
+		return fmt.Errorf("sqlite: re-read user_version: %w", err)
+	}
+	if uv == 1 {
+		if _, err := conn.ExecContext(ctx, "COMMIT;"); err != nil {
+			return fmt.Errorf("sqlite: commit migration no-op: %w", err)
+		}
+		committed = true
+		return nil
+	}
+
+	if _, err := conn.ExecContext(ctx, schema); err != nil {
 		return fmt.Errorf("sqlite: migrate v1: %w", err)
 	}
+	if _, err := conn.ExecContext(ctx, "PRAGMA user_version = 1;"); err != nil {
+		return fmt.Errorf("sqlite: set user_version: %w", err)
+	}
+	if _, err := conn.ExecContext(ctx, "COMMIT;"); err != nil {
+		return fmt.Errorf("sqlite: commit migration: %w", err)
+	}
+	committed = true
+	sqliteutil.ChmodSidecars(s.fsPath)
 	return nil
 }
 
@@ -388,9 +399,14 @@ func marshalJSON(field string, v any) (string, error) {
 	return string(b), nil
 }
 
+const maxJSONColumnBytes = 1 << 20 // 1 MiB
+
 func unmarshalIf(s string, dst any) error {
 	if s == "" || s == "null" {
 		return nil
+	}
+	if len(s) > maxJSONColumnBytes {
+		return fmt.Errorf("results/sqlite: json column is %d bytes, exceeds the %d-byte cap", len(s), maxJSONColumnBytes)
 	}
 	return json.Unmarshal([]byte(s), dst)
 }

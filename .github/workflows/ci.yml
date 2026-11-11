@@ -174,7 +174,7 @@ jobs:
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             case "$f" in
-              cmd/mizan/*|internal/eval/*) CODE_CHANGED=true ;;
+              cmd/mizan/*|internal/eval/*|pkg/mizan/*) CODE_CHANGED=true ;;
             esac
             case "$f" in
               docs/llm-as-judge-scenarios.md) DOC_CHANGED=true ;;
@@ -184,7 +184,7 @@ jobs:
 
           # ---- Decision --------------------------------------------------
           if [ "$CODE_CHANGED" = true ] && [ "$DOC_CHANGED" = false ]; then
-            echo "::error::Doc-drift: this PR changes cmd/mizan/ or internal/eval/ but updates no docs."
+            echo "::error::Doc-drift: this PR changes cmd/mizan/, internal/eval/, or pkg/mizan/ but updates no docs."
             echo ""
             echo "Update at least one of:"
             echo "  - docs/llm-as-judge-scenarios.md"

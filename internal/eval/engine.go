@@ -25,10 +25,12 @@
 package eval
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -62,15 +64,28 @@ type GenaiClient interface {
 	GenerateContent(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error)
 }
 
-// AssetRef references a single placeholder value for an evaluation instance.
-// For text, Text is enough; other modalities supply a local path (staged to GCS
-// by the engine via the configured asset.Stager) or a pre-staged gs:// URI.
+// MaxChoices and MaxVariations bound runtime discrete choice sets and
+// multi-asset variation lists per evaluation call.
+const (
+	MaxChoices    = 32
+	MaxVariations = 32
+)
+
+// AssetRef references a single placeholder value (or an ordered multi-asset
+// variation list) for an evaluation instance.
 type AssetRef struct {
-	Modality registry.Modality
-	Text     string // ModalityText
-	FilePath string // local file (staged to GCS by the engine's Stager)
-	GCSUri   string // pre-staged gs:// asset
-	MimeType string // detected or explicit
+	Modality       registry.Modality
+	Text           string                     // ModalityText
+	FilePath       string                     // local file (staged to GCS on native; inline <=20 MiB on genai)
+	GCSUri         string                     // pre-staged gs:// asset
+	URI            string                     // gs:// or SSRF-validated https:// URI
+	Bytes          []byte                     // inline bytes (<= 20 MiB aggregate per genai call)
+	MimeType       string                     // detected or explicit
+	VideoMeta      *genai.VideoMetadata       // optional clip offsets / FPS for genai video parts
+	PartResolution *genai.PartMediaResolution // optional per-part media resolution from genai.Part
+	Label          string                     // variation ID when inside Items
+	Description    string                     // optional sanitized variation description (<= 256 bytes)
+	Items          []AssetRef                 // ordered N-way variation slice bound to one placeholder
 }
 
 // Instance is a single evaluation input: named placeholders to content.
@@ -121,8 +136,14 @@ type Result struct {
 // EvaluateInstances response exposes no token usage, so it is nil on the native
 // pointwise/rubric/pairwise paths.
 type Stats struct {
-	Duration   time.Duration `json:"duration_ns"`
-	TokenUsage *TokenUsage   `json:"token_usage,omitempty"`
+	Duration     time.Duration `json:"duration_ns"`
+	TokenUsage   *TokenUsage   `json:"token_usage,omitempty"`
+	Attempts     int           `json:"-"`
+	RetryBackoff time.Duration `json:"-"`
+	ResponseID   string        `json:"-"`
+	ModelVersion string        `json:"-"`
+	FinishReason string        `json:"-"`
+	CachedTokens int32         `json:"-"`
 }
 
 // TokenUsage is the genai-path token breakdown lifted from
@@ -139,16 +160,22 @@ type TokenUsage struct {
 // registry domain model and the two narrow client seams (EvaluationClient for
 // the native path, GenaiClient for the custom_schema path).
 type Engine struct {
-	client       EvaluationClient
-	globalClient EvaluationClient // GLOBAL-host native client for global-only autoraters (R-GLOBAL); nil disables auto-routing
-	genai        GenaiClient
-	diffusion    diffusion.Client // DiffusionGemma client for local/Cloud Run discrete block diffusion decisions
-	stager       asset.Stager
-	projectID    string
-	location     string
-	defaultModel string    // config default-model (WI-F3); "" falls back to BuiltinDefaultModel
-	noticeW      io.Writer // where the "forced global" routing notice is written (R-GLOBAL); nil -> os.Stderr
-	retry        retryPolicy
+	client            EvaluationClient
+	globalClient      EvaluationClient // GLOBAL-host native client for global-only autoraters (R-GLOBAL); nil disables auto-routing
+	genai             GenaiClient
+	diffusion         diffusion.Client // DiffusionGemma client for local/Cloud Run discrete block diffusion decisions
+	stager            asset.Stager
+	projectID         string
+	location          string
+	genaiLocation     string
+	backend           string
+	modelOverride     string    // engine-level model override (above template, below per-run WithModel)
+	defaultModel      string    // config default-model (WI-F3); "" falls back to BuiltinDefaultModel
+	noticeW           io.Writer // where the "forced global" routing notice is written (R-GLOBAL); nil -> os.Stderr
+	retry             retryPolicy
+	allowedURIHosts   []string
+	allowedGCSBuckets []string
+	allowLocalFiles   bool
 }
 
 // Option configures an Engine at construction time. New optional dependencies
@@ -201,16 +228,66 @@ func WithStager(s asset.Stager) Option {
 	return func(e *Engine) { e.stager = s }
 }
 
+// WithModelOverride sets an engine-wide autorater model override that takes
+// precedence over template-pinned models (tmpl.AutoraterModel) while still
+// yielding to a per-run WithModel override.
+func WithModelOverride(model string) Option {
+	return func(e *Engine) { e.modelOverride = strings.TrimSpace(model) }
+}
+
+// WithBackend sets the backend provenance label ("vertex", "gemini-api",
+// "enterprise", "custom") recorded on AppliedAutorater.Backend.
+func WithBackend(backend string) Option {
+	return func(e *Engine) { e.backend = strings.TrimSpace(backend) }
+}
+
+// WithGenaiLocation sets the location label recorded for direct genai calls
+// when the caller supplies a pre-configured *genai.Client.
+func WithGenaiLocation(loc string) Option {
+	return func(e *Engine) { e.genaiLocation = strings.TrimSpace(loc) }
+}
+
+// WithRetryMaxAttempts overrides the maximum number of GenerateContent attempts
+// (1 disables outer Mizan retries when the caller's *genai.Client already
+// configures SDK-level RetryOptions).
+func WithRetryMaxAttempts(n int) Option {
+	return func(e *Engine) {
+		if n > 0 {
+			e.retry.maxAttempts = n
+		}
+	}
+}
+
+// WithAllowedURIHosts restricts https:// media URIs to the specified hostnames
+// (case-insensitive). An empty slice permits any public non-SSRF hostname.
+func WithAllowedURIHosts(hosts []string) Option {
+	return func(e *Engine) { e.allowedURIHosts = slices.Clone(hosts) }
+}
+
+// WithAllowedGCSBuckets restricts gs:// media URIs to the specified bucket
+// names. An empty slice permits any bucket.
+func WithAllowedGCSBuckets(buckets []string) Option {
+	return func(e *Engine) { e.allowedGCSBuckets = slices.Clone(buckets) }
+}
+
+// WithAllowLocalFiles controls whether AssetRef.FilePath local file reads are
+// permitted on the genai path (true by default for CLI compatibility; false by
+// default in pkg/mizan).
+func WithAllowLocalFiles(allow bool) Option {
+	return func(e *Engine) { e.allowLocalFiles = allow }
+}
+
 // NewEngine constructs an Engine over the given native EvaluationClient.
 // projectID and location are used to expand the template's publisher-relative
 // autorater model id into the full resource name the API requires (spike-core).
 // Optional dependencies are supplied via Option (e.g. WithGenaiClient).
 func NewEngine(client EvaluationClient, projectID, location string, opts ...Option) *Engine {
 	e := &Engine{
-		client:    client,
-		projectID: projectID,
-		location:  location,
-		retry:     defaultRetryPolicy(),
+		client:          client,
+		projectID:       projectID,
+		location:        location,
+		retry:           defaultRetryPolicy(),
+		allowLocalFiles: true,
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -252,6 +329,14 @@ type runConfig struct {
 	scaleSet bool
 	scaleMin int
 	scaleMax int
+
+	// Runtime N-variation & media-budget options for structured genai calls.
+	choicesOverride       []string
+	choicesOverrideSet    bool
+	choicesFromVariations bool
+	choicesExtra          []string
+	mediaResolution       string
+	maxOutputTokens       int32
 }
 
 // Default Likert bounds for the genai/global structured rubric path when neither
@@ -299,6 +384,39 @@ func WithRubricDetailDefaultScale() RunOption {
 	}
 }
 
+// WithChoices overrides the allowed discrete choices for a single KindChoice
+// run without mutating the underlying MetricTemplate.
+func WithChoices(choices []string) RunOption {
+	cp := slices.Clone(choices)
+	return func(rc *runConfig) {
+		rc.choicesOverride = cp
+		rc.choicesOverrideSet = true
+	}
+}
+
+// WithChoicesFromVariations derives the allowed choices for a KindChoice run
+// from the ordered Variation labels bound in the instance (appending any
+// optional extra choices such as "none" or "tie").
+func WithChoicesFromVariations(extra ...string) RunOption {
+	cp := slices.Clone(extra)
+	return func(rc *runConfig) {
+		rc.choicesFromVariations = true
+		rc.choicesExtra = cp
+	}
+}
+
+// WithMediaResolution sets GenerateContentConfig.MediaResolution ("low",
+// "medium", or "high") on structured genai calls.
+func WithMediaResolution(res string) RunOption {
+	return func(rc *runConfig) { rc.mediaResolution = strings.ToLower(strings.TrimSpace(res)) }
+}
+
+// WithMaxOutputTokens sets GenerateContentConfig.MaxOutputTokens on structured
+// genai calls when n > 0.
+func WithMaxOutputTokens(n int32) RunOption {
+	return func(rc *runConfig) { rc.maxOutputTokens = n }
+}
+
 // Run dispatches on the template's MetricKind. Pointwise (text + multimodal) and
 // rubric use the native path; pairwise uses the native pairwise path;
 // custom_schema uses the genai path. Non-text native assets are staged to gs://
@@ -323,7 +441,10 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	// metrics, so no autorater is resolved or validated — not even on
 	// --engine vertex, where the regional EvaluateInstances call carries no
 	// AutoraterConfig at all.
-	if err := checkEngineForKind(tmpl, rc.engineOverride); err != nil {
+	if err := e.checkEngineForKind(tmpl, rc.engineOverride); err != nil {
+		return Result{}, err
+	}
+	if _, err := parseMediaResolution(rc.mediaResolution); err != nil {
 		return Result{}, err
 	}
 	var model string
@@ -415,9 +536,20 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 	// reuse the SAME resolution + routing decision the run took, via Resolve — no
 	// re-derivation of routing here. Populated only on success so a caller (the
 	// results store) sees exactly what actually ran.
+	var effectiveChoices []string
+	if res.Applied != nil {
+		effectiveChoices = res.Applied.EffectiveChoices
+	}
 	target := e.Resolve(tmpl, rc.modelOverride, rc.rubricDetail)
+	if rc.engineOverride == "genai" {
+		target.Path = "genai"
+		target.Location = cmp.Or(e.genaiLocation, GenaiLocation)
+	}
 	effectiveHost := "regional"
-	if target.Location == globalLocation || target.Location == "" {
+	switch {
+	case e.usesGenaiFallback(rc) || (e.client == nil && target.Path == "genai"):
+		effectiveHost = "genai"
+	case target.Location == globalLocation || target.Location == "":
 		effectiveHost = "global"
 	}
 	appliedModel := model
@@ -425,14 +557,21 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		appliedModel = PrebuiltServiceJudge
 	}
 	res.Applied = &AppliedAutorater{
-		Model:         appliedModel,
-		SamplingCount: tmpl.SamplingCount,
-		FlipEnabled:   tmpl.FlipEnabled,
-		EffectiveHost: effectiveHost,
-		Location:      target.Location,
-		ModelSource:   modelSource(rc.modelOverride, tmpl.AutoraterModel, e.defaultModel),
+		Model:            appliedModel,
+		SamplingCount:    tmpl.SamplingCount,
+		FlipEnabled:      tmpl.FlipEnabled,
+		EffectiveHost:    effectiveHost,
+		Location:         target.Location,
+		ModelSource:      modelSource(rc.modelOverride, e.modelOverride, tmpl.AutoraterModel, e.defaultModel),
+		Backend:          e.backend,
+		ModelVersion:     res.Stats.ModelVersion,
+		EffectiveChoices: effectiveChoices,
 	}
 	return res, nil
+}
+
+func (e *Engine) usesGenaiFallback(rc runConfig) bool {
+	return rc.engineOverride == "genai" || (rc.engineOverride == "" && e.client == nil && e.genai != nil)
 }
 
 // dispatch routes to the per-kind path with the already-resolved model. Keeping
@@ -445,20 +584,20 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 
 	switch tmpl.Kind {
 	case registry.KindBoul:
-		return e.runBoul(ctx, tmpl, inst, model)
+		return e.runBoul(ctx, tmpl, inst, model, rc)
 	case registry.KindChoice:
-		return e.runChoice(ctx, tmpl, inst, model)
+		return e.runChoice(ctx, tmpl, inst, model, rc)
 	case registry.KindScore:
 		return e.runScore(ctx, tmpl, inst, model, rc)
 	case registry.KindPointwise:
+		if e.usesGenaiFallback(rc) {
+			return e.runScore(ctx, tmpl, inst, model, rc)
+		}
 		return e.runPointwise(ctx, tmpl, inst, model)
 	case registry.KindRubric:
-		if rc.rubricDetail {
+		if rc.rubricDetail || e.usesGenaiFallback(rc) {
 			min, max, scaleWarning := e.resolveRubricScale(tmpl, rc)
-			res, err := e.runRubricStructured(ctx, tmpl, inst, model, min, max)
-			// Surface the non-fatal template-scale fallback warning on the SAME
-			// Result.Warnings channel H3 uses. Only on success — a failed run
-			// returns a zero Result and the warning would be noise.
+			res, err := e.runRubricStructured(ctx, tmpl, inst, model, min, max, rc)
 			if err == nil && scaleWarning != "" {
 				res.Warnings = append(res.Warnings, scaleWarning)
 			}
@@ -466,21 +605,15 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 		}
 		return e.runRubric(ctx, tmpl, inst, model)
 	case registry.KindCustomSchema:
-		return e.runCustomSchema(ctx, tmpl, inst, model)
+		return e.runCustomSchema(ctx, tmpl, inst, model, rc)
 	case registry.KindPairwise:
-		if rc.pairwiseGenai {
-			return e.runPairwiseGenai(ctx, tmpl, inst, model)
+		if rc.pairwiseGenai || e.usesGenaiFallback(rc) {
+			return e.runPairwiseGenai(ctx, tmpl, inst, model, rc)
 		}
 		return e.runPairwise(ctx, tmpl, inst, model)
 	case registry.KindHeuristic:
-		// Deterministic, credential-free: a FREE function (not a method), so it
-		// structurally cannot reach e.client/e.globalClient/e.genai — NO client, NO
-		// model, NO network (design §4.B invariant).
 		return runHeuristic(tmpl, inst)
 	case registry.KindComputation:
-		// Default (no override / "local"): a FREE function — NO client, NO model,
-		// NO network, like runHeuristic. "vertex" opts into the managed
-		// EvaluateInstances implementation for parity checks.
 		if rc.engineOverride == engineVertex {
 			return e.runComputationVertex(ctx, tmpl, inst)
 		}
@@ -492,16 +625,7 @@ func (e *Engine) dispatch(ctx context.Context, tmpl registry.MetricTemplate, ins
 	}
 }
 
-// checkEngineForKind rejects an engine override that cannot serve the template's
-// kind, with a crisp local error before any model resolution or dispatch:
-//
-//   - kind:computation runs on "local" (the default) or "vertex". DiffusionGemma
-//     is refused: a computation metric involves no model at all, so there is
-//     nothing for a judge engine to do.
-//   - "local" is the credential-free tier; it serves kind:computation (and is a
-//     no-op for kind:heuristic, which is always local). Any LLM-judged kind needs
-//     a model engine.
-func checkEngineForKind(tmpl registry.MetricTemplate, engine string) error {
+func (e *Engine) checkEngineForKind(tmpl registry.MetricTemplate, engine string) error {
 	if tmpl.Kind == registry.KindComputation {
 		switch {
 		case engine == "" || engine == engineLocal || engine == engineVertex:
@@ -514,6 +638,10 @@ func checkEngineForKind(tmpl registry.MetricTemplate, engine string) error {
 	}
 	if engine == engineLocal && tmpl.Kind != registry.KindHeuristic {
 		return fmt.Errorf("eval: engine \"local\" only runs model-free metrics (kind computation or heuristic); template %q is kind %q — use vertex or diffusion", tmpl.ID, tmpl.Kind)
+	}
+	if tmpl.Kind == registry.KindPrebuilt && (engine == "genai" || (engine == "" && e.client == nil && e.genai != nil && e.diffusion == nil)) {
+		backend := cmp.Or(e.backend, "genai")
+		return fmt.Errorf("eval: template %q (kind \"prebuilt\", metric %q) requires the Vertex AI Evaluation Service (EvaluateInstances) and cannot run on a genai-only (%s) engine; use a \"boul\", \"choice\", or \"score\" template, or configure a Vertex EvaluationClient", tmpl.ID, nativeMetricName(tmpl), backend)
 	}
 	return nil
 }

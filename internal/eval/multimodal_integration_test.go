@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/ghchinoy/mizan/internal/asset"
+	assetgcs "github.com/ghchinoy/mizan/internal/asset/gcs"
 	"github.com/ghchinoy/mizan/internal/registry"
 )
 
@@ -87,13 +88,13 @@ func TestLiveMultimodalPointwiseImage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	stager, err := asset.NewGCSStager(ctx, liveBucketName())
+	stager, err := assetgcs.NewGCSStager(ctx, liveBucketName())
 	if err != nil {
 		t.Fatalf("NewGCSStager: %v", err)
 	}
 	defer stager.Close()
 
-	client, err := NewClient(ctx, location, "")
+	client, err := newLiveClient(ctx, location)
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -131,7 +132,7 @@ func TestLiveMultimodalPointwiseImageGCS(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	stager, err := asset.NewGCSStager(ctx, liveBucketName())
+	stager, err := assetgcs.NewGCSStager(ctx, liveBucketName())
 	if err != nil {
 		t.Fatalf("NewGCSStager: %v", err)
 	}
@@ -144,7 +145,7 @@ func TestLiveMultimodalPointwiseImageGCS(t *testing.T) {
 	}
 	t.Logf("staged to %s (%s)", staged.GCSUri, staged.MIME)
 
-	client, err := NewClient(ctx, location, "")
+	client, err := newLiveClient(ctx, location)
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
@@ -182,7 +183,7 @@ func TestLivePairwiseText(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	client, err := NewClient(ctx, location, "")
+	client, err := newLiveClient(ctx, location)
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}

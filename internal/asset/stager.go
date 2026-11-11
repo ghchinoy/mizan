@@ -50,9 +50,9 @@ type StageResult struct {
 // when a multimodal eval is attempted with no StagingBucket set.
 var ErrNoBucket = errors.New("asset: no staging bucket configured; set StagingBucket (MIZAN_STAGING_BUCKET / GENMEDIA_BUCKET) to a gs:// bucket for multimodal eval")
 
-// validate checks the mutual-exclusivity contract of a StageInput and reports a
+// Validate checks the mutual-exclusivity contract of a StageInput and reports a
 // clear error otherwise.
-func (in StageInput) validate() error {
+func (in StageInput) Validate() error {
 	hasLocal := strings.TrimSpace(in.LocalPath) != ""
 	hasGCS := strings.TrimSpace(in.GCSUri) != ""
 	switch {
@@ -67,7 +67,7 @@ func (in StageInput) validate() error {
 	return nil
 }
 
-// resolveMIME returns the explicit override when provided, otherwise a detected
+// ResolveMIME returns the explicit override when provided, otherwise a detected
 // MIME type. name is the file name (local path or gs:// object) used for the
 // extension fallback; head may be nil when no bytes are available (e.g. a
 // gs:// pass-through), in which case detection relies on the extension.
@@ -79,7 +79,7 @@ func (in StageInput) validate() error {
 // (spike-core), so an override (which WI-4 may source from a dataset) must not
 // be able to force a droppable type over what the bytes clearly say. When the
 // sniff is inconclusive, the override is honored.
-func resolveMIME(override, name string, head []byte) string {
+func ResolveMIME(override, name string, head []byte) string {
 	if m := strings.TrimSpace(override); m != "" {
 		m = normalizeMIME(m)
 		if sniffed := sniffMIME(head, strings.ToLower(filepath.Ext(name))); sniffed != "" &&
@@ -100,9 +100,9 @@ func topLevelType(mimeType string) string {
 	return mimeType
 }
 
-// gcsObjectName returns the object name portion of a gs:// URI (used for MIME
+// GCSObjectName returns the object name portion of a gs:// URI (used for MIME
 // detection from the extension of a pass-through URI).
-func gcsObjectName(gcsURI string) string {
+func GCSObjectName(gcsURI string) string {
 	trimmed := strings.TrimPrefix(gcsURI, "gs://")
 	if i := strings.IndexByte(trimmed, '/'); i >= 0 {
 		return trimmed[i+1:]

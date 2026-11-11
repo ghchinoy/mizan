@@ -46,15 +46,15 @@ func generateBoulSchema() *genai.Schema {
 }
 
 // runBoul executes a KindBoul evaluator via the direct genai structured-output path.
-func (e *Engine) runBoul(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string) (Result, error) {
+func (e *Engine) runBoul(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, rc runConfig) (Result, error) {
 	if tmpl.MetricPromptTemplate == "" {
 		return Result{}, fmt.Errorf("eval: template %q has empty metric prompt template", tmpl.ID)
 	}
 
-	prompt := tmpl.MetricPromptTemplate + "\n\nEvaluate the proposition above. Return a JSON object with \"passed\" (boolean), \"confidence\" (float between 0.0 and 1.0), and \"explanation\" (string)."
+	directive := "Evaluate the proposition above. Return a JSON object with \"passed\" (boolean), \"confidence\" (float between 0.0 and 1.0), and \"explanation\" (string)."
 	schema := generateBoulSchema()
 
-	res, err := e.runGenaiStructured(ctx, tmpl, inst, prompt, schema, model)
+	res, err := e.runGenaiStructured(ctx, tmpl, inst, tmpl.MetricPromptTemplate, directive, schema, model, rc)
 	if err != nil {
 		return Result{}, err
 	}

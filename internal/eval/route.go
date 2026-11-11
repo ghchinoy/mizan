@@ -86,6 +86,7 @@ var globalOnlyModelPrefixes = []string{
 	"gemini-3.5", // gemini-3.5-flash / -lite: global-only
 	"gemini-3.7", // gemini-3.7-flash: global-only
 	"gemini-3.8", // gemini-3.8-flash: global-only
+	"gemini-4-",  // gemini-4-* (e.g. gemini-4-argon): global-only on Vertex EvaluateInstances
 }
 
 // isGlobalOnlyModel reports whether model's bare publisher id names a known

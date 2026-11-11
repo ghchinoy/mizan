@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1051,5 +1052,55 @@ func TestListNamespaceEscapesWildcards(t *testing.T) {
 	}
 	if len(got) != 2 {
 		t.Errorf("namespace team matched %d rows, want 2", len(got))
+	}
+}
+
+func TestConcurrentOpensAndReadOnlyShortCircuit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "concurrent.db")
+
+	const workers = 16
+	var wg sync.WaitGroup
+	errs := make(chan error, workers)
+	for i := range workers {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			st, err := Open(path)
+			if err != nil {
+				errs <- err
+				return
+			}
+			defer func() { _ = st.Close() }()
+			tm := registry.MetricTemplate{
+				ID:   "concurrent/t-" + string(rune('a'+idx)),
+				Name: "Concurrent",
+				Kind: registry.KindPointwise,
+			}
+			if err := st.Put(t.Context(), &tm); err != nil {
+				errs <- err
+				return
+			}
+			if _, err := st.List(t.Context(), registry.ListFilter{}); err != nil {
+				errs <- err
+			}
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("concurrent Open/Put/List failed: %v", err)
+	}
+
+	ro, err := Open("file:" + path + "?mode=ro")
+	if err != nil {
+		t.Fatalf("read-only Open on migrated DB failed: %v", err)
+	}
+	defer func() { _ = ro.Close() }()
+	list, err := ro.List(t.Context(), registry.ListFilter{})
+	if err != nil {
+		t.Fatalf("read-only List failed: %v", err)
+	}
+	if len(list) != workers {
+		t.Fatalf("read-only List count = %d, want %d", len(list), workers)
 	}
 }

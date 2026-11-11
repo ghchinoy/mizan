@@ -2009,6 +2009,61 @@ the eval:
    Alternatively, run the eval in the project that owns the bucket, or stage the
    asset into a bucket in the eval project.
 
+## Embedding Mizan as a Go Library (`pkg/mizan`)
+
+Go services can embed Mizan's evaluation engine directly via
+`github.com/ghchinoy/mizan/pkg/mizan` without linking SQLite, Google Cloud
+Storage, Cobra, or the MCP server, and without shelling out to the `mizan` CLI:
+
+```go
+package editingbay
+
+import (
+	"context"
+
+	"github.com/ghchinoy/mizan/pkg/mizan"
+	"google.golang.org/genai"
+)
+
+func PickBestVideoTake(ctx context.Context, client *genai.Client, cat *mizan.Catalog) (mizan.Result, error) {
+	ev, err := mizan.NewEvaluator(client,
+		mizan.WithBackendLabel("enterprise"),
+		mizan.WithModelOverride("gemini-4-argon"),
+	)
+	if err != nil {
+		return mizan.Result{}, err
+	}
+	tmpl, _ := cat.Template("video-gen/best-take")
+	return ev.Run(ctx, tmpl, mizan.Instance{
+		"brief": mizan.Text("Energetic 6-second product reveal"),
+		"variations": mizan.Variations(
+			mizan.Variation{ID: "take_1", Description: "Wide angle", Asset: mizan.URI("gs://renders/1.mp4", "video/mp4")},
+			mizan.Variation{ID: "take_2", Description: "Macro lens", Asset: mizan.URI("gs://renders/2.mp4", "video/mp4")},
+			mizan.Variation{ID: "take_3", Asset: mizan.URI("gs://renders/3.mp4", "video/mp4")},
+		),
+	}, mizan.WithChoicesFromVariations("none"), mizan.WithMediaResolution("low"))
+}
+```
+
+Key SDK guarantees (see [`docs/rfcs/0002-public-go-sdk.md`](rfcs/0002-public-go-sdk.md)):
+
+- **Backend-agnostic `*genai.Client` sharing**: Pass any caller-owned
+  `*genai.Client` (`genai.BackendVertexAI`, `genai.BackendGeminiAPI`, or
+  `genai.BackendEnterprise`). `WithModelOverride("gemini-4-argon")` overrides
+  template-pinned models across all runs while yielding to per-run `WithModel`.
+- **In-memory catalogs (`LoadCatalogFS`)**: Load `MetricTemplate` and `EvalSet`
+  manifests from an `embed.FS` or `os.DirFS` into a concurrency-safe
+  `*mizan.Catalog` with strict JSON Schema validation and zero SQLite files.
+- **Runtime `N`-way variations & `*genai.Part` fidelity**: Bind up to 32 labeled
+  `Variation` assets to a single placeholder via `mizan.Variations(...)`,
+  specialize `kind: choice` enums per call via `WithChoicesFromVariations` or
+  `WithChoices` without mutating the `Template`, and preserve clip
+  `VideoMetadata` (`StartOffset`, `EndOffset`, `FPS`) via `mizan.FromGenaiPart`.
+- **Zero process pollution**: `pkg/mizan` never loads `.env`, never writes to
+  `os.Stderr`, disables local `File(path)` reads unless `WithLocalFileAccess(true)`
+  is passed, and enforces `20 MiB` inline byte caps plus `gs://`/`https://` SSRF
+  validation (`WithAllowedURIHosts`, `WithAllowedGCSBuckets`).
+
 ## Non-interactive & automation conventions
 
 For CI pipelines and autonomous agents driving `mizan`:

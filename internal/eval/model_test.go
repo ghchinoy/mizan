@@ -330,9 +330,11 @@ func (f *fakeGenaiWithUsage) GenerateContent(_ context.Context, model string, _ 
 // be rejected LOCALLY; "" (unset) and a fully-qualified resource name pass.
 func TestValidateModel(t *testing.T) {
 	ok := []string{
-		"",                 // unset: falls through the precedence chain
-		"gemini-2.5-flash", // bare
-		"gemini-2.5-pro",
+		"",                      // unset: falls through the precedence chain
+		"gemini-2.5-flash",      // bare
+		"gemini-2.5-pro",        // bare
+		"gemini-4-argon",        // bare enterprise model
+		"models/gemini-4-argon", // Gemini Developer API / Enterprise form
 		"publishers/google/models/gemini-2.5-flash",                   // publisher-relative
 		"projects/x/locations/global/publishers/google/models/g-z",    // fully-qualified passthrough
 		"projects/p/locations/us-central1/publishers/google/models/m", // fully-qualified passthrough

@@ -47,7 +47,7 @@ import (
 // scores into [min,max] and surfaces overall_score as Result.Score. The full
 // {per_criterion, overall_score, explanation} structure is kept in
 // Result.CustomOutput.
-func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, min, max int) (Result, error) {
+func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTemplate, inst Instance, model string, min, max int, rc runConfig) (Result, error) {
 	// Guard the genai client FIRST (matching runCustomSchema's ordering) so a
 	// missing client fails with the client error before any prompt/schema work.
 	if e.genai == nil {
@@ -61,9 +61,9 @@ func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTe
 	}
 
 	schema := generateRubricSchema()
-	prompt := tmpl.MetricPromptTemplate + "\n\n" + renderRubricInstruction(tmpl.RubricGroups, min, max)
+	directive := renderRubricInstruction(tmpl.RubricGroups, min, max)
 
-	res, err := e.runGenaiStructured(ctx, tmpl, inst, prompt, schema, model)
+	res, err := e.runGenaiStructured(ctx, tmpl, inst, tmpl.MetricPromptTemplate, directive, schema, model, rc)
 	if err != nil {
 		return Result{}, err
 	}
@@ -90,6 +90,9 @@ func (e *Engine) runRubricStructured(ctx context.Context, tmpl registry.MetricTe
 	if s, ok := overallScore(res.CustomOutput); ok {
 		f := float32(s)
 		res.Score = &f
+	}
+	if expl, ok := res.CustomOutput["explanation"].(string); ok && expl != "" {
+		res.Explanation = expl
 	}
 	// Mark the result so the renderer routes on this explicit signal rather than
 	// sniffing CustomOutput's shape.

@@ -875,6 +875,25 @@ are auto-staged to GCS; genai paths accept inline bytes (≤ 20 MiB). A native r
 whose resolved autorater is **global-only** is auto-routed to the global host
 regardless of your `location` (Scenario 7).*
 
+### Multimodal part ordering & `pkg/mizan` (`genai`-only) routing
+
+- **Media-Preamble-First part ordering**: On all structured `genai` paths
+  (`boul`, `choice`, `score`, `custom_schema`, `rubric --rubric-detail`, and
+  `pkg/mizan`), Mizan emits every unique media item at the front of the user
+  turn (`[TextPart("[<modality> \"<label>\"]" + optionalDesc + ":"), MediaPart, ...]`)
+  followed by a single trailing `TextPart` containing the rendered evaluation
+  prompt and schema directive. Placing video/audio/image tokens before prompt
+  and rubric prose follows Gemini multimodal evaluation guidance regardless of
+  where `{{var}}` appears in the template, deduplicates repeated `{{var}}`
+  references, and leaves text-only runs as a single `TextPart` (`len(Parts) == 1`).
+- **Auto-routing legacy native kinds on `*genai.Client`-only engines**: When
+  running via `github.com/ghchinoy/mizan/pkg/mizan` (or `--engine genai`),
+  `pointwise` routes to structured `score` evaluation, `rubric` routes to
+  per-criterion structured rubric evaluation, and `pairwise` routes to
+  structured `BASELINE`/`CANDIDATE`/`TIE` evaluation. Only Vertex-managed
+  `kind: prebuilt` metrics require `EvaluateInstances` and fail fast on
+  `genai`-only engines with an actionable remediation message.
+
 ---
 
 ## Scenarios that are not built yet

@@ -642,3 +642,114 @@ func TestRun_GateRecorded(t *testing.T) {
 		t.Fatal("EvalSetResult.Gate should mirror set.Aggregation.Gate (true)")
 	}
 }
+
+func TestRun_HeterogeneousInputProjectionAndBind(t *testing.T) {
+	getter := &fakeGetter{templates: map[string]*registry.MetricTemplate{
+		"video/best-cut": {
+			ID:                   "video/best-cut",
+			Kind:                 registry.KindChoice,
+			Choices:              []string{"a", "b"},
+			MetricPromptTemplate: "Given {{brief}}, pick best of {{variations}}",
+		},
+		"video/meta-audit": {
+			ID:                   "video/meta-audit",
+			Kind:                 registry.KindBoul,
+			MetricPromptTemplate: "Audit {{variations}} against {{metadata}}",
+		},
+		"video/brief-check": {
+			ID:   "video/brief-check",
+			Kind: registry.KindHeuristic,
+			Heuristic: &registry.HeuristicSpec{
+				Type:   registry.HeuristicContains,
+				Target: "brief",
+				Value:  "reveal",
+			},
+		},
+	}}
+
+	set := Set{
+		ID:     "video/suite",
+		Inputs: map[string]string{"suite_brief": "brief"},
+		Members: []Member{
+			{MetricID: "video/best-cut", Weight: 1},
+			{MetricID: "video/meta-audit", Weight: 1, Bind: map[string]string{"clip_meta": "metadata"}},
+			{MetricID: "video/brief-check", Weight: 1},
+		},
+		Aggregation: Aggregation{Method: AggMean},
+	}
+
+	t.Run("projects_subset_and_resolves_bind_aliases", func(t *testing.T) {
+		runner := &fakeRunner{results: map[string]eval.Result{
+			"video/best-cut":    {ChoiceSelection: "a"},
+			"video/meta-audit":  {Score: f32(1)},
+			"video/brief-check": {Score: f32(1)},
+		}}
+		r := New(getter, runner)
+		inputs := map[string]eval.AssetRef{
+			"suite_brief": {Modality: registry.ModalityText, Text: "Energetic product reveal"},
+			"variations":  {Modality: registry.ModalityVideo, GCSUri: "gs://b/v.mp4"},
+			"clip_meta":   {Modality: registry.ModalityText, Text: "6s 24fps"},
+		}
+		res, err := r.Run(t.Context(), set, RunOptions{Inputs: inputs})
+		if err != nil {
+			t.Fatalf("Run() error = %v", err)
+		}
+		if res.Verdict != Passed {
+			t.Errorf("Verdict = %q, want PASSED", res.Verdict)
+		}
+		if len(runner.seen) != 3 {
+			t.Fatalf("len(runner.seen) = %d, want 3", len(runner.seen))
+		}
+		// Member 0 must receive ONLY {brief, variations}, NOT clip_meta.
+		if _, leaked := runner.seen[0].Fields["clip_meta"]; leaked {
+			t.Errorf("member 0 received unreferenced clip_meta: %+v", runner.seen[0].Fields)
+		}
+		if runner.seen[0].Fields["brief"].Text != "Energetic product reveal" {
+			t.Errorf("member 0 brief = %+v, want mapped suite_brief", runner.seen[0].Fields["brief"])
+		}
+		// Member 1 must receive {variations, metadata} via Bind{"clip_meta": "metadata"}.
+		if runner.seen[1].Fields["metadata"].Text != "6s 24fps" {
+			t.Errorf("member 1 metadata = %+v, want 6s 24fps", runner.seen[1].Fields["metadata"])
+		}
+		// Member 2 (heuristic) must receive ONLY {brief}.
+		if len(runner.seen[2].Fields) != 1 || runner.seen[2].Fields["brief"].Text != "Energetic product reveal" {
+			t.Errorf("member 2 fields = %+v, want only brief", runner.seen[2].Fields)
+		}
+	})
+
+	t.Run("unreferenced_suite_input_typo_fails_preflight", func(t *testing.T) {
+		runner := &fakeRunner{}
+		r := New(getter, runner)
+		_, err := r.Run(t.Context(), set, RunOptions{Inputs: map[string]eval.AssetRef{
+			"suite_brief": {Text: "reveal"},
+			"variations":  {GCSUri: "gs://b/v.mp4"},
+			"clip_meta":   {Text: "6s"},
+			"typoo_field": {Text: "unused"},
+		}})
+		if err == nil {
+			t.Fatal("Run(unreferenced input) = nil, want pre-flight error")
+		}
+		if len(runner.seen) != 0 {
+			t.Errorf("engine calls = %d, want 0 on pre-flight error", len(runner.seen))
+		}
+	})
+
+	t.Run("unknown_bind_target_fails_preflight", func(t *testing.T) {
+		runner := &fakeRunner{}
+		r := New(getter, runner)
+		badSet := set
+		badSet.Members = []Member{
+			{MetricID: "video/meta-audit", Weight: 1, Bind: map[string]string{"clip_meta": "no_such_placeholder"}},
+		}
+		_, err := r.Run(t.Context(), badSet, RunOptions{Inputs: map[string]eval.AssetRef{
+			"variations": {GCSUri: "gs://b/v.mp4"},
+			"clip_meta":  {Text: "6s"},
+		}})
+		if err == nil {
+			t.Fatal("Run(unknown bind target) = nil, want pre-flight error")
+		}
+		if len(runner.seen) != 0 {
+			t.Errorf("engine calls = %d, want 0 on pre-flight error", len(runner.seen))
+		}
+	})
+}
