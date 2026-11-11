@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.5.0] - 2026-11-11
+
+### Added
+- Added the public Go evaluation SDK [`github.com/ghchinoy/mizan/pkg/mizan`](pkg/mizan) (`Evaluator`, `Catalog`, `LoadCatalogFS`, `Template`, `EvalSet`, `Asset`, `Variation`, `FromGenaiPart`, `Result`, `EvalSetResult`, `DecodeCustom`) for in-process evaluation over caller-owned `*genai.Client` instances (`BackendVertexAI`, `BackendGeminiAPI`, and `BackendEnterprise` via `WithBackendLabel` and `WithModelOverride`) with zero SQLite, Google Cloud Storage, Cobra, MCP, or `os.Stderr` dependencies (#125, [`docs/rfcs/0002-public-go-sdk.md`](docs/rfcs/0002-public-go-sdk.md)).
+- Added runtime `N`-variation multimodal evaluation (`mizan.Variations`, `WithChoicesFromVariations`, `WithChoices`, `WithMediaResolution`, `WithMaxOutputTokens`) and `*genai.Part` fidelity (`VideoMetadata` clip offsets/FPS and per-part `MediaResolution` via `FromGenaiPart`) without mutating `Template` or `ContentHash` (#125).
+- Added per-member `EvalSet` input projection and `Set.Inputs` / `Member.Bind` alias resolution (`setInput -> memberPlaceholder`) in [`internal/evalset`](internal/evalset), plus multi-kind multimodal pack validation and import tests (#122, #125).
+- Documented cross-kind and multimodal `EvalSet` calibration workflows in [`docs/user-guide.md`](docs/user-guide.md) (#124) and refreshed [`docs-site`](docs-site) with the GM3/gBreeze Starlight theme (#123).
+
+### Changed
+- Adopted **Media-Preamble-First** multimodal part ordering on all structured `genai` paths (`[LabelPart_1, MediaPart_1, ..., TextPart(renderedPrompt + directiveSuffix)]`, deduplicating repeated `{{var}}` references while preserving `len(Parts) == 1` on text-only prompts) and auto-routed `pointwise`, `rubric`, and `pairwise` templates over structured `genai` when no Vertex `EvaluationClient` is configured (#125).
+
+### Fixed
+- Eliminated SQLite `SQLITE_BUSY` write-lock contention on read opens in [`internal/sqliteutil`](internal/sqliteutil), [`internal/registry/sqlite`](internal/registry/sqlite), and [`internal/results/sqlite`](internal/results/sqlite) by checking `PRAGMA journal_mode` and `PRAGMA user_version` before starting write transactions, setting `PRAGMA busy_timeout = 5000`, and enforcing `0700`/`0600` database and WAL/SHM permissions (#125).
+
+### Security
+- Added `netip.ParseAddr` + `.Unmap()` SSRF protection, optional `WithAllowedURIHosts` / `WithAllowedGCSBuckets` allowlists, disabled-by-default local file reads in `pkg/mizan`, `20 MiB` aggregate inline media byte caps, `1 MiB` SQLite JSON column read caps, and whole-second `VideoMetadata` collapse validation (#125).
+- Raised the Go toolchain directive in [`go.mod`](go.mod) to `go 1.26.11` to resolve stdlib `GO-2026-6859` (`net/http` `MaxBytesReader` header race) (#125).
+
 ## [0.4.0] - 2026-11-02
 
 ### Added
@@ -38,3 +58,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Updated built-in default autorater model and documentation prior to `v0.3.2`.
+
+[Unreleased]: https://github.com/ghchinoy/mizan/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ghchinoy/mizan/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/ghchinoy/mizan/compare/v0.3.2...v0.4.0
+[0.3.2]: https://github.com/ghchinoy/mizan/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/ghchinoy/mizan/releases/tag/v0.3.1
