@@ -1,0 +1,297 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:59:33.871949Z",
+    "finished_at": "2026-11-12T22:59:41.826961Z",
+    "dataset": "docs/experiments/judge-eval/runs/20261112-hydrogen-spike/q_base_vs_cand__calibration_suite.retry3.jsonl.in",
+    "dataset_sha256": "7fb06582b065f209f3a6bf1146da11de8a93b8117735171d14f560222eba8360",
+    "engine_a": "genai",
+    "engine_b": "genai",
+    "model_a": "gemini-3.8-flash",
+    "model_b": "gemini-4-hydrogen",
+    "diffusion_mirror_side": "both",
+    "workers": 2,
+    "warmup": 0,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "pairwise_genai": true,
+    "batch_wall_ms": 7954.975,
+    "throughput_items_per_sec": 0.37712249252826063,
+    "serial_engines": false,
+    "score_tolerance": 0.25,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "retry 1 of 3 errored items"
+  },
+  "total_cases": 3,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-3.8-flash": 3
+    },
+    "model_versions": {
+      "gemini-3.8-flash": 3
+    },
+    "cases": 3,
+    "errors": 0,
+    "scored": 3,
+    "correct": 3,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 4137.518,
+    "latency_p95_ms": 7572.9116,
+    "latency_mean_ms": 4934.447999999999,
+    "mean_tokens": {
+      "n": 3,
+      "prompt": 1414.3,
+      "candidates": 47.3,
+      "thoughts": 365,
+      "total": 1826.7
+    }
+  },
+  "engine_b": {
+    "engine": "genai",
+    "models": {
+      "gemini-4-hydrogen": 3
+    },
+    "model_versions": {
+      "gemini-4-hydrogen": 3
+    },
+    "cases": 3,
+    "errors": 0,
+    "scored": 3,
+    "correct": 3,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 3307.493,
+    "latency_p95_ms": 4893.695299999999,
+    "latency_mean_ms": 3276.3849999999998,
+    "mean_tokens": {
+      "n": 3,
+      "prompt": 1546.3,
+      "candidates": 65,
+      "thoughts": 297.7,
+      "total": 1909
+    }
+  },
+  "paired": {
+    "n": 3,
+    "agreements": 3,
+    "agreement_pct": 100,
+    "cohen_kappa": 1,
+    "both_correct": 3,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0,
+    "mcnemar_exact_p": 1,
+    "accuracy_diff_a_minus_b": 0,
+    "accuracy_diff_ci95": {
+      "lo": 0,
+      "hi": 0
+    },
+    "median_latency_ratio_a_over_b": 1.2509529120696552
+  },
+  "by_kind": {
+    "choice": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 3,
+      "a_scored": 3,
+      "b_scored": 3,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "by_tier": {
+    "held-out": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 3,
+      "a_scored": 3,
+      "b_scored": 3,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "by_category": {
+    "intent": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 3,
+      "a_scored": 3,
+      "b_scored": 3,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "b77-01",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "card_arrival",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 1.5689775421405383,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "selection": "card_arrival",
+          "explanation": "The query asks how to track or find the status/location of a card (typically an ordered card in transit), which falls under tracking card delivery and arrival.",
+          "duration_ms": 7954.622,
+          "custom_output": {
+            "explanation": "The query asks how to track or find the status/location of a card (typically an ordered card in transit), which falls under tracking card delivery and arrival.",
+            "selection": "card_arrival"
+          },
+          "tokens": {
+            "prompt_tokens": 1410,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 755,
+            "total_tokens": 2216
+          },
+          "prediction": "card_arrival",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "card_arrival",
+          "explanation": "The customer is asking how to track or find the whereabouts of their card, which corresponds to checking card arrival and delivery tracking rather than reporting a card lost or asking for a delivery timeframe.",
+          "duration_ms": 5069.94,
+          "custom_output": {
+            "explanation": "The customer is asking how to track or find the whereabouts of their card, which corresponds to checking card arrival and delivery tracking rather than reporting a card lost or asking for a delivery timeframe.",
+            "selection": "card_arrival"
+          },
+          "tokens": {
+            "prompt_tokens": 1542,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 556,
+            "total_tokens": 2163
+          },
+          "prediction": "card_arrival",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "b77-02",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "pending_top_up",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 1.2509529120696552,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "selection": "pending_top_up",
+          "explanation": "The user is inquiring about a top-up that was made recently and has not yet reflected in their balance, indicating that it is pending.",
+          "duration_ms": 4137.518,
+          "custom_output": {
+            "explanation": "The user is inquiring about a top-up that was made recently and has not yet reflected in their balance, indicating that it is pending.",
+            "selection": "pending_top_up"
+          },
+          "tokens": {
+            "prompt_tokens": 1420,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 235,
+            "total_tokens": 1704
+          },
+          "prediction": "pending_top_up",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "pending_top_up",
+          "explanation": "The customer states they performed a top-up an hour ago and the funds are not yet reflected in their balance, indicating a pending top-up rather than a failed one or a bank transfer/cash deposit.",
+          "duration_ms": 3307.493,
+          "custom_output": {
+            "explanation": "The customer states they performed a top-up an hour ago and the funds are not yet reflected in their balance, indicating a pending top-up rather than a failed one or a bank transfer/cash deposit.",
+            "selection": "pending_top_up"
+          },
+          "tokens": {
+            "prompt_tokens": 1552,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 286,
+            "total_tokens": 1910
+          },
+          "prediction": "pending_top_up",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "b77-03",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "transaction_charged_twice",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 1.8675779522525664,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "selection": "transaction_charged_twice",
+          "explanation": "The user is inquiring about a duplicate charge for a single purchase (being charged twice for the same item).",
+          "duration_ms": 2711.204,
+          "custom_output": {
+            "explanation": "The user is inquiring about a duplicate charge for a single purchase (being charged twice for the same item).",
+            "selection": "transaction_charged_twice"
+          },
+          "tokens": {
+            "prompt_tokens": 1413,
+            "candidates_tokens": 42,
+            "thoughts_tokens": 105,
+            "total_tokens": 1560
+          },
+          "prediction": "transaction_charged_twice",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "transaction_charged_twice",
+          "explanation": "The customer is asking why a single purchase (a coffee) resulted in a duplicate charge, which directly maps to transaction_charged_twice.",
+          "duration_ms": 1451.722,
+          "custom_output": {
+            "explanation": "The customer is asking why a single purchase (a coffee) resulted in a duplicate charge, which directly maps to transaction_charged_twice.",
+            "selection": "transaction_charged_twice"
+          },
+          "tokens": {
+            "prompt_tokens": 1545,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 51,
+            "total_tokens": 1654
+          },
+          "prediction": "transaction_charged_twice",
+          "correct": true
+        }
+      }
+    }
+  ]
+}

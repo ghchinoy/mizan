@@ -325,6 +325,8 @@ func TestEndpointFor(t *testing.T) {
 	}{
 		{"empty location -> global host", "", "", "aiplatform.googleapis.com:443"},
 		{"global location -> global host", "global", "", "aiplatform.googleapis.com:443"},
+		{"multi-region us -> global host", "us", "", "aiplatform.googleapis.com:443"},
+		{"multi-region eu -> global host", "eu", "", "aiplatform.googleapis.com:443"},
 		{"regional us-central1", "us-central1", "", "us-central1-aiplatform.googleapis.com:443"},
 		{"regional europe-west4", "europe-west4", "", "europe-west4-aiplatform.googleapis.com:443"},
 		{"override wins over regional", "us-central1", "custom.example.com:443", "custom.example.com:443"},
@@ -335,6 +337,30 @@ func TestEndpointFor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := endpointFor(tt.location, tt.apiEndpoint); got != tt.want {
 				t.Errorf("endpointFor(%q, %q) = %q, want %q", tt.location, tt.apiEndpoint, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewEngine_MultiRegionGenaiLocation(t *testing.T) {
+	for _, loc := range []string{"us", "eu"} {
+		t.Run(loc, func(t *testing.T) {
+			_, genais := installSeams(t)
+			cfg := &config.Config{ProjectID: "proj", Location: loc}
+			eng, closeFn, err := NewEngine(t.Context(), cfg)
+			if err != nil {
+				t.Fatalf("NewEngine(%q): %v", loc, err)
+			}
+			defer func() { _ = closeFn() }()
+			if len(*genais) != 1 {
+				t.Fatalf("genai clients built = %d, want 1", len(*genais))
+			}
+			if got := (*genais)[0].location; got != loc {
+				t.Errorf("genai client location = %q, want %q", got, loc)
+			}
+			target := eng.Resolve(registry.MetricTemplate{ID: "test/boul", Kind: registry.KindBoul}, "gemini-4-hydrogen", false)
+			if target.Location != loc || target.Path != "genai" {
+				t.Errorf("Resolve(%q) = %+v, want Location=%q Path=genai", loc, target, loc)
 			}
 		})
 	}

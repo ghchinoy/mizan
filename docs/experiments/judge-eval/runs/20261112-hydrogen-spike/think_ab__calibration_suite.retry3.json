@@ -1,0 +1,298 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:59:44.247705Z",
+    "finished_at": "2026-11-12T22:59:50.675113Z",
+    "dataset": "docs/experiments/judge-eval/runs/20261112-hydrogen-spike/think_ab__calibration_suite.retry3.jsonl.in",
+    "dataset_sha256": "7fb06582b065f209f3a6bf1146da11de8a93b8117735171d14f560222eba8360",
+    "engine_a": "genai",
+    "engine_b": "genai",
+    "model_a": "gemini-4-hydrogen",
+    "model_b": "gemini-4-hydrogen",
+    "diffusion_mirror_side": "both",
+    "workers": 2,
+    "warmup": 0,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_level": "low",
+    "thinking_side": "b",
+    "pairwise_genai": true,
+    "batch_wall_ms": 6427.37,
+    "throughput_items_per_sec": 0.4667538977840081,
+    "serial_engines": false,
+    "score_tolerance": 0.25,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "retry 1 of 3 errored items"
+  },
+  "total_cases": 3,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-4-hydrogen": 3
+    },
+    "model_versions": {
+      "gemini-4-hydrogen": 3
+    },
+    "cases": 3,
+    "errors": 0,
+    "scored": 3,
+    "correct": 3,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 3070.728,
+    "latency_p95_ms": 6091.480799999999,
+    "latency_mean_ms": 3572.4186666666665,
+    "mean_tokens": {
+      "n": 3,
+      "prompt": 1546.3,
+      "candidates": 63.7,
+      "thoughts": 343,
+      "total": 1953
+    }
+  },
+  "engine_b": {
+    "engine": "genai",
+    "models": {
+      "gemini-4-hydrogen": 3
+    },
+    "model_versions": {
+      "gemini-4-hydrogen": 3
+    },
+    "cases": 3,
+    "errors": 0,
+    "scored": 3,
+    "correct": 3,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 2618.358,
+    "latency_p95_ms": 2831.9154,
+    "latency_mean_ms": 2367.4486666666667,
+    "mean_tokens": {
+      "n": 3,
+      "prompt": 1546.3,
+      "candidates": 56.3,
+      "thoughts": 170.3,
+      "total": 1773
+    }
+  },
+  "paired": {
+    "n": 3,
+    "agreements": 3,
+    "agreement_pct": 100,
+    "cohen_kappa": 1,
+    "both_correct": 3,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0,
+    "mcnemar_exact_p": 1,
+    "accuracy_diff_a_minus_b": 0,
+    "accuracy_diff_ci95": {
+      "lo": 0,
+      "hi": 0
+    },
+    "median_latency_ratio_a_over_b": 1.1727685824474727
+  },
+  "by_kind": {
+    "choice": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 3,
+      "a_scored": 3,
+      "b_scored": 3,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "by_tier": {
+    "held-out": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 3,
+      "a_scored": 3,
+      "b_scored": 3,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "by_category": {
+    "intent": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 3,
+      "a_scored": 3,
+      "b_scored": 3,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "b77-01",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "card_arrival",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 2.2506727028999416,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "card_arrival",
+          "explanation": "The customer is asking how to track or locate their card, which falls under checking on a card's arrival and delivery status.",
+          "duration_ms": 6427.12,
+          "custom_output": {
+            "explanation": "The customer is asking how to track or locate their card, which falls under checking on a card's arrival and delivery status.",
+            "selection": "card_arrival"
+          },
+          "tokens": {
+            "prompt_tokens": 1542,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 763,
+            "total_tokens": 2359
+          },
+          "prediction": "card_arrival",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "card_arrival",
+          "explanation": "The customer is asking how to locate or track the arrival of their card.",
+          "duration_ms": 2855.644,
+          "custom_output": {
+            "explanation": "The customer is asking how to locate or track the arrival of their card.",
+            "selection": "card_arrival"
+          },
+          "tokens": {
+            "prompt_tokens": 1542,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 232,
+            "total_tokens": 1817
+          },
+          "prediction": "card_arrival",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "b77-02",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "pending_top_up",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 1.1727685824474727,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "pending_top_up",
+          "explanation": "The customer states they completed a top-up an hour ago and the funds have not yet appeared in their balance, without specifying a failure, bank transfer, or cash/cheque deposit, which directly corresponds to a pending top-up.",
+          "duration_ms": 3070.728,
+          "custom_output": {
+            "explanation": "The customer states they completed a top-up an hour ago and the funds have not yet appeared in their balance, without specifying a failure, bank transfer, or cash/cheque deposit, which directly corresponds to a pending top-up.",
+            "selection": "pending_top_up"
+          },
+          "tokens": {
+            "prompt_tokens": 1552,
+            "candidates_tokens": 85,
+            "thoughts_tokens": 222,
+            "total_tokens": 1859
+          },
+          "prediction": "pending_top_up",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "pending_top_up",
+          "explanation": "The customer reports that a top-up made an hour ago has not yet appeared in their balance, indicating a pending top-up.",
+          "duration_ms": 2618.358,
+          "custom_output": {
+            "explanation": "The customer reports that a top-up made an hour ago has not yet appeared in their balance, indicating a pending top-up.",
+            "selection": "pending_top_up"
+          },
+          "tokens": {
+            "prompt_tokens": 1552,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 173,
+            "total_tokens": 1789
+          },
+          "prediction": "pending_top_up",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "b77-03",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "transaction_charged_twice",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": true,
+        "speedup_factor": 0.7488638764290592,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "transaction_charged_twice",
+          "explanation": "The customer is specifically asking why they were billed twice for a single purchase.",
+          "duration_ms": 1219.408,
+          "custom_output": {
+            "explanation": "The customer is specifically asking why they were billed twice for a single purchase.",
+            "selection": "transaction_charged_twice"
+          },
+          "tokens": {
+            "prompt_tokens": 1545,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 44,
+            "total_tokens": 1641
+          },
+          "prediction": "transaction_charged_twice",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "selection": "transaction_charged_twice",
+          "explanation": "The customer is asking why they were charged twice for the same purchase, which directly matches the transaction_charged_twice intent.",
+          "duration_ms": 1628.344,
+          "custom_output": {
+            "explanation": "The customer is asking why they were charged twice for the same purchase, which directly matches the transaction_charged_twice intent.",
+            "selection": "transaction_charged_twice"
+          },
+          "tokens": {
+            "prompt_tokens": 1545,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 106,
+            "total_tokens": 1713
+          },
+          "prediction": "transaction_charged_twice",
+          "correct": true
+        }
+      }
+    }
+  ]
+}

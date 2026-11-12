@@ -1,0 +1,2503 @@
+{
+  "generated_at": "2026-11-12T23:15:12Z",
+  "candidate": "gemini-4-hydrogen",
+  "baseline": "gemini-3.8-flash",
+  "fast_baseline": "gemini-3.5-flash-lite",
+  "pro_anchors": [
+    "gemini-4-argon",
+    "gemini-4-carbon"
+  ],
+  "multi_region": [
+    {
+      "model": "gemini-3.5-flash-lite",
+      "location": "global",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-3.5-flash-lite"
+      ],
+      "p50_ms": 1080.2245,
+      "p95_ms": 1289.1005,
+      "mean_prompt_tokens": 1594.0,
+      "mean_thoughts_tokens": 0.0,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "location": "us",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-3.5-flash-lite"
+      ],
+      "p50_ms": 1080.62,
+      "p95_ms": 1207.315,
+      "mean_prompt_tokens": 1594.0,
+      "mean_thoughts_tokens": 0.0,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-3.5-flash-lite",
+      "location": "eu",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-3.5-flash-lite"
+      ],
+      "p50_ms": 1687.7150000000001,
+      "p95_ms": 1737.56325,
+      "mean_prompt_tokens": 1594.0,
+      "mean_thoughts_tokens": 0.0,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "location": "global",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-3.8-flash"
+      ],
+      "p50_ms": 3037.8635000000004,
+      "p95_ms": 3935.355,
+      "mean_prompt_tokens": 1594.0,
+      "mean_thoughts_tokens": 135.5,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "location": "us",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-3.8-flash"
+      ],
+      "p50_ms": 3058.2325,
+      "p95_ms": 7385.1035,
+      "mean_prompt_tokens": 1594.0,
+      "mean_thoughts_tokens": 138.16666666666666,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-3.8-flash",
+      "location": "eu",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-3.8-flash"
+      ],
+      "p50_ms": 3617.2084999999997,
+      "p95_ms": 3794.06675,
+      "mean_prompt_tokens": 1594.0,
+      "mean_thoughts_tokens": 161.83333333333334,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-hydrogen",
+      "location": "global",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-hydrogen"
+      ],
+      "p50_ms": 2282.0855,
+      "p95_ms": 2469.549,
+      "mean_prompt_tokens": 1728.0,
+      "mean_thoughts_tokens": 146.66666666666666,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-hydrogen",
+      "location": "us",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-hydrogen"
+      ],
+      "p50_ms": 2528.0035,
+      "p95_ms": 2955.78025,
+      "mean_prompt_tokens": 1728.0,
+      "mean_thoughts_tokens": 169.33333333333334,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-hydrogen",
+      "location": "eu",
+      "n": 6,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-hydrogen"
+      ],
+      "p50_ms": 2986.8225,
+      "p95_ms": 3749.39725,
+      "mean_prompt_tokens": 1728.0,
+      "mean_thoughts_tokens": 164.5,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-argon",
+      "location": "global",
+      "n": 5,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-argon"
+      ],
+      "p50_ms": 4932.515,
+      "p95_ms": 7043.054999999999,
+      "mean_prompt_tokens": 1757.2,
+      "mean_thoughts_tokens": 0.0,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-argon",
+      "location": "us",
+      "n": 5,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-argon"
+      ],
+      "p50_ms": 4879.009,
+      "p95_ms": 11138.9292,
+      "mean_prompt_tokens": 1757.2,
+      "mean_thoughts_tokens": 0.0,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-argon",
+      "location": "eu",
+      "n": 5,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-argon"
+      ],
+      "p50_ms": 8952.393,
+      "p95_ms": 12732.6014,
+      "mean_prompt_tokens": 1757.2,
+      "mean_thoughts_tokens": 20.8,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-carbon",
+      "location": "global",
+      "n": 5,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-carbon"
+      ],
+      "p50_ms": 5941.722,
+      "p95_ms": 8135.2086,
+      "mean_prompt_tokens": 1757.2,
+      "mean_thoughts_tokens": 108.2,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-carbon",
+      "location": "us",
+      "n": 5,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-carbon"
+      ],
+      "p50_ms": 6976.419,
+      "p95_ms": 7703.1720000000005,
+      "mean_prompt_tokens": 1757.2,
+      "mean_thoughts_tokens": 103.0,
+      "native_eval_global_ok": "3/3"
+    },
+    {
+      "model": "gemini-4-carbon",
+      "location": "eu",
+      "n": 5,
+      "errors": 0,
+      "reachable": true,
+      "model_versions": [
+        "gemini-4-carbon"
+      ],
+      "p50_ms": 5644.824,
+      "p95_ms": 6852.793,
+      "mean_prompt_tokens": 1757.2,
+      "mean_thoughts_tokens": 101.4,
+      "native_eval_global_ok": "3/3"
+    }
+  ],
+  "per_suite": {
+    "safety_response": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 77,
+          "errors": 0,
+          "accuracy": 0.77,
+          "accuracy_ci95": [
+            0.68,
+            0.85
+          ],
+          "latency_p50_ms": 3367.1485000000002,
+          "latency_p95_ms": 6311.668099999999,
+          "mean_prompt_tokens": 412.5,
+          "mean_candidates_tokens": 54.41,
+          "mean_thoughts_tokens": 164.17,
+          "mean_total_tokens": 631.08,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 78,
+          "errors": 0,
+          "accuracy": 0.78,
+          "accuracy_ci95": [
+            0.7,
+            0.86
+          ],
+          "latency_p50_ms": 2441.0235000000002,
+          "latency_p95_ms": 4730.705899999997,
+          "mean_prompt_tokens": 578.64,
+          "mean_candidates_tokens": 69.96,
+          "mean_thoughts_tokens": 300.46,
+          "mean_total_tokens": 949.06,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 79,
+          "errors": 0,
+          "accuracy": 0.79,
+          "accuracy_ci95": [
+            0.71,
+            0.87
+          ],
+          "latency_p50_ms": 832.4625000000001,
+          "latency_p95_ms": 1026.204,
+          "mean_prompt_tokens": 412.5,
+          "mean_candidates_tokens": 56.8,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 469.3,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": null,
+          "mae": null
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 76,
+          "only_a_correct": 1,
+          "only_b_correct": 2,
+          "both_wrong": 21,
+          "diff_b_minus_a": 0.01,
+          "diff_b_minus_a_ci95": [
+            -0.02,
+            0.05
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 97.0,
+          "cohen_kappa": 0.9316939890710382
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 76,
+          "only_a_correct": 3,
+          "only_b_correct": 2,
+          "both_wrong": 19,
+          "diff_b_minus_a": -0.01,
+          "diff_b_minus_a_ci95": [
+            -0.06,
+            0.03
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 95.0,
+          "cohen_kappa": 0.8893805309734513
+        }
+      }
+    },
+    "toxicity_prompt": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 98,
+          "n_correct": 89,
+          "errors": 2,
+          "accuracy": 0.9081632653061225,
+          "accuracy_ci95": [
+            0.8469387755102041,
+            0.9591836734693877
+          ],
+          "latency_p50_ms": 3123.0035,
+          "latency_p95_ms": 8801.254449999997,
+          "mean_prompt_tokens": 320.51020408163265,
+          "mean_candidates_tokens": 51.60204081632653,
+          "mean_thoughts_tokens": 197.30612244897958,
+          "mean_total_tokens": 569.4183673469388,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 98,
+          "n_correct": 87,
+          "errors": 2,
+          "accuracy": 0.8877551020408163,
+          "accuracy_ci95": [
+            0.826530612244898,
+            0.9489795918367347
+          ],
+          "latency_p50_ms": 2400.4055,
+          "latency_p95_ms": 6243.188949999982,
+          "mean_prompt_tokens": 547.969387755102,
+          "mean_candidates_tokens": 66.31632653061224,
+          "mean_thoughts_tokens": 371.4591836734694,
+          "mean_total_tokens": 985.7448979591836,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 99,
+          "n_correct": 81,
+          "errors": 1,
+          "accuracy": 0.8181818181818182,
+          "accuracy_ci95": [
+            0.7474747474747475,
+            0.8888888888888888
+          ],
+          "latency_p50_ms": 845.085,
+          "latency_p95_ms": 1006.8899,
+          "mean_prompt_tokens": 321.8888888888889,
+          "mean_candidates_tokens": 61.23232323232323,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 383.1212121212121,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-argon": {
+          "n_total": 100,
+          "n_scored": 96,
+          "n_correct": 87,
+          "errors": 4,
+          "accuracy": 0.90625,
+          "accuracy_ci95": [
+            0.84375,
+            0.9583333333333334
+          ],
+          "latency_p50_ms": 4319.2235,
+          "latency_p95_ms": 7122.62775,
+          "mean_prompt_tokens": 533.0625,
+          "mean_candidates_tokens": 74.76041666666667,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 607.8229166666666,
+          "model_versions": [
+            "gemini-4-argon"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-carbon": {
+          "n_total": 100,
+          "n_scored": 97,
+          "n_correct": 88,
+          "errors": 3,
+          "accuracy": 0.9072164948453608,
+          "accuracy_ci95": [
+            0.845360824742268,
+            0.9587628865979382
+          ],
+          "latency_p50_ms": 6401.977,
+          "latency_p95_ms": 16222.719999999988,
+          "mean_prompt_tokens": 541.5360824742268,
+          "mean_candidates_tokens": 69.69072164948453,
+          "mean_thoughts_tokens": 183.29896907216494,
+          "mean_total_tokens": 794.5257731958762,
+          "model_versions": [
+            "gemini-4-carbon"
+          ],
+          "spearman": null,
+          "mae": null
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 98,
+          "both_correct": 87,
+          "only_a_correct": 2,
+          "only_b_correct": 0,
+          "both_wrong": 9,
+          "diff_b_minus_a": -0.02040816326530612,
+          "diff_b_minus_a_ci95": [
+            -0.05102040816326531,
+            0.0
+          ],
+          "mcnemar_p": 0.5,
+          "agreement_pct": 97.95918367346938,
+          "cohen_kappa": 0.9570363875493204
+        },
+        "fast_vs_cand": {
+          "n_paired": 98,
+          "both_correct": 79,
+          "only_a_correct": 1,
+          "only_b_correct": 8,
+          "both_wrong": 10,
+          "diff_b_minus_a": 0.07142857142857142,
+          "diff_b_minus_a_ci95": [
+            0.02040816326530612,
+            0.1326530612244898
+          ],
+          "mcnemar_p": 0.0390625,
+          "agreement_pct": 90.81632653061224,
+          "cohen_kappa": 0.7992717341829768
+        }
+      }
+    },
+    "groundedness": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 78,
+          "errors": 0,
+          "accuracy": 0.78,
+          "accuracy_ci95": [
+            0.7,
+            0.86
+          ],
+          "latency_p50_ms": 3741.679,
+          "latency_p95_ms": 7746.428699999997,
+          "mean_prompt_tokens": 975.4,
+          "mean_candidates_tokens": 75.8,
+          "mean_thoughts_tokens": 311.14,
+          "mean_total_tokens": 1362.34,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 78,
+          "errors": 0,
+          "accuracy": 0.78,
+          "accuracy_ci95": [
+            0.7,
+            0.86
+          ],
+          "latency_p50_ms": 3416.8450000000003,
+          "latency_p95_ms": 7213.806899999992,
+          "mean_prompt_tokens": 1112.18,
+          "mean_candidates_tokens": 96.15,
+          "mean_thoughts_tokens": 445.8,
+          "mean_total_tokens": 1654.13,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 82,
+          "errors": 0,
+          "accuracy": 0.82,
+          "accuracy_ci95": [
+            0.74,
+            0.89
+          ],
+          "latency_p50_ms": 863.89,
+          "latency_p95_ms": 1118.4650500000002,
+          "mean_prompt_tokens": 975.4,
+          "mean_candidates_tokens": 70.88,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 1046.28,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": null,
+          "mae": null
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 77,
+          "only_a_correct": 1,
+          "only_b_correct": 1,
+          "both_wrong": 21,
+          "diff_b_minus_a": 0.0,
+          "diff_b_minus_a_ci95": [
+            -0.03,
+            0.03
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 98.0,
+          "cohen_kappa": 0.9560632688927944
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 74,
+          "only_a_correct": 8,
+          "only_b_correct": 4,
+          "both_wrong": 14,
+          "diff_b_minus_a": -0.04,
+          "diff_b_minus_a_ci95": [
+            -0.1,
+            0.03
+          ],
+          "mcnemar_p": 0.3876953125,
+          "agreement_pct": 88.0,
+          "cohen_kappa": 0.7470489038785835
+        }
+      }
+    },
+    "pairwise_mtbench": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 78,
+          "errors": 0,
+          "accuracy": 0.78,
+          "accuracy_ci95": [
+            0.7,
+            0.86
+          ],
+          "latency_p50_ms": 4081.4245,
+          "latency_p95_ms": 11656.722499999998,
+          "mean_prompt_tokens": 740.0,
+          "mean_candidates_tokens": 78.47,
+          "mean_thoughts_tokens": 304.42,
+          "mean_total_tokens": 1122.89,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 75,
+          "errors": 0,
+          "accuracy": 0.75,
+          "accuracy_ci95": [
+            0.67,
+            0.84
+          ],
+          "latency_p50_ms": 3338.85,
+          "latency_p95_ms": 9932.908299999996,
+          "mean_prompt_tokens": 868.75,
+          "mean_candidates_tokens": 99.25,
+          "mean_thoughts_tokens": 548.64,
+          "mean_total_tokens": 1516.64,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 64,
+          "errors": 0,
+          "accuracy": 0.64,
+          "accuracy_ci95": [
+            0.54,
+            0.73
+          ],
+          "latency_p50_ms": 925.77,
+          "latency_p95_ms": 1389.8666999999996,
+          "mean_prompt_tokens": 740.0,
+          "mean_candidates_tokens": 88.68,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 828.68,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-argon": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 76,
+          "errors": 0,
+          "accuracy": 0.76,
+          "accuracy_ci95": [
+            0.68,
+            0.84
+          ],
+          "latency_p50_ms": 6145.7125,
+          "latency_p95_ms": 21690.783699999993,
+          "mean_prompt_tokens": 868.75,
+          "mean_candidates_tokens": 96.08,
+          "mean_thoughts_tokens": 15.79,
+          "mean_total_tokens": 980.62,
+          "model_versions": [
+            "gemini-4-argon"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-carbon": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 70,
+          "errors": 0,
+          "accuracy": 0.7,
+          "accuracy_ci95": [
+            0.61,
+            0.79
+          ],
+          "latency_p50_ms": 7174.427,
+          "latency_p95_ms": 32241.875649999998,
+          "mean_prompt_tokens": 868.75,
+          "mean_candidates_tokens": 99.58,
+          "mean_thoughts_tokens": 386.64,
+          "mean_total_tokens": 1354.97,
+          "model_versions": [
+            "gemini-4-carbon"
+          ],
+          "spearman": null,
+          "mae": null
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 75,
+          "only_a_correct": 3,
+          "only_b_correct": 0,
+          "both_wrong": 22,
+          "diff_b_minus_a": -0.03,
+          "diff_b_minus_a_ci95": [
+            -0.07,
+            0.0
+          ],
+          "mcnemar_p": 0.25,
+          "agreement_pct": 96.0,
+          "cohen_kappa": 0.9317639031047423
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 60,
+          "only_a_correct": 4,
+          "only_b_correct": 15,
+          "both_wrong": 21,
+          "diff_b_minus_a": 0.11,
+          "diff_b_minus_a_ci95": [
+            0.03,
+            0.2
+          ],
+          "mcnemar_p": 0.0192108154296875,
+          "agreement_pct": 76.0,
+          "cohen_kappa": 0.5846313603322949
+        }
+      }
+    },
+    "pairwise_multiturn": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 73,
+          "errors": 0,
+          "accuracy": 0.73,
+          "accuracy_ci95": [
+            0.64,
+            0.81
+          ],
+          "latency_p50_ms": 4392.748,
+          "latency_p95_ms": 10277.675349999998,
+          "mean_prompt_tokens": 1201.44,
+          "mean_candidates_tokens": 83.43,
+          "mean_thoughts_tokens": 341.54,
+          "mean_total_tokens": 1626.41,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 72,
+          "errors": 0,
+          "accuracy": 0.72,
+          "accuracy_ci95": [
+            0.63,
+            0.8
+          ],
+          "latency_p50_ms": 4604.109,
+          "latency_p95_ms": 12150.33045,
+          "mean_prompt_tokens": 1326.2,
+          "mean_candidates_tokens": 109.87,
+          "mean_thoughts_tokens": 699.37,
+          "mean_total_tokens": 2135.44,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 66,
+          "errors": 0,
+          "accuracy": 0.66,
+          "accuracy_ci95": [
+            0.57,
+            0.75
+          ],
+          "latency_p50_ms": 971.062,
+          "latency_p95_ms": 1542.5144,
+          "mean_prompt_tokens": 1201.44,
+          "mean_candidates_tokens": 90.7,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 1292.14,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": null,
+          "mae": null
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 69,
+          "only_a_correct": 4,
+          "only_b_correct": 3,
+          "both_wrong": 24,
+          "diff_b_minus_a": -0.01,
+          "diff_b_minus_a_ci95": [
+            -0.06,
+            0.04
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 90.0,
+          "cohen_kappa": 0.8217468805704101
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 59,
+          "only_a_correct": 7,
+          "only_b_correct": 13,
+          "both_wrong": 21,
+          "diff_b_minus_a": 0.06,
+          "diff_b_minus_a_ci95": [
+            -0.02,
+            0.15
+          ],
+          "mcnemar_p": 0.26317596435546875,
+          "agreement_pct": 76.0,
+          "cohen_kappa": 0.5664739884393063
+        }
+      }
+    },
+    "pairwise_instruction_following": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 92,
+          "errors": 0,
+          "accuracy": 0.92,
+          "accuracy_ci95": [
+            0.87,
+            0.97
+          ],
+          "latency_p50_ms": 2966.5785,
+          "latency_p95_ms": 6116.830749999997,
+          "mean_prompt_tokens": 503.93,
+          "mean_candidates_tokens": 57.57,
+          "mean_thoughts_tokens": 173.66,
+          "mean_total_tokens": 735.16,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 94,
+          "errors": 0,
+          "accuracy": 0.94,
+          "accuracy_ci95": [
+            0.89,
+            0.98
+          ],
+          "latency_p50_ms": 2328.3975,
+          "latency_p95_ms": 4635.887749999994,
+          "mean_prompt_tokens": 634.61,
+          "mean_candidates_tokens": 77.2,
+          "mean_thoughts_tokens": 292.28,
+          "mean_total_tokens": 1004.09,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 78,
+          "errors": 0,
+          "accuracy": 0.78,
+          "accuracy_ci95": [
+            0.7,
+            0.86
+          ],
+          "latency_p50_ms": 870.6324999999999,
+          "latency_p95_ms": 1054.1829500000001,
+          "mean_prompt_tokens": 503.93,
+          "mean_candidates_tokens": 59.41,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 563.34,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-argon": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 92,
+          "errors": 0,
+          "accuracy": 0.92,
+          "accuracy_ci95": [
+            0.86,
+            0.97
+          ],
+          "latency_p50_ms": 4355.251,
+          "latency_p95_ms": 9580.050099999999,
+          "mean_prompt_tokens": 630.46,
+          "mean_candidates_tokens": 74.85,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 705.31,
+          "model_versions": [
+            "gemini-4-argon"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-carbon": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 94,
+          "errors": 0,
+          "accuracy": 0.94,
+          "accuracy_ci95": [
+            0.89,
+            0.98
+          ],
+          "latency_p50_ms": 5678.154,
+          "latency_p95_ms": 10568.881099999997,
+          "mean_prompt_tokens": 630.46,
+          "mean_candidates_tokens": 75.09,
+          "mean_thoughts_tokens": 136.21,
+          "mean_total_tokens": 841.76,
+          "model_versions": [
+            "gemini-4-carbon"
+          ],
+          "spearman": null,
+          "mae": null
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 91,
+          "only_a_correct": 1,
+          "only_b_correct": 3,
+          "both_wrong": 5,
+          "diff_b_minus_a": 0.02,
+          "diff_b_minus_a_ci95": [
+            -0.02,
+            0.06
+          ],
+          "mcnemar_p": 0.625,
+          "agreement_pct": 96.0,
+          "cohen_kappa": 0.9207135777998017
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 77,
+          "only_a_correct": 1,
+          "only_b_correct": 17,
+          "both_wrong": 5,
+          "diff_b_minus_a": 0.16,
+          "diff_b_minus_a_ci95": [
+            0.09,
+            0.24
+          ],
+          "mcnemar_p": 0.00014495849609375,
+          "agreement_pct": 82.0,
+          "cohen_kappa": 0.6543778801843317
+        }
+      }
+    },
+    "pairwise_rewardbench": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 89,
+          "errors": 0,
+          "accuracy": 0.89,
+          "accuracy_ci95": [
+            0.83,
+            0.95
+          ],
+          "latency_p50_ms": 3629.774,
+          "latency_p95_ms": 10169.76215,
+          "mean_prompt_tokens": 738.92,
+          "mean_candidates_tokens": 72.78,
+          "mean_thoughts_tokens": 207.06,
+          "mean_total_tokens": 1018.76,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 90,
+          "errors": 0,
+          "accuracy": 0.9,
+          "accuracy_ci95": [
+            0.84,
+            0.96
+          ],
+          "latency_p50_ms": 2696.1485000000002,
+          "latency_p95_ms": 7053.892299999996,
+          "mean_prompt_tokens": 867.38,
+          "mean_candidates_tokens": 92.68,
+          "mean_thoughts_tokens": 347.67,
+          "mean_total_tokens": 1307.73,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 88,
+          "errors": 0,
+          "accuracy": 0.88,
+          "accuracy_ci95": [
+            0.81,
+            0.94
+          ],
+          "latency_p50_ms": 915.073,
+          "latency_p95_ms": 1247.67725,
+          "mean_prompt_tokens": 738.92,
+          "mean_candidates_tokens": 82.09,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 821.01,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": null,
+          "mae": null
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 88,
+          "only_a_correct": 1,
+          "only_b_correct": 2,
+          "both_wrong": 9,
+          "diff_b_minus_a": 0.01,
+          "diff_b_minus_a_ci95": [
+            -0.02,
+            0.05
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 97.0,
+          "cohen_kappa": 0.941141848145968
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 85,
+          "only_a_correct": 3,
+          "only_b_correct": 5,
+          "both_wrong": 7,
+          "diff_b_minus_a": 0.02,
+          "diff_b_minus_a_ci95": [
+            -0.03,
+            0.08
+          ],
+          "mcnemar_p": 0.7265625,
+          "agreement_pct": 92.0,
+          "cohen_kappa": 0.8423955870764382
+        }
+      }
+    },
+    "likert_helpfulness": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 46,
+          "errors": 0,
+          "accuracy": 0.46,
+          "accuracy_ci95": [
+            0.36,
+            0.56
+          ],
+          "latency_p50_ms": 4314.827499999999,
+          "latency_p95_ms": 7160.3424,
+          "mean_prompt_tokens": 684.23,
+          "mean_candidates_tokens": 73.58,
+          "mean_thoughts_tokens": 248.07,
+          "mean_total_tokens": 1005.88,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": 0.6835637255772608,
+          "mae": 0.77
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 40,
+          "errors": 0,
+          "accuracy": 0.4,
+          "accuracy_ci95": [
+            0.3,
+            0.49
+          ],
+          "latency_p50_ms": 4113.3305,
+          "latency_p95_ms": 6671.939449999997,
+          "mean_prompt_tokens": 818.98,
+          "mean_candidates_tokens": 88.95,
+          "mean_thoughts_tokens": 488.24,
+          "mean_total_tokens": 1396.17,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": 0.6527288517466504,
+          "mae": 0.79
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 39,
+          "errors": 0,
+          "accuracy": 0.39,
+          "accuracy_ci95": [
+            0.3,
+            0.49
+          ],
+          "latency_p50_ms": 832.9235,
+          "latency_p95_ms": 1119.3089,
+          "mean_prompt_tokens": 684.23,
+          "mean_candidates_tokens": 59.24,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 743.47,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": 0.5920697855559914,
+          "mae": 0.95
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 36,
+          "only_a_correct": 10,
+          "only_b_correct": 4,
+          "both_wrong": 50,
+          "diff_b_minus_a": -0.06,
+          "diff_b_minus_a_ci95": [
+            -0.14,
+            0.01
+          ],
+          "mcnemar_p": 0.1795654296875,
+          "agreement_pct": 69.0,
+          "cohen_kappa": 0.6118692875923375
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 22,
+          "only_a_correct": 17,
+          "only_b_correct": 18,
+          "both_wrong": 43,
+          "diff_b_minus_a": 0.01,
+          "diff_b_minus_a_ci95": [
+            -0.11,
+            0.12
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 46.0,
+          "cohen_kappa": 0.3389643775247889
+        }
+      }
+    },
+    "likert_coherence": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 43,
+          "errors": 0,
+          "accuracy": 0.43,
+          "accuracy_ci95": [
+            0.33,
+            0.53
+          ],
+          "latency_p50_ms": 4263.635,
+          "latency_p95_ms": 6267.996299999999,
+          "mean_prompt_tokens": 751.44,
+          "mean_candidates_tokens": 60.79,
+          "mean_thoughts_tokens": 309.37,
+          "mean_total_tokens": 1121.6,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": 0.779250581115913,
+          "mae": 0.706662
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 47,
+          "errors": 0,
+          "accuracy": 0.47,
+          "accuracy_ci95": [
+            0.37,
+            0.57
+          ],
+          "latency_p50_ms": 3160.013,
+          "latency_p95_ms": 5632.115449999999,
+          "mean_prompt_tokens": 888.07,
+          "mean_candidates_tokens": 73.95,
+          "mean_thoughts_tokens": 364.25,
+          "mean_total_tokens": 1326.27,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": 0.8011667494752579,
+          "mae": 0.69666
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 43,
+          "errors": 0,
+          "accuracy": 0.43,
+          "accuracy_ci95": [
+            0.33,
+            0.53
+          ],
+          "latency_p50_ms": 847.2125000000001,
+          "latency_p95_ms": 1011.5034,
+          "mean_prompt_tokens": 751.44,
+          "mean_candidates_tokens": 56.97,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 808.41,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": 0.774925846771735,
+          "mae": 0.826658
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 33,
+          "only_a_correct": 10,
+          "only_b_correct": 14,
+          "both_wrong": 43,
+          "diff_b_minus_a": 0.04,
+          "diff_b_minus_a_ci95": [
+            -0.05,
+            0.13
+          ],
+          "mcnemar_p": 0.5412561893463135,
+          "agreement_pct": 69.0,
+          "cohen_kappa": 0.5970362667359936
+        },
+        "fast_vs_cand": {
+          "n_paired": 100,
+          "both_correct": 24,
+          "only_a_correct": 19,
+          "only_b_correct": 23,
+          "both_wrong": 34,
+          "diff_b_minus_a": 0.04,
+          "diff_b_minus_a_ci95": [
+            -0.09,
+            0.17
+          ],
+          "mcnemar_p": 0.6439689563703723,
+          "agreement_pct": 37.0,
+          "cohen_kappa": 0.22594913380022114
+        }
+      }
+    },
+    "calibration_suite": {
+      "models": {
+        "gemini-3.8-flash": {
+          "n_total": 46,
+          "n_scored": 46,
+          "n_correct": 42,
+          "errors": 0,
+          "accuracy": 0.9130434782608695,
+          "accuracy_ci95": [
+            0.8260869565217391,
+            0.9782608695652174
+          ],
+          "latency_p50_ms": 2996.98,
+          "latency_p95_ms": 8963.31875,
+          "mean_prompt_tokens": 430.1304347826087,
+          "mean_candidates_tokens": 48.67391304347826,
+          "mean_thoughts_tokens": 220.2391304347826,
+          "mean_total_tokens": 699.0434782608696,
+          "model_versions": [
+            "gemini-3.8-flash"
+          ],
+          "spearman": 0.9003508474033377,
+          "mae": 0.215
+        },
+        "gemini-4-hydrogen": {
+          "n_total": 46,
+          "n_scored": 46,
+          "n_correct": 43,
+          "errors": 0,
+          "accuracy": 0.9347826086956522,
+          "accuracy_ci95": [
+            0.8478260869565217,
+            1.0
+          ],
+          "latency_p50_ms": 2409.7160000000003,
+          "latency_p95_ms": 6269.106,
+          "mean_prompt_tokens": 583.2391304347826,
+          "mean_candidates_tokens": 62.84782608695652,
+          "mean_thoughts_tokens": 358.10869565217394,
+          "mean_total_tokens": 1004.195652173913,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": 0.9813067629253163,
+          "mae": 0.12
+        },
+        "gemini-3.5-flash-lite": {
+          "n_total": 46,
+          "n_scored": 46,
+          "n_correct": 42,
+          "errors": 0,
+          "accuracy": 0.9130434782608695,
+          "accuracy_ci95": [
+            0.8260869565217391,
+            0.9782608695652174
+          ],
+          "latency_p50_ms": 863.784,
+          "latency_p95_ms": 1121.193,
+          "mean_prompt_tokens": 430.1304347826087,
+          "mean_candidates_tokens": 49.15217391304348,
+          "mean_thoughts_tokens": 0.0,
+          "mean_total_tokens": 479.2826086956522,
+          "model_versions": [
+            "gemini-3.5-flash-lite"
+          ],
+          "spearman": 0.9003508474033377,
+          "mae": 0.2
+        },
+        "gemini-4-argon": {
+          "n_total": 46,
+          "n_scored": 46,
+          "n_correct": 42,
+          "errors": 0,
+          "accuracy": 0.9130434782608695,
+          "accuracy_ci95": [
+            0.8260869565217391,
+            0.9782608695652174
+          ],
+          "latency_p50_ms": 4334.8935,
+          "latency_p95_ms": 15221.20075,
+          "mean_prompt_tokens": 578.4130434782609,
+          "mean_candidates_tokens": 64.52173913043478,
+          "mean_thoughts_tokens": 3.4130434782608696,
+          "mean_total_tokens": 646.3478260869565,
+          "model_versions": [
+            "gemini-4-argon"
+          ],
+          "spearman": 0.9146591207600472,
+          "mae": 0.22000000000000003
+        },
+        "gemini-4-carbon": {
+          "n_total": 46,
+          "n_scored": 46,
+          "n_correct": 43,
+          "errors": 0,
+          "accuracy": 0.9347826086956522,
+          "accuracy_ci95": [
+            0.8478260869565217,
+            1.0
+          ],
+          "latency_p50_ms": 6259.099,
+          "latency_p95_ms": 23148.6105,
+          "mean_prompt_tokens": 666.6521739130435,
+          "mean_candidates_tokens": 61.108695652173914,
+          "mean_thoughts_tokens": 111.0,
+          "mean_total_tokens": 838.7608695652174,
+          "model_versions": [
+            "gemini-4-carbon"
+          ],
+          "spearman": 0.9813067629253163,
+          "mae": 0.125
+        }
+      },
+      "paired": {
+        "base_vs_cand": {
+          "n_paired": 46,
+          "both_correct": 42,
+          "only_a_correct": 0,
+          "only_b_correct": 1,
+          "both_wrong": 3,
+          "diff_b_minus_a": 0.021739130434782608,
+          "diff_b_minus_a_ci95": [
+            0.0,
+            0.06521739130434782
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 93.47826086956522,
+          "cohen_kappa": 0.9285714285714286
+        },
+        "fast_vs_cand": {
+          "n_paired": 46,
+          "both_correct": 41,
+          "only_a_correct": 1,
+          "only_b_correct": 2,
+          "both_wrong": 2,
+          "diff_b_minus_a": 0.021739130434782608,
+          "diff_b_minus_a_ci95": [
+            -0.043478260869565216,
+            0.10869565217391304
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 91.30434782608695,
+          "cohen_kappa": 0.9050077439339184
+        }
+      }
+    }
+  },
+  "pooled_discrete_746": {
+    "models": {
+      "gemini-3.5-flash-lite": {
+        "n_total": 746,
+        "n_scored": 745,
+        "n_correct": 580,
+        "errors": 1,
+        "accuracy": 0.7785234899328859,
+        "accuracy_ci95": [
+          0.7463087248322148,
+          0.8080536912751678
+        ],
+        "latency_p50_ms": 881.157,
+        "latency_p95_ms": 1195.6467999999998,
+        "mean_prompt_tokens": 683.0496644295303,
+        "mean_candidates_tokens": 71.38120805369128,
+        "mean_thoughts_tokens": 0.0,
+        "mean_total_tokens": 754.4308724832215,
+        "model_versions": [
+          "gemini-3.5-flash-lite"
+        ],
+        "spearman": 0.9003508474033377,
+        "mae": 0.2
+      },
+      "gemini-3.8-flash": {
+        "n_total": 746,
+        "n_scored": 744,
+        "n_correct": 618,
+        "errors": 2,
+        "accuracy": 0.8306451612903226,
+        "accuracy_ci95": [
+          0.8024193548387096,
+          0.8561827956989247
+        ],
+        "latency_p50_ms": 3485.617,
+        "latency_p95_ms": 8949.747000000005,
+        "mean_prompt_tokens": 683.3534946236559,
+        "mean_candidates_tokens": 66.58870967741936,
+        "mean_thoughts_tokens": 241.48655913978496,
+        "mean_total_tokens": 991.4287634408602,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ],
+        "spearman": 0.9003508474033377,
+        "mae": 0.215
+      },
+      "gemini-4-hydrogen": {
+        "n_total": 746,
+        "n_scored": 744,
+        "n_correct": 617,
+        "errors": 2,
+        "accuracy": 0.8293010752688172,
+        "accuracy_ci95": [
+          0.8024193548387096,
+          0.8548387096774194
+        ],
+        "latency_p50_ms": 2894.754,
+        "latency_p95_ms": 9538.92775,
+        "mean_prompt_tokens": 832.4005376344086,
+        "mean_candidates_tokens": 85.88844086021506,
+        "mean_thoughts_tokens": 425.1317204301075,
+        "mean_total_tokens": 1343.4206989247311,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": 0.9813067629253163,
+        "mae": 0.12
+      }
+    },
+    "paired": {
+      "base_vs_cand": {
+        "n_paired": 744,
+        "both_correct": 605,
+        "only_a_correct": 13,
+        "only_b_correct": 12,
+        "both_wrong": 114,
+        "diff_b_minus_a": -0.0013440860215053765,
+        "diff_b_minus_a_ci95": [
+          -0.013440860215053764,
+          0.012096774193548387
+        ],
+        "mcnemar_p": 1.0,
+        "agreement_pct": 95.83333333333333,
+        "cohen_kappa": 0.9460839317773787
+      },
+      "fast_vs_cand": {
+        "n_paired": 744,
+        "both_correct": 551,
+        "only_a_correct": 28,
+        "only_b_correct": 66,
+        "both_wrong": 99,
+        "diff_b_minus_a": 0.051075268817204304,
+        "diff_b_minus_a_ci95": [
+          0.026881720430107527,
+          0.07661290322580645
+        ],
+        "mcnemar_p": 0.00011112062020663297,
+        "agreement_pct": 86.02150537634408,
+        "cohen_kappa": 0.8188166037947918
+      },
+      "fast_vs_base": {
+        "n_paired": 744,
+        "both_correct": 554,
+        "only_a_correct": 25,
+        "only_b_correct": 64,
+        "both_wrong": 101,
+        "diff_b_minus_a": 0.05241935483870968,
+        "diff_b_minus_a_ci95": [
+          0.028225806451612902,
+          0.07661290322580645
+        ],
+        "mcnemar_p": 4.3215209249838775e-05,
+        "agreement_pct": 86.96236559139786,
+        "cohen_kappa": 0.8305294896722744
+      }
+    }
+  },
+  "pooled_946": {
+    "models": {
+      "gemini-3.5-flash-lite": {
+        "n_total": 946,
+        "n_scored": 945,
+        "n_correct": 662,
+        "errors": 1,
+        "accuracy": 0.7005291005291006,
+        "accuracy_ci95": [
+          0.6708994708994709,
+          0.7301587301587301
+        ],
+        "latency_p50_ms": 870.145,
+        "latency_p95_ms": 1165.4337999999996,
+        "mean_prompt_tokens": 690.4116402116402,
+        "mean_candidates_tokens": 68.57142857142857,
+        "mean_thoughts_tokens": 0.0,
+        "mean_total_tokens": 758.9830687830688,
+        "model_versions": [
+          "gemini-3.5-flash-lite"
+        ],
+        "spearman": 0.7278185943514401,
+        "mae": 0.8555514285714285
+      },
+      "gemini-3.8-flash": {
+        "n_total": 946,
+        "n_scored": 944,
+        "n_correct": 707,
+        "errors": 2,
+        "accuracy": 0.7489406779661016,
+        "accuracy_ci95": [
+          0.7213983050847458,
+          0.7764830508474576
+        ],
+        "latency_p50_ms": 3648.2439999999997,
+        "latency_p95_ms": 7942.296349999992,
+        "mean_prompt_tokens": 690.6588983050848,
+        "mean_candidates_tokens": 66.71504237288136,
+        "mean_thoughts_tokens": 249.375,
+        "mean_total_tokens": 1006.7489406779661,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ],
+        "spearman": 0.7614863231744305,
+        "mae": 0.7134104761904763
+      },
+      "gemini-4-hydrogen": {
+        "n_total": 946,
+        "n_scored": 944,
+        "n_correct": 704,
+        "errors": 2,
+        "accuracy": 0.7457627118644068,
+        "accuracy_ci95": [
+          0.7182203389830508,
+          0.7733050847457628
+        ],
+        "latency_p50_ms": 3110.321,
+        "latency_p95_ms": 9108.90149999999,
+        "mean_prompt_tokens": 836.8760593220339,
+        "mean_candidates_tokens": 84.94809322033899,
+        "mean_thoughts_tokens": 425.3675847457627,
+        "mean_total_tokens": 1347.1917372881355,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": 0.7595160931388376,
+        "mae": 0.7136476190476191
+      }
+    },
+    "paired": {
+      "base_vs_cand": {
+        "n_paired": 944,
+        "both_correct": 674,
+        "only_a_correct": 33,
+        "only_b_correct": 30,
+        "both_wrong": 207,
+        "diff_b_minus_a": -0.0031779661016949155,
+        "diff_b_minus_a_ci95": [
+          -0.019067796610169493,
+          0.013771186440677966
+        ],
+        "mcnemar_p": 0.8013064925040662,
+        "agreement_pct": 90.14830508474576,
+        "cohen_kappa": 0.8840166143504867
+      },
+      "fast_vs_cand": {
+        "n_paired": 944,
+        "both_correct": 597,
+        "only_a_correct": 64,
+        "only_b_correct": 107,
+        "both_wrong": 176,
+        "diff_b_minus_a": 0.045550847457627115,
+        "diff_b_minus_a_ci95": [
+          0.019067796610169493,
+          0.07309322033898305
+        ],
+        "mcnemar_p": 0.0012521567557723804,
+        "agreement_pct": 76.58898305084746,
+        "cohen_kappa": 0.7245662351241952
+      },
+      "fast_vs_base": {
+        "n_paired": 944,
+        "both_correct": 610,
+        "only_a_correct": 51,
+        "only_b_correct": 97,
+        "both_wrong": 186,
+        "diff_b_minus_a": 0.048728813559322036,
+        "diff_b_minus_a_ci95": [
+          0.023305084745762712,
+          0.07415254237288135
+        ],
+        "mcnemar_p": 0.00019430029159324684,
+        "agreement_pct": 79.34322033898304,
+        "cohen_kappa": 0.7565652531546806
+      }
+    }
+  },
+  "pooled_hard_346": {
+    "models": {
+      "gemini-3.5-flash-lite": {
+        "n_total": 346,
+        "n_scored": 345,
+        "n_correct": 265,
+        "errors": 1,
+        "accuracy": 0.7681159420289855,
+        "accuracy_ci95": [
+          0.7275362318840579,
+          0.8144927536231884
+        ],
+        "latency_p50_ms": 870.145,
+        "latency_p95_ms": 1148.4264000000003,
+        "mean_prompt_tokens": 510.2782608695652,
+        "mean_candidates_tokens": 67.04927536231884,
+        "mean_thoughts_tokens": 0.0,
+        "mean_total_tokens": 577.3275362318841,
+        "model_versions": [
+          "gemini-3.5-flash-lite"
+        ],
+        "spearman": 0.9003508474033377,
+        "mae": 0.2
+      },
+      "gemini-3.8-flash": {
+        "n_total": 346,
+        "n_scored": 344,
+        "n_correct": 301,
+        "errors": 2,
+        "accuracy": 0.875,
+        "accuracy_ci95": [
+          0.8401162790697675,
+          0.9098837209302325
+        ],
+        "latency_p50_ms": 3191.066,
+        "latency_p95_ms": 9282.357249999995,
+        "mean_prompt_tokens": 510.4331395348837,
+        "mean_candidates_tokens": 60.75581395348837,
+        "mean_thoughts_tokens": 224.63662790697674,
+        "mean_total_tokens": 795.8255813953489,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ],
+        "spearman": 0.9003508474033377,
+        "mae": 0.215
+      },
+      "gemini-4-hydrogen": {
+        "n_total": 346,
+        "n_scored": 344,
+        "n_correct": 299,
+        "errors": 2,
+        "accuracy": 0.8691860465116279,
+        "accuracy_ci95": [
+          0.8313953488372093,
+          0.9040697674418605
+        ],
+        "latency_p50_ms": 2647.511,
+        "latency_p95_ms": 8482.570649999996,
+        "mean_prompt_tokens": 671.1220930232558,
+        "mean_candidates_tokens": 78.59011627906976,
+        "mean_thoughts_tokens": 398.16279069767444,
+        "mean_total_tokens": 1147.875,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": 0.9813067629253163,
+        "mae": 0.12
+      },
+      "gemini-4-argon": {
+        "n_total": 346,
+        "n_scored": 342,
+        "n_correct": 297,
+        "errors": 4,
+        "accuracy": 0.868421052631579,
+        "accuracy_ci95": [
+          0.8333333333333334,
+          0.9035087719298246
+        ],
+        "latency_p50_ms": 4634.0435,
+        "latency_p95_ms": 17775.496199999994,
+        "mean_prompt_tokens": 665.7953216374269,
+        "mean_candidates_tokens": 79.64327485380117,
+        "mean_thoughts_tokens": 5.076023391812866,
+        "mean_total_tokens": 750.514619883041,
+        "model_versions": [
+          "gemini-4-argon"
+        ],
+        "spearman": 0.9146591207600472,
+        "mae": 0.22000000000000003
+      },
+      "gemini-4-carbon": {
+        "n_total": 346,
+        "n_scored": 343,
+        "n_correct": 295,
+        "errors": 3,
+        "accuracy": 0.8600583090379009,
+        "accuracy_ci95": [
+          0.8221574344023324,
+          0.8950437317784257
+        ],
+        "latency_p50_ms": 6199.768,
+        "latency_p95_ms": 22570.90529999999,
+        "mean_prompt_tokens": 679.6384839650145,
+        "mean_candidates_tokens": 78.82798833819243,
+        "mean_thoughts_tokens": 219.15743440233237,
+        "mean_total_tokens": 977.6239067055394,
+        "model_versions": [
+          "gemini-4-carbon"
+        ],
+        "spearman": 0.9813067629253163,
+        "mae": 0.125
+      }
+    },
+    "paired": {
+      "gemini-3.5-flash-lite_vs_gemini-4-hydrogen": {
+        "n_paired": 344,
+        "both_correct": 257,
+        "only_a_correct": 7,
+        "only_b_correct": 42,
+        "both_wrong": 38,
+        "diff_b_minus_a": 0.10174418604651163,
+        "diff_b_minus_a_ci95": [
+          0.061046511627906974,
+          0.13953488372093023
+        ],
+        "mcnemar_p": 3.6245783263666453e-07,
+        "agreement_pct": 84.01162790697674,
+        "cohen_kappa": 0.7974846133261977
+      },
+      "gemini-3.8-flash_vs_gemini-4-hydrogen": {
+        "n_paired": 344,
+        "both_correct": 295,
+        "only_a_correct": 6,
+        "only_b_correct": 4,
+        "both_wrong": 39,
+        "diff_b_minus_a": -0.005813953488372093,
+        "diff_b_minus_a_ci95": [
+          -0.02616279069767442,
+          0.011627906976744186
+        ],
+        "mcnemar_p": 0.75390625,
+        "agreement_pct": 96.22093023255815,
+        "cohen_kappa": 0.9522711748633881
+      },
+      "gemini-4-argon_vs_gemini-4-hydrogen": {
+        "n_paired": 342,
+        "both_correct": 288,
+        "only_a_correct": 9,
+        "only_b_correct": 9,
+        "both_wrong": 36,
+        "diff_b_minus_a": 0.0,
+        "diff_b_minus_a_ci95": [
+          -0.023391812865497075,
+          0.023391812865497075
+        ],
+        "mcnemar_p": 1.0,
+        "agreement_pct": 94.15204678362574,
+        "cohen_kappa": 0.9264753305385359
+      },
+      "gemini-4-carbon_vs_gemini-4-hydrogen": {
+        "n_paired": 343,
+        "both_correct": 290,
+        "only_a_correct": 5,
+        "only_b_correct": 8,
+        "both_wrong": 40,
+        "diff_b_minus_a": 0.008746355685131196,
+        "diff_b_minus_a_ci95": [
+          -0.011661807580174927,
+          0.029154518950437316
+        ],
+        "mcnemar_p": 0.5810546875,
+        "agreement_pct": 95.91836734693878,
+        "cohen_kappa": 0.9487715629900679
+      }
+    }
+  },
+  "thinking_ab": {
+    "per_suite": {
+      "groundedness": {
+        "default": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 79,
+          "errors": 0,
+          "accuracy": 0.79,
+          "accuracy_ci95": [
+            0.71,
+            0.87
+          ],
+          "latency_p50_ms": 3518.7754999999997,
+          "latency_p95_ms": 7271.1953,
+          "mean_prompt_tokens": 1112.18,
+          "mean_candidates_tokens": 97.38,
+          "mean_thoughts_tokens": 411.32,
+          "mean_total_tokens": 1620.88,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "low": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 80,
+          "errors": 0,
+          "accuracy": 0.8,
+          "accuracy_ci95": [
+            0.72,
+            0.88
+          ],
+          "latency_p50_ms": 2841.2765,
+          "latency_p95_ms": 4470.823999999999,
+          "mean_prompt_tokens": 1112.18,
+          "mean_candidates_tokens": 94.94,
+          "mean_thoughts_tokens": 274.66,
+          "mean_total_tokens": 1481.78,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "paired": {
+          "n_paired": 100,
+          "both_correct": 78,
+          "only_a_correct": 1,
+          "only_b_correct": 2,
+          "both_wrong": 19,
+          "diff_b_minus_a": 0.01,
+          "diff_b_minus_a_ci95": [
+            -0.02,
+            0.04
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 97.0,
+          "cohen_kappa": 0.9353448275862069
+        }
+      },
+      "toxicity_prompt": {
+        "default": {
+          "n_total": 100,
+          "n_scored": 98,
+          "n_correct": 89,
+          "errors": 2,
+          "accuracy": 0.9081632653061225,
+          "accuracy_ci95": [
+            0.8469387755102041,
+            0.9591836734693877
+          ],
+          "latency_p50_ms": 2377.5675,
+          "latency_p95_ms": 7871.591199999997,
+          "mean_prompt_tokens": 552.204081632653,
+          "mean_candidates_tokens": 67.26530612244898,
+          "mean_thoughts_tokens": 336.98979591836735,
+          "mean_total_tokens": 956.4591836734694,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "low": {
+          "n_total": 100,
+          "n_scored": 98,
+          "n_correct": 87,
+          "errors": 2,
+          "accuracy": 0.8877551020408163,
+          "accuracy_ci95": [
+            0.826530612244898,
+            0.9489795918367347
+          ],
+          "latency_p50_ms": 1864.5025,
+          "latency_p95_ms": 3600.9114499999996,
+          "mean_prompt_tokens": 556.4387755102041,
+          "mean_candidates_tokens": 69.03061224489795,
+          "mean_thoughts_tokens": 164.60204081632654,
+          "mean_total_tokens": 790.0714285714286,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "paired": {
+          "n_paired": 98,
+          "both_correct": 85,
+          "only_a_correct": 4,
+          "only_b_correct": 2,
+          "both_wrong": 7,
+          "diff_b_minus_a": -0.02040816326530612,
+          "diff_b_minus_a_ci95": [
+            -0.07142857142857142,
+            0.030612244897959183
+          ],
+          "mcnemar_p": 0.6875,
+          "agreement_pct": 93.87755102040816,
+          "cohen_kappa": 0.8711091626479616
+        }
+      },
+      "pairwise_instruction_following": {
+        "default": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 94,
+          "errors": 0,
+          "accuracy": 0.94,
+          "accuracy_ci95": [
+            0.89,
+            0.98
+          ],
+          "latency_p50_ms": 2233.465,
+          "latency_p95_ms": 6081.982149999998,
+          "mean_prompt_tokens": 634.61,
+          "mean_candidates_tokens": 77.45,
+          "mean_thoughts_tokens": 309.52,
+          "mean_total_tokens": 1021.58,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "low": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 92,
+          "errors": 0,
+          "accuracy": 0.92,
+          "accuracy_ci95": [
+            0.86,
+            0.97
+          ],
+          "latency_p50_ms": 1816.7069999999999,
+          "latency_p95_ms": 2977.3990499999995,
+          "mean_prompt_tokens": 634.61,
+          "mean_candidates_tokens": 73.1,
+          "mean_thoughts_tokens": 154.55,
+          "mean_total_tokens": 862.26,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "paired": {
+          "n_paired": 100,
+          "both_correct": 91,
+          "only_a_correct": 3,
+          "only_b_correct": 1,
+          "both_wrong": 5,
+          "diff_b_minus_a": -0.02,
+          "diff_b_minus_a_ci95": [
+            -0.06,
+            0.02
+          ],
+          "mcnemar_p": 0.625,
+          "agreement_pct": 95.0,
+          "cohen_kappa": 0.9019030802432801
+        }
+      },
+      "pairwise_mtbench": {
+        "default": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 74,
+          "errors": 0,
+          "accuracy": 0.74,
+          "accuracy_ci95": [
+            0.66,
+            0.82
+          ],
+          "latency_p50_ms": 3214.98,
+          "latency_p95_ms": 10284.4671,
+          "mean_prompt_tokens": 868.75,
+          "mean_candidates_tokens": 96.17,
+          "mean_thoughts_tokens": 556.49,
+          "mean_total_tokens": 1521.41,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "low": {
+          "n_total": 100,
+          "n_scored": 100,
+          "n_correct": 80,
+          "errors": 0,
+          "accuracy": 0.8,
+          "accuracy_ci95": [
+            0.72,
+            0.88
+          ],
+          "latency_p50_ms": 2474.339,
+          "latency_p95_ms": 4653.0597,
+          "mean_prompt_tokens": 868.75,
+          "mean_candidates_tokens": 87.85,
+          "mean_thoughts_tokens": 254.56,
+          "mean_total_tokens": 1211.16,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": null,
+          "mae": null
+        },
+        "paired": {
+          "n_paired": 100,
+          "both_correct": 73,
+          "only_a_correct": 1,
+          "only_b_correct": 7,
+          "both_wrong": 19,
+          "diff_b_minus_a": 0.06,
+          "diff_b_minus_a_ci95": [
+            0.01,
+            0.12
+          ],
+          "mcnemar_p": 0.0703125,
+          "agreement_pct": 91.0,
+          "cohen_kappa": 0.8501498501498502
+        }
+      },
+      "calibration_suite": {
+        "default": {
+          "n_total": 46,
+          "n_scored": 46,
+          "n_correct": 43,
+          "errors": 0,
+          "accuracy": 0.9347826086956522,
+          "accuracy_ci95": [
+            0.8478260869565217,
+            1.0
+          ],
+          "latency_p50_ms": 2569.1144999999997,
+          "latency_p95_ms": 7092.61,
+          "mean_prompt_tokens": 580.8260869565217,
+          "mean_candidates_tokens": 62.391304347826086,
+          "mean_thoughts_tokens": 325.2391304347826,
+          "mean_total_tokens": 968.4565217391304,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": 0.9813067629253163,
+          "mae": 0.12
+        },
+        "low": {
+          "n_total": 46,
+          "n_scored": 46,
+          "n_correct": 43,
+          "errors": 0,
+          "accuracy": 0.9347826086956522,
+          "accuracy_ci95": [
+            0.8478260869565217,
+            1.0
+          ],
+          "latency_p50_ms": 1920.8725,
+          "latency_p95_ms": 2909.8810000000003,
+          "mean_prompt_tokens": 583.2391304347826,
+          "mean_candidates_tokens": 65.1304347826087,
+          "mean_thoughts_tokens": 150.8913043478261,
+          "mean_total_tokens": 799.2608695652174,
+          "model_versions": [
+            "gemini-4-hydrogen"
+          ],
+          "spearman": 0.9906974722292782,
+          "mae": 0.11000000000000001
+        },
+        "paired": {
+          "n_paired": 46,
+          "both_correct": 43,
+          "only_a_correct": 0,
+          "only_b_correct": 0,
+          "both_wrong": 3,
+          "diff_b_minus_a": 0.0,
+          "diff_b_minus_a_ci95": [
+            0.0,
+            0.0
+          ],
+          "mcnemar_p": 1.0,
+          "agreement_pct": 97.82608695652173,
+          "cohen_kappa": 0.9762273901808786
+        }
+      }
+    },
+    "pooled": {
+      "default": {
+        "n_total": 446,
+        "n_scored": 444,
+        "n_correct": 379,
+        "errors": 2,
+        "accuracy": 0.8536036036036037,
+        "accuracy_ci95": [
+          0.8198198198198198,
+          0.8851351351351351
+        ],
+        "latency_p50_ms": 2737.714,
+        "latency_p95_ms": 8092.412349999997,
+        "mean_prompt_tokens": 771.1441441441441,
+        "mean_candidates_tokens": 82.34684684684684,
+        "mean_thoughts_tokens": 395.7635135135135,
+        "mean_total_tokens": 1249.2545045045044,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": 0.9813067629253163,
+        "mae": 0.12
+      },
+      "low": {
+        "n_total": 446,
+        "n_scored": 444,
+        "n_correct": 382,
+        "errors": 2,
+        "accuracy": 0.8603603603603603,
+        "accuracy_ci95": [
+          0.8288288288288288,
+          0.8918918918918919
+        ],
+        "latency_p50_ms": 2150.2775,
+        "latency_p95_ms": 4181.055349999995,
+        "mean_prompt_tokens": 772.3288288288288,
+        "mean_candidates_tokens": 79.61711711711712,
+        "mean_thoughts_tokens": 205.96621621621622,
+        "mean_total_tokens": 1057.912162162162,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": 0.9906974722292782,
+        "mae": 0.11000000000000001
+      },
+      "paired": {
+        "n_paired": 444,
+        "both_correct": 370,
+        "only_a_correct": 9,
+        "only_b_correct": 12,
+        "both_wrong": 53,
+        "diff_b_minus_a": 0.006756756756756757,
+        "diff_b_minus_a_ci95": [
+          -0.013513513513513514,
+          0.02927927927927928
+        ],
+        "mcnemar_p": 0.6636238098144531,
+        "agreement_pct": 94.5945945945946,
+        "cohen_kappa": 0.9314175382139985
+      }
+    }
+  },
+  "serial_latency": {
+    "base_vs_cand": {
+      "side_a": {
+        "n_total": 15,
+        "n_scored": 15,
+        "n_correct": 15,
+        "errors": 0,
+        "accuracy": 1.0,
+        "accuracy_ci95": [
+          1.0,
+          1.0
+        ],
+        "latency_p50_ms": 3165.33,
+        "latency_p95_ms": 4590.395799999999,
+        "mean_prompt_tokens": 1543.8666666666666,
+        "mean_candidates_tokens": 62.4,
+        "mean_thoughts_tokens": 160.46666666666667,
+        "mean_total_tokens": 1766.7333333333333,
+        "model_versions": [
+          "gemini-3.8-flash"
+        ],
+        "spearman": null,
+        "mae": null
+      },
+      "side_b": {
+        "n_total": 15,
+        "n_scored": 15,
+        "n_correct": 15,
+        "errors": 0,
+        "accuracy": 1.0,
+        "accuracy_ci95": [
+          1.0,
+          1.0
+        ],
+        "latency_p50_ms": 2368.511,
+        "latency_p95_ms": 2810.1987,
+        "mean_prompt_tokens": 1679.0666666666666,
+        "mean_candidates_tokens": 80.46666666666667,
+        "mean_thoughts_tokens": 164.33333333333334,
+        "mean_total_tokens": 1923.8666666666666,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": null,
+        "mae": null
+      }
+    },
+    "cand_default_vs_low": {
+      "side_a": {
+        "n_total": 15,
+        "n_scored": 15,
+        "n_correct": 15,
+        "errors": 0,
+        "accuracy": 1.0,
+        "accuracy_ci95": [
+          1.0,
+          1.0
+        ],
+        "latency_p50_ms": 2252.314,
+        "latency_p95_ms": 3306.2633999999994,
+        "mean_prompt_tokens": 1679.0666666666666,
+        "mean_candidates_tokens": 80.66666666666667,
+        "mean_thoughts_tokens": 171.2,
+        "mean_total_tokens": 1930.9333333333334,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": null,
+        "mae": null
+      },
+      "side_b": {
+        "n_total": 15,
+        "n_scored": 15,
+        "n_correct": 15,
+        "errors": 0,
+        "accuracy": 1.0,
+        "accuracy_ci95": [
+          1.0,
+          1.0
+        ],
+        "latency_p50_ms": 2011.965,
+        "latency_p95_ms": 2890.932499999999,
+        "mean_prompt_tokens": 1679.0666666666666,
+        "mean_candidates_tokens": 80.6,
+        "mean_thoughts_tokens": 145.8,
+        "mean_total_tokens": 1905.4666666666667,
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "spearman": null,
+        "mae": null
+      }
+    }
+  },
+  "concurrency_sweep": [
+    {
+      "target": "gemini-3.5-flash-lite",
+      "concurrency": 1,
+      "n": 16,
+      "errors": 0,
+      "wall_s": 16.001828,
+      "items_per_s": 0.9998857630515714,
+      "p50_ms": 983.3389999999999,
+      "p95_ms": 1172.1055000000001,
+      "accuracy": 1.0,
+      "mean_thoughts_tokens": 0.0
+    },
+    {
+      "target": "gemini-3.5-flash-lite",
+      "concurrency": 4,
+      "n": 32,
+      "errors": 0,
+      "wall_s": 7.6941679999999995,
+      "items_per_s": 4.15899418884537,
+      "p50_ms": 870.6675,
+      "p95_ms": 1126.4359,
+      "accuracy": 0.96875,
+      "mean_thoughts_tokens": 0.0
+    },
+    {
+      "target": "gemini-3.5-flash-lite",
+      "concurrency": 8,
+      "n": 48,
+      "errors": 0,
+      "wall_s": 5.420028,
+      "items_per_s": 8.856042810110944,
+      "p50_ms": 849.4725000000001,
+      "p95_ms": 1052.07125,
+      "accuracy": 0.9791666666666666,
+      "mean_thoughts_tokens": 0.0
+    },
+    {
+      "target": "gemini-3.5-flash-lite",
+      "concurrency": 16,
+      "n": 64,
+      "errors": 0,
+      "wall_s": 4.038272,
+      "items_per_s": 15.848362864116137,
+      "p50_ms": 796.6565,
+      "p95_ms": 1050.75265,
+      "accuracy": 0.890625,
+      "mean_thoughts_tokens": 0.0
+    },
+    {
+      "target": "gemini-3.8-flash",
+      "concurrency": 1,
+      "n": 16,
+      "errors": 0,
+      "wall_s": 44.929283000000005,
+      "items_per_s": 0.35611518661448477,
+      "p50_ms": 2678.452,
+      "p95_ms": 3989.77925,
+      "accuracy": 1.0,
+      "mean_thoughts_tokens": 93.75
+    },
+    {
+      "target": "gemini-3.8-flash",
+      "concurrency": 4,
+      "n": 32,
+      "errors": 0,
+      "wall_s": 23.707455000000003,
+      "items_per_s": 1.3497863857592474,
+      "p50_ms": 2686.4305,
+      "p95_ms": 3768.2001,
+      "accuracy": 0.96875,
+      "mean_thoughts_tokens": 117.125
+    },
+    {
+      "target": "gemini-3.8-flash",
+      "concurrency": 8,
+      "n": 48,
+      "errors": 0,
+      "wall_s": 21.596949000000002,
+      "items_per_s": 2.22253615545418,
+      "p50_ms": 2840.81,
+      "p95_ms": 4122.6236499999995,
+      "accuracy": 0.9791666666666666,
+      "mean_thoughts_tokens": 118.41666666666667
+    },
+    {
+      "target": "gemini-3.8-flash",
+      "concurrency": 16,
+      "n": 64,
+      "errors": 0,
+      "wall_s": 18.993672,
+      "items_per_s": 3.36954328789083,
+      "p50_ms": 3035.3770000000004,
+      "p95_ms": 5335.84735,
+      "accuracy": 0.890625,
+      "mean_thoughts_tokens": 128.15625
+    },
+    {
+      "target": "gemini-4-hydrogen",
+      "concurrency": 1,
+      "n": 16,
+      "errors": 0,
+      "wall_s": 55.115811,
+      "items_per_s": 0.2902978239764992,
+      "p50_ms": 2319.4485,
+      "p95_ms": 11094.86175,
+      "accuracy": 1.0,
+      "mean_thoughts_tokens": 290.625
+    },
+    {
+      "target": "gemini-4-hydrogen",
+      "concurrency": 4,
+      "n": 32,
+      "errors": 0,
+      "wall_s": 24.662198,
+      "items_per_s": 1.2975323610653033,
+      "p50_ms": 2238.4295,
+      "p95_ms": 4856.421899999998,
+      "accuracy": 0.90625,
+      "mean_thoughts_tokens": 270.15625
+    },
+    {
+      "target": "gemini-4-hydrogen",
+      "concurrency": 8,
+      "n": 48,
+      "errors": 0,
+      "wall_s": 17.739511,
+      "items_per_s": 2.70582430372517,
+      "p50_ms": 2243.3235,
+      "p95_ms": 3896.9653999999987,
+      "accuracy": 0.9583333333333334,
+      "mean_thoughts_tokens": 245.83333333333334
+    },
+    {
+      "target": "gemini-4-hydrogen",
+      "concurrency": 16,
+      "n": 64,
+      "errors": 0,
+      "wall_s": 12.664241,
+      "items_per_s": 5.053599343221595,
+      "p50_ms": 2259.1695,
+      "p95_ms": 4915.818849999998,
+      "accuracy": 0.890625,
+      "mean_thoughts_tokens": 261.234375
+    },
+    {
+      "target": "gemini-4-hydrogen-low",
+      "concurrency": 1,
+      "n": 16,
+      "errors": 0,
+      "wall_s": 33.180709,
+      "items_per_s": 0.48220789977694567,
+      "p50_ms": 1744.355,
+      "p95_ms": 3919.2877500000004,
+      "accuracy": 1.0,
+      "mean_thoughts_tokens": 123.625
+    },
+    {
+      "target": "gemini-4-hydrogen-low",
+      "concurrency": 4,
+      "n": 32,
+      "errors": 0,
+      "wall_s": 15.273129,
+      "items_per_s": 2.095182984442808,
+      "p50_ms": 1706.2269999999999,
+      "p95_ms": 2627.4667499999996,
+      "accuracy": 0.96875,
+      "mean_thoughts_tokens": 123.59375
+    },
+    {
+      "target": "gemini-4-hydrogen-low",
+      "concurrency": 8,
+      "n": 48,
+      "errors": 0,
+      "wall_s": 12.064761,
+      "items_per_s": 3.978528874297634,
+      "p50_ms": 1810.9665,
+      "p95_ms": 2705.8853499999996,
+      "accuracy": 0.9583333333333334,
+      "mean_thoughts_tokens": 136.72916666666666
+    },
+    {
+      "target": "gemini-4-hydrogen-low",
+      "concurrency": 16,
+      "n": 64,
+      "errors": 0,
+      "wall_s": 8.611623999999999,
+      "items_per_s": 7.431815416000513,
+      "p50_ms": 1745.1175,
+      "p95_ms": 2695.12975,
+      "accuracy": 0.890625,
+      "mean_thoughts_tokens": 130.15625
+    }
+  ]
+}

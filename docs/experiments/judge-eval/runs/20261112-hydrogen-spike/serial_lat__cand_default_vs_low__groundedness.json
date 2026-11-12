@@ -1,0 +1,1021 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:25:28.505029Z",
+    "finished_at": "2026-11-12T22:26:39.260792Z",
+    "dataset": "docs/experiments/judge-eval/suites/groundedness.jsonl",
+    "dataset_sha256": "7aa9cd5ac54d8db8a1842d39e2fe559141e774808bd765b070d0ee31d5f3adb8",
+    "engine_a": "genai",
+    "engine_b": "genai",
+    "model_a": "gemini-4-hydrogen",
+    "model_b": "gemini-4-hydrogen",
+    "diffusion_mirror_side": "both",
+    "workers": 1,
+    "warmup": 1,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_level": "low",
+    "thinking_side": "b",
+    "batch_wall_ms": 66867.107,
+    "throughput_items_per_sec": 0.22432554170468297,
+    "serial_engines": true,
+    "score_tolerance": 0.001,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 3 serial paired latency gemini-4-hydrogen default vs low"
+  },
+  "total_cases": 15,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-4-hydrogen": 15
+    },
+    "model_versions": {
+      "gemini-4-hydrogen": 15
+    },
+    "cases": 15,
+    "errors": 0,
+    "scored": 15,
+    "correct": 15,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 2252.314,
+    "latency_p95_ms": 3306.2634,
+    "latency_mean_ms": 2340.800266666666,
+    "mean_tokens": {
+      "n": 15,
+      "prompt": 1679.1,
+      "candidates": 80.7,
+      "thoughts": 171.2,
+      "total": 1930.9
+    },
+    "calibration": {
+      "n": 15,
+      "ece_10bin": 0.007333330313364694,
+      "brier_top1": 0.00024666659355171796
+    }
+  },
+  "engine_b": {
+    "engine": "genai",
+    "models": {
+      "gemini-4-hydrogen": 15
+    },
+    "model_versions": {
+      "gemini-4-hydrogen": 15
+    },
+    "cases": 15,
+    "errors": 0,
+    "scored": 15,
+    "correct": 15,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 2011.965,
+    "latency_p95_ms": 2890.9324999999994,
+    "latency_mean_ms": 2116.745133333333,
+    "mean_tokens": {
+      "n": 15,
+      "prompt": 1679.1,
+      "candidates": 80.6,
+      "thoughts": 145.8,
+      "total": 1905.5
+    },
+    "calibration": {
+      "n": 15,
+      "ece_10bin": 0.0046666661898294715,
+      "brier_top1": 0.00019333336194359655
+    }
+  },
+  "paired": {
+    "n": 15,
+    "agreements": 15,
+    "agreement_pct": 100,
+    "cohen_kappa": 1,
+    "both_correct": 15,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0,
+    "mcnemar_exact_p": 1,
+    "accuracy_diff_a_minus_b": 0,
+    "accuracy_diff_ci95": {
+      "lo": 0,
+      "hi": 0
+    },
+    "median_latency_ratio_a_over_b": 1.119459831557706
+  },
+  "by_kind": {
+    "boul": {
+      "n": 15,
+      "a_correct": 15,
+      "b_correct": 15,
+      "a_scored": 15,
+      "b_scored": 15,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "by_tier": {
+    "covidQA": {
+      "n": 15,
+      "a_correct": 15,
+      "b_correct": 15,
+      "a_scored": 15,
+      "b_scored": 15,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "by_category": {
+    "groundedness": {
+      "n": 15,
+      "a_correct": 15,
+      "b_correct": 15,
+      "a_scored": 15,
+      "b_scored": 15,
+      "a_accuracy": 1,
+      "b_accuracy": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "hb-14546",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.0851304770298196,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the genome of bovine coronavirus is 'single-stranded, linear, and nonsegmented RNA', whereas the answer incorrectly states it is 'double-stranded'.",
+          "duration_ms": 1789.034,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the genome of bovine coronavirus is 'single-stranded, linear, and nonsegmented RNA', whereas the answer incorrectly states it is 'double-stranded'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1611,
+            "candidates_tokens": 68,
+            "thoughts_tokens": 81,
+            "total_tokens": 1760
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the genome of Bovine coronavirus is 'single-stranded, linear, and nonsegmented RNA', whereas the answer incorrectly states it is 'double-stranded'.",
+          "duration_ms": 1648.681,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the genome of Bovine coronavirus is 'single-stranded, linear, and nonsegmented RNA', whereas the answer incorrectly states it is 'double-stranded'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1611,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 70,
+            "total_tokens": 1758
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-13906",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.3606714182677562,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the genomic size of PEDV ranges from approximately 26 to 32 kb, whereas the answer claims 28 to 34 kb, which contradicts the passage.",
+          "duration_ms": 2284.585,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the genomic size of PEDV ranges from approximately 26 to 32 kb, whereas the answer claims 28 to 34 kb, which contradicts the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1827,
+            "candidates_tokens": 81,
+            "thoughts_tokens": 128,
+            "total_tokens": 2036
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the PEDV genomic size ranges from approximately 26 to 32 kb, whereas the answer claims it is 28 to 34 kb.",
+          "duration_ms": 1679.013,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the PEDV genomic size ranges from approximately 26 to 32 kb, whereas the answer claims it is 28 to 34 kb.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1827,
+            "candidates_tokens": 79,
+            "thoughts_tokens": 78,
+            "total_tokens": 1984
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14804",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.954683244667583,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contradicts the passage regarding the Insomnia Severity Index score for second-line workers. The passage states the score was 4.0 [1.0-8.0], whereas the answer incorrectly states 5.0 [1.0-8.0].",
+          "duration_ms": 2430.34,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contradicts the passage regarding the Insomnia Severity Index score for second-line workers. The passage states the score was 4.0 [1.0-8.0], whereas the answer incorrectly states 5.0 [1.0-8.0].",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1805,
+            "candidates_tokens": 96,
+            "thoughts_tokens": 185,
+            "total_tokens": 2086
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states the median [IQR] Insomnia Severity Index scores among frontline vs second-line workers were 6.0 [2.0-11.0] vs 4.0 [1.0-8.0], whereas the answer incorrectly states 5.0 [1.0-8.0] for second-line workers.",
+          "duration_ms": 2545.703,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states the median [IQR] Insomnia Severity Index scores among frontline vs second-line workers were 6.0 [2.0-11.0] vs 4.0 [1.0-8.0], whereas the answer incorrectly states 5.0 [1.0-8.0] for second-line workers.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1805,
+            "candidates_tokens": 114,
+            "thoughts_tokens": 175,
+            "total_tokens": 2094
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14698",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.0413193072444102,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the enterovirus polyprotein can be divided into 'one structural (P1-capsid) and two nonstructural (P2 and P3) regions,' whereas the answer inaccurately states there are three nonstructural regions (P2, P3, and P4).",
+          "duration_ms": 2095.098,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the enterovirus polyprotein can be divided into 'one structural (P1-capsid) and two nonstructural (P2 and P3) regions,' whereas the answer inaccurately states there are three nonstructural regions (P2, P3, and P4).",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1949,
+            "candidates_tokens": 93,
+            "thoughts_tokens": 98,
+            "total_tokens": 2140
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the enterovirus polyprotein is divided into one structural (P1-capsid) and two nonstructural (P2 and P3) regions, whereas the answer incorrectly claims there are three nonstructural regions (P2, P3, and P4).",
+          "duration_ms": 2011.965,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the enterovirus polyprotein is divided into one structural (P1-capsid) and two nonstructural (P2 and P3) regions, whereas the answer incorrectly claims there are three nonstructural regions (P2, P3, and P4).",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1949,
+            "candidates_tokens": 98,
+            "thoughts_tokens": 100,
+            "total_tokens": 2147
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14076",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.5483642497286494,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.98,
+          "explanation": "The passage states that hand hygiene for protecting one's own health is consistent with 'the rights to dignity and to fully participate in decisions related to assistance in humanitarian crises.' The answer incorrectly changes this to 'to receive assistance in humanitarian crises,' which is not supported by the text.",
+          "duration_ms": 3128.391,
+          "custom_output": {
+            "confidence": 0.98,
+            "explanation": "The passage states that hand hygiene for protecting one's own health is consistent with 'the rights to dignity and to fully participate in decisions related to assistance in humanitarian crises.' The answer incorrectly changes this to 'to receive assistance in humanitarian crises,' which is not supported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1594,
+            "candidates_tokens": 98,
+            "thoughts_tokens": 228,
+            "total_tokens": 1920
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The passage states that hand hygiene is consistent with the rights to dignity and 'to fully participate in decisions related to assistance in humanitarian crises,' whereas the answer inaccurately states it is consistent with the right 'to receive assistance.'",
+          "duration_ms": 2020.449,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage states that hand hygiene is consistent with the rights to dignity and 'to fully participate in decisions related to assistance in humanitarian crises,' whereas the answer inaccurately states it is consistent with the right 'to receive assistance.'",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1594,
+            "candidates_tokens": 88,
+            "thoughts_tokens": 111,
+            "total_tokens": 1793
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14680",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.9068528935819655,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.98,
+          "explanation": "The passage states that frequent displacement and limited contact information may prevent effective contact tracing, whereas healthcare worker training and personal protective equipment are mentioned as a separate challenge unrelated to preventing contact tracing.",
+          "duration_ms": 2066.209,
+          "custom_output": {
+            "confidence": 0.98,
+            "explanation": "The passage states that frequent displacement and limited contact information may prevent effective contact tracing, whereas healthcare worker training and personal protective equipment are mentioned as a separate challenge unrelated to preventing contact tracing.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1582,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 147,
+            "total_tokens": 1799
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.98,
+          "explanation": "The passage states that frequent displacement and limited contact information may prevent effective contact tracing, whereas limited healthcare worker training and personal protective equipment are described as a separate general challenge.",
+          "duration_ms": 2278.439,
+          "custom_output": {
+            "confidence": 0.98,
+            "explanation": "The passage states that frequent displacement and limited contact information may prevent effective contact tracing, whereas limited healthcare worker training and personal protective equipment are described as a separate general challenge.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1582,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 192,
+            "total_tokens": 1849
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14419",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.1993541856258376,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that overcrowding limits 'both quarantine of those exposed and isolation of those who are ill,' whereas the answer inaccurately replaces 'quarantine' with 'vaccination,' which is not supported by the text.",
+          "duration_ms": 2252.314,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that overcrowding limits 'both quarantine of those exposed and isolation of those who are ill,' whereas the answer inaccurately replaces 'quarantine' with 'vaccination,' which is not supported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1596,
+            "candidates_tokens": 83,
+            "thoughts_tokens": 165,
+            "total_tokens": 1844
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that overcrowding limits the implementation of both 'quarantine of those exposed' and isolation of those who are ill, whereas the answer incorrectly replaces 'quarantine' with 'vaccination'.",
+          "duration_ms": 1877.939,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that overcrowding limits the implementation of both 'quarantine of those exposed' and isolation of those who are ill, whereas the answer incorrectly replaces 'quarantine' with 'vaccination'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1596,
+            "candidates_tokens": 80,
+            "thoughts_tokens": 123,
+            "total_tokens": 1799
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14344",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.0067174935641268,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contradicts the passage regarding the P value for distress: the passage states 'P \u003c .001', whereas the answer states 'P = .05'.",
+          "duration_ms": 3721.299,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contradicts the passage regarding the P value for distress: the passage states 'P \u003c .001', whereas the answer states 'P = .05'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1925,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 399,
+            "total_tokens": 2400
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contradicts the passage regarding the P-value for distress: the passage states 'P \u003c .001', whereas the answer states 'P = .05'.",
+          "duration_ms": 3696.468,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contradicts the passage regarding the P-value for distress: the passage states 'P \u003c .001', whereas the answer states 'P = .05'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1925,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 401,
+            "total_tokens": 2404
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14536",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.3585101276649953,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.98,
+          "explanation": "The passage states that the incoming leader of WHO will need to be 'open-minded and creative', as well as a proven leader, advocate, and have energy and vision. It does not mention 'analytical' as a trait.",
+          "duration_ms": 2388.739,
+          "custom_output": {
+            "confidence": 0.98,
+            "explanation": "The passage states that the incoming leader of WHO will need to be 'open-minded and creative', as well as a proven leader, advocate, and have energy and vision. It does not mention 'analytical' as a trait.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1498,
+            "candidates_tokens": 80,
+            "thoughts_tokens": 192,
+            "total_tokens": 1770
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the incoming leader of WHO will need to be 'open-minded and creative,' not 'analytical.' The answer introduces a trait not supported by the text.",
+          "duration_ms": 1758.352,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the incoming leader of WHO will need to be 'open-minded and creative,' not 'analytical.' The answer introduces a trait not supported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1498,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 97,
+            "total_tokens": 1672
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14474",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.0051309520743736,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contradicts the passage, which states that diplomacy facilitating engagement with 'contentious actors' (not 'non-contentious actors') is a necessary component of effective health governance.",
+          "duration_ms": 1951.512,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contradicts the passage, which states that diplomacy facilitating engagement with 'contentious actors' (not 'non-contentious actors') is a necessary component of effective health governance.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1600,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 143,
+            "total_tokens": 1820
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that diplomacy facilitating engagement with 'contentious actors' is a necessary component of effective health governance, whereas the answer contradicts this by saying 'non-contentious actors'.",
+          "duration_ms": 1941.55,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that diplomacy facilitating engagement with 'contentious actors' is a necessary component of effective health governance, whereas the answer contradicts this by saying 'non-contentious actors'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1600,
+            "candidates_tokens": 79,
+            "thoughts_tokens": 132,
+            "total_tokens": 1811
+          },
+          "prediction": "FAIL",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14842",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.9354898773321859,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that 'latrines in crisis settings are often shared and distant from residential shelters, conferring a high risk of gender-based violence,' directly supporting the answer.",
+          "duration_ms": 1808.707,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that 'latrines in crisis settings are often shared and distant from residential shelters, conferring a high risk of gender-based violence,' directly supporting the answer.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1593,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 106,
+            "total_tokens": 1775
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer is a direct quote from the passage stating that latrines in crisis settings being shared and distant from residential shelters confers a high risk of gender-based violence.",
+          "duration_ms": 1933.433,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer is a direct quote from the passage stating that latrines in crisis settings being shared and distant from residential shelters confers a high risk of gender-based violence.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1593,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 123,
+            "total_tokens": 1783
+          },
+          "prediction": "PASS",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14141",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.1593473958807012,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states in the final paragraph: 'Without the adaptation of existing standards, mitigation plans will fall short of health and human rights obligations in outbreak response.' The answer is directly supported by the text.",
+          "duration_ms": 2014.118,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states in the final paragraph: 'Without the adaptation of existing standards, mitigation plans will fall short of health and human rights obligations in outbreak response.' The answer is directly supported by the text.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1591,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 128,
+            "total_tokens": 1793
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states: 'Without the adaptation of existing standards, mitigation plans will fall short of health and human rights obligations in outbreak response.' The answer is directly supported by the text.",
+          "duration_ms": 1737.286,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states: 'Without the adaptation of existing standards, mitigation plans will fall short of health and human rights obligations in outbreak response.' The answer is directly supported by the text.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1591,
+            "candidates_tokens": 71,
+            "thoughts_tokens": 98,
+            "total_tokens": 1760
+          },
+          "prediction": "PASS",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-13940",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.3569600631175207,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.95,
+          "explanation": "The passage explicitly states that 'Crisis-affected community engagement is integral in pandemic planning, in order to maximize the real-world effectiveness of efficacious interventions.' Thus, the answer is directly supported by the text without contradicting it or adding outside facts.",
+          "duration_ms": 2830.981,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage explicitly states that 'Crisis-affected community engagement is integral in pandemic planning, in order to maximize the real-world effectiveness of efficacious interventions.' Thus, the answer is directly supported by the text without contradicting it or adding outside facts.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1587,
+            "candidates_tokens": 83,
+            "thoughts_tokens": 235,
+            "total_tokens": 1905
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that 'Crisis-affected community engagement is integral in pandemic planning, in order to maximize the real-world effectiveness of efficacious interventions.' The answer is directly supported by the text.",
+          "duration_ms": 2086.267,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that 'Crisis-affected community engagement is integral in pandemic planning, in order to maximize the real-world effectiveness of efficacious interventions.' The answer is directly supported by the text.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1587,
+            "candidates_tokens": 80,
+            "thoughts_tokens": 151,
+            "total_tokens": 1818
+          },
+          "prediction": "PASS",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-14028",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 0.9011663497970687,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer directly quotes the passage regarding the purposes for which resources must be identified: 'to protect healthcare workers, develop and deploy rapid testing, improve surveillance, and enact quarantine and isolation of contacts and cases.'",
+          "duration_ms": 2004.996,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer directly quotes the passage regarding the purposes for which resources must be identified: 'to protect healthcare workers, develop and deploy rapid testing, improve surveillance, and enact quarantine and isolation of contacts and cases.'",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1599,
+            "candidates_tokens": 83,
+            "thoughts_tokens": 130,
+            "total_tokens": 1812
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer is directly supported by the passage, which states: 'Resources must be identified to protect healthcare workers, develop and deploy rapid testing, improve surveillance, and enact quarantine and isolation of contacts and cases.'",
+          "duration_ms": 2224.89,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer is directly supported by the passage, which states: 'Resources must be identified to protect healthcare workers, develop and deploy rapid testing, improve surveillance, and enact quarantine and isolation of contacts and cases.'",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1599,
+            "candidates_tokens": 84,
+            "thoughts_tokens": 118,
+            "total_tokens": 1801
+          },
+          "prediction": "PASS",
+          "correct": true
+        }
+      }
+    },
+    {
+      "id": "hb-13998",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": true,
+        "speedup_factor": 1.0151202514170772,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer is a verbatim match of the 'CONCLUSIONS AND RELEVANCE' section of the passage, making it completely supported by and faithful to the text.",
+          "duration_ms": 2345.681,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer is a verbatim match of the 'CONCLUSIONS AND RELEVANCE' section of the passage, making it completely supported by and faithful to the text.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1829,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 203,
+            "total_tokens": 2104
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "model_version": "gemini-4-hydrogen",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer is a verbatim match to the 'CONCLUSIONS AND RELEVANCE' section of the passage.",
+          "duration_ms": 2310.742,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer is a verbatim match to the 'CONCLUSIONS AND RELEVANCE' section of the passage.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1829,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 218,
+            "total_tokens": 2109
+          },
+          "prediction": "PASS",
+          "correct": true
+        }
+      }
+    }
+  ]
+}

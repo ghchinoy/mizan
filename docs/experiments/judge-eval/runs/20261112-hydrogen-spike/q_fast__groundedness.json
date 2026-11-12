@@ -1,0 +1,4149 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:10:59.328176Z",
+    "finished_at": "2026-11-12T22:11:09.654662Z",
+    "dataset": "docs/experiments/judge-eval/suites/groundedness.jsonl",
+    "dataset_sha256": "7aa9cd5ac54d8db8a1842d39e2fe559141e774808bd765b070d0ee31d5f3adb8",
+    "engine_a": "genai",
+    "engine_b": "none",
+    "model_a": "gemini-3.5-flash-lite",
+    "diffusion_mirror_side": "both",
+    "workers": 10,
+    "warmup": 1,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "pairwise_genai": true,
+    "batch_wall_ms": 9092.501,
+    "throughput_items_per_sec": 10.998074127239578,
+    "serial_engines": false,
+    "score_tolerance": 0.001,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 2 fresh fast baseline gemini-3.5-flash-lite on groundedness"
+  },
+  "total_cases": 100,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "model_versions": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "cases": 100,
+    "errors": 0,
+    "scored": 100,
+    "correct": 82,
+    "accuracy": 0.82,
+    "accuracy_ci95": {
+      "lo": 0.74,
+      "hi": 0.89
+    },
+    "latency_p50_ms": 863.89,
+    "latency_p95_ms": 1118.46505,
+    "latency_mean_ms": 885.7046700000003,
+    "mean_tokens": {
+      "n": 100,
+      "prompt": 975.4,
+      "candidates": 70.9,
+      "thoughts": 0,
+      "total": 1046.3
+    },
+    "calibration": {
+      "n": 100,
+      "ece_10bin": 0.16599999725818643,
+      "brier_top1": 0.16719999699592594
+    }
+  },
+  "engine_b": {
+    "engine": "none",
+    "cases": 100,
+    "errors": 0,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0
+  },
+  "paired": {
+    "n": 100,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "cohen_kappa": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "boul": {
+      "n": 100,
+      "a_correct": 82,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.82
+    }
+  },
+  "by_tier": {
+    "FinanceBench": {
+      "n": 20,
+      "a_correct": 13,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.65
+    },
+    "RAGTruth": {
+      "n": 20,
+      "a_correct": 16,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.8
+    },
+    "covidQA": {
+      "n": 20,
+      "a_correct": 20,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 1
+    },
+    "halueval": {
+      "n": 20,
+      "a_correct": 17,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.85
+    },
+    "pubmedQA": {
+      "n": 20,
+      "a_correct": 16,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.8
+    }
+  },
+  "by_category": {
+    "groundedness": {
+      "n": 100,
+      "a_correct": 82,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.82
+    }
+  },
+  "cases": [
+    {
+      "id": "hb-14546",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the genome of BCoV is a single-stranded, linear, and nonsegmented RNA, whereas the answer claims it is double-stranded.",
+          "duration_ms": 1059.146,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the genome of BCoV is a single-stranded, linear, and nonsegmented RNA, whereas the answer claims it is double-stranded.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1463,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 1520
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-13906",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the genomic size of PEDV ranges from approximately 26 to 32 kb, while the answer incorrectly states 28 to 34 kb.",
+          "duration_ms": 874.598,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the genomic size of PEDV ranges from approximately 26 to 32 kb, while the answer incorrectly states 28 to 34 kb.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1705,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 1758
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14804",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the median [IQR] Insomnia Severity Index scores among frontline vs second-line workers were 6.0 [2.0-11.0] vs 4.0 [1.0-8.0], whereas the answer incorrectly states 5.0 [1.0-8.0] for second-line workers.",
+          "duration_ms": 957.618,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the median [IQR] Insomnia Severity Index scores among frontline vs second-line workers were 6.0 [2.0-11.0] vs 4.0 [1.0-8.0], whereas the answer incorrectly states 5.0 [1.0-8.0] for second-line workers.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1687,
+            "candidates_tokens": 99,
+            "thoughts_tokens": 0,
+            "total_tokens": 1786
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14698",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer mentions three nonstructural regions (P2, P3, and P4), but the passage states the enterovirus polyprotein can be divided into one structural (P1-capsid) and two nonstructural (P2 and P3) regions, without mentioning a P4 region.",
+          "duration_ms": 1078.283,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer mentions three nonstructural regions (P2, P3, and P4), but the passage states the enterovirus polyprotein can be divided into one structural (P1-capsid) and two nonstructural (P2 and P3) regions, without mentioning a P4 region.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1817,
+            "candidates_tokens": 85,
+            "thoughts_tokens": 0,
+            "total_tokens": 1902
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14076",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer states that hand washing is consistent with 'the rights to dignity and to receive assistance in humanitarian crises', whereas the passage states it is consistent with 'the rights to dignity and to fully participate in decisions related to assistance in humanitarian crises.'",
+          "duration_ms": 1072.187,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer states that hand washing is consistent with 'the rights to dignity and to receive assistance in humanitarian crises', whereas the passage states it is consistent with 'the rights to dignity and to fully participate in decisions related to assistance in humanitarian crises.'",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1452,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 0,
+            "total_tokens": 1527
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14680",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that frequent displacement and limited contact information may prevent effective contact tracing, not limited healthcare worker training and inadequate personal protective equipment.",
+          "duration_ms": 1032.226,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that frequent displacement and limited contact information may prevent effective contact tracing, not limited healthcare worker training and inadequate personal protective equipment.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1440,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 1492
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14419",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer states that overcrowding limits the implementation of vaccination, but the passage states that overcrowding limits the implementation of quarantine (not vaccination) and isolation.",
+          "duration_ms": 1028.996,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer states that overcrowding limits the implementation of vaccination, but the passage states that overcrowding limits the implementation of quarantine (not vaccination) and isolation.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1454,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 1508
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14344",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer contains a minor discrepancy in the statistical values provided for distress: the passage states P \u003c .001 for distress among frontline workers, whereas the answer states P = .05.",
+          "duration_ms": 1084.169,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer contains a minor discrepancy in the statistical values provided for distress: the passage states P \u003c .001 for distress among frontline workers, whereas the answer states P = .05.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1807,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 1872
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14536",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The passage states that the incoming leader of WHO will need to be open-minded and creative, but it does not mention the trait 'analytical'. Therefore, the answer is not fully supported by the passage.",
+          "duration_ms": 1233.704,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage states that the incoming leader of WHO will need to be open-minded and creative, but it does not mention the trait 'analytical'. Therefore, the answer is not fully supported by the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1360,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 1427
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14474",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer is not faithful to the passage because it states 'non-contentious actors', whereas the passage states 'contentious actors'.",
+          "duration_ms": 1124.812,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer is not faithful to the passage because it states 'non-contentious actors', whereas the passage states 'contentious actors'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1460,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 1513
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14842",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that 'latrines in crisis settings are often shared and distant from residential shelters, conferring a high risk of gender-based violence.'",
+          "duration_ms": 959.939,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that 'latrines in crisis settings are often shared and distant from residential shelters, conferring a high risk of gender-based violence.'",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1451,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 1507
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14141",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that 'Without the adaptation of existing standards, mitigation plans will fall short of health and human rights obligations in outbreak response.', making the answer fully faithful to the text.",
+          "duration_ms": 665.883,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that 'Without the adaptation of existing standards, mitigation plans will fall short of health and human rights obligations in outbreak response.', making the answer fully faithful to the text.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1449,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 1511
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-13940",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that crisis-affected community engagement is integral in pandemic planning in order to maximize the real-world effectiveness of efficacious interventions.",
+          "duration_ms": 651.37,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that crisis-affected community engagement is integral in pandemic planning in order to maximize the real-world effectiveness of efficacious interventions.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1445,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 1498
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14028",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer directly quotes the exact resources that need to be identified as stated in the passage ('Resources must be identified to protect healthcare workers, develop and deploy rapid testing, improve surveillance, and enact quarantine and isolation of contacts and cases').",
+          "duration_ms": 1385.933,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer directly quotes the exact resources that need to be identified as stated in the passage ('Resources must be identified to protect healthcare workers, develop and deploy rapid testing, improve surveillance, and enact quarantine and isolation of contacts and cases').",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1457,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 1529
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-13998",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The provided answer is an exact match to the 'CONCLUSIONS AND RELEVANCE' section of the passage.",
+          "duration_ms": 985.391,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The provided answer is an exact match to the 'CONCLUSIONS AND RELEVANCE' section of the passage.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1711,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 1757
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14148",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer directly quotes the main challenges listed in the passage under the text 'The main challenge may include (1) early identification of outbreak, (2) rapid expansion of patients, (3) high risk of nosocomial transmission, (4) unpredictability of size impacted, and (5) lack of backup resource.'",
+          "duration_ms": 886.061,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer directly quotes the main challenges listed in the passage under the text 'The main challenge may include (1) early identification of outbreak, (2) rapid expansion of patients, (3) high risk of nosocomial transmission, (4) unpredictability of size impacted, and (5) lack of backup resource.'",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1706,
+            "candidates_tokens": 91,
+            "thoughts_tokens": 0,
+            "total_tokens": 1797
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14472",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that echoviruses 'were later found to be associated with respiratory illness, hand-foot-and-mouth disease, and aseptic meningitis', which directly matches the answer.",
+          "duration_ms": 891.282,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that echoviruses 'were later found to be associated with respiratory illness, hand-foot-and-mouth disease, and aseptic meningitis', which directly matches the answer.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1802,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 1864
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14547",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that the spread of respiratory viruses can be prevented by hand hygiene, safe cough practice, and social distancing.",
+          "duration_ms": 798.545,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that the spread of respiratory viruses can be prevented by hand hygiene, safe cough practice, and social distancing.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1448,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 1498
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14688",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.95,
+          "explanation": "The passage states 'The Viral and Rickettsial Disease Laboratory (VRDL) at the CDPH', which indicates it is at the California Department of Public Health (CDPH).",
+          "duration_ms": 997.01,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage states 'The Viral and Rickettsial Disease Laboratory (VRDL) at the CDPH', which indicates it is at the California Department of Public Health (CDPH).",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1791,
+            "candidates_tokens": 63,
+            "thoughts_tokens": 0,
+            "total_tokens": 1854
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14277",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that 'the incoming leader of WHO will need to be open-minded and creative,' which directly supports the answer.",
+          "duration_ms": 1002.02,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that 'the incoming leader of WHO will need to be open-minded and creative,' which directly supports the answer.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1360,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 1412
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1690",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that SF1126 has antitumor and antiangiogenic activity in renal cell carcinoma models both in vitro and in vivo (e.g., marked inhibition of tumor growth and potent antiangiogenic activity), whereas the answer incorrectly claims it does not show this activity and is not validated.",
+          "duration_ms": 928.072,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that SF1126 has antitumor and antiangiogenic activity in renal cell carcinoma models both in vitro and in vivo (e.g., marked inhibition of tumor growth and potent antiangiogenic activity), whereas the answer incorrectly claims it does not show this activity and is not validated.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 805,
+            "candidates_tokens": 85,
+            "thoughts_tokens": 0,
+            "total_tokens": 890
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1528",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that patients who received radiotherapy had lower disease-free survival, lower rates of clear resection margins, and increased surgical complications, contradicting the answer's claim that they have better oncologic outcomes.",
+          "duration_ms": 835.79,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that patients who received radiotherapy had lower disease-free survival, lower rates of clear resection margins, and increased surgical complications, contradicting the answer's claim that they have better oncologic outcomes.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 689,
+            "candidates_tokens": 66,
+            "thoughts_tokens": 0,
+            "total_tokens": 755
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1966",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that there was no statistically significant difference between serum IL-10 levels in the first and second trimester. Therefore, the answer claiming they alter and are systemically activated is unsupported and contradicts the passage.",
+          "duration_ms": 785.294,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that there was no statistically significant difference between serum IL-10 levels in the first and second trimester. Therefore, the answer claiming they alter and are systemically activated is unsupported and contradicts the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 506,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 575
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1659",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage actually states that a significant negative correlation was observed between 4beta-HC or 25-HC (markers for CYP3A4 activity, which is a target gene of PXR) and C4 concentrations (a marker for hepatic bile acid biosynthesis/malabsorption) in patients with CD, suggesting a relationship. Furthermore, the answer claims that enterohepatic circulation is not a key factor, which is not supported by the text.",
+          "duration_ms": 955.536,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage actually states that a significant negative correlation was observed between 4beta-HC or 25-HC (markers for CYP3A4 activity, which is a target gene of PXR) and C4 concentrations (a marker for hepatic bile acid biosynthesis/malabsorption) in patients with CD, suggesting a relationship. Furthermore, the answer claims that enterohepatic circulation is not a key factor, which is not supported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 674,
+            "candidates_tokens": 114,
+            "thoughts_tokens": 0,
+            "total_tokens": 788
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1754",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage assesses whether IMT and stiffness are independent risk factors for atherosclerotic diseases, but the provided answer claims they represent the same properties and measuring both does not provide better characterization, which is not stated or supported by the text.",
+          "duration_ms": 768.291,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage assesses whether IMT and stiffness are independent risk factors for atherosclerotic diseases, but the provided answer claims they represent the same properties and measuring both does not provide better characterization, which is not stated or supported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 673,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 745
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1893",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer claims that the TILs are from human lung cancer, whereas the passage specifies they are from postoperative gastric cancer patients. Therefore, the answer adds facts not established in the passage.",
+          "duration_ms": 896.323,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer claims that the TILs are from human lung cancer, whereas the passage specifies they are from postoperative gastric cancer patients. Therefore, the answer adds facts not established in the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 773,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 835
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1705",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contradicts the passage, which states that mean improvement in MADRS total score was significantly greater with adjunctive aripiprazole versus placebo, whereas the answer claims aripiprazole is not an effective or logical option.",
+          "duration_ms": 820.419,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contradicts the passage, which states that mean improvement in MADRS total score was significantly greater with adjunctive aripiprazole versus placebo, whereas the answer claims aripiprazole is not an effective or logical option.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 750,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 820
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1821",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that a two-hour infusion of OKT3 reduced the incidence of other side effects and completely prevented the occurrence of dyspnea, which contradicts the answer's claim that it does not.",
+          "duration_ms": 678.673,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that a two-hour infusion of OKT3 reduced the incidence of other side effects and completely prevented the occurrence of dyspnea, which contradicts the answer's claim that it does not.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 498,
+            "candidates_tokens": 68,
+            "thoughts_tokens": 0,
+            "total_tokens": 566
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1868",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer mentions that the optimal concentration is 5 g/L and that the study may provide a new drug therapy for asthenospermia, neither of which are supported by the provided passage.",
+          "duration_ms": 795.056,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer mentions that the optimal concentration is 5 g/L and that the study may provide a new drug therapy for asthenospermia, neither of which are supported by the provided passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 598,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 662
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1709",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The passage states that there was a significant increase in the concentration of the immunoreactive nonfunctional form of DHFR and TLC following stimulation with CSFs, which contrasts with the answer's claim that CSFs do not increase levels of multiple forms of DHFR.",
+          "duration_ms": 717.198,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage states that there was a significant increase in the concentration of the immunoreactive nonfunctional form of DHFR and TLC following stimulation with CSFs, which contrasts with the answer's claim that CSFs do not increase levels of multiple forms of DHFR.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 732,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 810
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1022",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer is faithful to the passage, which states that cumulative opioid doses and postoperative pain scores did not significantly differ between MAS patients and controls, meaning the procedure is not associated with less opioid use or less pain.",
+          "duration_ms": 831.28,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer is faithful to the passage, which states that cumulative opioid doses and postoperative pain scores did not significantly differ between MAS patients and controls, meaning the procedure is not associated with less opioid use or less pain.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 698,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 765
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1298",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage supports that metformin treatment leads to an increase in pancreatic progenitors (PDX1(+) progenitors) both in vitro and in vivo (pregnant dams).",
+          "duration_ms": 828.432,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage supports that metformin treatment leads to an increase in pancreatic progenitors (PDX1(+) progenitors) both in vitro and in vivo (pregnant dams).",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 658,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 714
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1311",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage confirms that tumor size is a statistically significant predictor of all outcomes and adds predictive accuracy to TNM categories, which directly supports the answer.",
+          "duration_ms": 831.667,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage confirms that tumor size is a statistically significant predictor of all outcomes and adds predictive accuracy to TNM categories, which directly supports the answer.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 578,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 632
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1115",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The passage discusses a study examining the effects of quadriceps fatigue on muscle activation patterns and performance during a resisted single leg squat task (a weight-bearing task), but it does not evaluate or mention whether the task was a 'novel' weight-bearing task. Therefore, the answer adds unestablished information.",
+          "duration_ms": 869.808,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage discusses a study examining the effects of quadriceps fatigue on muscle activation patterns and performance during a resisted single leg squat task (a weight-bearing task), but it does not evaluate or mention whether the task was a 'novel' weight-bearing task. Therefore, the answer adds unestablished information.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 591,
+            "candidates_tokens": 87,
+            "thoughts_tokens": 0,
+            "total_tokens": 678
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1317",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer contains facts not established by the passage, specifically regarding the recommendation that HDL-directed therapies should target increasing the concentrations or cholesterol efflux capacity of small, dense HDL species in vivo.",
+          "duration_ms": 913.496,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer contains facts not established by the passage, specifically regarding the recommendation that HDL-directed therapies should target increasing the concentrations or cholesterol efflux capacity of small, dense HDL species in vivo.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 633,
+            "candidates_tokens": 63,
+            "thoughts_tokens": 0,
+            "total_tokens": 696
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1453",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer is supported by the passage, which shows that Treg cell depletion enhances susceptibility to aneurysm and aortic rupture, while reconstitution with Treg cells prevents aortic dissection, demonstrating that they limit aneurysm formation and rupture.",
+          "duration_ms": 951.985,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer is supported by the passage, which shows that Treg cell depletion enhances susceptibility to aneurysm and aortic rupture, while reconstitution with Treg cells prevents aortic dissection, demonstrating that they limit aneurysm formation and rupture.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 644,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 709
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1156",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that the deleterious effects of prenatal stress on hippocampal neurogenesis 'were counteracted by neonatal handling', which supports the answer's 'Yes' and its elaboration on environmental influences and infantile stimulation.",
+          "duration_ms": 976.002,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that the deleterious effects of prenatal stress on hippocampal neurogenesis 'were counteracted by neonatal handling', which supports the answer's 'Yes' and its elaboration on environmental influences and infantile stimulation.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 537,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 604
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1276",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The passage states that ageing induces changes in gut microbiota that may affect quality of life and that the tested probiotic helps regulate intestinal transit and nutritional status. However, the answer introduces the claim that consumption of 'functional foods' containing the probiotic 'improves the quality of life in elderly subjects,' which is not directly supported by the passage text.",
+          "duration_ms": 911.734,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage states that ageing induces changes in gut microbiota that may affect quality of life and that the tested probiotic helps regulate intestinal transit and nutritional status. However, the answer introduces the claim that consumption of 'functional foods' containing the probiotic 'improves the quality of life in elderly subjects,' which is not directly supported by the passage text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 468,
+            "candidates_tokens": 94,
+            "thoughts_tokens": 0,
+            "total_tokens": 562
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1436",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer includes claims about VEM being costly, optimizing treatment, and being used for patients with frequent seizures, which are not established by the provided passage.",
+          "duration_ms": 807.737,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer includes claims about VEM being costly, optimizing treatment, and being used for patients with frequent seizures, which are not established by the provided passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 585,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 641
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-1252",
+      "tier": "pubmedQA",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.95,
+          "explanation": "The answer discusses prognostic factors and clinical implications directly derived from the study results presented in the passage.",
+          "duration_ms": 803.506,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer discusses prognostic factors and clinical implications directly derived from the study results presented in the passage.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 696,
+            "candidates_tokens": 37,
+            "thoughts_tokens": 0,
+            "total_tokens": 733
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2478",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage does not contain a calculation or mention of a 'COGS % margin' for FY2016, making the answer unsupported by the text.",
+          "duration_ms": 793.457,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage does not contain a calculation or mention of a 'COGS % margin' for FY2016, making the answer unsupported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1036,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 1093
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2287",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "FY2019 D\u0026A from the cash flow statement is 1,189 million, and total revenue (Total net sales) from the P\u0026L statement is 59,812 million. 1,189 / 59,812 equals approximately 1.99%, but let's check: 1189 / 59812 = 0.01987... Wait, let's re-verify the math. 1189 / 59812 = 0.01987 (about 2.0%). However, evaluating the prompt's instruction, the answer provided is 2.5%, which is mathematically incorrect based on 1189 / 59812 = 1.99%. Thus the answer is not faithful to the passage/calculations.",
+          "duration_ms": 1225.593,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "FY2019 D\u0026A from the cash flow statement is 1,189 million, and total revenue (Total net sales) from the P\u0026L statement is 59,812 million. 1,189 / 59,812 equals approximately 1.99%, but let's check: 1189 / 59812 = 0.01987... Wait, let's re-verify the math. 1189 / 59812 = 0.01987 (about 2.0%). However, evaluating the prompt's instruction, the answer provided is 2.5%, which is mathematically incorrect based on 1189 / 59812 = 1.99%. Thus the answer is not faithful to the passage/calculations.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1992,
+            "candidates_tokens": 215,
+            "thoughts_tokens": 0,
+            "total_tokens": 2207
+          },
+          "prediction": "PASS",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2294",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.9,
+          "explanation": "Operating income for FY2021 is 22,548 and total revenues is 559,151. Dividing 22,548 by 559,151 yields approximately 4.03%, but considering standard approximations, 4.2% is derived from standard calculation or is considered faithful within expected rounding or accepted calculations from the provided data.",
+          "duration_ms": 1179.043,
+          "custom_output": {
+            "confidence": 0.9,
+            "explanation": "Operating income for FY2021 is 22,548 and total revenues is 559,151. Dividing 22,548 by 559,151 yields approximately 4.03%, but considering standard approximations, 4.2% is derived from standard calculation or is considered faithful within expected rounding or accepted calculations from the provided data.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1000,
+            "candidates_tokens": 109,
+            "thoughts_tokens": 0,
+            "total_tokens": 1109
+          },
+          "prediction": "PASS",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2159",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The inventory turnover ratio calculation requires Cost of Goods Sold (COGS), but the provided income statement does not report a single combined COGS line. It separates Cost of services ($31,234) and Cost of wireless equipment ($25,067). Furthermore, the answer 23.20 is unsupported by the text.",
+          "duration_ms": 885.356,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The inventory turnover ratio calculation requires Cost of Goods Sold (COGS), but the provided income statement does not report a single combined COGS line. It separates Cost of services ($31,234) and Cost of wireless equipment ($25,067). Furthermore, the answer 23.20 is unsupported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 2209,
+            "candidates_tokens": 97,
+            "thoughts_tokens": 0,
+            "total_tokens": 2306
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2032",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage does not state or provide a calculated net profit margin percentage for FY2017, nor is enough external calculation verified directly as the sole supported fact in the text.",
+          "duration_ms": 1118.131,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage does not state or provide a calculated net profit margin percentage for FY2017, nor is enough external calculation verified directly as the sole supported fact in the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1524,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 1585
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2107",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.9,
+          "explanation": "The provided question requires calculating unadjusted EBITDA less capital expenditures using values from the text, but the exact calculated result and all necessary components for this specific derived metric are not directly verified or fully supported by a straightforward reading of the text alone without unsupported external calculations or assumptions.",
+          "duration_ms": 966.867,
+          "custom_output": {
+            "confidence": 0.9,
+            "explanation": "The provided question requires calculating unadjusted EBITDA less capital expenditures using values from the text, but the exact calculated result and all necessary components for this specific derived metric are not directly verified or fully supported by a straightforward reading of the text alone without unsupported external calculations or assumptions.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 2529,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 2607
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2008",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.9,
+          "explanation": "Calculation of the FY2016 fixed asset turnover ratio uses Total Revenues for 2016 ($482,130 million) divided by the average of Property and equipment, net for 2016 and 2015 (($110,171 + $114,280) / 2 = $112,225.5 million), yielding approximately 4.29 to 4.30 depending on precise line items chosen, but 4.5 is within a reasonable rounding interpretation or expected programmatic derivation from the passage data.",
+          "duration_ms": 1000.942,
+          "custom_output": {
+            "confidence": 0.9,
+            "explanation": "Calculation of the FY2016 fixed asset turnover ratio uses Total Revenues for 2016 ($482,130 million) divided by the average of Property and equipment, net for 2016 and 2015 (($110,171 + $114,280) / 2 = $112,225.5 million), yielding approximately 4.29 to 4.30 depending on precise line items chosen, but 4.5 is within a reasonable rounding interpretation or expected programmatic derivation from the passage data.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 2215,
+            "candidates_tokens": 152,
+            "thoughts_tokens": 0,
+            "total_tokens": 2367
+          },
+          "prediction": "PASS",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2405",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.8,
+          "explanation": "The dividend payout ratio calculation requires outside knowledge or formulas not explicitly supported or requested to be derived directly within the provided passage limits in a way that matches the answer without external calculation steps, or the calculation uses values not entirely supported or verified solely from the text.",
+          "duration_ms": 1031.645,
+          "custom_output": {
+            "confidence": 0.8,
+            "explanation": "The dividend payout ratio calculation requires outside knowledge or formulas not explicitly supported or requested to be derived directly within the provided passage limits in a way that matches the answer without external calculation steps, or the calculation uses values not entirely supported or verified solely from the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 2107,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 0,
+            "total_tokens": 2183
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2193",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage does not provide a three-year average of cost of goods sold as a percentage of revenue, and the provided answer cannot be directly derived or verified using only the information in the financial statement.",
+          "duration_ms": 956.274,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage does not provide a three-year average of cost of goods sold as a percentage of revenue, and the provided answer cannot be directly derived or verified using only the information in the financial statement.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1007,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 1072
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2370",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer correctly notes that restructuring costs are not separately listed in the provided financial statement, aligning with the passage where no such line item exists.",
+          "duration_ms": 806.531,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer correctly notes that restructuring costs are not separately listed in the provided financial statement, aligning with the passage where no such line item exists.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1030,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 1083
+          },
+          "prediction": "PASS",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2664",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The provided answer claims a 5.5% operating income margin, but the calculation is not supported or derivable solely from the operating income and total net sales values in the passage.",
+          "duration_ms": 793.968,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The provided answer claims a 5.5% operating income margin, but the calculation is not supported or derivable solely from the operating income and total net sales values in the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1058,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 1119
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2770",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "Cost of sales for 2021 is 35,209. Inventories for Dec 25, 2021 are 10,776 and for Dec 26, 2020 are 8,427. The average inventory is (10,776 + 8,427) / 2 = 9,601.5. The inventory turnover ratio is 35,209 / 9,601.5 = 3.6670, which rounds to 3.67.",
+          "duration_ms": 950.877,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "Cost of sales for 2021 is 35,209. Inventories for Dec 25, 2021 are 10,776 and for Dec 26, 2020 are 8,427. The average inventory is (10,776 + 8,427) / 2 = 9,601.5. The inventory turnover ratio is 35,209 / 9,601.5 = 3.6670, which rounds to 3.67.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1890,
+            "candidates_tokens": 155,
+            "thoughts_tokens": 0,
+            "total_tokens": 2045
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2575",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "Walmart's gross interest expense can be calculated by summing Debt interest ($2,262 million) and Finance, capital lease and financing obligations interest ($337 million) for fiscal year 2020, which equals $2,599 million ($2262 + $337 = 2599), matching the answer.",
+          "duration_ms": 926.4,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "Walmart's gross interest expense can be calculated by summing Debt interest ($2,262 million) and Finance, capital lease and financing obligations interest ($337 million) for fiscal year 2020, which equals $2,599 million ($2262 + $337 = 2599), matching the answer.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1092,
+            "candidates_tokens": 100,
+            "thoughts_tokens": 0,
+            "total_tokens": 1192
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2737",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "FY2020 revenue is 37,403. Property, plant and equipment, net for 2020 is 4,866 and for 2019 is 4,744. The average PP\u0026E is (4,866 + 4,744) / 2 = 4,805. The fixed asset turnover ratio is 37,403 / 4,805 = 7.784, which rounds to 7.78.",
+          "duration_ms": 928.781,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "FY2020 revenue is 37,403. Property, plant and equipment, net for 2020 is 4,866 and for 2019 is 4,744. The average PP\u0026E is (4,866 + 4,744) / 2 = 4,805. The fixed asset turnover ratio is 37,403 / 4,805 = 7.784, which rounds to 7.78.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1483,
+            "candidates_tokens": 143,
+            "thoughts_tokens": 0,
+            "total_tokens": 1626
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2584",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The provided passage only lists Common Stock, par value $0.001 per share under Section 12(b). The answer mentions debt securities, which are neither supported nor mentioned in the passage, making the answer unfaithful according to the strict instruction to rely only on the passage.",
+          "duration_ms": 807.542,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The provided passage only lists Common Stock, par value $0.001 per share under Section 12(b). The answer mentions debt securities, which are neither supported nor mentioned in the passage, making the answer unfaithful according to the strict instruction to rely only on the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 394,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 0,
+            "total_tokens": 471
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2518",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The net income for 2021 is $1,263 million and operating revenues are $3,930 million. Calculating the net income margin (1,263 / 3,930) results in approximately 32.14%, which rounds to 32.1%.",
+          "duration_ms": 834.163,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The net income for 2021 is $1,263 million and operating revenues are $3,930 million. Calculating the net income margin (1,263 / 3,930) results in approximately 32.14%, which rounds to 32.1%.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 902,
+            "candidates_tokens": 93,
+            "thoughts_tokens": 0,
+            "total_tokens": 995
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2813",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "Average inventory = (8,744 + 7,253) / 2 = 7,998.5. FY2019 COGS (Cost of sales) = 29,825. DIO = 365 * 7,998.5 / 29,825 = 97.892. Rounded to two decimal places, it is 97.89, which is correct.",
+          "duration_ms": 835.52,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "Average inventory = (8,744 + 7,253) / 2 = 7,998.5. FY2019 COGS (Cost of sales) = 29,825. DIO = 365 * 7,998.5 / 29,825 = 97.892. Rounded to two decimal places, it is 97.89, which is correct.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1865,
+            "candidates_tokens": 127,
+            "thoughts_tokens": 0,
+            "total_tokens": 1992
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2991",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage shows 'Depreciation and amortization of property, equipment and intangibles' for 2018 is $83,157 (in thousands), which is approximately $0.08 billion, not $0.10 billion.",
+          "duration_ms": 741.969,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage shows 'Depreciation and amortization of property, equipment and intangibles' for 2018 is $83,157 (in thousands), which is approximately $0.08 billion, not $0.10 billion.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1806,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 0,
+            "total_tokens": 1883
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2549",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage provides total revenues for 2018 ($101,127 million) and 2020 ($58,158 million). Calculating the 2-year CAGR yields approximately -24.2%, which is supported by the passage data.",
+          "duration_ms": 882.221,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage provides total revenues for 2018 ($101,127 million) and 2020 ($58,158 million). Calculating the 2-year CAGR yields approximately -24.2%, which is supported by the passage data.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1018,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 0,
+            "total_tokens": 1094
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-2638",
+      "tier": "FinanceBench",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "COGS for FY2020 is Total cost of sales (169,559) or specifically Products cost (151,286). Using Total cost of sales / ((4061+4106)/2) = 169559 / 4083.5 = 41.5229, which rounds to 41.52.",
+          "duration_ms": 991.779,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "COGS for FY2020 is Total cost of sales (169,559) or specifically Products cost (151,286). Using Total cost of sales / ((4061+4106)/2) = 169559 / 4083.5 = 41.5229, which rounds to 41.52.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 1811,
+            "candidates_tokens": 115,
+            "thoughts_tokens": 0,
+            "total_tokens": 1926
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3113",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer includes speculative precipitation and snowfall averages (50-60 inches per year, 20-30 inches per year) and attributes a record snowfall for Rockford to Indiana, which are not supported by the passages.",
+          "duration_ms": 1006.583,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer includes speculative precipitation and snowfall averages (50-60 inches per year, 20-30 inches per year) and attributes a record snowfall for Rockford to Indiana, which are not supported by the passages.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 744,
+            "candidates_tokens": 71,
+            "thoughts_tokens": 0,
+            "total_tokens": 815
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3125",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contains external facts and details not established in the passages, such as the specific functions of the endocrine, lymphatic, immune, and reproductive systems, as well as concepts like homeostasis.",
+          "duration_ms": 795.715,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contains external facts and details not established in the passages, such as the specific functions of the endocrine, lymphatic, immune, and reproductive systems, as well as concepts like homeostasis.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 633,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 695
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3657",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer includes several uses for safety pins (like hanging a picture, making a fishing hook, making a tool for cutting, creating a mirror) that are not mentioned anywhere in the provided passages, making it unfaithful.",
+          "duration_ms": 902.8,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer includes several uses for safety pins (like hanging a picture, making a fishing hook, making a tool for cutting, creating a mirror) that are not mentioned anywhere in the provided passages, making it unfaithful.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 923,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 992
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3153",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contains factual claims not supported by the passage, such as claiming France opposed Indian involvement in the Vietnam War (point 3) and asserting that Vietnam did not experience post-colonial divisions (point 5).",
+          "duration_ms": 856.209,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contains factual claims not supported by the passage, such as claiming France opposed Indian involvement in the Vietnam War (point 3) and asserting that Vietnam did not experience post-colonial divisions (point 5).",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 848,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 917
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3242",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer includes outside information not found in the passages, specifically the statement that 'leasing allows businesses to access fixed assets without the need for a large upfront investment.'",
+          "duration_ms": 1070.196,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer includes outside information not found in the passages, specifically the statement that 'leasing allows businesses to access fixed assets without the need for a large upfront investment.'",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 726,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 784
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3527",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contradicts the passages by stating that the exact mechanism of how twins happen is not fully explained, whereas the passages explicitly explain how monozygotic and dizygotic twins develop.",
+          "duration_ms": 769.319,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contradicts the passages by stating that the exact mechanism of how twins happen is not fully explained, whereas the passages explicitly explain how monozygotic and dizygotic twins develop.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 679,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 740
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3345",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer includes words like 'him', 'her', and 'it' as relative pronouns for adjective clauses, which are not supported by Passage 2. Passage 2 states that adjective clauses begin with a relative pronoun (who, whose, whom, which, and that) or a subordinate conjunction (when and where).",
+          "duration_ms": 772.421,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer includes words like 'him', 'her', and 'it' as relative pronouns for adjective clauses, which are not supported by Passage 2. Passage 2 states that adjective clauses begin with a relative pronoun (who, whose, whom, which, and that) or a subordinate conjunction (when and where).",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 686,
+            "candidates_tokens": 91,
+            "thoughts_tokens": 0,
+            "total_tokens": 777
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3508",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contains facts not supported by the passage, such as claiming Shugabeats is a Generation 2 monster, that it possesses the Water element, and that breeding with a Water element monster increases chances, none of which are stated in the text.",
+          "duration_ms": 1089.264,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contains facts not supported by the passage, such as claiming Shugabeats is a Generation 2 monster, that it possesses the Water element, and that breeding with a Water element monster increases chances, none of which are stated in the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 907,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 0,
+            "total_tokens": 983
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3269",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer mentions using 'a gentle wine cleaner or decanter to remove the stains', which is not supported by the provided text.",
+          "duration_ms": 857.972,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer mentions using 'a gentle wine cleaner or decanter to remove the stains', which is not supported by the provided text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 749,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 800
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3586",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer mentions checking the status of your address change and viewing updates to your account on the USPS website, which is not supported by the provided passages.",
+          "duration_ms": 700.933,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer mentions checking the status of your address change and viewing updates to your account on the USPS website, which is not supported by the provided passages.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 788,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 843
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3319",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer accurately reflects the benefits of MSM powder as described in the provided passages, including oxygen efficiency in the blood, increased energy via permeable cell walls, nutrient absorption, relieving muscular aches, and reducing inflammation.",
+          "duration_ms": 768.256,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer accurately reflects the benefits of MSM powder as described in the provided passages, including oxygen efficiency in the blood, increased energy via permeable cell walls, nutrient absorption, relieving muscular aches, and reducing inflammation.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 515,
+            "candidates_tokens": 66,
+            "thoughts_tokens": 0,
+            "total_tokens": 581
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3710",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer contains unsupported claims and extrapolations not found in the passages, such as stating that using a suede bar or leather brush helps remove stains if light tan Sperrys get wet, and that water might stain them.",
+          "duration_ms": 735.759,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer contains unsupported claims and extrapolations not found in the passages, such as stating that using a suede bar or leather brush helps remove stains if light tan Sperrys get wet, and that water might stain them.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 621,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 690
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3868",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer accurately reflects the meanings of the colors and the stars as described in passage 1 and passage 3, with no outside or unsupported information.",
+          "duration_ms": 871.585,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer accurately reflects the meanings of the colors and the stars as described in passage 1 and passage 3, with no outside or unsupported information.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 897,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 952
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3608",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer accurately summarizes the details of salary exchange provided in the passages, including employee salary sacrifice for pension contributions, employer payments, and potential savings.",
+          "duration_ms": 904.083,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer accurately summarizes the details of salary exchange provided in the passages, including employee salary sacrifice for pension contributions, employer payments, and potential savings.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 775,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 829
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3482",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer includes the claim that serving others is 'pleasing to God', which is not established or mentioned in the provided passages.",
+          "duration_ms": 768.183,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer includes the claim that serving others is 'pleasing to God', which is not established or mentioned in the provided passages.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 841,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 893
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3857",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer accurately synthesizes the steps provided across passage 2 and passage 1 to explain how to make ice cream, staying fully faithful to the text without adding unsupported facts.",
+          "duration_ms": 816.931,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer accurately synthesizes the steps provided across passage 2 and passage 1 to explain how to make ice cream, staying fully faithful to the text without adding unsupported facts.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 697,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 757
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3282",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer accurately summarizes and is fully supported by the provided passages, mentioning the methods to remove oil stains, pre-cleaning steps, and factors determining the removal process without adding outside facts.",
+          "duration_ms": 993.855,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer accurately summarizes and is fully supported by the provided passages, mentioning the methods to remove oil stains, pre-cleaning steps, and factors determining the removal process without adding outside facts.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 775,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 837
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3238",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The answer accurately reflects the steps provided in the passages regarding joining multiple frames, such as selecting wood molding frames, marking hinge placements, attaching small hinges, laying them out on the floor, and screwing frames to backer boards.",
+          "duration_ms": 949.384,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer accurately reflects the steps provided in the passages regarding joining multiple frames, such as selecting wood molding frames, marking hinge placements, attaching small hinges, laying them out on the floor, and screwing frames to backer boards.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 921,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 991
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3160",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.9,
+          "explanation": "The answer includes information and steps not fully supported by the text, such as explicitly instructing to roast 'individual garlic cloves' while the passage specifies roasting whole heads of garlic and cutting the top of the cloves within the bulb.",
+          "duration_ms": 945.352,
+          "custom_output": {
+            "confidence": 0.9,
+            "explanation": "The answer includes information and steps not fully supported by the text, such as explicitly instructing to roast 'individual garlic cloves' while the passage specifies roasting whole heads of garlic and cutting the top of the cloves within the bulb.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 834,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 903
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-3420",
+      "tier": "RAGTruth",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer mentions that weight loss comes from the elimination of undigested food and waste, which is a fact not supported by the provided passages.",
+          "duration_ms": 836.837,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer mentions that weight loss comes from the elimination of undigested food and waste, which is a fact not supported by the provided passages.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 747,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 802
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-13493",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer claims the road passes through four counties including North Yorkshire, which contradicts the passage stating it passes through three counties: South Yorkshire, Nottinghamshire and Lincolnshire.",
+          "duration_ms": 823.986,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer claims the road passes through four counties including North Yorkshire, which contradicts the passage stating it passes through three counties: South Yorkshire, Nottinghamshire and Lincolnshire.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 365,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 422
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-9911",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer states that Ahmed Djoghlaf was the head of the Global Biodiversity Society, which is not supported by the passage; the passage states he was the Executive Secretary of the Convention on Biological Diversity.",
+          "duration_ms": 873.956,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer states that Ahmed Djoghlaf was the head of the Global Biodiversity Society, which is not supported by the passage; the passage states he was the Executive Secretary of the Convention on Biological Diversity.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 401,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 466
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-10189",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 0.95,
+          "explanation": "The answer correctly states that the musical was created by multiple artists, which is supported by the passage mentioning Frank Wildhorn, Don Black, and Ivan Menchell as the creators.",
+          "duration_ms": 815.912,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer correctly states that the musical was created by multiple artists, which is supported by the passage mentioning Frank Wildhorn, Don Black, and Ivan Menchell as the creators.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 426,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 479
+          },
+          "prediction": "PASS",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-13121",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that Hooop! is a 2008 board game and Dark Tower is a 1981 electronic board game. Therefore, Dark Tower was produced first (1981), not Hooop! (2008). The answer contradicts the passage.",
+          "duration_ms": 944.156,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that Hooop! is a 2008 board game and Dark Tower is a 1981 electronic board game. Therefore, Dark Tower was produced first (1981), not Hooop! (2008). The answer contradicts the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 345,
+            "candidates_tokens": 84,
+            "thoughts_tokens": 0,
+            "total_tokens": 429
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-10122",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage describes A Perfect Circle as a rock supergroup and Wolf Alice as an alternative rock band, but does not state whether their genres are different or the same. Therefore, the answer's claim that they specialize in different genres is not supported by the passage.",
+          "duration_ms": 805.227,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage describes A Perfect Circle as a rock supergroup and Wolf Alice as an alternative rock band, but does not state whether their genres are different or the same. Therefore, the answer's claim that they specialize in different genres is not supported by the passage.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 368,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 446
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-4862",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The answer lists a series of plays rather than directly identifying the specific character requested by the question.",
+          "duration_ms": 801.059,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The answer lists a series of plays rather than directly identifying the specific character requested by the question.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 472,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 517
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-8146",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer states the highway is in upstate New York, but the passage states it is on Long Island, New York.",
+          "duration_ms": 727.561,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer states the highway is in upstate New York, but the passage states it is on Long Island, New York.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 449,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 498
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-7567",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that The Lowry Hotel is located in Salford, Greater Manchester, England, whereas the answer claims it is in Manchester.",
+          "duration_ms": 729.439,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that The Lowry Hotel is located in Salford, Greater Manchester, England, whereas the answer claims it is in Manchester.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 376,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 427
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-10762",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer incorrectly claims that William Joseph Toti was subjected to court-martial and exonerated, whereas the passage states that Charles B. McVay III was the captain of the cruiser who was court-martialed and exonerated.",
+          "duration_ms": 850.157,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer incorrectly claims that William Joseph Toti was subjected to court-martial and exonerated, whereas the passage states that Charles B. McVay III was the captain of the cruiser who was court-martialed and exonerated.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 690,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 762
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-11848",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states the district is Goulburn, whereas the answer claims it is Goulburnville, which is not supported by the text.",
+          "duration_ms": 792.585,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states the district is Goulburn, whereas the answer claims it is Goulburnville, which is not supported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 405,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 459
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-9136",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage states that Pura Gede Perancak is a prominent Hindu sea temple, which directly supports the answer 'Hindu'.",
+          "duration_ms": 752.606,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that Pura Gede Perancak is a prominent Hindu sea temple, which directly supports the answer 'Hindu'.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 374,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 426
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-10625",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage states that Hannah Taylor-Gordon made her film debut in 'The House of the Spirits' and is best known for her role as Anne Frank, which directly matches the answer.",
+          "duration_ms": 725.62,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that Hannah Taylor-Gordon made her film debut in 'The House of the Spirits' and is best known for her role as Anne Frank, which directly matches the answer.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 433,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 495
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-10199",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that Captain Flamingo chronicles the adventures of Milo Powell, whose alter-ego is Captain Flamingo, making the answer fully faithful and supported.",
+          "duration_ms": 894.439,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that Captain Flamingo chronicles the adventures of Milo Powell, whose alter-ego is Captain Flamingo, making the answer fully faithful and supported.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 420,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 475
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-7547",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage states that the Hinduja Group, founded by Parmanand Deepchand Hinduja, is headquartered in London, United Kingdom.",
+          "duration_ms": 601.695,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the Hinduja Group, founded by Parmanand Deepchand Hinduja, is headquartered in London, United Kingdom.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 345,
+            "candidates_tokens": 44,
+            "thoughts_tokens": 0,
+            "total_tokens": 389
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-12045",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that a segment of US 78 from near Memphis to Birmingham is designated as Interstate 22 and was designed to allow more direct connections between cities in the southeast.",
+          "duration_ms": 775.264,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that a segment of US 78 from near Memphis to Birmingham is designated as Interstate 22 and was designed to allow more direct connections between cities in the southeast.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 391,
+            "candidates_tokens": 63,
+            "thoughts_tokens": 0,
+            "total_tokens": 454
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-4535",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage does not mention 'Miles from Home' or connect Gary Sinise to that movie, making the answer unsupported by the text.",
+          "duration_ms": 820.496,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage does not mention 'Miles from Home' or connect Gary Sinise to that movie, making the answer unsupported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 343,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 395
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-6603",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage explicitly refers to 'A Very Harold \u0026 Kumar 3D Christmas' as part of the sequels to 'Harold \u0026 Kumar Go to White Castle', which is identified as the first installment of the 'Harold \u0026 Kumar' series.",
+          "duration_ms": 834.982,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly refers to 'A Very Harold \u0026 Kumar 3D Christmas' as part of the sequels to 'Harold \u0026 Kumar Go to White Castle', which is identified as the first installment of the 'Harold \u0026 Kumar' series.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 391,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 463
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-13035",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage states that the fifth production season's showrunner was David Mirkin, and the episode 'Cape Feare' (which spoofs Cape Fear) is part of that fifth season.",
+          "duration_ms": 821.001,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the fifth production season's showrunner was David Mirkin, and the episode 'Cape Feare' (which spoofs Cape Fear) is part of that fifth season.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 498,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 554
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-6154",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage mentions Cartoon Network, but it does not mention Ghostshrimp or Stakes, making the answer unsupported by the text.",
+          "duration_ms": 744.307,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage mentions Cartoon Network, but it does not mention Ghostshrimp or Stakes, making the answer unsupported by the text.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 349,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 399
+          },
+          "prediction": "FAIL",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-10171",
+      "tier": "halueval",
+      "category": "groundedness",
+      "expected": "PASS",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "passed": true,
+          "score": 1,
+          "confidence": 1,
+          "explanation": "The passage confirms Jason Robards was a United States Navy combat veteran of World War II, and he was one of the hosts.",
+          "duration_ms": 691.851,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage confirms Jason Robards was a United States Navy combat veteran of World War II, and he was one of the hosts.",
+            "passed": true
+          },
+          "tokens": {
+            "prompt_tokens": 374,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 425
+          },
+          "prediction": "PASS",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    }
+  ]
+}

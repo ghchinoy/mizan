@@ -1,0 +1,3850 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:17:26.970032Z",
+    "finished_at": "2026-11-12T22:17:37.524565Z",
+    "dataset": "docs/experiments/judge-eval/suites/likert_helpfulness.jsonl",
+    "dataset_sha256": "98173446d3da579dc4a68c76820d8e89c1bae35f05d7f5bca8f1191e51e51702",
+    "engine_a": "genai",
+    "engine_b": "none",
+    "model_a": "gemini-3.5-flash-lite",
+    "diffusion_mirror_side": "both",
+    "workers": 10,
+    "warmup": 1,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "pairwise_genai": true,
+    "batch_wall_ms": 9147.676,
+    "throughput_items_per_sec": 10.931738290687166,
+    "serial_engines": false,
+    "score_tolerance": 0.5,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 2 fresh fast baseline gemini-3.5-flash-lite on likert_helpfulness"
+  },
+  "total_cases": 100,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "model_versions": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "cases": 100,
+    "errors": 0,
+    "scored": 100,
+    "correct": 39,
+    "accuracy": 0.39,
+    "accuracy_ci95": {
+      "lo": 0.29,
+      "hi": 0.48
+    },
+    "latency_p50_ms": 832.9235,
+    "latency_p95_ms": 1119.3089,
+    "latency_mean_ms": 871.39566,
+    "mean_tokens": {
+      "n": 100,
+      "prompt": 684.2,
+      "candidates": 59.2,
+      "thoughts": 0,
+      "total": 743.5
+    },
+    "score_metrics": {
+      "n": 100,
+      "mae": 0.95,
+      "spearman": 0.5920697855559914,
+      "pearson": 0.5955622119708119
+    }
+  },
+  "engine_b": {
+    "engine": "none",
+    "cases": 100,
+    "errors": 0,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0
+  },
+  "paired": {
+    "n": 100,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "cohen_kappa": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "score": {
+      "n": 100,
+      "a_correct": 39,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.39
+    }
+  },
+  "by_tier": {
+    "h0": {
+      "n": 20,
+      "a_correct": 9,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.45
+    },
+    "h1": {
+      "n": 20,
+      "a_correct": 8,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.4
+    },
+    "h2": {
+      "n": 20,
+      "a_correct": 2,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.1
+    },
+    "h3": {
+      "n": 20,
+      "a_correct": 5,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.25
+    },
+    "h4": {
+      "n": 20,
+      "a_correct": 15,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.75
+    }
+  },
+  "by_category": {
+    "helpfulness": {
+      "n": 100,
+      "a_correct": 39,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.39
+    }
+  },
+  "cases": [
+    {
+      "id": "hs-888",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response completely ignores the user's serious request for a structured, realistic daily schedule and instead gives a nonsensical and unhelpful joke.",
+          "duration_ms": 1022.835,
+          "custom_output": {
+            "explanation": "The response completely ignores the user's serious request for a structured, realistic daily schedule and instead gives a nonsensical and unhelpful joke.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 835,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 880
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-196",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The assistant correctly identifies that the term 'living library' can have multiple meanings, provides helpful interpretations for both possible contexts, and outlines key considerations for each, fully addressing the user's ambiguous input.",
+          "duration_ms": 1061.08,
+          "custom_output": {
+            "explanation": "The assistant correctly identifies that the term 'living library' can have multiple meanings, provides helpful interpretations for both possible contexts, and outlines key considerations for each, fully addressing the user's ambiguous input.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 781,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 838
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-432",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response incorrectly calculates the annual interest as 3,125.00 and then nonsensically claims that 3,125.00 is equal to 215.28 when rounded, failing to account for time periods (such as days or months) which would actually explain the lower earnings.",
+          "duration_ms": 1044.37,
+          "custom_output": {
+            "explanation": "The response incorrectly calculates the annual interest as 3,125.00 and then nonsensically claims that 3,125.00 is equal to 215.28 when rounded, failing to account for time periods (such as days or months) which would actually explain the lower earnings.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 442,
+            "candidates_tokens": 84,
+            "thoughts_tokens": 0,
+            "total_tokens": 526
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-717",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response correctly identifies some actual Olive Garden soups (Minestrone, Italian Wedding, Chicken and Gnocchi - though listed as noodle), but includes several inaccurate or hallucinated soups that are not on the Olive Garden menu (such as shrimp scampi soup, fish soup, and butternut squash soup).",
+          "duration_ms": 1118.256,
+          "custom_output": {
+            "explanation": "The response correctly identifies some actual Olive Garden soups (Minestrone, Italian Wedding, Chicken and Gnocchi - though listed as noodle), but includes several inaccurate or hallucinated soups that are not on the Olive Garden menu (such as shrimp scampi soup, fish soup, and butternut squash soup).",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 445,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 0,
+            "total_tokens": 522
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-157",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The assistant failed to provide a script, instead repeatedly outputting the exact same generic paragraph summary with minor, nonsensical tweaks, completely ignoring the user's request for a script.",
+          "duration_ms": 1050.921,
+          "custom_output": {
+            "explanation": "The assistant failed to provide a script, instead repeatedly outputting the exact same generic paragraph summary with minor, nonsensical tweaks, completely ignoring the user's request for a script.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 969,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 1022
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-1000",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The assistant asks questions that the user had already answered or was in the process of providing, showing a lack of context awareness. However, it still provides a general list of brainstorming tips and product ideas, making it partially helpful.",
+          "duration_ms": 1167.225,
+          "custom_output": {
+            "explanation": "The assistant asks questions that the user had already answered or was in the process of providing, showing a lack of context awareness. However, it still provides a general list of brainstorming tips and product ideas, making it partially helpful.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 1062,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 1124
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-549",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response completely ignores the provided web search results about the devastating February 2023 earthquake and instead hallucinates generic information about inflation, COVID-19, and political tensions, failing the core request and instructions.",
+          "duration_ms": 1034.738,
+          "custom_output": {
+            "explanation": "The response completely ignores the provided web search results about the devastating February 2023 earthquake and instead hallucinates generic information about inflation, COVID-19, and political tensions, failing the core request and instructions.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 900,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 961
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-352",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The assistant hallucinates a list of fake academic papers with identical authors and matching titles that do not exist, which provides misleading information to the user.",
+          "duration_ms": 1005.965,
+          "custom_output": {
+            "explanation": "The assistant hallucinates a list of fake academic papers with identical authors and matching titles that do not exist, which provides misleading information to the user.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 1013,
+            "candidates_tokens": 40,
+            "thoughts_tokens": 0,
+            "total_tokens": 1053
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-890",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response completely fails to use the provided web search results, fails to cite sources properly, and provides fabricated information about a song that was not asked about while ignoring the Chinese language requirement.",
+          "duration_ms": 1226.938,
+          "custom_output": {
+            "explanation": "The response completely fails to use the provided web search results, fails to cite sources properly, and provides fabricated information about a song that was not asked about while ignoring the Chinese language requirement.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 908,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 962
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-853",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response fails to fulfill the core instruction to rewrite the text to sound more rude, maintaining the exact same polite and formal tone as the original text.",
+          "duration_ms": 1000.845,
+          "custom_output": {
+            "explanation": "The response fails to fulfill the core instruction to rewrite the text to sound more rude, maintaining the exact same polite and formal tone as the original text.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 1041,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 1089
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-183",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response completely fails to answer the question, offering only a generic and evasive statement about neutrality and respect.",
+          "duration_ms": 755.14,
+          "custom_output": {
+            "explanation": "The response completely fails to answer the question, offering only a generic and evasive statement about neutrality and respect.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 270,
+            "candidates_tokens": 39,
+            "thoughts_tokens": 0,
+            "total_tokens": 309
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-669",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response addresses part of the request by introducing a gothic girl puppet that comes to life while still attached to strings. However, it fails the core constraint because the human girl cuts the strings, allowing the puppet to break free, which contradicts the prompt's condition that she cannot break free of the strings.",
+          "duration_ms": 908.387,
+          "custom_output": {
+            "explanation": "The response addresses part of the request by introducing a gothic girl puppet that comes to life while still attached to strings. However, it fails the core constraint because the human girl cuts the strings, allowing the puppet to break free, which contradicts the prompt's condition that she cannot break free of the strings.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 872,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 950
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-564",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The prompt is just the word 'Share', which is extremely vague, but the response hallucinates a completely false and hallucinated premise about the manga 'DEATH NOTE', claiming it features a hacker group named SHARE founded by L with members like Light and Ryuk, which is entirely incorrect.",
+          "duration_ms": 975.098,
+          "custom_output": {
+            "explanation": "The prompt is just the word 'Share', which is extremely vague, but the response hallucinates a completely false and hallucinated premise about the manga 'DEATH NOTE', claiming it features a hacker group named SHARE founded by L with members like Light and Ryuk, which is entirely incorrect.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 531,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 0,
+            "total_tokens": 606
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-759",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response is partially helpful. It acknowledges the prompt and asks for the missing transcript, but it fails to solve the math problem using the details provided in the prompt itself.",
+          "duration_ms": 833.408,
+          "custom_output": {
+            "explanation": "The response is partially helpful. It acknowledges the prompt and asks for the missing transcript, but it fails to solve the math problem using the details provided in the prompt itself.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 414,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 459
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-644",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response incorrectly claims that the first people in the world were the Australians, which is historically and anthropologically inaccurate, as modern humans originated in Africa much earlier.",
+          "duration_ms": 788.1,
+          "custom_output": {
+            "explanation": "The response incorrectly claims that the first people in the world were the Australians, which is historically and anthropologically inaccurate, as modern humans originated in Africa much earlier.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 339,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 388
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-584",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response is completely unhelpful and factually incorrect, dismissing the well-documented chemical burn and irritation risks of prolonged direct contact with iron-oxide heat pads.",
+          "duration_ms": 863.565,
+          "custom_output": {
+            "explanation": "The response is completely unhelpful and factually incorrect, dismissing the well-documented chemical burn and irritation risks of prolonged direct contact with iron-oxide heat pads.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 296,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 339
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-749",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response completely fails the prompt by ignoring the first instruction, failing to correctly complete the pattern sequence, and hallucinating mathematical nonsense such as claiming 16 and 18 are one-digit prime numbers.",
+          "duration_ms": 850.047,
+          "custom_output": {
+            "explanation": "The response completely fails the prompt by ignoring the first instruction, failing to correctly complete the pattern sequence, and hallucinating mathematical nonsense such as claiming 16 and 18 are one-digit prime numbers.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 1580,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 1639
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-89",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The prompt is incomplete and the response just asks a generic clarifying question without providing any actual code or fulfilling a specific task.",
+          "duration_ms": 836.92,
+          "custom_output": {
+            "explanation": "The prompt is incomplete and the response just asks a generic clarifying question without providing any actual code or fulfilling a specific task.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 237,
+            "candidates_tokens": 41,
+            "thoughts_tokens": 0,
+            "total_tokens": 278
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-100",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response is largely mathematically nonsensical and contains severe errors. The expected number of rolls to get 10 successes with a probability of 1/6 is simply 10 divided by (1/6), which equals 60. The response provides a confused derivation that mixes up binomial formulas, uses incorrect probability formulas, introduces an unnecessary integral, and arrives at an entirely wrong answer of 16.87.",
+          "duration_ms": 931.268,
+          "custom_output": {
+            "explanation": "The response is largely mathematically nonsensical and contains severe errors. The expected number of rolls to get 10 successes with a probability of 1/6 is simply 10 divided by (1/6), which equals 60. The response provides a confused derivation that mixes up binomial formulas, uses incorrect probability formulas, introduces an unnecessary integral, and arrives at an entirely wrong answer of 16.87.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 729,
+            "candidates_tokens": 103,
+            "thoughts_tokens": 0,
+            "total_tokens": 832
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-623",
+      "tier": "h0",
+      "category": "helpfulness",
+      "expected": "0",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response completely fails to address the request, asking for a link instead of providing a summary of the known academic text.",
+          "duration_ms": 762.253,
+          "custom_output": {
+            "explanation": "The response completely fails to address the request, asking for a link instead of providing a summary of the known academic text.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 278,
+            "candidates_tokens": 41,
+            "thoughts_tokens": 0,
+            "total_tokens": 319
+          },
+          "prediction": "0.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-400",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly answers all the multiple-choice questions presented in the prompt with accurate explanations.",
+          "duration_ms": 745.756,
+          "custom_output": {
+            "explanation": "The response fully and correctly answers all the multiple-choice questions presented in the prompt with accurate explanations.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 676,
+            "candidates_tokens": 37,
+            "thoughts_tokens": 0,
+            "total_tokens": 713
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-849",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response completely failed to follow the instructions. It did not rewrite the text as a 10-year-old, did not misspell any words, and simply regurgitated the original reference text verbatim before listing questions.",
+          "duration_ms": 1023.877,
+          "custom_output": {
+            "explanation": "The response completely failed to follow the instructions. It did not rewrite the text as a 10-year-old, did not misspell any words, and simply regurgitated the original reference text verbatim before listing questions.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 1216,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 1278
+          },
+          "prediction": "0.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-231",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The assistant failed to provide more creative ideas as requested. Instead, it listed standard smart home devices and completely ignored the core premise of TEMPTACULAR, which is controlling temperature using spoken commands, by including unrelated features like adjusting humidity, air quality, brightness, and volume.",
+          "duration_ms": 877.239,
+          "custom_output": {
+            "explanation": "The assistant failed to provide more creative ideas as requested. Instead, it listed standard smart home devices and completely ignored the core premise of TEMPTACULAR, which is controlling temperature using spoken commands, by including unrelated features like adjusting humidity, air quality, brightness, and volume.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 740,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 812
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-91",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response provides a generic guide on how to build a Chrome extension rather than writing an actual job brief for Upwork as requested by the prompt.",
+          "duration_ms": 765.545,
+          "custom_output": {
+            "explanation": "The response provides a generic guide on how to build a Chrome extension rather than writing an actual job brief for Upwork as requested by the prompt.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 706,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 752
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-742",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response fails the negative constraint of answering in 2 sentences, as it is much longer.",
+          "duration_ms": 762.48,
+          "custom_output": {
+            "explanation": "The response fails the negative constraint of answering in 2 sentences, as it is much longer.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 503,
+            "candidates_tokens": 30,
+            "thoughts_tokens": 0,
+            "total_tokens": 533
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-93",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response correctly identifies the famous quote, but it completely hallucinates the rest of the scene, falsely claiming that Snow White walks in and has a conversation with the Queen.",
+          "duration_ms": 791.997,
+          "custom_output": {
+            "explanation": "The response correctly identifies the famous quote, but it completely hallucinates the rest of the scene, falsely claiming that Snow White walks in and has a conversation with the Queen.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 454,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 505
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-955",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The assistant admits it does not know whether non-linear least squares has been tried for NeRFs, but misses the opportunity to provide relevant context, such as how bundle adjustment or similar optimization techniques relate to NeRF training, making it only partially helpful.",
+          "duration_ms": 721.685,
+          "custom_output": {
+            "explanation": "The assistant admits it does not know whether non-linear least squares has been tried for NeRFs, but misses the opportunity to provide relevant context, such as how bundle adjustment or similar optimization techniques relate to NeRF training, making it only partially helpful.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 398,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 460
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-574",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The prompt specifically asked for 10 'no-oriented questions' (questions designed to elicit a 'no' response, such as 'Is it ridiculous to suggest...?'), but the response provided 10 standard 'what' and open-ended questions instead.",
+          "duration_ms": 820.495,
+          "custom_output": {
+            "explanation": "The prompt specifically asked for 10 'no-oriented questions' (questions designed to elicit a 'no' response, such as 'Is it ridiculous to suggest...?'), but the response provided 10 standard 'what' and open-ended questions instead.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 445,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 515
+          },
+          "prediction": "0.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-454",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response successfully generates requirements using 'shall' and 'when' for both systems based on the provided use-cases and actors. However, it structures the requirements somewhat awkwardly by separating 'Shall' and 'When' into distinct sections rather than integrating them into complete conditional requirement statements (e.g., 'The system shall X when Y'), but it is mostly helpful and addresses the core prompt well.",
+          "duration_ms": 982.209,
+          "custom_output": {
+            "explanation": "The response successfully generates requirements using 'shall' and 'when' for both systems based on the provided use-cases and actors. However, it structures the requirements somewhat awkwardly by separating 'Shall' and 'When' into distinct sections rather than integrating them into complete conditional requirement statements (e.g., 'The system shall X when Y'), but it is mostly helpful and addresses the core prompt well.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 1126,
+            "candidates_tokens": 97,
+            "thoughts_tokens": 0,
+            "total_tokens": 1223
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-176",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The assistant hallucinates the existence of a non-existent 'GPT API' with a JavaScript interface to a 'GPT-enabled device', provides factually incorrect and vague guidance, and repeats previous boilerplate without addressing how to actually send a file to the OpenAI API.",
+          "duration_ms": 982.481,
+          "custom_output": {
+            "explanation": "The assistant hallucinates the existence of a non-existent 'GPT API' with a JavaScript interface to a 'GPT-enabled device', provides factually incorrect and vague guidance, and repeats previous boilerplate without addressing how to actually send a file to the OpenAI API.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 986,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 1055
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-905",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response is mostly helpful as it correctly identifies ThomasNet as a major directory and explains why an exact listing count is not publicly available, though it lacks specific numbers.",
+          "duration_ms": 768.121,
+          "custom_output": {
+            "explanation": "The response is mostly helpful as it correctly identifies ThomasNet as a major directory and explains why an exact listing count is not publicly available, though it lacks specific numbers.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 627,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 677
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-788",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response correctly identifies that the prompt asks for the number of nieces, and since the genders of the siblings' children are not provided, it is impossible to determine the exact number. It fully and correctly analyzes the logical limits of the question.",
+          "duration_ms": 816.549,
+          "custom_output": {
+            "explanation": "The response correctly identifies that the prompt asks for the number of nieces, and since the genders of the siblings' children are not provided, it is impossible to determine the exact number. It fully and correctly analyzes the logical limits of the question.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 416,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 481
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-783",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response includes 3 meals and 2 snacks for 5 days as requested, but it provides multiple options for each meal instead of a single meal per slot, includes broken HTML tags, and completely fails the negative constraint to stay under 200 words (the word count is well over 400).",
+          "duration_ms": 1080.433,
+          "custom_output": {
+            "explanation": "The response includes 3 meals and 2 snacks for 5 days as requested, but it provides multiple options for each meal instead of a single meal per slot, includes broken HTML tags, and completely fails the negative constraint to stay under 200 words (the word count is well over 400).",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 843,
+            "candidates_tokens": 81,
+            "thoughts_tokens": 0,
+            "total_tokens": 924
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-631",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response is mostly helpful. Although the prompt was vague ('test this stuff out'), the AI provided a well-structured and comprehensive guide on general testing categories and offered to help further if given more details.",
+          "duration_ms": 792.729,
+          "custom_output": {
+            "explanation": "The response is mostly helpful. Although the prompt was vague ('test this stuff out'), the AI provided a well-structured and comprehensive guide on general testing categories and offered to help further if given more details.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 490,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 548
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-824",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response is largely wrong and superficial. It incorrectly states that without a bias term, an AI system cannot learn or improve over time and would keep making the same mistakes. It misses the fundamental mathematical purpose of the bias, which is to allow the activation function to shift left or right to fit the data properly.",
+          "duration_ms": 886.188,
+          "custom_output": {
+            "explanation": "The response is largely wrong and superficial. It incorrectly states that without a bias term, an AI system cannot learn or improve over time and would keep making the same mistakes. It misses the fundamental mathematical purpose of the bias, which is to allow the activation function to shift left or right to fit the data properly.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 300,
+            "candidates_tokens": 79,
+            "thoughts_tokens": 0,
+            "total_tokens": 379
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-662",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response correctly identifies that the Param Vir Chakra is not awarded for UN peacemaking missions, successfully addresses the prompt's premise by correcting it, and provides accurate information about India's highest military award.",
+          "duration_ms": 654.705,
+          "custom_output": {
+            "explanation": "The response correctly identifies that the Param Vir Chakra is not awarded for UN peacemaking missions, successfully addresses the prompt's premise by correcting it, and provides accurate information about India's highest military award.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 497,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 555
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-716",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response correctly identifies Olive Garden's three signature soups (Minestrone, Italian Wedding, and Zuppa Toscana), but it incorrectly hallucinates several soups that Olive Garden does not serve, such as Avgolemono, Clam Chowder, and Cream of Broccoli.",
+          "duration_ms": 780.872,
+          "custom_output": {
+            "explanation": "The response correctly identifies Olive Garden's three signature soups (Minestrone, Italian Wedding, and Zuppa Toscana), but it incorrectly hallucinates several soups that Olive Garden does not serve, such as Avgolemono, Clam Chowder, and Cream of Broccoli.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 652,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 724
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-799",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response mostly addresses the request by identifying the cities and comparing them, though there is a factual error as Honda is headquartered in Tokyo/Saitama rather than Nagoya.",
+          "duration_ms": 962.018,
+          "custom_output": {
+            "explanation": "The response mostly addresses the request by identifying the cities and comparing them, though there is a factual error as Honda is headquartered in Tokyo/Saitama rather than Nagoya.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 569,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 620
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-251",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response accurately answers the user's question about what James Gunn said regarding Lance Reddick based on the context of the article, fulfilling the request completely and correctly.",
+          "duration_ms": 718.951,
+          "custom_output": {
+            "explanation": "The response accurately answers the user's question about what James Gunn said regarding Lance Reddick based on the context of the article, fulfilling the request completely and correctly.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 851,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 901
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-275",
+      "tier": "h1",
+      "category": "helpfulness",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The assistant merely repeats the generic, flawed concept from previous turns without providing any actual Python code, despite the user specifically asking for an example implementing date splitting.",
+          "duration_ms": 1108.511,
+          "custom_output": {
+            "explanation": "The assistant merely repeats the generic, flawed concept from previous turns without providing any actual Python code, despite the user specifically asking for an example implementing date splitting.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 696,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 744
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-880",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response provides three distinct paragraphs about different activities in Japan as requested, though it uses a numbered list format rather than traditional prose paragraphs, representing a minor issue.",
+          "duration_ms": 604.313,
+          "custom_output": {
+            "explanation": "The response provides three distinct paragraphs about different activities in Japan as requested, though it uses a numbered list format rather than traditional prose paragraphs, representing a minor issue.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 919,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 962
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-640",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response starts with an unnecessary confused preamble, but the actual suggestions provided are mostly helpful and directly address the user's requirements for handling subscriptions, billing, and access control in Laravel.",
+          "duration_ms": 744.738,
+          "custom_output": {
+            "explanation": "The response starts with an unnecessary confused preamble, but the actual suggestions provided are mostly helpful and directly address the user's requirements for handling subscriptions, billing, and access control in Laravel.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 547,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 601
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-861",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The assistant successfully elaborates on the requested point regarding synchronicities and premonitions for a fictional story, though the ideas are a bit repetitive and miss incorporating the specific 'maintenance mode / mind-controlling humans' lore requested in the original prompt.",
+          "duration_ms": 831.827,
+          "custom_output": {
+            "explanation": "The assistant successfully elaborates on the requested point regarding synchronicities and premonitions for a fictional story, though the ideas are a bit repetitive and miss incorporating the specific 'maintenance mode / mind-controlling humans' lore requested in the original prompt.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 644,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 711
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-37",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly satisfies the request by acting as an Alexa developer advocate, adopting the requested persona, and writing a comprehensive talk proposal targeting Android and web developers for the Echo Show 15 using APL.",
+          "duration_ms": 1025.337,
+          "custom_output": {
+            "explanation": "The response fully and correctly satisfies the request by acting as an Alexa developer advocate, adopting the requested persona, and writing a comprehensive talk proposal targeting Android and web developers for the Echo Show 15 using APL.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 799,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 859
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-195",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly satisfies the prompt by comparing worldwide results (Australia, United States, Germany, and Japan) on calculating the costs of installation and operation for producing hydrogen via electrolysis, categorized by logical factors and accompanied by references.",
+          "duration_ms": 606.483,
+          "custom_output": {
+            "explanation": "The response fully and correctly satisfies the prompt by comparing worldwide results (Australia, United States, Germany, and Japan) on calculating the costs of installation and operation for producing hydrogen via electrolysis, categorized by logical factors and accompanied by references.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 1549,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 1606
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-307",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response provides a thoughtful and accurate overview of antisemitism in America, addressing the user's question well. However, it slightly drops the specific persona of Rabbi Yehuda Krinsky established earlier in the conversation, reading more like a standard AI response rather than a Hasidic Jewish leader.",
+          "duration_ms": 802.941,
+          "custom_output": {
+            "explanation": "The response provides a thoughtful and accurate overview of antisemitism in America, addressing the user's question well. However, it slightly drops the specific persona of Rabbi Yehuda Krinsky established earlier in the conversation, reading more like a standard AI response rather than a Hasidic Jewish leader.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 926,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 1000
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-858",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully satisfies the prompt by providing four popular American baby names, their origins and meanings, and accurate French versions for each name.",
+          "duration_ms": 559.391,
+          "custom_output": {
+            "explanation": "The response fully satisfies the prompt by providing four popular American baby names, their origins and meanings, and accurate French versions for each name.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 464,
+            "candidates_tokens": 44,
+            "thoughts_tokens": 0,
+            "total_tokens": 508
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-52",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully satisfies the prompt by providing a philosophical definition of political power, identifying a core tension, and outlining a structured plan with parts, subparts, and examples.",
+          "duration_ms": 799.721,
+          "custom_output": {
+            "explanation": "The response fully satisfies the prompt by providing a philosophical definition of political power, identifying a core tension, and outlining a structured plan with parts, subparts, and examples.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 966,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 1017
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-83",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response includes a few glaring issues: episode 2 is an exact duplicate of an existing classic Seinfeld episode ('The Parking Garage'), and episode 5 is literally 'The Contest', which is also an actual, famous existing episode of the show. Therefore, it fails to provide 5 'new' episodes as requested.",
+          "duration_ms": 880.01,
+          "custom_output": {
+            "explanation": "The response includes a few glaring issues: episode 2 is an exact duplicate of an existing classic Seinfeld episode ('The Parking Garage'), and episode 5 is literally 'The Contest', which is also an actual, famous existing episode of the show. Therefore, it fails to provide 5 'new' episodes as requested.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 530,
+            "candidates_tokens": 82,
+            "thoughts_tokens": 0,
+            "total_tokens": 612
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-82",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response claims to provide 5 'new' Seinfeld episodes, but the first one is an exact description of a famous existing episode ('The Parking Garage'). The other episodes are very generic and lack the distinctive Seinfeld comedic voice.",
+          "duration_ms": 843.938,
+          "custom_output": {
+            "explanation": "The response claims to provide 5 'new' Seinfeld episodes, but the first one is an exact description of a famous existing episode ('The Parking Garage'). The other episodes are very generic and lack the distinctive Seinfeld comedic voice.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 531,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 595
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-956",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The assistant repeatedly fails to provide a correct list of unique rhyming words for 'drama', continuing to output duplicates, non-existent words, and words that do not rhyme even after multiple corrections from the user.",
+          "duration_ms": 719.833,
+          "custom_output": {
+            "explanation": "The assistant repeatedly fails to provide a correct list of unique rhyming words for 'drama', continuing to output duplicates, non-existent words, and words that do not rhyme even after multiple corrections from the user.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 937,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 990
+          },
+          "prediction": "0.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-1014",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly satisfies the request by providing three distinct, relevant, and well-explained business ideas focused on using ChatGPT to improve school assessments, directly following up on point 8 of the previous conversation.",
+          "duration_ms": 742.885,
+          "custom_output": {
+            "explanation": "The response fully and correctly satisfies the request by providing three distinct, relevant, and well-explained business ideas focused on using ChatGPT to improve school assessments, directly following up on point 8 of the previous conversation.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 720,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 779
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-190",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response incorrectly states that CD-19 is a TAA for multiple myeloma. While CD-19 is an important target for other B-cell malignancies like lymphomas and leukemias, plasma cells (and thus multiple myeloma cells) typically do not express CD-19, which is a key diagnostic marker. Therefore, the response contains a notable medical error regarding myeloma.",
+          "duration_ms": 864.744,
+          "custom_output": {
+            "explanation": "The response incorrectly states that CD-19 is a TAA for multiple myeloma. While CD-19 is an important target for other B-cell malignancies like lymphomas and leukemias, plasma cells (and thus multiple myeloma cells) typically do not express CD-19, which is a key diagnostic marker. Therefore, the response contains a notable medical error regarding myeloma.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 753,
+            "candidates_tokens": 92,
+            "thoughts_tokens": 0,
+            "total_tokens": 845
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-328",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The assistant still misunderstands the core issue. The user has a multivariate model expecting 20 features and wants to input only 1 feature, but the assistant suggests reshaping to (1,20) which still requires 20 features, demonstrating a fundamental mathematical and conceptual misunderstanding of shape mismatch in machine learning.",
+          "duration_ms": 944.471,
+          "custom_output": {
+            "explanation": "The assistant still misunderstands the core issue. The user has a multivariate model expecting 20 features and wants to input only 1 feature, but the assistant suggests reshaping to (1,20) which still requires 20 features, demonstrating a fundamental mathematical and conceptual misunderstanding of shape mismatch in machine learning.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 775,
+            "candidates_tokens": 81,
+            "thoughts_tokens": 0,
+            "total_tokens": 856
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-554",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response provides a well-structured and effective GPT-3 prompt for analyzing customer feedback, covering objectives, scope, and desired output characteristics.",
+          "duration_ms": 804.403,
+          "custom_output": {
+            "explanation": "The response provides a well-structured and effective GPT-3 prompt for analyzing customer feedback, covering objectives, scope, and desired output characteristics.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 331,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 376
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-321",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The assistant correctly acknowledges the vocative case, but then incorrectly states that the vocative case is one of the 'seven cases' after previously discussing the eight vibhaktis. It also still fails to systematically explain all the 8 vibhaktis with examples as originally requested.",
+          "duration_ms": 820.461,
+          "custom_output": {
+            "explanation": "The assistant correctly acknowledges the vocative case, but then incorrectly states that the vocative case is one of the 'seven cases' after previously discussing the eight vibhaktis. It also still fails to systematically explain all the 8 vibhaktis with examples as originally requested.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 774,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 848
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-430",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response provided a general course outline, but it completely failed to follow the explicit negative constraint and instruction to ask questions BEFORE answering.",
+          "duration_ms": 703.284,
+          "custom_output": {
+            "explanation": "The response provided a general course outline, but it completely failed to follow the explicit negative constraint and instruction to ask questions BEFORE answering.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 634,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 677
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-255",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response is largely wrong because several of the listed companies (like OpenNode and BitPay) are direct competitors to Coinbase Commerce rather than users, and BlockFi and others are not notable Web2 brands using it on Shopify as originally requested.",
+          "duration_ms": 779.542,
+          "custom_output": {
+            "explanation": "The response is largely wrong because several of the listed companies (like OpenNode and BitPay) are direct competitors to Coinbase Commerce rather than users, and BlockFi and others are not notable Web2 brands using it on Shopify as originally requested.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 508,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 573
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-908",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response suggests adding custom webpack loaders to Next.js by modifying webpack configuration manually, which is not the standard or recommended way to handle monorepo packages in Next.js (Next.js handles transpilation of external workspace packages natively using next.config.js transpilePackages). Additionally, some mentioned packages and loader configurations (like tsc-loader, ts-node-dev-loader) are hallucinated or incorrect.",
+          "duration_ms": 1103.926,
+          "custom_output": {
+            "explanation": "The response suggests adding custom webpack loaders to Next.js by modifying webpack configuration manually, which is not the standard or recommended way to handle monorepo packages in Next.js (Next.js handles transpilation of external workspace packages natively using next.config.js transpilePackages). Additionally, some mentioned packages and loader configurations (like tsc-loader, ts-node-dev-loader) are hallucinated or incorrect.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 1406,
+            "candidates_tokens": 103,
+            "thoughts_tokens": 0,
+            "total_tokens": 1509
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-372",
+      "tier": "h2",
+      "category": "helpfulness",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and accurately addresses the prompt by detailing how implantable neuromodulation devices, wearable sensors, telehealth, and personalized treatment plans can be integrated into clinical practice to improve chronic pain management and patient outcomes.",
+          "duration_ms": 722.762,
+          "custom_output": {
+            "explanation": "The response fully and accurately addresses the prompt by detailing how implantable neuromodulation devices, wearable sensors, telehealth, and personalized treatment plans can be integrated into clinical practice to improve chronic pain management and patient outcomes.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 754,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 813
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-202",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response attempts to explain the strengths and weaknesses of all four tools, but it contains several factual errors. For instance, it claims Puppeteer and Cypress do not support multiple browsers, and that Selenium does not support waiting for elements, all of which are incorrect or outdated descriptions.",
+          "duration_ms": 1042.851,
+          "custom_output": {
+            "explanation": "The response attempts to explain the strengths and weaknesses of all four tools, but it contains several factual errors. For instance, it claims Puppeteer and Cypress do not support multiple browsers, and that Selenium does not support waiting for elements, all of which are incorrect or outdated descriptions.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 640,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 712
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-929",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response perfectly answers the user's question by listing and describing the appropriate ingredients to use as a base tea for a tea blend, covering black, green, white, oolong, and herbal options clearly and helpfully.",
+          "duration_ms": 792.629,
+          "custom_output": {
+            "explanation": "The response perfectly answers the user's question by listing and describing the appropriate ingredients to use as a base tea for a tea blend, covering black, green, white, oolong, and herbal options clearly and helpfully.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 757,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 819
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-997",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The response fails to answer the multiple-choice question with True or False as requested by the prompt options.",
+          "duration_ms": 838.96,
+          "custom_output": {
+            "explanation": "The response fails to answer the multiple-choice question with True or False as requested by the prompt options.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 501,
+            "candidates_tokens": 38,
+            "thoughts_tokens": 0,
+            "total_tokens": 539
+          },
+          "prediction": "0.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-497",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response provides a well-structured, professional interview thank-you letter template with clear placeholders for customization and helpful closing advice, fully satisfying the prompt.",
+          "duration_ms": 778.671,
+          "custom_output": {
+            "explanation": "The response provides a well-structured, professional interview thank-you letter template with clear placeholders for customization and helpful closing advice, fully satisfying the prompt.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 501,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 549
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-696",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response perfectly satisfies the request by clearly defining emergence theory and listing accurate, comprehensive core concepts with good explanations.",
+          "duration_ms": 802.435,
+          "custom_output": {
+            "explanation": "The response perfectly satisfies the request by clearly defining emergence theory and listing accurate, comprehensive core concepts with good explanations.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 514,
+            "candidates_tokens": 39,
+            "thoughts_tokens": 0,
+            "total_tokens": 553
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-992",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The assistant correctly and safely refused a bizarre and medically hazardous request, maintaining appropriate safety boundaries while addressing the core topic repeatedly brought up by the user.",
+          "duration_ms": 898.561,
+          "custom_output": {
+            "explanation": "The assistant correctly and safely refused a bizarre and medically hazardous request, maintaining appropriate safety boundaries while addressing the core topic repeatedly brought up by the user.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 1005,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 1051
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-403",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response successfully follows the pattern established by the provided examples, generating a detailed and well-formatted Midjourney prompt complete with subject description, lighting, mood, artistic medium details, and parameters like aspect ratio and version.",
+          "duration_ms": 904.809,
+          "custom_output": {
+            "explanation": "The response successfully follows the pattern established by the provided examples, generating a detailed and well-formatted Midjourney prompt complete with subject description, lighting, mood, artistic medium details, and parameters like aspect ratio and version.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 878,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 938
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-673",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response addresses the prompt's question about why the pill is not 100% effective, but it contains notable errors and contradictions regarding the user's specific scenario. The user explicitly stated they take it perfectly, have no stomach problems, and take no other medications, yet the response repeatedly cites missing pills, vomiting, diarrhea, and interacting medications as reasons for failure.",
+          "duration_ms": 1139.314,
+          "custom_output": {
+            "explanation": "The response addresses the prompt's question about why the pill is not 100% effective, but it contains notable errors and contradictions regarding the user's specific scenario. The user explicitly stated they take it perfectly, have no stomach problems, and take no other medications, yet the response repeatedly cites missing pills, vomiting, diarrhea, and interacting medications as reasons for failure.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 630,
+            "candidates_tokens": 93,
+            "thoughts_tokens": 0,
+            "total_tokens": 723
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-428",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 0,
+          "explanation": "The user asked for a prompt to welcome users, but the response provided an actual welcome message and example user prompts instead of fulfilling the request to write a welcome prompt.",
+          "duration_ms": 819.624,
+          "custom_output": {
+            "explanation": "The user asked for a prompt to welcome users, but the response provided an actual welcome message and example user prompts instead of fulfilling the request to write a welcome prompt.",
+            "score": 0
+          },
+          "tokens": {
+            "prompt_tokens": 706,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 756
+          },
+          "prediction": "0.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-407",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response is mostly helpful and follows almost all the prompt's instructions, including the target audience, tone blend, keyword inclusion, and company details. However, it only included the exact keyword 'Soap Box Printing' in bold text twice instead of the requested three times.",
+          "duration_ms": 894.17,
+          "custom_output": {
+            "explanation": "The response is mostly helpful and follows almost all the prompt's instructions, including the target audience, tone blend, keyword inclusion, and company details. However, it only included the exact keyword 'Soap Box Printing' in bold text twice instead of the requested three times.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 772,
+            "candidates_tokens": 71,
+            "thoughts_tokens": 0,
+            "total_tokens": 843
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-77",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response correctly identifies that exponentiation is not commutative and provides a clear numerical example. However, the explanation of why addition and multiplication are commutative relies on a slightly circular definition ('distributive over each other') rather than fundamental algebraic structure.",
+          "duration_ms": 808.248,
+          "custom_output": {
+            "explanation": "The response correctly identifies that exponentiation is not commutative and provides a clear numerical example. However, the explanation of why addition and multiplication are commutative relies on a slightly circular definition ('distributive over each other') rather than fundamental algebraic structure.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 483,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 547
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-770",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response successfully identifies all the protein-based foods from the reference text, filters out non-protein items, and correctly sorts them in alphabetical order.",
+          "duration_ms": 1155.956,
+          "custom_output": {
+            "explanation": "The response successfully identifies all the protein-based foods from the reference text, filters out non-protein items, and correctly sorts them in alphabetical order.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 627,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 675
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-598",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly addresses the user's prompt by validating their perspective while explaining the practical benefits of writing down goals, addressing both the 'why do it' and the concern about conformity without being dismissive.",
+          "duration_ms": 746.736,
+          "custom_output": {
+            "explanation": "The response fully and correctly addresses the user's prompt by validating their perspective while explaining the practical benefits of writing down goals, addressing both the 'why do it' and the concern about conformity without being dismissive.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 477,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 537
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-225",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response draws correct general parallels between electric potential and gravitational potential, but it contains a factual error regarding units (stating gravitational potential is measured in joules instead of J/kg) and exaggerates their differences, failing to emphasize the deep mathematical similarities emphasized in AP Physics C (such as conservative forces, potential as line integrals of the field, and inverse-square laws).",
+          "duration_ms": 1047.289,
+          "custom_output": {
+            "explanation": "The response draws correct general parallels between electric potential and gravitational potential, but it contains a factual error regarding units (stating gravitational potential is measured in joules instead of J/kg) and exaggerates their differences, failing to emphasize the deep mathematical similarities emphasized in AP Physics C (such as conservative forces, potential as line integrals of the field, and inverse-square laws).",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 889,
+            "candidates_tokens": 92,
+            "thoughts_tokens": 0,
+            "total_tokens": 981
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-539",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response provides a list of steps rather than describing a visual diagram or decision tree that helps people ask questions, missing the core request of what the diagram could look like.",
+          "duration_ms": 827.792,
+          "custom_output": {
+            "explanation": "The response provides a list of steps rather than describing a visual diagram or decision tree that helps people ask questions, missing the core request of what the diagram could look like.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 683,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 734
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-966",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response successfully adopted a pirate persona as requested and included all elements of the original prompt. However, it generated four paragraphs instead of just the requested first paragraph, which is a minor issue.",
+          "duration_ms": 832.439,
+          "custom_output": {
+            "explanation": "The response successfully adopted a pirate persona as requested and included all elements of the original prompt. However, it generated four paragraphs instead of just the requested first paragraph, which is a minor issue.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 672,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 727
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-450",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response provides a comprehensive and generally accurate overview of CPR steps for adults, children, and infants, including the correct 30:2 ratio and calling 911. However, it has minor compression depth inaccuracies for adults (typically recommended as at least 2 inches rather than one-third of the chest depth) and some slight confusion in the rescue breathing ratio note at the end, but it remains mostly helpful.",
+          "duration_ms": 1063.691,
+          "custom_output": {
+            "explanation": "The response provides a comprehensive and generally accurate overview of CPR steps for adults, children, and infants, including the correct 30:2 ratio and calling 911. However, it has minor compression depth inaccuracies for adults (typically recommended as at least 2 inches rather than one-third of the chest depth) and some slight confusion in the rescue breathing ratio note at the end, but it remains mostly helpful.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 753,
+            "candidates_tokens": 102,
+            "thoughts_tokens": 0,
+            "total_tokens": 855
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-334",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response provides logical and relevant continuation steps for a social network analysis based on the previous context, though it lacks actual Python code implementation.",
+          "duration_ms": 753.201,
+          "custom_output": {
+            "explanation": "The response provides logical and relevant continuation steps for a social network analysis based on the previous context, though it lacks actual Python code implementation.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 578,
+            "candidates_tokens": 44,
+            "thoughts_tokens": 0,
+            "total_tokens": 622
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-552",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response provides some basic facts about Denver such as its location and status as the capital, but it is extremely brief, generic, and lacks depth on culture, geography, or history.",
+          "duration_ms": 726.558,
+          "custom_output": {
+            "explanation": "The response provides some basic facts about Denver such as its location and status as the capital, but it is extremely brief, generic, and lacks depth on culture, geography, or history.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 296,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 344
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-158",
+      "tier": "h3",
+      "category": "helpfulness",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The response suggests a shifting maze and competing characters, which are very common tropes in puzzle and multiplayer games rather than truly original elements never seen before. It fails to provide the high level of precision and genuinely novel gameplay requested by the user.",
+          "duration_ms": 900.061,
+          "custom_output": {
+            "explanation": "The response suggests a shifting maze and competing characters, which are very common tropes in puzzle and multiplayer games rather than truly original elements never seen before. It fails to provide the high level of precision and genuinely novel gameplay requested by the user.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 792,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 856
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-411",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and accurately explains spatial mode nulling, including its mechanism, applications, and relationship with beamforming, satisfying the prompt completely.",
+          "duration_ms": 932.736,
+          "custom_output": {
+            "explanation": "The response fully and accurately explains spatial mode nulling, including its mechanism, applications, and relationship with beamforming, satisfying the prompt completely.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 474,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 519
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-814",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response is empathetic, acknowledges the user's difficult situation, and provides practical, compassionate advice for coping with a breakup.",
+          "duration_ms": 858.065,
+          "custom_output": {
+            "explanation": "The response is empathetic, acknowledges the user's difficult situation, and provides practical, compassionate advice for coping with a breakup.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 522,
+            "candidates_tokens": 42,
+            "thoughts_tokens": 0,
+            "total_tokens": 564
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-959",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response provides the general formulas for entropy and mutual information, and outlines the process, but it fails to deliver a complete, specific mathematical case study integrating the Markowitz model with information theory as requested in the original prompt. It also suffers from repetition issues in earlier turns of the conversation.",
+          "duration_ms": 834.195,
+          "custom_output": {
+            "explanation": "The response provides the general formulas for entropy and mutual information, and outlines the process, but it fails to deliver a complete, specific mathematical case study integrating the Markowitz model with information theory as requested in the original prompt. It also suffers from repetition issues in earlier turns of the conversation.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 1184,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 1258
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-474",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The response provides general market trends and challenges (supply chain, demand, automotive), but it largely misses the specific perspective requested by the prompt: predicting the condition based on the dynamic interplay specifically between semiconductor industry suppliers, customers, and distributors.",
+          "duration_ms": 936.438,
+          "custom_output": {
+            "explanation": "The response provides general market trends and challenges (supply chain, demand, automotive), but it largely misses the specific perspective requested by the prompt: predicting the condition based on the dynamic interplay specifically between semiconductor industry suppliers, customers, and distributors.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 709,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 773
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-173",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and accurately addresses both parts of the prompt, explaining what focusing on 'risky bits first' means and interpreting the architect's specific quote in context.",
+          "duration_ms": 824.732,
+          "custom_output": {
+            "explanation": "The response fully and accurately addresses both parts of the prompt, explaining what focusing on 'risky bits first' means and interpreting the architect's specific quote in context.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 544,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 595
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-431",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response perfectly follows the instruction to ask questions before answering, adopting the persona of an AI education expert and addressing the prompt's constraints comprehensively.",
+          "duration_ms": 831.731,
+          "custom_output": {
+            "explanation": "The response perfectly follows the instruction to ask questions before answering, adopting the persona of an AI education expert and addressing the prompt's constraints comprehensively.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 686,
+            "candidates_tokens": 40,
+            "thoughts_tokens": 0,
+            "total_tokens": 726
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-528",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly satisfies the request by providing a comprehensive and well-structured table of contents for a book titled 'Introduction to Coaching', written from the perspective of a coaching professor, and is entirely in English.",
+          "duration_ms": 734.17,
+          "custom_output": {
+            "explanation": "The response fully and correctly satisfies the request by providing a comprehensive and well-structured table of contents for a book titled 'Introduction to Coaching', written from the perspective of a coaching professor, and is entirely in English.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 523,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 583
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-206",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response provides a clear, accurate, and concise definition of a method in Python, perfectly answering the user's question and maintaining consistency with the previous explanations.",
+          "duration_ms": 760.159,
+          "custom_output": {
+            "explanation": "The response provides a clear, accurate, and concise definition of a method in Python, perfectly answering the user's question and maintaining consistency with the previous explanations.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 473,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 516
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-832",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response provides exactly 15 postpartum recovery tips in bullet points, uses a lighthearted tone, and briefly explains each tip, fully satisfying all criteria of the prompt.",
+          "duration_ms": 927.051,
+          "custom_output": {
+            "explanation": "The response provides exactly 15 postpartum recovery tips in bullet points, uses a lighthearted tone, and briefly explains each tip, fully satisfying all criteria of the prompt.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 757,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 808
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-682",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and creatively satisfies the user's request to rewrite the ending of Game of Thrones.",
+          "duration_ms": 734.049,
+          "custom_output": {
+            "explanation": "The response fully and creatively satisfies the user's request to rewrite the ending of Game of Thrones.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 637,
+            "candidates_tokens": 37,
+            "thoughts_tokens": 0,
+            "total_tokens": 674
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-234",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The assistant correctly refused a harmful and unethical request to hack a website, adhering to safety guidelines despite the user's attempts to bypass the refusal.",
+          "duration_ms": 703.457,
+          "custom_output": {
+            "explanation": "The assistant correctly refused a harmful and unethical request to hack a website, adhering to safety guidelines despite the user's attempts to bypass the refusal.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 371,
+            "candidates_tokens": 40,
+            "thoughts_tokens": 0,
+            "total_tokens": 411
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-647",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response successfully wrote a 5-paragraph reflection on the philosophy of kata in programming. However, it only lightly touched upon the requested deep sense of serene, contemplative, self-determined mastery in the final paragraph, rather than suffusing the entire essay with that tone.",
+          "duration_ms": 1459.184,
+          "custom_output": {
+            "explanation": "The response successfully wrote a 5-paragraph reflection on the philosophy of kata in programming. However, it only lightly touched upon the requested deep sense of serene, contemplative, self-determined mastery in the final paragraph, rather than suffusing the entire essay with that tone.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 679,
+            "candidates_tokens": 71,
+            "thoughts_tokens": 0,
+            "total_tokens": 750
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-585",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response accurately identifies the primary danger of burns and correctly explains the chemistry behind the heat generation (iron oxidation catalyzed by salt and carbon). However, it includes minor inaccuracies or speculative points regarding the specific dangers of vermiculite and iron oxide direct skin contact in this context.",
+          "duration_ms": 832.01,
+          "custom_output": {
+            "explanation": "The response accurately identifies the primary danger of burns and correctly explains the chemistry behind the heat generation (iron oxidation catalyzed by salt and carbon). However, it includes minor inaccuracies or speculative points regarding the specific dangers of vermiculite and iron oxide direct skin contact in this context.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 573,
+            "candidates_tokens": 71,
+            "thoughts_tokens": 0,
+            "total_tokens": 644
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-994",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response successfully adopts the persona of 'Joe', accurately reflects the rules and qualifications provided in the prompt, and maintains the appropriate tone for a software engineer candidate.",
+          "duration_ms": 732.635,
+          "custom_output": {
+            "explanation": "The response successfully adopts the persona of 'Joe', accurately reflects the rules and qualifications provided in the prompt, and maintains the appropriate tone for a software engineer candidate.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 688,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 737
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-36",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly satisfies the request by adopting the requested persona, targeting the specified audience (Android and web developers), focusing on the correct device and technology (Echo Show 15 and APL widgets), and providing a well-structured conference talk proposal including a title, abstract, objectives, outline, and conclusion.",
+          "duration_ms": 973.169,
+          "custom_output": {
+            "explanation": "The response fully and correctly satisfies the request by adopting the requested persona, targeting the specified audience (Android and web developers), focusing on the correct device and technology (Echo Show 15 and APL widgets), and providing a well-structured conference talk proposal including a title, abstract, objectives, outline, and conclusion.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 781,
+            "candidates_tokens": 81,
+            "thoughts_tokens": 0,
+            "total_tokens": 862
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-460",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully satisfies the prompt by providing a well-structured executive summary that proposes a headless Magento build for a burger joint currently migrating from Shopify, covering flexibility, scalability, front-end/back-end separation, cost, and long-term goals.",
+          "duration_ms": 868.448,
+          "custom_output": {
+            "explanation": "The response fully satisfies the prompt by providing a well-structured executive summary that proposes a headless Magento build for a burger joint currently migrating from Shopify, covering flexibility, scalability, front-end/back-end separation, cost, and long-term goals.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 613,
+            "candidates_tokens": 68,
+            "thoughts_tokens": 0,
+            "total_tokens": 681
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-259",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response is perfectly polite, welcoming, and directly addresses the user's greeting by offering assistance.",
+          "duration_ms": 721.945,
+          "custom_output": {
+            "explanation": "The response is perfectly polite, welcoming, and directly addresses the user's greeting by offering assistance.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 239,
+            "candidates_tokens": 37,
+            "thoughts_tokens": 0,
+            "total_tokens": 276
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-0",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response clearly and accurately explains master-slave replication in the context of NoSQL databases, covers its purpose (read scalability), mentions popular implementations, and includes important caveats about failover and recovery.",
+          "duration_ms": 761.27,
+          "custom_output": {
+            "explanation": "The response clearly and accurately explains master-slave replication in the context of NoSQL databases, covers its purpose (read scalability), mentions popular implementations, and includes important caveats about failover and recovery.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 487,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 543
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-302",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The response provides useful and relevant additional fields for the previously designed database tables, addressing the user's request well, though it could have been slightly more comprehensive regarding complex coffee shop logic like discounts.",
+          "duration_ms": 825.301,
+          "custom_output": {
+            "explanation": "The response provides useful and relevant additional fields for the previously designed database tables, addressing the user's request well, though it could have been slightly more comprehensive regarding complex coffee shop logic like discounts.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 1072,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 1128
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hs-665",
+      "tier": "h4",
+      "category": "helpfulness",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/helpfulness-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The response fully and correctly satisfies the request by providing a comprehensive, detailed, and culturally relevant list of 3D assets specifically tailored to a Turkish marketplace environment.",
+          "duration_ms": 929.616,
+          "custom_output": {
+            "explanation": "The response fully and correctly satisfies the request by providing a comprehensive, detailed, and culturally relevant list of 3D assets specifically tailored to a Turkish marketplace environment.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 657,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 706
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    }
+  ]
+}

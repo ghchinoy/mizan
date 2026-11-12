@@ -309,9 +309,10 @@ type runConfig struct {
 	allowDiffusionFallback bool
 	diffusionMirror        bool
 
-	// Genai-path latency knobs (Experiment 07b).
+	// Genai-path latency knobs (Experiment 07b / 08).
 	thinkingBudget int
 	thinkingSet    bool
+	thinkingLevel  string
 	pairwiseGenai  bool
 
 	// rubricDetail, when true, routes a KindRubric template through the genai
@@ -445,6 +446,9 @@ func (e *Engine) Run(ctx context.Context, tmpl registry.MetricTemplate, inst Ins
 		return Result{}, err
 	}
 	if _, err := parseMediaResolution(rc.mediaResolution); err != nil {
+		return Result{}, err
+	}
+	if _, err := ParseThinkingLevel(rc.thinkingLevel); err != nil {
 		return Result{}, err
 	}
 	var model string

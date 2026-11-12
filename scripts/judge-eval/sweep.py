@@ -41,14 +41,21 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 SUITES = os.path.join(ROOT, "docs", "experiments", "judge-eval", "suites")
 
 
-def targets():
-    v, g = os.environ["DGEM_VERTEX_ENDPOINT"], os.environ["DGEM_GATEWAY_URL"]
-    return {
-        "dgem-g4": ["--engine-a", "diffusion", "--diffusion-endpoint", v],
-        "dgem-cloudrun": ["--engine-a", "diffusion", "--diffusion-endpoint", g, "--diffusion-backend", "cloudrun"],
-        "gemini-3.5-flash-lite": ["--engine-a", "vertex", "--model-a", "gemini-3.5-flash-lite"],
-        "gemini-3.8-flash": ["--engine-a", "vertex", "--model-a", "gemini-3.8-flash"],
-    }
+DEFAULT_TARGETS = ["dgem-g4", "dgem-cloudrun", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-4-hydrogen"]
+
+
+def target_args(name):
+    if name == "dgem-g4":
+        v = os.environ.get("DGEM_VERTEX_ENDPOINT")
+        if not v:
+            raise RuntimeError("DGEM_VERTEX_ENDPOINT is required for target 'dgem-g4'")
+        return ["--engine-a", "diffusion", "--diffusion-endpoint", v]
+    if name == "dgem-cloudrun":
+        g = os.environ.get("DGEM_GATEWAY_URL")
+        if not g:
+            raise RuntimeError("DGEM_GATEWAY_URL is required for target 'dgem-cloudrun'")
+        return ["--engine-a", "diffusion", "--diffusion-endpoint", g, "--diffusion-backend", "cloudrun"]
+    return ["--engine-a", "genai", "--model-a", name]
 
 
 def items_for(level):
@@ -95,13 +102,15 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--suites", nargs="+", default=["safety_response", "groundedness"])
     ap.add_argument("--levels", nargs="+", type=int, default=[1, 4, 8, 16, 32])
-    ap.add_argument("--targets", nargs="+", default=list(targets()))
+    ap.add_argument("--targets", nargs="+", default=DEFAULT_TARGETS)
+    ap.add_argument("--location", default="", help="optional GCP location override (global, us, eu)")
+    ap.add_argument("--thinking-level", default="", help="optional Gemini thinking level (low, medium, high)")
     ap.add_argument("--max-error-rate", type=float, default=0.05)
     ap.add_argument("--cooldown", type=int, default=20, help="seconds between levels")
     ap.add_argument("--mizan", default=os.path.join(ROOT, "bin", "mizan"))
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    tg = targets()
+    tg = {t: target_args(t) for t in a.targets}
     rows = []
     summ_path = os.path.join(a.out, "sweep.json")
     if os.path.exists(summ_path):
@@ -117,9 +126,14 @@ def main():
                 cycled(suite, n, ds)
                 rep = os.path.join(a.out, f"{t}__{suite}__c{lvl}.json")
                 rb = replicas() if t == "dgem-g4" else None
+                extra = []
+                if a.location:
+                    extra += ["--location", a.location]
+                if a.thinking_level:
+                    extra += ["--thinking-level", a.thinking_level]
                 cmd = [a.mizan, "eval", "compare-engines", "--dataset", ds, "--engine-b", "none", "--workers", str(lvl),
                        "--warmup", "2", "--no-store", "--score-tolerance", "0.001", "--output-file", rep,
-                       "--notes", f"throughput sweep {t} {suite} concurrency={lvl}"] + tg[t]
+                       "--notes", f"throughput sweep {t} {suite} concurrency={lvl}"] + tg[t] + extra
                 print(f"=== {t} {suite} c={lvl} n={n} ({time.strftime('%H:%M:%S')})", flush=True)
                 subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
                 ra = replicas() if t == "dgem-g4" else None

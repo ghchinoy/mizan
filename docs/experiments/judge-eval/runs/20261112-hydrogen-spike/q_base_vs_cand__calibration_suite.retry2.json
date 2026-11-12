@@ -1,0 +1,173 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:19:19.806625Z",
+    "finished_at": "2026-11-12T22:19:19.806958Z",
+    "dataset": "docs/experiments/judge-eval/runs/20261112-hydrogen-spike/q_base_vs_cand__calibration_suite.retry2.jsonl.in",
+    "dataset_sha256": "7fb06582b065f209f3a6bf1146da11de8a93b8117735171d14f560222eba8360",
+    "engine_a": "genai",
+    "engine_b": "genai",
+    "model_a": "gemini-3.8-flash",
+    "model_b": "gemini-4-hydrogen",
+    "diffusion_mirror_side": "both",
+    "workers": 2,
+    "warmup": 0,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "pairwise_genai": true,
+    "batch_wall_ms": 0.311,
+    "throughput_items_per_sec": 9646.302250803858,
+    "serial_engines": false,
+    "score_tolerance": 0.25,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "retry 2 of 3 errored items"
+  },
+  "total_cases": 3,
+  "engine_a": {
+    "engine": "genai",
+    "cases": 3,
+    "errors": 3,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0,
+    "error_samples": [
+      "b77-01: eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32",
+      "b77-02: eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32",
+      "b77-03: eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+    ]
+  },
+  "engine_b": {
+    "engine": "genai",
+    "cases": 3,
+    "errors": 3,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0,
+    "error_samples": [
+      "b77-01: eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32",
+      "b77-02: eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32",
+      "b77-03: eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+    ]
+  },
+  "paired": {
+    "n": 0,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "choice": {
+      "n": 3,
+      "a_correct": 0,
+      "b_correct": 0,
+      "a_scored": 0,
+      "b_scored": 0
+    }
+  },
+  "by_tier": {
+    "held-out": {
+      "n": 3,
+      "a_correct": 0,
+      "b_correct": 0,
+      "a_scored": 0,
+      "b_scored": 0
+    }
+  },
+  "by_category": {
+    "intent": {
+      "n": 3,
+      "a_correct": 0,
+      "b_correct": 0,
+      "a_scored": 0,
+      "b_scored": 0
+    }
+  },
+  "cases": [
+    {
+      "id": "b77-01",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "card_arrival",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "duration_ms": 0.09,
+          "error": "eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "duration_ms": 0.175,
+          "error": "eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+        }
+      }
+    },
+    {
+      "id": "b77-02",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "pending_top_up",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "duration_ms": 0.054,
+          "error": "eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "duration_ms": 0.066,
+          "error": "eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+        }
+      }
+    },
+    {
+      "id": "b77-03",
+      "tier": "held-out",
+      "category": "intent",
+      "expected": "transaction_charged_twice",
+      "comparison": {
+        "metric_id": "calibration/banking77-intent-select",
+        "kind": "choice",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "duration_ms": 0.012,
+          "error": "eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+        },
+        "engine_b": {
+          "engine": "genai",
+          "model": "gemini-4-hydrogen",
+          "duration_ms": 0.01,
+          "error": "eval: choice template \"calibration/banking77-intent-select\" has 77 choices, exceeds maximum 32"
+        }
+      }
+    }
+  ]
+}

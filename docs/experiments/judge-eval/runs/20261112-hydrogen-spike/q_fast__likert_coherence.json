@@ -1,0 +1,3850 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:18:30.464749Z",
+    "finished_at": "2026-11-12T22:18:40.731246Z",
+    "dataset": "docs/experiments/judge-eval/suites/likert_coherence.jsonl",
+    "dataset_sha256": "fa2c62a1c9c27715a82b1bda1efe1425ef842d55f487bd0d743f080d154fada7",
+    "engine_a": "genai",
+    "engine_b": "none",
+    "model_a": "gemini-3.5-flash-lite",
+    "diffusion_mirror_side": "both",
+    "workers": 10,
+    "warmup": 1,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "pairwise_genai": true,
+    "batch_wall_ms": 8963.027,
+    "throughput_items_per_sec": 11.156945081165102,
+    "serial_engines": false,
+    "score_tolerance": 0.5,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 2 fresh fast baseline gemini-3.5-flash-lite on likert_coherence"
+  },
+  "total_cases": 100,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "model_versions": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "cases": 100,
+    "errors": 0,
+    "scored": 100,
+    "correct": 43,
+    "accuracy": 0.43,
+    "accuracy_ci95": {
+      "lo": 0.33,
+      "hi": 0.52
+    },
+    "latency_p50_ms": 847.2125000000001,
+    "latency_p95_ms": 1011.5033999999999,
+    "latency_mean_ms": 843.21822,
+    "mean_tokens": {
+      "n": 100,
+      "prompt": 751.4,
+      "candidates": 57,
+      "thoughts": 0,
+      "total": 808.4
+    },
+    "score_metrics": {
+      "n": 100,
+      "mae": 0.8266579999999992,
+      "spearman": 0.774925846771735,
+      "pearson": 0.7546163285855907
+    }
+  },
+  "engine_b": {
+    "engine": "none",
+    "cases": 100,
+    "errors": 0,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0
+  },
+  "paired": {
+    "n": 100,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "cohen_kappa": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "score": {
+      "n": 100,
+      "a_correct": 43,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.43
+    }
+  },
+  "by_tier": {
+    "r1": {
+      "n": 20,
+      "a_correct": 11,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.55
+    },
+    "r2": {
+      "n": 20,
+      "a_correct": 6,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.3
+    },
+    "r3": {
+      "n": 20,
+      "a_correct": 3,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.15
+    },
+    "r4": {
+      "n": 20,
+      "a_correct": 5,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.25
+    },
+    "r5": {
+      "n": 20,
+      "a_correct": 18,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.9
+    }
+  },
+  "by_category": {
+    "coherence": {
+      "n": 100,
+      "a_correct": 43,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.43
+    }
+  },
+  "cases": [
+    {
+      "id": "se-coh-10-14",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains three distinct sentences that touch upon different parts of the article, but they feel somewhat disconnected and fail to build a cohesive narrative together.",
+          "duration_ms": 1135.533,
+          "custom_output": {
+            "explanation": "The summary contains three distinct sentences that touch upon different parts of the article, but they feel somewhat disconnected and fail to build a cohesive narrative together.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 882,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 928
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-31-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent and contains factual errors, such as stating that 'the foxes are also seven points behind leicester city' when Leicester City are the Foxes, and the sentences do not flow logically together.",
+          "duration_ms": 969.449,
+          "custom_output": {
+            "explanation": "The summary is incoherent and contains factual errors, such as stating that 'the foxes are also seven points behind leicester city' when Leicester City are the Foxes, and the sentences do not flow logically together.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 880,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 938
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-8-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent, grammatically incorrect, and contains factual errors not present in the source text, such as claiming the islamist terror group has been killed. It reads as a disconnected heap of broken sentences.",
+          "duration_ms": 849.205,
+          "custom_output": {
+            "explanation": "The summary is incoherent, grammatically incorrect, and contains factual errors not present in the source text, such as claiming the islamist terror group has been killed. It reads as a disconnected heap of broken sentences.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 821,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 880
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-80-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary contains severe factual errors and nonsense, such as stating that 'roberto martinez has scored 15 penalties' and 'the roberto martinez says', making it completely incoherent and poorly structured.",
+          "duration_ms": 1103.001,
+          "custom_output": {
+            "explanation": "The summary contains severe factual errors and nonsense, such as stating that 'roberto martinez has scored 15 penalties' and 'the roberto martinez says', making it completely incoherent and poorly structured.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 646,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 705
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-94-4",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary contains severe factual errors due to garbled sentence structure, incorrectly attributing Neymar's sister Rafaella as leading the national side to a win, and lacks logical flow and coherence.",
+          "duration_ms": 939.164,
+          "custom_output": {
+            "explanation": "The summary contains severe factual errors due to garbled sentence structure, incorrectly attributing Neymar's sister Rafaella as leading the national side to a win, and lacks logical flow and coherence.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 612,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 666
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-10-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is completely incoherent, containing repetitive, ungrammatical, and nonsensical fragments that conflate the video game 'Space Invaders' with a politician.",
+          "duration_ms": 863.025,
+          "custom_output": {
+            "explanation": "The summary is completely incoherent, containing repetitive, ungrammatical, and nonsensical fragments that conflate the video game 'Space Invaders' with a politician.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 918,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 967
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-57-8",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary consists of disconnected, factually inaccurate, and repetitive sentences that do not align with the source article or form a coherent narrative.",
+          "duration_ms": 970.579,
+          "custom_output": {
+            "explanation": "The summary consists of disconnected, factually inaccurate, and repetitive sentences that do not align with the source article or form a coherent narrative.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 738,
+            "candidates_tokens": 44,
+            "thoughts_tokens": 0,
+            "total_tokens": 782
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-28-15",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains relevant facts from the article, but the sentences feel somewhat disjointed and do not flow together smoothly as a well-structured narrative.",
+          "duration_ms": 1005.856,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts from the article, but the sentences feel somewhat disjointed and do not flow together smoothly as a well-structured narrative.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 909,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 955
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-53-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains several grammatical errors and nonsensical phrasing, such as 'the pfa player has been nominated for the tottenham', making it disjointed and poor in coherence, despite capturing a few facts from the source.",
+          "duration_ms": 1018.351,
+          "custom_output": {
+            "explanation": "The summary contains several grammatical errors and nonsensical phrasing, such as 'the pfa player has been nominated for the tottenham', making it disjointed and poor in coherence, despite capturing a few facts from the source.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 559,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 621
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-8-14",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains grammatical errors, fragments, and a factual inaccuracy based on the text (stating that Arab tribal leaders did not say what led to the release, whereas the text states an official didn't know and commanders asserted tribal leaders helped coordinate it). It lacks smooth flow and solid organization.",
+          "duration_ms": 1133.606,
+          "custom_output": {
+            "explanation": "The summary contains grammatical errors, fragments, and a factual inaccuracy based on the text (stating that Arab tribal leaders did not say what led to the release, whereas the text states an official didn't know and commanders asserted tribal leaders helped coordinate it). It lacks smooth flow and solid organization.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 807,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 0,
+            "total_tokens": 883
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-62-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent, grammatically broken, and mixes up the subjects and actions of the source text.",
+          "duration_ms": 765.017,
+          "custom_output": {
+            "explanation": "The summary is incoherent, grammatically broken, and mixes up the subjects and actions of the source text.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 635,
+            "candidates_tokens": 38,
+            "thoughts_tokens": 0,
+            "total_tokens": 673
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-10-15",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent and reads as a disconnected heap of facts. It jumps randomly from the video game to a military official, and then abruptly to Antonio Inoki's unrelated career details like fighting Muhammad Ali and appearing in the WWE, without forming a logical narrative or body of information.",
+          "duration_ms": 945.236,
+          "custom_output": {
+            "explanation": "The summary is incoherent and reads as a disconnected heap of facts. It jumps randomly from the video game to a military official, and then abruptly to Antonio Inoki's unrelated career details like fighting Muhammad Ali and appearing in the WWE, without forming a logical narrative or body of information.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 893,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 967
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-6-15",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains relevant facts from the text, but the sentences feel disjointed and lack a smooth logical progression. The pronoun 'he' in the fourth sentence lacks a clear antecedent within the summary since Elon Musk is not mentioned.",
+          "duration_ms": 946.572,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts from the text, but the sentences feel disjointed and lack a smooth logical progression. The pronoun 'he' in the fourth sentence lacks a clear antecedent within the summary since Elon Musk is not mentioned.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 759,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 821
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-58-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent, containing fragmented and garbled sentences that make little logical sense or fail to accurately convey the events of the source article.",
+          "duration_ms": 885.681,
+          "custom_output": {
+            "explanation": "The summary is incoherent, containing fragmented and garbled sentences that make little logical sense or fail to accurately convey the events of the source article.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 894,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 939
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-58-8",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent, repetitive, factually inaccurate (mentioning an elbow instead of a knee), and loops the same sentence multiple times, making it completely unstructured and unorganized.",
+          "duration_ms": 945.621,
+          "custom_output": {
+            "explanation": "The summary is incoherent, repetitive, factually inaccurate (mentioning an elbow instead of a knee), and loops the same sentence multiple times, making it completely unstructured and unorganized.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 906,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 959
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-1-0",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent, containing nonsensical phrasing, severe factual distortions, and fragmented sentences that do not flow or make logical sense regarding the source text.",
+          "duration_ms": 812.366,
+          "custom_output": {
+            "explanation": "The summary is incoherent, containing nonsensical phrasing, severe factual distortions, and fragmented sentences that do not flow or make logical sense regarding the source text.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 700,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 748
+          },
+          "prediction": "1.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-59-15",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains relevant facts from the text, but the sentences feel slightly disjointed and fail to fully capture the narrative flow of the ongoing feud between Merson and Townsend.",
+          "duration_ms": 760.416,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts from the text, but the sentences feel slightly disjointed and fail to fully capture the narrative flow of the ongoing feud between Merson and Townsend.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 695,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 746
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-66-15",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains relevant facts from the text, but the sentences are poorly connected and feel like a disjointed heap of facts rather than a well-structured narrative.",
+          "duration_ms": 674.819,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts from the text, but the sentences are poorly connected and feel like a disjointed heap of facts rather than a well-structured narrative.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 522,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 571
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-94-3",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains sentences that are somewhat related and drawn from the text, but it reads more like a disconnected heap of facts rather than a well-structured and organized body of information.",
+          "duration_ms": 888.669,
+          "custom_output": {
+            "explanation": "The summary contains sentences that are somewhat related and drawn from the text, but it reads more like a disconnected heap of facts rather than a well-structured and organized body of information.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 583,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 636
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-39-8",
+      "tier": "r1",
+      "category": "coherence",
+      "expected": "1",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary starts with coherent sentences about the victim's profession and death, but it abruptly breaks down at the end with a repetitive glitch ('the nightlife, the nightlife...') and cuts off mid-sentence.",
+          "duration_ms": 913.653,
+          "custom_output": {
+            "explanation": "The summary starts with coherent sentences about the victim's profession and death, but it abruptly breaks down at the end with a repetitive glitch ('the nightlife, the nightlife...') and cuts off mid-sentence.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 802,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 860
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-9-14",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains sentences that are grammatically correct and individually understandable, but they lack smooth transitions and a strong narrative flow, reading more like a collection of disjointed facts rather than a well-structured summary.",
+          "duration_ms": 748.642,
+          "custom_output": {
+            "explanation": "The summary contains sentences that are grammatically correct and individually understandable, but they lack smooth transitions and a strong narrative flow, reading more like a collection of disjointed facts rather than a well-structured summary.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 644,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 702
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-10-5",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains two sentences that touch upon different parts of the article (the UFO statement and Antonio Inoki's background), but they are disjointed and do not flow well together into a coherent body of information.",
+          "duration_ms": 766.151,
+          "custom_output": {
+            "explanation": "The summary contains two sentences that touch upon different parts of the article (the UFO statement and Antonio Inoki's background), but they are disjointed and do not flow well together into a coherent body of information.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 899,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 959
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-31-4",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains a blatant repetitive error, repeating the exact phrase about Leicester being seven points adrift twice in a row. However, it does flow reasonably into the final sentence regarding Cambiasso's perspective, making it slightly better than completely incoherent.",
+          "duration_ms": 987.17,
+          "custom_output": {
+            "explanation": "The summary contains a blatant repetitive error, repeating the exact phrase about Leicester being seven points adrift twice in a row. However, it does flow reasonably into the final sentence regarding Cambiasso's perspective, making it slightly better than completely incoherent.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 877,
+            "candidates_tokens": 66,
+            "thoughts_tokens": 0,
+            "total_tokens": 943
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-25-15",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is mostly coherent and covers the main points well, flowing logically from Rodgers' situation to Carragher's support, though it retains a slightly disjointed feel from the source material's minor details.",
+          "duration_ms": 874.645,
+          "custom_output": {
+            "explanation": "The summary is mostly coherent and covers the main points well, flowing logically from Rodgers' situation to Carragher's support, though it retains a slightly disjointed feel from the source material's minor details.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 819,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 878
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-7-15",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and follows a logical progression from the main event to the details of the ship and the ongoing investigation. It presents the information cohesively without feeling like a disconnected heap of facts, though it could be slightly more polished.",
+          "duration_ms": 662.45,
+          "custom_output": {
+            "explanation": "The summary is well-structured and follows a logical progression from the main event to the details of the ship and the ongoing investigation. It presents the information cohesively without feeling like a disconnected heap of facts, though it could be slightly more polished.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 462,
+            "candidates_tokens": 66,
+            "thoughts_tokens": 0,
+            "total_tokens": 528
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-7-8",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is generally well-structured, easy to follow, and flows logically from the main event to details about the ship's journey, though it includes an unnecessary 'UPDATE' label.",
+          "duration_ms": 734.406,
+          "custom_output": {
+            "explanation": "The summary is generally well-structured, easy to follow, and flows logically from the main event to details about the ship's journey, though it includes an unnecessary 'UPDATE' label.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 484,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 539
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-4-2",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains relevant sentences from the text, but they are presented in a disjointed and out-of-order sequence, resulting in poor overall flow and organization.",
+          "duration_ms": 804.158,
+          "custom_output": {
+            "explanation": "The summary contains relevant sentences from the text, but they are presented in a disjointed and out-of-order sequence, resulting in poor overall flow and organization.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 635,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 685
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-76-10",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and flows logically from discussing the start of the county championship to Kevin Pietersen's participation in the Surrey photo shoot. It maintains coherence and clearly covers the main points of the source text.",
+          "duration_ms": 848.446,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from discussing the start of the county championship to Kevin Pietersen's participation in the Surrey photo shoot. It maintains coherence and clearly covers the main points of the source text.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 854,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 916
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-4-15",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains relevant facts from the text, but they are presented as a disconnected heap of sentences rather than a well-structured and organized narrative. The chronological flow and causal relationship between the Siberian fires and the Pacific Northwest sunsets are disjointed.",
+          "duration_ms": 937.742,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts from the text, but they are presented as a disconnected heap of sentences rather than a well-structured and organized narrative. The chronological flow and causal relationship between the Siberian fires and the Pacific Northwest sunsets are disjointed.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 616,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 681
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-14-4",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains repetitive sentences that convey almost identical information about Williams beating Errani, making it feel disjointed and lacking good progression, though the sentences themselves are grammatically correct.",
+          "duration_ms": 862.991,
+          "custom_output": {
+            "explanation": "The summary contains repetitive sentences that convey almost identical information about Williams beating Errani, making it feel disjointed and lacking good progression, though the sentences themselves are grammatically correct.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 786,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 838
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-44-15",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains a lot of repetitive information, mentioning Henderson's belief about catching Manchester City and his 47th game multiple times in slightly different ways. It reads like a heap of disconnected and redundant facts rather than a well-structured text.",
+          "duration_ms": 820.466,
+          "custom_output": {
+            "explanation": "The summary contains a lot of repetitive information, mentioning Henderson's belief about catching Manchester City and his 47th game multiple times in slightly different ways. It reads like a heap of disconnected and redundant facts rather than a well-structured text.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 825,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 892
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-94-1",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and focuses on the main events involving Neymar and Dani Alves, connecting the basketball match attendance with the standings. It flows logically from sentence to sentence without feeling like a heap of disconnected facts.",
+          "duration_ms": 796.244,
+          "custom_output": {
+            "explanation": "The summary is well-structured and focuses on the main events involving Neymar and Dani Alves, connecting the basketball match attendance with the standings. It flows logically from sentence to sentence without feeling like a heap of disconnected facts.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 594,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 654
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-38-15",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains relevant facts from the text, but the sentences feel slightly disjointed and choppy, particularly the phrasing about Gareth Bale scoring the top of the table. However, it maintains a general logical progression about the upcoming match and recent successes.",
+          "duration_ms": 862.37,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts from the text, but the sentences feel slightly disjointed and choppy, particularly the phrasing about Gareth Bale scoring the top of the table. However, it maintains a general logical progression about the upcoming match and recent successes.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 747,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 812
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-8-4",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "1.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary consists of two grammatically correct sentences that accurately reflect details from the text regarding the release of Yazidis. However, because it starts mid-thought ('most of those released...') without context about who was released, it feels slightly fragmented and lacks complete self-contained coherence.",
+          "duration_ms": 862.404,
+          "custom_output": {
+            "explanation": "The summary consists of two grammatically correct sentences that accurately reflect details from the text regarding the release of Yazidis. However, because it starts mid-thought ('most of those released...') without context about who was released, it feels slightly fragmented and lacks complete self-contained coherence.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 800,
+            "candidates_tokens": 73,
+            "thoughts_tokens": 0,
+            "total_tokens": 873
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-90-4",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main points of the source text without including any disconnected facts.",
+          "duration_ms": 831.604,
+          "custom_output": {
+            "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main points of the source text without including any disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 558,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 606
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-41-0",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains grammatically incomplete and confusing sentences, such as confusing Daniel Sturridge with Raheem Sterling regarding the nitrous oxide incident. While the sentences relate to the article's topic, the poor construction and factual inaccuracies make it difficult to follow and lack proper organization.",
+          "duration_ms": 762.173,
+          "custom_output": {
+            "explanation": "The summary contains grammatically incomplete and confusing sentences, such as confusing Daniel Sturridge with Raheem Sterling regarding the nitrous oxide incident. While the sentences relate to the article's topic, the poor construction and factual inaccuracies make it difficult to follow and lack proper organization.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 815,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 885
+          },
+          "prediction": "2.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-57-7",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and follows a logical progression from the main news about Clattenburg refereeing the derby to details about red cards and match officials. It reads as a coherent narrative rather than a disconnected list of facts, though the sentence about Kompany's international red card feels slightly out of context compared to the rest of the domestic focus.",
+          "duration_ms": 1011.143,
+          "custom_output": {
+            "explanation": "The summary is well-structured and follows a logical progression from the main news about Clattenburg refereeing the derby to details about red cards and match officials. It reads as a coherent narrative rather than a disconnected list of facts, though the sentence about Kompany's international red card feels slightly out of context compared to the rest of the domestic focus.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 712,
+            "candidates_tokens": 89,
+            "thoughts_tokens": 0,
+            "total_tokens": 801
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-57-1",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary is somewhat disjointed because the second sentence about Vincent Kompany's international suspension interrupts the flow between the appointment of referee Mark Clattenburg and the repetition of that same appointment in the third sentence. However, the sentences are grammatically correct and relate directly to the topic.",
+          "duration_ms": 893.158,
+          "custom_output": {
+            "explanation": "The summary is somewhat disjointed because the second sentence about Vincent Kompany's international suspension interrupts the flow between the appointment of referee Mark Clattenburg and the repetition of that same appointment in the third sentence. However, the sentences are grammatically correct and relate directly to the topic.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 723,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 0,
+            "total_tokens": 798
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-64-15",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains all the key facts about the teacher's arrests, but the second sentence is grammatically awkward and confusing. The sentences flow somewhat chronologically, but the overall organization feels slightly disjointed due to repetitive phrasing.",
+          "duration_ms": 914.116,
+          "custom_output": {
+            "explanation": "The summary contains all the key facts about the teacher's arrests, but the second sentence is grammatically awkward and confusing. The sentences flow somewhat chronologically, but the overall organization feels slightly disjointed due to repetitive phrasing.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 847,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 909
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-18-0",
+      "tier": "r2",
+      "category": "coherence",
+      "expected": "2",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent and contains factual errors, such as claiming the Bega Cheese boss said she was forced to break her silence and that he was sentenced to 12 years in jail, which is not in the source text. It also ends abruptly with incomplete sentences.",
+          "duration_ms": 852.124,
+          "custom_output": {
+            "explanation": "The summary is incoherent and contains factual errors, such as claiming the Bega Cheese boss said she was forced to break her silence and that he was sentenced to 12 years in jail, which is not in the source text. It also ends abruptly with incomplete sentences.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 915,
+            "candidates_tokens": 71,
+            "thoughts_tokens": 0,
+            "total_tokens": 986
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-45-6",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "2.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains relevant information and flows reasonably well, but it suffers from repetitive phrasing regarding Germany's win over Georgia and lacks a smooth overall organization.",
+          "duration_ms": 818.833,
+          "custom_output": {
+            "explanation": "The summary contains relevant information and flows reasonably well, but it suffers from repetitive phrasing regarding Germany's win over Georgia and lacks a smooth overall organization.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 723,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 771
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-77-14",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and logical, presenting key facts about River Plate's interest in Falcao, his history with the club, and his struggles at Manchester United. The sentences flow reasonably well together, though it is slightly brief.",
+          "duration_ms": 858.616,
+          "custom_output": {
+            "explanation": "The summary is well-structured and logical, presenting key facts about River Plate's interest in Falcao, his history with the club, and his struggles at Manchester United. The sentences flow reasonably well together, though it is slightly brief.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 563,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 628
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-45-4",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains repetitive information, stating the same fact about the Euro 2016 qualifier twice in consecutive sentences. This hurts its organization and flow, making it feel like a disconnected heap rather than a well-structured text.",
+          "duration_ms": 976.769,
+          "custom_output": {
+            "explanation": "The summary contains repetitive information, stating the same fact about the Euro 2016 qualifier twice in consecutive sentences. This hurts its organization and flow, making it feel like a disconnected heap rather than a well-structured text.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 697,
+            "candidates_tokens": 63,
+            "thoughts_tokens": 0,
+            "total_tokens": 760
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-85-15",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is generally well-structured and flows logically from sentence to sentence, covering the main points of Henry's comments. However, the mention of needing a 'defensive midfielder' is awkwardly cut off at the end of the second sentence, slightly detracting from its overall quality.",
+          "duration_ms": 858.195,
+          "custom_output": {
+            "explanation": "The summary is generally well-structured and flows logically from sentence to sentence, covering the main points of Henry's comments. However, the mention of needing a 'defensive midfielder' is awkwardly cut off at the end of the second sentence, slightly detracting from its overall quality.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 857,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 931
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-64-11",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "2.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and flows logically from the initial arrest details to the background context, effectively capturing the main points of the source article without being a disconnected heap of facts.",
+          "duration_ms": 728.163,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from the initial arrest details to the background context, effectively capturing the main points of the source article without being a disconnected heap of facts.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 849,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 902
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-96-0",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains repetitive information and disjointed sentences. It introduces facts out of order and includes awkward phrasing like 'police are investigating allegations made by the former royal palace officers', leading to poor overall coherence.",
+          "duration_ms": 804.14,
+          "custom_output": {
+            "explanation": "The summary contains repetitive information and disjointed sentences. It introduces facts out of order and includes awkward phrasing like 'police are investigating allegations made by the former royal palace officers', leading to poor overall coherence.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 854,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 911
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-63-3",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary is grammatically correct and flows reasonably well, but it contains redundant information (repeating that the club is very happy with Enrique twice in a short span) which slightly affects its organization and structure.",
+          "duration_ms": 713.243,
+          "custom_output": {
+            "explanation": "The summary is grammatically correct and flows reasonably well, but it contains redundant information (repeating that the club is very happy with Enrique twice in a short span) which slightly affects its organization and structure.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 612,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 670
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-97-8",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary contains a direct contradiction, stating the challenge was a foul but 'should not have been punished', and finishes with an unhelpful promotional phrase instead of summarizing the text coherently.",
+          "duration_ms": 807.713,
+          "custom_output": {
+            "explanation": "The summary contains a direct contradiction, stating the challenge was a foul but 'should not have been punished', and finishes with an unhelpful promotional phrase instead of summarizing the text coherently.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 672,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 726
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-55-1",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence to provide a concise and organized overview of the main topic without including disconnected facts.",
+          "duration_ms": 739.721,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence to provide a concise and organized overview of the main topic without including disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 788,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 838
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-24-14",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 1,
+          "explanation": "The summary is incoherent due to severe grammatical fragmentation and broken sentences that fail to make logical sense, such as 'should have the delivery fees for postmates at $ 5 and up'.",
+          "duration_ms": 862.447,
+          "custom_output": {
+            "explanation": "The summary is incoherent due to severe grammatical fragmentation and broken sentences that fail to make logical sense, such as 'should have the delivery fees for postmates at $ 5 and up'.",
+            "score": 1
+          },
+          "tokens": {
+            "prompt_tokens": 758,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 812
+          },
+          "prediction": "1.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-50-2",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and flows logically from recent events to background context, though the mention of the knee injury is slightly repetitive across the sentences.",
+          "duration_ms": 893.203,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from recent events to background context, though the mention of the knee injury is slightly repetitive across the sentences.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 556,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 604
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-74-2",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary contains redundant sentences that repeat the exact same information out of chronological order, resulting in poor organization and a lack of smooth progression.",
+          "duration_ms": 672.183,
+          "custom_output": {
+            "explanation": "The summary contains redundant sentences that repeat the exact same information out of chronological order, resulting in poor organization and a lack of smooth progression.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 889,
+            "candidates_tokens": 44,
+            "thoughts_tokens": 0,
+            "total_tokens": 933
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-79-7",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "2.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary consists of two disjointed sentences that lack smooth transitions and fail to provide a complete, well-structured overview of the event, though they are grammatically correct.",
+          "duration_ms": 796.052,
+          "custom_output": {
+            "explanation": "The summary consists of two disjointed sentences that lack smooth transitions and fail to provide a complete, well-structured overview of the event, though they are grammatically correct.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 854,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 905
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-99-12",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and follows the logical flow of the source article, starting with Gemma's background, the handover of the children, and the current threat from her mother due to her lifestyle. However, it uses sentence fragments rather than complete sentences, which slightly detracts from its overall organization.",
+          "duration_ms": 947.833,
+          "custom_output": {
+            "explanation": "The summary is well-structured and follows the logical flow of the source article, starting with Gemma's background, the handover of the children, and the current threat from her mother due to her lifestyle. However, it uses sentence fragments rather than complete sentences, which slightly detracts from its overall organization.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 839,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 917
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-91-9",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "2.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured, coherent, and flows logically from mentioning the movie outfit to identifying its origin in James Tumblin's collection. However, it is quite brief, capturing only a couple of points from the text.",
+          "duration_ms": 793.929,
+          "custom_output": {
+            "explanation": "The summary is well-structured, coherent, and flows logically from mentioning the movie outfit to identifying its origin in James Tumblin's collection. However, it is quite brief, capturing only a couple of points from the text.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 964,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 1028
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-63-4",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains a noticeable amount of repetition, specifically stating twice that Luis Enrique took charge of the club last summer and has impressed during his tenure. However, the sentences themselves are grammatically correct and flow reasonably well from one to the next, limiting it to a fair rating.",
+          "duration_ms": 816.918,
+          "custom_output": {
+            "explanation": "The summary contains a noticeable amount of repetition, specifically stating twice that Luis Enrique took charge of the club last summer and has impressed during his tenure. However, the sentences themselves are grammatically correct and flow reasonably well from one to the next, limiting it to a fair rating.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 629,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 701
+          },
+          "prediction": "3.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-83-0",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and flows logically from introducing Dayna Dobias and her condition to her goals, motivations, and video projects. It maintains good coherence throughout, though with minor mechanical phrasing.",
+          "duration_ms": 798.33,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from introducing Dayna Dobias and her condition to her goals, motivations, and video projects. It maintains good coherence throughout, though with minor mechanical phrasing.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 836,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 893
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-94-7",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "3",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and organized, presenting the key points from the source text clearly and logically without being a disconnected heap of facts, though it could be slightly more polished.",
+          "duration_ms": 707.542,
+          "custom_output": {
+            "explanation": "The summary is well-structured and organized, presenting the key points from the source text clearly and logically without being a disconnected heap of facts, though it could be slightly more polished.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 601,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 654
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-51-6",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "2.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 2,
+          "explanation": "The summary begins abruptly with a dangling clause ('however...') and reads like a fragmented collection of extracted sentences rather than a well-structured narrative.",
+          "duration_ms": 759.865,
+          "custom_output": {
+            "explanation": "The summary begins abruptly with a dangling clause ('however...') and reads like a fragmented collection of extracted sentences rather than a well-structured narrative.",
+            "score": 2
+          },
+          "tokens": {
+            "prompt_tokens": 785,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 830
+          },
+          "prediction": "2.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-78-13",
+      "tier": "r3",
+      "category": "coherence",
+      "expected": "2.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence without any disconnected facts.",
+          "duration_ms": 716.756,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence without any disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 896,
+            "candidates_tokens": 39,
+            "thoughts_tokens": 0,
+            "total_tokens": 935
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-57-9",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains relevant facts about Mark Clattenburg and the players he has sent off, but the sentences feel somewhat like a disjointed collection of facts rather than a smoothly flowing, well-structured narrative.",
+          "duration_ms": 750.009,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts about Mark Clattenburg and the players he has sent off, but the sentences feel somewhat like a disjointed collection of facts rather than a smoothly flowing, well-structured narrative.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 697,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 755
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-48-14",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary contains relevant facts from the article and follows a chronological flow, but the final sentence awkwardly connects embarrassment with changing the story to the police, making the progression slightly disjointed.",
+          "duration_ms": 827.189,
+          "custom_output": {
+            "explanation": "The summary contains relevant facts from the article and follows a chronological flow, but the final sentence awkwardly connects embarrassment with changing the story to the police, making the progression slightly disjointed.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 658,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 711
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-55-9",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is concise, well-structured, and flows logically from one sentence to the next. It captures the main points of the article—Lindegaard's off-field life with his wife and his struggles on the pitch at Manchester United—without including redundant or disconnected facts.",
+          "duration_ms": 873.369,
+          "custom_output": {
+            "explanation": "The summary is concise, well-structured, and flows logically from one sentence to the next. It captures the main points of the article—Lindegaard's off-field life with his wife and his struggles on the pitch at Manchester United—without including redundant or disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 748,
+            "candidates_tokens": 73,
+            "thoughts_tokens": 0,
+            "total_tokens": 821
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-10-2",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary consists of two introduction sentences and an out-of-context 'read more' fragment from the source text. While the sentences flow reasonably well, the inclusion of the promotional fragment disrupts the overall organization and completeness of the summary.",
+          "duration_ms": 795.633,
+          "custom_output": {
+            "explanation": "The summary consists of two introduction sentences and an out-of-context 'read more' fragment from the source text. While the sentences flow reasonably well, the inclusion of the promotional fragment disrupts the overall organization and completeness of the summary.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 957,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 1021
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-83-11",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and flows logically from introducing the subject to explaining her condition and the challenges she faces. However, it cuts off abruptly after the third sentence and does not encompass the full scope of the article, making it a partial representation rather than a complete summary.",
+          "duration_ms": 932.24,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from introducing the subject to explaining her condition and the challenges she faces. However, it cuts off abruptly after the third sentence and does not encompass the full scope of the article, making it a partial representation rather than a complete summary.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 823,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 895
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-46-14",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured and flows logically from the initial incident to the details of the attack and the grandmother's explanation of the carjacking attempt, creating a cohesive body of information.",
+          "duration_ms": 871.987,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from the initial incident to the details of the attack and the grandmother's explanation of the carjacking attempt, creating a cohesive body of information.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 651,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 706
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-85-6",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and covers the main points logically, starting with Henry's critique of the transfer window, detailing the positions needed, and concluding with his comments on Giroud. However, the final sentence slightly repeats the previous point about questioning Giroud in attack.",
+          "duration_ms": 1040.074,
+          "custom_output": {
+            "explanation": "The summary is well-structured and covers the main points logically, starting with Henry's critique of the transfer window, detailing the positions needed, and concluding with his comments on Giroud. However, the final sentence slightly repeats the previous point about questioning Giroud in attack.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 918,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 990
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-48-3",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is concise, well-structured, and logically connects the incident of the toilet collapsing with the resulting hospitalisation and injuries without any disjointed facts.",
+          "duration_ms": 878.964,
+          "custom_output": {
+            "explanation": "The summary is concise, well-structured, and logically connects the incident of the toilet collapsing with the resulting hospitalisation and injuries without any disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 638,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 686
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-60-7",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is concise, well-structured, and flows logically from describing the event to explaining its geological cause and providing its dimensions. It accurately captures the main points of the source article without containing disconnected facts.",
+          "duration_ms": 718.596,
+          "custom_output": {
+            "explanation": "The summary is concise, well-structured, and flows logically from describing the event to explaining its geological cause and providing its dimensions. It accurately captures the main points of the source article without containing disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 845,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 903
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-17-4",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows naturally from sentence to sentence to provide a complete and organized account of the opening part of the article without feeling disconnected.",
+          "duration_ms": 749.966,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows naturally from sentence to sentence to provide a complete and organized account of the opening part of the article without feeling disconnected.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 685,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 737
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-65-7",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main points of the source article without containing disconnected facts.",
+          "duration_ms": 808.941,
+          "custom_output": {
+            "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main points of the source article without containing disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 783,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 829
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-17-15",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and follows a logical progression from the humorous incident involving Guardiola's trousers to the broader context of the match result, though it is a bit choppy in sentence transitions.",
+          "duration_ms": 835.646,
+          "custom_output": {
+            "explanation": "The summary is well-structured and follows a logical progression from the humorous incident involving Guardiola's trousers to the broader context of the match result, though it is a bit choppy in sentence transitions.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 643,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 699
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-20-9",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from the incident happening, to it being caught on camera, to the soldier's recovery and embarrassment, without containing disconnected facts.",
+          "duration_ms": 855.465,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from the incident happening, to it being caught on camera, to the soldier's recovery and embarrassment, without containing disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 868,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 924
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-9-13",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and focuses on the main points regarding the militants and the group that claimed responsibility, flowing logically from sentence to sentence without being a disconnected heap of facts.",
+          "duration_ms": 644.079,
+          "custom_output": {
+            "explanation": "The summary is well-structured and focuses on the main points regarding the militants and the group that claimed responsibility, flowing logically from sentence to sentence without being a disconnected heap of facts.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 644,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 697
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-33-3",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from the incident itself to the rescue, and finally to the subsequent actions by the zoo and authorities, capturing the main points without disjointed facts.",
+          "duration_ms": 881.078,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from the incident itself to the rescue, and finally to the subsequent actions by the zoo and authorities, capturing the main points without disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 856,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 915
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-46-10",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence. It accurately captures the main event and details from the source article without containing any disconnected facts.",
+          "duration_ms": 955.915,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence. It accurately captures the main event and details from the source article without containing any disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 673,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 726
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-31-2",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main theme of the source article without containing disconnected facts.",
+          "duration_ms": 724.302,
+          "custom_output": {
+            "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main theme of the source article without containing disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 915,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 961
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-50-5",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "3.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and flows logically from sentence to sentence, capturing the main points clearly. However, it is a bit brief, which slightly limits its depth.",
+          "duration_ms": 968.933,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from sentence to sentence, capturing the main points clearly. However, it is a bit brief, which slightly limits its depth.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 545,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 596
+          },
+          "prediction": "4.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-96-11",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, coherent, and flows logically from sentence to sentence, capturing the core events of the source article without containing disconnected facts.",
+          "duration_ms": 879.243,
+          "custom_output": {
+            "explanation": "The summary is well-structured, coherent, and flows logically from sentence to sentence, capturing the core events of the source article without containing disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 829,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 877
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-81-1",
+      "tier": "r4",
+      "category": "coherence",
+      "expected": "4.3333",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from the initial crime to the stolen items and the current status of the police investigation without any disjointed facts.",
+          "duration_ms": 884.843,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from the initial crime to the stolen items and the current status of the police investigation without any disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 586,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 638
+          },
+          "prediction": "5.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-0-9",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, coherent, and accurately captures the main points of the article in a logical sequence without being a disconnected heap of facts.",
+          "duration_ms": 896.703,
+          "custom_output": {
+            "explanation": "The summary is well-structured, coherent, and accurately captures the main points of the article in a logical sequence without being a disconnected heap of facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 825,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 873
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-64-7",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured and flows logically from introducing the teacher and her first arrest to detailing the subsequent second arrest. It effectively captures the main points of the source article without feeling like a heap of disconnected facts.",
+          "duration_ms": 828.976,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from introducing the teacher and her first arrest to detailing the subsequent second arrest. It effectively captures the main points of the source article without feeling like a heap of disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 814,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 874
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-75-8",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is concise, well-structured, and accurately captures the main event of the source article without containing any disjointed facts.",
+          "duration_ms": 704.404,
+          "custom_output": {
+            "explanation": "The summary is concise, well-structured, and accurately captures the main event of the source article without containing any disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 767,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 810
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-19-9",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence. It accurately captures the main points of the article without being a disconnected heap of facts.",
+          "duration_ms": 726.146,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence. It accurately captures the main points of the article without being a disconnected heap of facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 676,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 728
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-21-7",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence without any disjointed facts.",
+          "duration_ms": 661.522,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence without any disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 492,
+            "candidates_tokens": 40,
+            "thoughts_tokens": 0,
+            "total_tokens": 532
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-84-6",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence to introduce Greg Dyke's proposals and the opposition he faces, perfectly capturing the core of the source text without any disjointed facts.",
+          "duration_ms": 932.281,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence to introduce Greg Dyke's proposals and the opposition he faces, perfectly capturing the core of the source text without any disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 847,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 908
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-60-1",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is concise, well-structured, and logically flows from describing the event to explaining its geological cause. It presents the core information accurately without being a disconnected heap of facts.",
+          "duration_ms": 845.979,
+          "custom_output": {
+            "explanation": "The summary is concise, well-structured, and logically flows from describing the event to explaining its geological cause. It presents the core information accurately without being a disconnected heap of facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 818,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 871
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-87-12",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is very well-structured and flows logically from the theft of the car, to its recovery, to the description of the modifications. It presents a cohesive and clear narrative of the source text without feeling disjointed.",
+          "duration_ms": 978.782,
+          "custom_output": {
+            "explanation": "The summary is very well-structured and flows logically from the theft of the car, to its recovery, to the description of the modifications. It presents a cohesive and clear narrative of the source text without feeling disjointed.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 752,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 813
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-36-2",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 3,
+          "explanation": "The summary provides a clear and focused description of Mesut Ozil and his new Apple Watch, flowing logically from sentence to sentence. However, it covers only a portion of the source text, ignoring the football match preview and the second half about Jack Wilshere, which limits its comprehensiveness.",
+          "duration_ms": 854.547,
+          "custom_output": {
+            "explanation": "The summary provides a clear and focused description of Mesut Ozil and his new Apple Watch, flowing logically from sentence to sentence. However, it covers only a portion of the source text, ignoring the football match preview and the second half about Jack Wilshere, which limits its comprehensiveness.",
+            "score": 3
+          },
+          "tokens": {
+            "prompt_tokens": 902,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 0,
+            "total_tokens": 978
+          },
+          "prediction": "3.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-96-10",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the core information of the source text without feeling disconnected.",
+          "duration_ms": 768.982,
+          "custom_output": {
+            "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the core information of the source text without feeling disconnected.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 844,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 889
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-50-7",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured and logical, presenting the key points of Gnabry's injury timeline, his recent return to play, and his current status in a smooth, coherent flow without disconnected facts.",
+          "duration_ms": 790.827,
+          "custom_output": {
+            "explanation": "The summary is well-structured and logical, presenting the key points of Gnabry's injury timeline, his recent return to play, and his current status in a smooth, coherent flow without disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 550,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 609
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-38-11",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and smoothly flows from sentence to sentence to provide a clear and organized overview of the upcoming match and group standings.",
+          "duration_ms": 736.346,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and smoothly flows from sentence to sentence to provide a clear and organized overview of the upcoming match and group standings.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 762,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 811
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-95-9",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main points of the article without including disconnected facts.",
+          "duration_ms": 833.152,
+          "custom_output": {
+            "explanation": "The summary is well-structured, flows logically from sentence to sentence, and accurately captures the main points of the article without including disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 945,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 990
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-99-9",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 4,
+          "explanation": "The summary is well-structured and follows a logical sequence of events from the source text, though it leaves out the final conclusion regarding the lie detector test and the broader context of drug use.",
+          "duration_ms": 748.582,
+          "custom_output": {
+            "explanation": "The summary is well-structured and follows a logical sequence of events from the source text, though it leaves out the final conclusion regarding the lie detector test and the broader context of drug use.",
+            "score": 4
+          },
+          "tokens": {
+            "prompt_tokens": 846,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 901
+          },
+          "prediction": "4.00",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-47-7",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, coherent, and presents a clear, logical flow of information about Bradley Wiggins' upcoming attempt at the cycling hour record without feeling like a disconnected heap of facts.",
+          "duration_ms": 733.247,
+          "custom_output": {
+            "explanation": "The summary is well-structured, coherent, and presents a clear, logical flow of information about Bradley Wiggins' upcoming attempt at the cycling hour record without feeling like a disconnected heap of facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 943,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 998
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-16-8",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is fully coherent, well-structured, and accurately captures the main point of the source article in a single, clear sentence.",
+          "duration_ms": 741.643,
+          "custom_output": {
+            "explanation": "The summary is fully coherent, well-structured, and accurately captures the main point of the source article in a single, clear sentence.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 526,
+            "candidates_tokens": 44,
+            "thoughts_tokens": 0,
+            "total_tokens": 570
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-76-9",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured, coherent, and accurately captures the main points of the source text in a logical and easy-to-read manner without any disjointed facts.",
+          "duration_ms": 620.335,
+          "custom_output": {
+            "explanation": "The summary is well-structured, coherent, and accurately captures the main points of the source text in a logical and easy-to-read manner without any disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 826,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 878
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-75-6",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, following a logical sequence from introducing the viral video and the event to providing details from a witness account. The sentences flow smoothly together and present a well-organized body of information without disjointed facts.",
+          "duration_ms": 1008.785,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, following a logical sequence from introducing the viral video and the event to providing details from a witness account. The sentences flow smoothly together and present a well-organized body of information without disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 877,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 939
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-32-8",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "5",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is well-structured and flows logically from the core news of the chiropractor surrendering his license due to severe misconduct to the surprising contrast of his positive online reviews. It is concise, highly coherent, and effectively captures the main points of the source article without feeling like a collection of disjointed facts.",
+          "duration_ms": 854.135,
+          "custom_output": {
+            "explanation": "The summary is well-structured and flows logically from the core news of the chiropractor surrendering his license due to severe misconduct to the surprising contrast of his positive online reviews. It is concise, highly coherent, and effectively captures the main points of the source article without feeling like a collection of disjointed facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 582,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 660
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "se-coh-81-9",
+      "tier": "r5",
+      "category": "coherence",
+      "expected": "4.6667",
+      "comparison": {
+        "metric_id": "judge-eval/summary-coherence-score",
+        "kind": "score",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "score": 5,
+          "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence to provide a clear and concise overview of the source text without any disconnected facts.",
+          "duration_ms": 751.103,
+          "custom_output": {
+            "explanation": "The summary is extremely coherent, well-structured, and flows logically from sentence to sentence to provide a clear and concise overview of the source text without any disconnected facts.",
+            "score": 5
+          },
+          "tokens": {
+            "prompt_tokens": 593,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 643
+          },
+          "prediction": "5.00",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    }
+  ]
+}
