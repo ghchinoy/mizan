@@ -65,15 +65,34 @@ func NewEvaluationClient(ctx context.Context, location, apiEndpoint string) (*ai
 }
 
 // endpointFor computes the gRPC host:port NewEvaluationClient dials for a given
-// location.
+// location. Multi-region labels ("us", "eu") and "global" dial the bare global
+// host aiplatform.googleapis.com:443 (where locations/{global|us|eu} are served
+// on EvaluateInstances; {us|eu}-aiplatform.googleapis.com returns HTTP 400
+// Invalid hostname).
 func endpointFor(location, apiEndpoint string) string {
 	if apiEndpoint != "" {
 		return apiEndpoint
 	}
-	if location == "" || location == "global" {
+	switch location {
+	case "", "global", "us", "eu":
 		return "aiplatform.googleapis.com:443"
+	default:
+		return fmt.Sprintf("%s-aiplatform.googleapis.com:443", location)
 	}
-	return fmt.Sprintf("%s-aiplatform.googleapis.com:443", location)
+}
+
+// genaiLocationFor resolves the location passed to NewGenaiClient. Single-region
+// configurations (e.g. "us-central1") route structured genai calls to "global"
+// so global-only Gemini 3.x / 4.x models resolve by default, whereas explicit
+// multi-region labels ("us", "eu") are preserved so genai dials the multi-region
+// endpoint (aiplatform.{us|eu}.rep.googleapis.com / locations/{us|eu}).
+func genaiLocationFor(location string) string {
+	switch location {
+	case "us", "eu":
+		return location
+	default:
+		return eval.GenaiLocation
+	}
 }
 
 // newNativeClient and newGenaiClient are the seams NewEngine builds its clients
@@ -184,9 +203,11 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 		}
 	}
 
-	// The genai custom_schema path uses location=global, distinct from the
-	// native regional EvaluationClient above.
-	genaiClient, err := newGenaiClient(ctx, cfg.ProjectID, eval.GenaiLocation)
+	// The genai custom_schema path uses location=global for single-region configs
+	// (distinct from the native regional EvaluationClient above) and preserves
+	// multi-region ("us", "eu") when explicitly configured.
+	genaiLoc := genaiLocationFor(cfg.Location)
+	genaiClient, err := newGenaiClient(ctx, cfg.ProjectID, genaiLoc)
 	if err != nil {
 		_ = client.Close()
 		return nil, nil, err
@@ -232,6 +253,7 @@ func NewEngine(ctx context.Context, cfg *config.Config) (*eval.Engine, func() er
 	// model, above the built-in). An empty value falls through to the built-in.
 	opts := []eval.Option{
 		eval.WithGenaiClient(genaiClient),
+		eval.WithGenaiLocation(genaiLoc),
 		eval.WithGlobalClient(globalClient),
 		eval.WithDiffusionClient(diffClient),
 		eval.WithDefaultModel(cfg.DefaultModel),

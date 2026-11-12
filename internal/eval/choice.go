@@ -54,6 +54,7 @@ func generateChoiceSchema(choices []string) *genai.Schema {
 func resolveEffectiveChoices(tmpl registry.MetricTemplate, inst Instance, rc runConfig, maxChoices int) ([]string, error) {
 	vars := extractVars(tmpl.MetricPromptTemplate)
 	var choices []string
+	limit := maxChoices
 	switch {
 	case rc.choicesOverrideSet:
 		choices = slices.Clone(rc.choicesOverride)
@@ -70,21 +71,28 @@ func resolveEffectiveChoices(tmpl registry.MetricTemplate, inst Instance, rc run
 		choices = append(choices, rc.choicesExtra...)
 	default:
 		choices = slices.Clone(tmpl.Choices)
+		hasVariations := false
 		for _, v := range vars {
 			ref := inst.Fields[v]
+			if len(ref.Items) > 0 {
+				hasVariations = true
+			}
 			for _, item := range ref.Items {
 				if !slices.Contains(choices, item.Label) {
 					return nil, fmt.Errorf("eval: variation label %q in placeholder %q is not in template %q choices %v (pass WithChoicesFromVariations or WithChoices)", item.Label, v, tmpl.ID, choices)
 				}
 			}
 		}
+		if !hasVariations && limit < 255 {
+			limit = 255
+		}
 	}
 
 	if len(choices) < 2 {
 		return nil, fmt.Errorf("eval: choice template %q has fewer than 2 choices (%d)", tmpl.ID, len(choices))
 	}
-	if len(choices) > maxChoices {
-		return nil, fmt.Errorf("eval: choice template %q has %d choices, exceeds maximum %d", tmpl.ID, len(choices), maxChoices)
+	if len(choices) > limit {
+		return nil, fmt.Errorf("eval: choice template %q has %d choices, exceeds maximum %d", tmpl.ID, len(choices), limit)
 	}
 	seen := make(map[string]bool, len(choices))
 	for _, c := range choices {

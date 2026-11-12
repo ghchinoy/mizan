@@ -22,6 +22,7 @@ package eval
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"google.golang.org/genai"
 
@@ -29,6 +30,27 @@ import (
 )
 
 type thinkingBudgetKey struct{}
+type thinkingLevelKey struct{}
+
+// ParseThinkingLevel validates and normalizes a Gemini ThinkingLevel string
+// ("minimal", "low", "medium", "high", case-insensitive). An empty string
+// returns ThinkingLevelUnspecified with no error (meaning "model default").
+func ParseThinkingLevel(s string) (genai.ThinkingLevel, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "":
+		return "", nil
+	case "minimal":
+		return genai.ThinkingLevelMinimal, nil
+	case "low":
+		return genai.ThinkingLevelLow, nil
+	case "medium":
+		return genai.ThinkingLevelMedium, nil
+	case "high":
+		return genai.ThinkingLevelHigh, nil
+	default:
+		return "", fmt.Errorf("eval: invalid thinking level %q (want minimal, low, medium, or high)", s)
+	}
+}
 
 // WithThinkingBudget sets GenerateContentConfig.ThinkingConfig.ThinkingBudget on
 // every genai call of the run (0 disables thinking where the model allows it).
@@ -41,6 +63,16 @@ func WithThinkingBudget(n int) RunOption {
 	}
 }
 
+// WithThinkingLevel sets GenerateContentConfig.ThinkingConfig.ThinkingLevel on
+// every genai call of the run (e.g. "low", "medium", "high" for Gemini 3.5+ /
+// Gemini 4 models that reject numeric ThinkingBudget). An empty string means
+// "model default".
+func WithThinkingLevel(level string) RunOption {
+	return func(rc *runConfig) {
+		rc.thinkingLevel = strings.TrimSpace(level)
+	}
+}
+
 // WithPairwiseGenai routes KindPairwise templates through genai structured
 // output (a BASELINE/CANDIDATE/TIE enum) instead of native EvaluateInstances.
 func WithPairwiseGenai(on bool) RunOption {
@@ -48,14 +80,24 @@ func WithPairwiseGenai(on bool) RunOption {
 }
 
 func withThinkingCtx(ctx context.Context, rc runConfig) context.Context {
-	if !rc.thinkingSet {
-		return ctx
+	if rc.thinkingSet {
+		ctx = context.WithValue(ctx, thinkingBudgetKey{}, rc.thinkingBudget)
 	}
-	return context.WithValue(ctx, thinkingBudgetKey{}, rc.thinkingBudget)
+	if rc.thinkingLevel != "" {
+		if lvl, err := ParseThinkingLevel(rc.thinkingLevel); err == nil && lvl != "" {
+			ctx = context.WithValue(ctx, thinkingLevelKey{}, lvl)
+		}
+	}
+	return ctx
 }
 
-// applyThinking copies a context-carried thinking budget onto cfg.
+// applyThinking copies a context-carried thinking level or budget onto cfg.
+// ThinkingLevel takes precedence when both are present.
 func applyThinking(ctx context.Context, cfg *genai.GenerateContentConfig) {
+	if lvl, ok := ctx.Value(thinkingLevelKey{}).(genai.ThinkingLevel); ok && lvl != "" {
+		cfg.ThinkingConfig = &genai.ThinkingConfig{ThinkingLevel: lvl}
+		return
+	}
 	if n, ok := ctx.Value(thinkingBudgetKey{}).(int); ok {
 		cfg.ThinkingConfig = &genai.ThinkingConfig{ThinkingBudget: genai.Ptr(clampInt32(n))}
 	}

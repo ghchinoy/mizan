@@ -1,0 +1,356 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:01:15.503779Z",
+    "finished_at": "2026-11-12T22:01:40.552688Z",
+    "dataset": "docs/experiments/judge-eval/suites/groundedness.jsonl",
+    "dataset_sha256": "7aa9cd5ac54d8db8a1842d39e2fe559141e774808bd765b070d0ee31d5f3adb8",
+    "engine_a": "genai",
+    "engine_b": "none",
+    "model_a": "gemini-3.8-flash",
+    "diffusion_mirror_side": "both",
+    "workers": 1,
+    "warmup": 1,
+    "location": "eu",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "batch_wall_ms": 21144.517,
+    "throughput_items_per_sec": 0.28376150658820914,
+    "serial_engines": true,
+    "score_tolerance": 0.001,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 1 multi-region serial probe gemini-3.8-flash loc=eu"
+  },
+  "total_cases": 6,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-3.8-flash": 6
+    },
+    "model_versions": {
+      "gemini-3.8-flash": 6
+    },
+    "cases": 6,
+    "errors": 0,
+    "scored": 6,
+    "correct": 6,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 3617.2084999999997,
+    "latency_p95_ms": 3794.06675,
+    "latency_mean_ms": 3523.7325000000005,
+    "mean_tokens": {
+      "n": 6,
+      "prompt": 1594,
+      "candidates": 66.5,
+      "thoughts": 161.8,
+      "total": 1822.3
+    },
+    "calibration": {
+      "n": 6,
+      "ece_10bin": 0.008333335320154789,
+      "brier_top1": 0.0004166668653488396
+    }
+  },
+  "engine_b": {
+    "engine": "none",
+    "cases": 6,
+    "errors": 0,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0
+  },
+  "paired": {
+    "n": 6,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "cohen_kappa": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "boul": {
+      "n": 6,
+      "a_correct": 6,
+      "b_correct": 0,
+      "a_scored": 6,
+      "b_scored": 0,
+      "a_accuracy": 1
+    }
+  },
+  "by_tier": {
+    "covidQA": {
+      "n": 6,
+      "a_correct": 6,
+      "b_correct": 0,
+      "a_scored": 6,
+      "b_scored": 0,
+      "a_accuracy": 1
+    }
+  },
+  "by_category": {
+    "groundedness": {
+      "n": 6,
+      "a_correct": 6,
+      "b_correct": 0,
+      "a_scored": 6,
+      "b_scored": 0,
+      "a_accuracy": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "hb-14546",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage explicitly states that the genome of Bovine coronavirus is 'single-stranded, linear, and nonsegmented RNA', which contradicts the answer's claim that it is 'double-stranded'.",
+          "duration_ms": 3024.706,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage explicitly states that the genome of Bovine coronavirus is 'single-stranded, linear, and nonsegmented RNA', which contradicts the answer's claim that it is 'double-stranded'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1463,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 68,
+            "total_tokens": 1596
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-13906",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The passage states that the genomic size of PEDV 'ranges from approximately 26 to 32 kb', contradicting the answer's claim of '28 to 34 kb'.",
+          "duration_ms": 3805.011,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The passage states that the genomic size of PEDV 'ranges from approximately 26 to 32 kb', contradicting the answer's claim of '28 to 34 kb'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1705,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 194,
+            "total_tokens": 1964
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14804",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer states the score for second-line workers was 5.0 [1.0-8.0], whereas the passage explicitly reports it as 4.0 [1.0-8.0].",
+          "duration_ms": 3761.234,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer states the score for second-line workers was 5.0 [1.0-8.0], whereas the passage explicitly reports it as 4.0 [1.0-8.0].",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1687,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 190,
+            "total_tokens": 1947
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14698",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "The answer contradicts the passage, which states that the enterovirus polyprotein is divided into one structural (P1-capsid) and two nonstructural (P2 and P3) regions, not three nonstructural (P2, P3, and P4) regions.",
+          "duration_ms": 3487.682,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "The answer contradicts the passage, which states that the enterovirus polyprotein is divided into one structural (P1-capsid) and two nonstructural (P2 and P3) regions, not three nonstructural (P2, P3, and P4) regions.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1817,
+            "candidates_tokens": 81,
+            "thoughts_tokens": 168,
+            "total_tokens": 2066
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14076",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "passed": false,
+          "score": 0,
+          "confidence": 0.95,
+          "explanation": "The passage states that hand hygiene is 'consistent with the rights to dignity and to fully participate in decisions related to assistance in humanitarian crises', not the right to 'receive assistance'.",
+          "duration_ms": 3746.735,
+          "custom_output": {
+            "confidence": 0.95,
+            "explanation": "The passage states that hand hygiene is 'consistent with the rights to dignity and to fully participate in decisions related to assistance in humanitarian crises', not the right to 'receive assistance'.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1452,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 187,
+            "total_tokens": 1701
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "hb-14680",
+      "tier": "covidQA",
+      "category": "groundedness",
+      "expected": "FAIL",
+      "comparison": {
+        "metric_id": "judge-eval/answer-faithfulness-check",
+        "kind": "boul",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.8-flash",
+          "model_version": "gemini-3.8-flash",
+          "passed": false,
+          "score": 0,
+          "confidence": 1,
+          "explanation": "According to the passage, effective contact tracing may be prevented by frequent displacement and limited contact information, not by limited healthcare worker training or inadequate personal protective equipment.",
+          "duration_ms": 3317.027,
+          "custom_output": {
+            "confidence": 1,
+            "explanation": "According to the passage, effective contact tracing may be prevented by frequent displacement and limited contact information, not by limited healthcare worker training or inadequate personal protective equipment.",
+            "passed": false
+          },
+          "tokens": {
+            "prompt_tokens": 1440,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 164,
+            "total_tokens": 1660
+          },
+          "prediction": "FAIL",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    }
+  ]
+}

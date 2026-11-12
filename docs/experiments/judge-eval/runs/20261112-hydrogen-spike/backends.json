@@ -1,0 +1,67 @@
+{
+  "captured_at": "2026-11-12T23:15:12Z",
+  "vertex_genai": {
+    "locations_tested": [
+      "global",
+      "us",
+      "eu"
+    ],
+    "models": {
+      "gemini-3.5-flash-lite": {
+        "model_versions": [
+          "gemini-3.5-flash-lite"
+        ],
+        "locations_reachable": [
+          "global",
+          "us",
+          "eu"
+        ],
+        "native_evaluate_instances_global": "3/3"
+      },
+      "gemini-3.8-flash": {
+        "model_versions": [
+          "gemini-3.8-flash"
+        ],
+        "locations_reachable": [
+          "global",
+          "us",
+          "eu"
+        ],
+        "native_evaluate_instances_global": "3/3"
+      },
+      "gemini-4-hydrogen": {
+        "model_versions": [
+          "gemini-4-hydrogen"
+        ],
+        "locations_reachable": [
+          "global",
+          "us",
+          "eu"
+        ],
+        "native_evaluate_instances_global": "3/3"
+      },
+      "gemini-4-argon": {
+        "model_versions": [
+          "gemini-4-argon"
+        ],
+        "locations_reachable": [
+          "global",
+          "us",
+          "eu"
+        ],
+        "native_evaluate_instances_global": "3/3"
+      },
+      "gemini-4-carbon": {
+        "model_versions": [
+          "gemini-4-carbon"
+        ],
+        "locations_reachable": [
+          "global",
+          "us",
+          "eu"
+        ],
+        "native_evaluate_instances_global": "3/3"
+      }
+    }
+  }
+}

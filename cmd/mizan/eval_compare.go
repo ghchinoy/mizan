@@ -59,18 +59,20 @@ type EngineCompareResult struct {
 
 // EngineRun holds result and telemetry from one engine's run.
 type EngineRun struct {
-	Engine      string           `json:"engine"`
-	Model       string           `json:"model,omitempty"`
-	Passed      *bool            `json:"passed,omitempty"`
-	Score       *float32         `json:"score,omitempty"`
-	Confidence  *float32         `json:"confidence,omitempty"`
-	Selection   string           `json:"selection,omitempty"`
-	Explanation string           `json:"explanation,omitempty"`
-	DurationMs  float64          `json:"duration_ms"`
-	Custom      map[string]any   `json:"custom_output,omitempty"`
-	Error       string           `json:"error,omitempty"`
-	Tokens      *eval.TokenUsage `json:"tokens,omitempty"`
-	Skipped     bool             `json:"skipped,omitempty"`
+	Engine       string           `json:"engine"`
+	Model        string           `json:"model,omitempty"`
+	ModelVersion string           `json:"model_version,omitempty"`
+	Passed       *bool            `json:"passed,omitempty"`
+	Score        *float32         `json:"score,omitempty"`
+	Confidence   *float32         `json:"confidence,omitempty"`
+	Selection    string           `json:"selection,omitempty"`
+	Explanation  string           `json:"explanation,omitempty"`
+	DurationMs   float64          `json:"duration_ms"`
+	Custom       map[string]any   `json:"custom_output,omitempty"`
+	Error        string           `json:"error,omitempty"`
+	Tokens       *eval.TokenUsage `json:"tokens,omitempty"`
+	CachedTokens int32            `json:"cached_tokens,omitempty"`
+	Skipped      bool             `json:"skipped,omitempty"`
 
 	// Gold-label scoring (dataset mode only).
 	Prediction string `json:"prediction,omitempty"`
@@ -157,7 +159,9 @@ type CompareRunMeta struct {
 	AllowFallback     bool      `json:"allow_diffusion_fallback,omitempty"`
 	Workers           int       `json:"workers"`
 	Warmup            int       `json:"warmup"`
+	Location          string    `json:"location,omitempty"`
 	ThinkingBudget    int       `json:"thinking_budget"`
+	ThinkingLevel     string    `json:"thinking_level,omitempty"`
 	ThinkingSide      string    `json:"thinking_side,omitempty"`
 	PairwiseGenai     bool      `json:"pairwise_genai,omitempty"`
 	CascadeModel      string    `json:"cascade_model,omitempty"`
@@ -172,26 +176,38 @@ type CompareRunMeta struct {
 	Notes             string    `json:"notes,omitempty"`
 }
 
+// MeanTokenSummary averages per-case token usage across successful genai runs.
+type MeanTokenSummary struct {
+	N          int     `json:"n"`
+	Prompt     float64 `json:"prompt"`
+	Candidates float64 `json:"candidates"`
+	Thoughts   float64 `json:"thoughts"`
+	Cached     float64 `json:"cached,omitempty"`
+	Total      float64 `json:"total"`
+}
+
 // EngineSummary aggregates one engine's performance over a batch.
 type EngineSummary struct {
-	Engine         string         `json:"engine"`
-	Models         map[string]int `json:"models,omitempty"`
-	Cases          int            `json:"cases"`
-	Errors         int            `json:"errors"`
-	Scored         int            `json:"scored"` // gold present and no error
-	Correct        int            `json:"correct"`
-	Accuracy       *float64       `json:"accuracy,omitempty"`
-	AccuracyCI95   *Interval      `json:"accuracy_ci95,omitempty"`
-	LatencyP50Ms   float64        `json:"latency_p50_ms"`
-	LatencyP95Ms   float64        `json:"latency_p95_ms"`
-	LatencyMeanMs  float64        `json:"latency_mean_ms"`
-	ServerP50Ms    *float64       `json:"server_p50_ms,omitempty"`
-	ReadoutModes   map[string]int `json:"readout_modes,omitempty"`
-	BackendsUsed   map[string]int `json:"backends_used,omitempty"`
-	Calibration    *CalibSummary  `json:"calibration,omitempty"`
-	ScoreMetrics   *ScoreSummary  `json:"score_metrics,omitempty"`
-	PositionConsis *float64       `json:"pairwise_position_consistency,omitempty"`
-	ErrorSamples   []string       `json:"error_samples,omitempty"`
+	Engine         string            `json:"engine"`
+	Models         map[string]int    `json:"models,omitempty"`
+	ModelVersions  map[string]int    `json:"model_versions,omitempty"`
+	Cases          int               `json:"cases"`
+	Errors         int               `json:"errors"`
+	Scored         int               `json:"scored"` // gold present and no error
+	Correct        int               `json:"correct"`
+	Accuracy       *float64          `json:"accuracy,omitempty"`
+	AccuracyCI95   *Interval         `json:"accuracy_ci95,omitempty"`
+	LatencyP50Ms   float64           `json:"latency_p50_ms"`
+	LatencyP95Ms   float64           `json:"latency_p95_ms"`
+	LatencyMeanMs  float64           `json:"latency_mean_ms"`
+	ServerP50Ms    *float64          `json:"server_p50_ms,omitempty"`
+	MeanTokens     *MeanTokenSummary `json:"mean_tokens,omitempty"`
+	ReadoutModes   map[string]int    `json:"readout_modes,omitempty"`
+	BackendsUsed   map[string]int    `json:"backends_used,omitempty"`
+	Calibration    *CalibSummary     `json:"calibration,omitempty"`
+	ScoreMetrics   *ScoreSummary     `json:"score_metrics,omitempty"`
+	PositionConsis *float64          `json:"pairwise_position_consistency,omitempty"`
+	ErrorSamples   []string          `json:"error_samples,omitempty"`
 }
 
 // CalibSummary reports top-1 calibration for cases where the engine reported a confidence.
@@ -265,7 +281,9 @@ type compareOptions struct {
 	bootstrapIters   int
 	bootstrapSeed    int64
 	limit            int
+	location         string
 	thinkingBudget   int
+	thinkingLevel    string
 	thinkingSide     string
 	pairwiseGenai    bool
 	cascadeModel     string
@@ -319,12 +337,25 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 				return fmt.Errorf("invalid --tie-break %q (want none|expected-grade)", o.tieBreak)
 			}
 			o.tieBreak = string(tbMode)
+			if _, err := eval.ParseThinkingLevel(o.thinkingLevel); err != nil {
+				return err
+			}
 			if fromReport != "" {
 				return runCompareFromReport(cmd, fromReport, outputFile, o)
 			}
 			cfg, err := mustConfig()
 			if err != nil {
 				return err
+			}
+			if o.location != "" {
+				if err := config.ValidateLocation(o.location); err != nil {
+					return err
+				}
+				cfg.Location = o.location
+				if cfg.Sources == nil {
+					cfg.Sources = map[string]config.Source{}
+				}
+				cfg.Sources["location"] = config.SourceFlag
 			}
 			if diffusionEndpoint != "" {
 				cfg.DiffusionEndpoint = diffusionEndpoint
@@ -403,10 +434,12 @@ func newEvalCompareEnginesCmd() *cobra.Command {
 	f.IntVar(&o.bootstrapIters, "bootstrap", 2000, "bootstrap resamples for 95% confidence intervals (0 disables)")
 	f.Int64Var(&o.bootstrapSeed, "seed", 20260925, "bootstrap RNG seed")
 	f.IntVar(&o.limit, "limit", 0, "evaluate at most N dataset items (0 = all)")
+	f.StringVar(&o.location, "location", "", "override the GCP location for this run (e.g. global, us, eu, us-central1)")
 	f.IntVar(&o.thinkingBudget, "thinking-budget", -1, "Gemini thinking budget on genai calls (0 = off; -1 = model default)")
-	f.StringVar(&o.thinkingSide, "thinking-side", "both", "which vertex engine gets --thinking-budget: a | b | both (lets one run pair default vs budgeted thinking)")
+	f.StringVar(&o.thinkingLevel, "thinking-level", "", "Gemini thinking level on genai calls: minimal | low | medium | high (empty = model default)")
+	f.StringVar(&o.thinkingSide, "thinking-side", "both", "which vertex/genai engine gets --thinking-budget or --thinking-level: a | b | both")
 	f.BoolVar(&o.pairwiseGenai, "pairwise-genai", false, "judge pairwise templates with genai structured output instead of native EvaluateInstances (enables --thinking-budget for pairwise)")
-	f.StringVar(&o.cascadeModel, "cascade-model", "gemini-3.8-flash", "engine \"cascade\": Gemini model used when DiffusionGemma hesitates")
+	f.StringVar(&o.cascadeModel, "cascade-model", "gemini-4-hydrogen", "engine \"cascade\": Gemini model used when DiffusionGemma hesitates")
 	f.Float64Var(&o.cascadeThreshold, "cascade-threshold", 0.35, "engine \"cascade\": escalate when DiffusionGemma hesitation (entropy / ln k) >= this")
 	f.IntVar(&o.warmup, "warmup", 1, "untimed warm-up comparisons on the first item before the batch (token minting, connection setup, cold replicas)")
 	f.BoolVar(&o.failFast, "fail-fast", false, "abort the batch on the first engine error (default: record the error and continue)")
@@ -452,28 +485,38 @@ func runOne(ctx context.Context, eng *eval.Engine, tmpl *registry.MetricTemplate
 		opts = append(opts, eval.WithDiffusionSamples(o.samples), eval.WithDiffusionFallback(o.allowFallback), eval.WithDiffusionMirror(mirror))
 	default:
 		tb := o.thinkingBudget
+		tl := o.thinkingLevel
 		if o.thinkingSide != "" && o.thinkingSide != "both" && o.thinkingSide != side {
 			tb = -1
+			tl = ""
 		}
-		opts = append(opts, eval.WithThinkingBudget(tb), eval.WithPairwiseGenai(o.pairwiseGenai))
+		opts = append(opts, eval.WithThinkingBudget(tb), eval.WithThinkingLevel(tl), eval.WithPairwiseGenai(o.pairwiseGenai))
 		if tmpl.Kind == registry.KindRubric {
 			opts = append(opts, eval.WithRubricDetailDefaultScale())
 		}
 	}
+	callCtx := ctx
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithTimeout(ctx, 90*time.Second)
+		defer cancel()
+	}
 	start := time.Now()
-	res, err := eng.Run(ctx, *tmpl, inst, opts...)
+	res, err := eng.Run(callCtx, *tmpl, inst, opts...)
 	dur := time.Since(start)
 	run := EngineRun{
-		Engine:      engine,
-		Model:       model,
-		Passed:      res.Passed,
-		Score:       res.Score,
-		Confidence:  res.Confidence,
-		Selection:   res.ChoiceSelection,
-		Explanation: res.Explanation,
-		DurationMs:  float64(dur.Microseconds()) / 1000,
-		Custom:      res.CustomOutput,
-		Tokens:      res.Stats.TokenUsage,
+		Engine:       engine,
+		Model:        model,
+		ModelVersion: res.Stats.ModelVersion,
+		Passed:       res.Passed,
+		Score:        res.Score,
+		Confidence:   res.Confidence,
+		Selection:    res.ChoiceSelection,
+		Explanation:  res.Explanation,
+		DurationMs:   float64(dur.Microseconds()) / 1000,
+		Custom:       res.CustomOutput,
+		Tokens:       res.Stats.TokenUsage,
+		CachedTokens: res.Stats.CachedTokens,
 	}
 	if res.PairwiseChoice != "" {
 		run.Selection = res.PairwiseChoice
@@ -642,8 +685,13 @@ func runCompareDataset(cmd *cobra.Command, cfg *config.Config, eng *eval.Engine,
 		}
 	}
 	meta.Warmup = o.warmup
+	if o.location != "" {
+		meta.Location = o.location
+	} else if cfg != nil && cfg.Location != "" {
+		meta.Location = cfg.Location
+	}
 
-	meta.ThinkingBudget, meta.ThinkingSide, meta.PairwiseGenai = o.thinkingBudget, o.thinkingSide, o.pairwiseGenai
+	meta.ThinkingBudget, meta.ThinkingLevel, meta.ThinkingSide, meta.PairwiseGenai = o.thinkingBudget, strings.ToLower(strings.TrimSpace(o.thinkingLevel)), o.thinkingSide, o.pairwiseGenai
 	if o.engineA == "cascade" || o.engineB == "cascade" {
 		meta.CascadeModel, meta.CascadeThreshold = o.cascadeModel, o.cascadeThreshold
 	}
@@ -1123,7 +1171,7 @@ func buildBatchReport(meta CompareRunMeta, cases []CompareCaseResult, o compareO
 }
 
 func summarizeEngine(name string, cases []CompareCaseResult, pick func(CompareCaseResult) EngineRun, o compareOptions) EngineSummary {
-	s := EngineSummary{Engine: name, Models: map[string]int{}, ReadoutModes: map[string]int{}, BackendsUsed: map[string]int{}}
+	s := EngineSummary{Engine: name, Models: map[string]int{}, ModelVersions: map[string]int{}, ReadoutModes: map[string]int{}, BackendsUsed: map[string]int{}}
 	var (
 		lat, server        []float64
 		correct            []float64
@@ -1131,6 +1179,10 @@ func summarizeEngine(name string, cases []CompareCaseResult, pick func(CompareCa
 		confCorrect        []bool
 		predNum, goldNum   []float64
 		posN, posConsisent int
+		tokN               int
+		tokPrompt, tokCand float64
+		tokThought, tokCch float64
+		tokTotal           float64
 	)
 	for _, c := range cases {
 		r := pick(c)
@@ -1144,6 +1196,17 @@ func summarizeEngine(name string, cases []CompareCaseResult, pick func(CompareCa
 		}
 		if r.Model != "" {
 			s.Models[r.Model]++
+		}
+		if r.ModelVersion != "" {
+			s.ModelVersions[r.ModelVersion]++
+		}
+		if r.Tokens != nil {
+			tokN++
+			tokPrompt += float64(r.Tokens.PromptTokens)
+			tokCand += float64(r.Tokens.CandidatesTokens)
+			tokThought += float64(r.Tokens.ThoughtsTokens)
+			tokCch += float64(r.CachedTokens)
+			tokTotal += float64(r.Tokens.TotalTokens)
 		}
 		lat = append(lat, r.DurationMs)
 		if r.Custom != nil {
@@ -1229,8 +1292,22 @@ func summarizeEngine(name string, cases []CompareCaseResult, pick func(CompareCa
 	if posN > 0 {
 		s.PositionConsis = finite(float64(posConsisent) / float64(posN))
 	}
+	if tokN > 0 {
+		fn := float64(tokN)
+		s.MeanTokens = &MeanTokenSummary{
+			N:          tokN,
+			Prompt:     math.Round(tokPrompt/fn*10) / 10,
+			Candidates: math.Round(tokCand/fn*10) / 10,
+			Thoughts:   math.Round(tokThought/fn*10) / 10,
+			Cached:     math.Round(tokCch/fn*10) / 10,
+			Total:      math.Round(tokTotal/fn*10) / 10,
+		}
+	}
 	if len(s.Models) == 0 {
 		s.Models = nil
+	}
+	if len(s.ModelVersions) == 0 {
+		s.ModelVersions = nil
 	}
 	if len(s.ReadoutModes) == 0 {
 		s.ReadoutModes = nil
@@ -1331,9 +1408,21 @@ func renderBatchReportTable(w io.Writer, rep CompareBatchReport) error {
 	fmt.Fprintln(tw, "================================================================================")
 	fmt.Fprintf(tw, "METRIC\tENGINE A (%s)\tENGINE B (%s)\n", a.Engine, b.Engine)
 	fmt.Fprintf(tw, "Model(s):\t%s\t%s\n", joinCounts(a.Models), joinCounts(b.Models))
+	if len(a.ModelVersions)+len(b.ModelVersions) > 0 {
+		fmt.Fprintf(tw, "Model version(s):\t%s\t%s\n", joinCounts(a.ModelVersions), joinCounts(b.ModelVersions))
+	}
 	fmt.Fprintf(tw, "Accuracy vs gold:\t%s\t%s\n", fmtAcc(a.Correct, a.Scored, a.AccuracyCI95), fmtAcc(b.Correct, b.Scored, b.AccuracyCI95))
 	fmt.Fprintf(tw, "Errors:\t%d\t%d\n", a.Errors, b.Errors)
 	fmt.Fprintf(tw, "Latency p50 / p95 (ms):\t%.0f / %.0f\t%.0f / %.0f\n", a.LatencyP50Ms, a.LatencyP95Ms, b.LatencyP50Ms, b.LatencyP95Ms)
+	if a.MeanTokens != nil || b.MeanTokens != nil {
+		mt := func(m *MeanTokenSummary) string {
+			if m == nil {
+				return "-"
+			}
+			return fmt.Sprintf("in %.0f / out %.0f / think %.0f (tot %.0f)", m.Prompt, m.Candidates, m.Thoughts, m.Total)
+		}
+		fmt.Fprintf(tw, "Mean tokens:\t%s\t%s\n", mt(a.MeanTokens), mt(b.MeanTokens))
+	}
 	if a.ServerP50Ms != nil || b.ServerP50Ms != nil {
 		fmt.Fprintf(tw, "Server p50 (ms):\t%s\t%s\n", fmtPtr(a.ServerP50Ms, "%.0f"), fmtPtr(b.ServerP50Ms, "%.0f"))
 	}

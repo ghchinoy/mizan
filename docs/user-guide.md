@@ -60,8 +60,18 @@ Optionally set the region (default is `us-central1`):
 mizan config set location us-central1
 ```
 
-> The multi-region value `us` is **not** valid for the native eval path and
-> will 404 — always use a concrete region such as `us-central1`.
+> Single-region values (such as `us-central1`) dial `<region>-aiplatform.googleapis.com:443`
+> for native `EvaluateInstances` calls while automatically routing structured
+> `google.golang.org/genai` calls (`boul`, `choice`, `score`, `rubric`, `custom_schema`)
+> to `global`. Multi-region values (`global`, `us`, `eu`) are also supported:
+> native `EvaluateInstances` dials `aiplatform.googleapis.com:443` with
+> `locations/{global|us|eu}`, and `google.golang.org/genai` preserves the
+> requested multi-region (`aiplatform.googleapis.com` for `global`, and
+> `aiplatform.{us|eu}.rep.googleapis.com` for `us` and `eu`). For batch
+> benchmarking with `mizan eval compare-engines`, pass `--location global|us|eu`
+> and `--thinking-level low|medium|high` (required on `gemini-4-*` models such
+> as `gemini-4-hydrogen`, `gemini-4-argon`, and `gemini-4-carbon`, which reject
+> legacy `--thinking-budget`).
 
 Check the resolved configuration (`mizan config list` is an alias for
 `mizan config show`):
@@ -546,14 +556,19 @@ Experiment 07b):
   `meta.batch_wall_ms` and `meta.throughput_items_per_sec` give items/s at the
   chosen `--workers`.
 - **`--engine-a cascade`** serves an entropy cascade live. DiffusionGemma
-  answers first, and `--cascade-model` (default `gemini-3.8-flash`) is called
+  answers first, and `--cascade-model` (default `gemini-4-hydrogen`) is called
   only when DiffusionGemma's hesitation (normalized entropy) is at or above
   `--cascade-threshold` (default 0.35). Each result records
   `cascade_escalated`, `cascade_dgem_ms` and `cascade_gemini_ms`.
-- **`--thinking-budget N`** sets Gemini's thinking budget on genai calls (0 turns
-  thinking off where the model allows it; -1 keeps the model default).
+- **`--thinking-budget N`** and **`--thinking-level minimal|low|medium|high`**
+  control Gemini's reasoning depth on genai calls (`--thinking-budget 0` turns
+  thinking off where the model allows it; `--thinking-level low` halves thinking
+  tokens and tail latency on `gemini-4-hydrogen` while preserving accuracy).
   `--thinking-side a|b` applies it to one engine only, so a single run can pair
-  default thinking against budget 0.
+  default thinking against `--thinking-level low` or budget 0.
+- **`--location global|us|eu|<region>`** overrides the GCP location for a single
+  `compare-engines` run across both `genai` (`{us|eu}-aiplatform.googleapis.com`)
+  and native `EvaluateInstances`.
 - **`--pairwise-genai`** judges pairwise templates with genai structured output
   instead of native `EvaluateInstances`, which has no thinking control.
 - **`--tie-break expected-grade`** (default `none`) resolves discrete integer

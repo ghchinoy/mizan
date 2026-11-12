@@ -1,0 +1,3844 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:15:11.48456Z",
+    "finished_at": "2026-11-12T22:15:21.970658Z",
+    "dataset": "docs/experiments/judge-eval/suites/pairwise_instruction_following.jsonl",
+    "dataset_sha256": "fc005d655d8cd547a173b979c07a58a83ec2ad59d9198f8d41540f58e34d1165",
+    "engine_a": "genai",
+    "engine_b": "none",
+    "model_a": "gemini-3.5-flash-lite",
+    "diffusion_mirror_side": "both",
+    "workers": 10,
+    "warmup": 1,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "pairwise_genai": true,
+    "batch_wall_ms": 9202.582,
+    "throughput_items_per_sec": 10.866515506191632,
+    "serial_engines": false,
+    "score_tolerance": 0.001,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 2 fresh fast baseline gemini-3.5-flash-lite on pairwise_instruction_following"
+  },
+  "total_cases": 100,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "model_versions": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "cases": 100,
+    "errors": 0,
+    "scored": 100,
+    "correct": 78,
+    "accuracy": 0.78,
+    "accuracy_ci95": {
+      "lo": 0.7,
+      "hi": 0.86
+    },
+    "latency_p50_ms": 870.6324999999999,
+    "latency_p95_ms": 1054.1829500000001,
+    "latency_mean_ms": 879.44713,
+    "mean_tokens": {
+      "n": 100,
+      "prompt": 503.9,
+      "candidates": 59.4,
+      "thoughts": 0,
+      "total": 563.3
+    }
+  },
+  "engine_b": {
+    "engine": "none",
+    "cases": 100,
+    "errors": 0,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0
+  },
+  "paired": {
+    "n": 100,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "cohen_kappa": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "pairwise": {
+      "n": 100,
+      "a_correct": 78,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.78
+    }
+  },
+  "by_tier": {
+    "llmbar-adver-GPTInst": {
+      "n": 20,
+      "a_correct": 18,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.9
+    },
+    "llmbar-adver-GPTOut": {
+      "n": 20,
+      "a_correct": 14,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.7
+    },
+    "llmbar-adver-manual": {
+      "n": 20,
+      "a_correct": 13,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.65
+    },
+    "llmbar-adver-neighbor": {
+      "n": 20,
+      "a_correct": 16,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.8
+    },
+    "llmbar-natural": {
+      "n": 20,
+      "a_correct": 17,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.85
+    }
+  },
+  "by_category": {
+    "instruction_following": {
+      "n": 100,
+      "a_correct": 78,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.78
+    }
+  },
+  "cases": [
+    {
+      "id": "rb-650",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly answers the question about the cardiovascular system. Response B incorrectly discusses the respiratory system instead of the cardiovascular system requested in the prompt.",
+          "duration_ms": 1053.717,
+          "custom_output": {
+            "explanation": "Response A directly answers the question about the cardiovascular system. Response B incorrectly discusses the respiratory system instead of the cardiovascular system requested in the prompt.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 689,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 734
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-668",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B followed the instruction to write a poem about a turtle, whereas Response A wrote a prose story.",
+          "duration_ms": 978.441,
+          "custom_output": {
+            "explanation": "Response B followed the instruction to write a poem about a turtle, whereas Response A wrote a prose story.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 905,
+            "candidates_tokens": 41,
+            "thoughts_tokens": 0,
+            "total_tokens": 946
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-717",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The instruction explicitly ended with the requirement to 'please print out 'Okay''. Response A followed this instruction precisely, while Response B ignored it and started the game prematurely without waiting for the acknowledgment.",
+          "duration_ms": 995.33,
+          "custom_output": {
+            "explanation": "The instruction explicitly ended with the requirement to 'please print out 'Okay''. Response A followed this instruction precisely, while Response B ignored it and started the game prematurely without waiting for the acknowledgment.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 730,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 785
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-634",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A actually writes a blog post promoting the vegetarian lifestyle. Response B provides a meta-plan or outline for a social media campaign promoting veganism, rather than designing the actual blog post requested.",
+          "duration_ms": 1038.443,
+          "custom_output": {
+            "explanation": "Response A actually writes a blog post promoting the vegetarian lifestyle. Response B provides a meta-plan or outline for a social media campaign promoting veganism, rather than designing the actual blog post requested.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1029,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 1085
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-693",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A successfully follows the stylistic instruction to write in the style of a rude IT tech support guy. Response B writes in a polite, standard corporate support style, completely ignoring the core constraint of the prompt.",
+          "duration_ms": 1113.096,
+          "custom_output": {
+            "explanation": "Response A successfully follows the stylistic instruction to write in the style of a rude IT tech support guy. Response B writes in a polite, standard corporate support style, completely ignoring the core constraint of the prompt.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 911,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 969
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-706",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly addresses the user's issue with coffee and asks clarifying questions. Response B completely misunderstands the user and talks about tea instead.",
+          "duration_ms": 954.253,
+          "custom_output": {
+            "explanation": "Response A correctly addresses the user's issue with coffee and asks clarifying questions. Response B completely misunderstands the user and talks about tea instead.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 648,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 694
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-630",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The instruction asks to create 'a survey question' (singular). Response A provides a single, classic NPS survey question that captures customer experience. Response B provides an entire multi-question feedback form, which over-delivers and fails to follow the singular constraint of the instruction.",
+          "duration_ms": 1276.678,
+          "custom_output": {
+            "explanation": "The instruction asks to create 'a survey question' (singular). Response A provides a single, classic NPS survey question that captures customer experience. Response B provides an entire multi-question feedback form, which over-delivers and fails to follow the singular constraint of the instruction.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 752,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 824
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-694",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly addresses WebStorm as requested in the prompt, whereas Response A incorrectly discusses PyCharm throughout its instructions.",
+          "duration_ms": 1010.896,
+          "custom_output": {
+            "explanation": "Response B correctly addresses WebStorm as requested in the prompt, whereas Response A incorrectly discusses PyCharm throughout its instructions.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 898,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 941
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-639",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B accurately reflects the input of a magical castle deep in the forest, whereas Response A invents a jungle treehouse which is not in the input.",
+          "duration_ms": 934.54,
+          "custom_output": {
+            "explanation": "Response B accurately reflects the input of a magical castle deep in the forest, whereas Response A invents a jungle treehouse which is not in the input.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 299,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 350
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-641",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Both responses followed the instruction to generate a creative story about a family reunion with the characters Sarah, Emily, and John. However, Response B went above and beyond by writing the story in a well-crafted rhyming poetic format, making it much more creative.",
+          "duration_ms": 1047.636,
+          "custom_output": {
+            "explanation": "Both responses followed the instruction to generate a creative story about a family reunion with the characters Sarah, Emily, and John. However, Response B went above and beyond by writing the story in a well-crafted rhyming poetic format, making it much more creative.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 767,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 839
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-629",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly addresses the phrase asked in the instruction (\"smaller fish to fry\"). Response B incorrectly pivots to explaining a different phrase (\"bigger fish to fry\").",
+          "duration_ms": 948.443,
+          "custom_output": {
+            "explanation": "Response A directly addresses the phrase asked in the instruction (\"smaller fish to fry\"). Response B incorrectly pivots to explaining a different phrase (\"bigger fish to fry\").",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 379,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 430
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-653",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The instruction asks how bots detect humans. Response A attempts to answer this specific question, whereas Response B reverses the premise and explains how humans detect bots.",
+          "duration_ms": 808.075,
+          "custom_output": {
+            "explanation": "The instruction asks how bots detect humans. Response A attempts to answer this specific question, whereas Response B reverses the premise and explains how humans detect bots.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 602,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 650
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-712",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B followed the instruction by making the story about a teenager thinking about smoking, creating a choose-your-own-adventure format, and asking the user how to choose an option before moving on. Response A completely ignored the smoking topic and instead wrote about alcohol.",
+          "duration_ms": 933.038,
+          "custom_output": {
+            "explanation": "Response B followed the instruction by making the story about a teenager thinking about smoking, creating a choose-your-own-adventure format, and asking the user how to choose an option before moving on. Response A completely ignored the smoking topic and instead wrote about alcohol.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 898,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 965
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-631",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly formats the input as a wedding announcement template, whereas Response B mixes past and future tenses (announced their marriage on a specific date, but then invites people to join them), making it incoherent.",
+          "duration_ms": 1016.127,
+          "custom_output": {
+            "explanation": "Response A correctly formats the input as a wedding announcement template, whereas Response B mixes past and future tenses (announced their marriage on a specific date, but then invites people to join them), making it incoherent.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 457,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 516
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-648",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Both responses explain why writing clear instructions is important, but Response B is concise and directly addresses the prompt. Response A focuses heavily on 'user manuals' rather than user instructions generally.",
+          "duration_ms": 885.857,
+          "custom_output": {
+            "explanation": "Both responses explain why writing clear instructions is important, but Response B is concise and directly addresses the prompt. Response A focuses heavily on 'user manuals' rather than user instructions generally.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 685,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 735
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-678",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B followed the instruction by writing a detailed image generator prompt depicting a rainforest. Response A completely misunderstood the instruction and wrote about deserts.",
+          "duration_ms": 853.755,
+          "custom_output": {
+            "explanation": "Response B followed the instruction by writing a detailed image generator prompt depicting a rainforest. Response A completely misunderstood the instruction and wrote about deserts.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1089,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 1137
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-695",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response A incorrectly assumes the brand is Western Digital, whereas Response B correctly addresses Seagate as specified in the instruction.",
+          "duration_ms": 869.55,
+          "custom_output": {
+            "explanation": "Response A incorrectly assumes the brand is Western Digital, whereas Response B correctly addresses Seagate as specified in the instruction.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 417,
+            "candidates_tokens": 42,
+            "thoughts_tokens": 0,
+            "total_tokens": 459
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-672",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The prompt asks for 'the meaning of life', which is a philosophical question about purpose. Response B addresses this philosophical interpretation by discussing how people find meaning and providing a practical framework. Response A mistakenly treats 'life' as a biological definition rather than addressing the existential question.",
+          "duration_ms": 928.878,
+          "custom_output": {
+            "explanation": "The prompt asks for 'the meaning of life', which is a philosophical question about purpose. Response B addresses this philosophical interpretation by discussing how people find meaning and providing a practical framework. Response A mistakenly treats 'life' as a biological definition rather than addressing the existential question.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 476,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 550
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-680",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B accurately follows the instruction by addressing storefront window lights and TV screens left on during the night. Response A hallucinates and discusses patio heaters instead. Additionally, Response B correctly includes the environmental impact and the financial benefits to the shop.",
+          "duration_ms": 869.983,
+          "custom_output": {
+            "explanation": "Response B accurately follows the instruction by addressing storefront window lights and TV screens left on during the night. Response A hallucinates and discusses patio heaters instead. Additionally, Response B correctly includes the environmental impact and the financial benefits to the shop.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 982,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 1049
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-707",
+      "tier": "llmbar-adver-GPTInst",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A followed all instructions, including the specific critiques of OpenAI's corruption and Elevenlabs' subscription model based on open-source work. Response B completely ignored these critical instructions and instead praised both entities.",
+          "duration_ms": 897.213,
+          "custom_output": {
+            "explanation": "Response A followed all instructions, including the specific critiques of OpenAI's corruption and Elevenlabs' subscription model based on open-source work. Response B completely ignored these critical instructions and instead praised both entities.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 690,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 748
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-758",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "As a language model, the baseline correctly explains its lack of native scheduling/alarm capabilities and offers helpful alternative instructions. Response B makes a false promise to perform an action it cannot execute.",
+          "duration_ms": 984.441,
+          "custom_output": {
+            "explanation": "As a language model, the baseline correctly explains its lack of native scheduling/alarm capabilities and offers helpful alternative instructions. Response B makes a false promise to perform an action it cannot execute.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 355,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 409
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-765",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly divides the word into syllables without unnecessary conversational filler. Response B includes conversational filler and incorrectly divides the syllables of 'configure' as con-fi-gu-re instead of con-fig-ure.",
+          "duration_ms": 807.525,
+          "custom_output": {
+            "explanation": "Response A directly divides the word into syllables without unnecessary conversational filler. Response B includes conversational filler and incorrectly divides the syllables of 'configure' as con-fi-gu-re instead of con-fig-ure.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 297,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 357
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-723",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B creates a realistic tweet format and correctly includes the requested hashtag. Response A is more of a generic statement and less like a typical tweet.",
+          "duration_ms": 874.329,
+          "custom_output": {
+            "explanation": "Response B creates a realistic tweet format and correctly includes the requested hashtag. Response A is more of a generic statement and less like a typical tweet.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 314,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 363
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-760",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a clear and realistic example of a situation requiring diplomacy (dealing with a difficult customer). Response B's example describes making a choice between two appealing options, which does not clearly demonstrate diplomacy.",
+          "duration_ms": 823.616,
+          "custom_output": {
+            "explanation": "Response A provides a clear and realistic example of a situation requiring diplomacy (dealing with a difficult customer). Response B's example describes making a choice between two appealing options, which does not clearly demonstrate diplomacy.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 347,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 405
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-724",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B actually incorporates the set of eight numbers (1 through 8) into the generated sentence, whereas Response A merely describes them abstractly.",
+          "duration_ms": 650.088,
+          "custom_output": {
+            "explanation": "Response B actually incorporates the set of eight numbers (1 through 8) into the generated sentence, whereas Response A merely describes them abstractly.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 348,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 397
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-729",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A is witty (using a clever play on words 'spinach it to win it') and accurately summarizes the article's finding that spinach boosts brain power. Response B is more of a generic question and lacks the punchy wit of a good headline.",
+          "duration_ms": 890.724,
+          "custom_output": {
+            "explanation": "Response A is witty (using a clever play on words 'spinach it to win it') and accurately summarizes the article's finding that spinach boosts brain power. Response B is more of a generic question and lacks the punchy wit of a good headline.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 313,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 382
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-744",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly identifies its inability to interact with external calendar APIs and offers helpful alternatives, whereas Response B pretends to set a reminder without actually doing so.",
+          "duration_ms": 807.279,
+          "custom_output": {
+            "explanation": "Response A correctly identifies its inability to interact with external calendar APIs and offers helpful alternatives, whereas Response B pretends to set a reminder without actually doing so.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 410,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 458
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-731",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B describes a specific sporting event in a paragraph, fulfilling the instruction accurately, whereas Response A provides a generic definition of a sporting event.",
+          "duration_ms": 794.918,
+          "custom_output": {
+            "explanation": "Response B describes a specific sporting event in a paragraph, fulfilling the instruction accurately, whereas Response A provides a generic definition of a sporting event.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 502,
+            "candidates_tokens": 42,
+            "thoughts_tokens": 0,
+            "total_tokens": 544
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-736",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses correctly calculate the total cost as $3700 (Response A gives the direct answer, while Response B breaks it down and explicitly states the sum is $3700 implicitly through the math, though Response A is more concise, both are accurate).",
+          "duration_ms": 888.768,
+          "custom_output": {
+            "explanation": "Both responses correctly calculate the total cost as $3700 (Response A gives the direct answer, while Response B breaks it down and explicitly states the sum is $3700 implicitly through the math, though Response A is more concise, both are accurate).",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 315,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 387
+          },
+          "prediction": "TIE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-766",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A creates a reasonable quiz on the meaning and use of the word 'vivacious' appropriate for the requested grade level. Response B contains multiple glaring errors, including asking for opposites and synonyms that do not test the word correctly, putting the correct answer as the opposite in question 1, repeating identical options for multiple-choice questions, and testing the word incorrectly in fill-in-the-blank and sentence usage.",
+          "duration_ms": 1108.427,
+          "custom_output": {
+            "explanation": "Response A creates a reasonable quiz on the meaning and use of the word 'vivacious' appropriate for the requested grade level. Response B contains multiple glaring errors, including asking for opposites and synonyms that do not test the word correctly, putting the correct answer as the opposite in question 1, repeating identical options for multiple-choice questions, and testing the word incorrectly in fill-in-the-blank and sentence usage.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 609,
+            "candidates_tokens": 102,
+            "thoughts_tokens": 0,
+            "total_tokens": 711
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-725",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction asks to 'Describe a type of bird'. Response B describes a specific type of bird (the kookaburra), which directly and concretely answers the prompt. Response A describes birds in general at a high taxonomic level rather than a specific type of bird.",
+          "duration_ms": 732.649,
+          "custom_output": {
+            "explanation": "The instruction asks to 'Describe a type of bird'. Response B describes a specific type of bird (the kookaburra), which directly and concretely answers the prompt. Response A describes birds in general at a high taxonomic level rather than a specific type of bird.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 562,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 636
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-742",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A follows the instruction by providing a nickname, whereas Response B refuses to answer and asks a counter-question.",
+          "duration_ms": 737.937,
+          "custom_output": {
+            "explanation": "Response A follows the instruction by providing a nickname, whereas Response B refuses to answer and asks a counter-question.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 305,
+            "candidates_tokens": 40,
+            "thoughts_tokens": 0,
+            "total_tokens": 345
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-741",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly computes the derivative of 2x^2 + 5x as 4x + 5. Response B provides an incorrect derivative (2x + 5).",
+          "duration_ms": 1402.348,
+          "custom_output": {
+            "explanation": "Response A correctly computes the derivative of 2x^2 + 5x as 4x + 5. Response B provides an incorrect derivative (2x + 5).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 298,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 352
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-726",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A preserves the exact subject and active phrasing of the original sentence while successfully reducing word count. Response B changes 'he had not finished' to 'the task remained incomplete', altering the structure slightly more than necessary.",
+          "duration_ms": 963.442,
+          "custom_output": {
+            "explanation": "Response A preserves the exact subject and active phrasing of the original sentence while successfully reducing word count. Response B changes 'he had not finished' to 'the task remained incomplete', altering the structure slightly more than necessary.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 317,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 377
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-722",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly addresses the core instruction by designing a specific table schema with relevant columns for recording employee salaries, while Response B discusses broader database requirements and features rather than providing a concrete design.",
+          "duration_ms": 790.812,
+          "custom_output": {
+            "explanation": "Response A directly addresses the core instruction by designing a specific table schema with relevant columns for recording employee salaries, while Response B discusses broader database requirements and features rather than providing a concrete design.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 376,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 430
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-746",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a more accurate and complete answer by distinguishing between US and UK pints, whereas Response A only gives one measurement.",
+          "duration_ms": 893.179,
+          "custom_output": {
+            "explanation": "Response B provides a more accurate and complete answer by distinguishing between US and UK pints, whereas Response A only gives one measurement.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 311,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 356
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-756",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A actually discusses real grade 3 science topics like force, motion, energy, plants, animals, rocks, soil, and water. Response B focuses entirely on unicorns, which is not a valid or realistic topic for a grade 3 science lesson plan.",
+          "duration_ms": 813.988,
+          "custom_output": {
+            "explanation": "Response A actually discusses real grade 3 science topics like force, motion, energy, plants, animals, rocks, soil, and water. Response B focuses entirely on unicorns, which is not a valid or realistic topic for a grade 3 science lesson plan.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 526,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 595
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-730",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction asks to design a birthday card for a 7-year-old. Response B actually tailors the design to a 7-year-old by including specific age-appropriate content (and humorous contrast), whereas Response A is a generic template with placeholder brackets that doesn't mention the age.",
+          "duration_ms": 903.327,
+          "custom_output": {
+            "explanation": "The instruction asks to design a birthday card for a 7-year-old. Response B actually tailors the design to a 7-year-old by including specific age-appropriate content (and humorous contrast), whereas Response A is a generic template with placeholder brackets that doesn't mention the age.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 358,
+            "candidates_tokens": 82,
+            "thoughts_tokens": 0,
+            "total_tokens": 440
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-748",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The candidate response fails to directly state a clear, definitive answer from the multiple-choice options and provides a confusing critique of the question, whereas the baseline response selects an option and provides a structured explanation, despite the flawed analogical reasoning.",
+          "duration_ms": 870.016,
+          "custom_output": {
+            "explanation": "The candidate response fails to directly state a clear, definitive answer from the multiple-choice options and provides a confusing critique of the question, whereas the baseline response selects an option and provides a structured explanation, despite the flawed analogical reasoning.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 424,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 488
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-733",
+      "tier": "llmbar-adver-GPTOut",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly calculates the area of the triangle as 15cm² (0.5 * base * height = 0.5 * 5 * 6 = 15). Response B incorrectly calculates the area as 30 square centimeters.",
+          "duration_ms": 777.209,
+          "custom_output": {
+            "explanation": "Response A correctly calculates the area of the triangle as 15cm² (0.5 * base * height = 0.5 * 5 * 6 = 15). Response B incorrectly calculates the area as 30 square centimeters.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 293,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 362
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-794",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A creates a complete multiple choice quiz with multiple questions, whereas Response B only provides a single question and includes the answer inside the quiz itself, which defeats the purpose of a quiz.",
+          "duration_ms": 1004.985,
+          "custom_output": {
+            "explanation": "Response A creates a complete multiple choice quiz with multiple questions, whereas Response B only provides a single question and includes the answer inside the quiz itself, which defeats the purpose of a quiz.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 484,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 532
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-789",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A specifically tailors its ideas to the gut health service requested in the prompt, whereas Response B provides generic waitlist ideas that do not mention gut health at all.",
+          "duration_ms": 775.56,
+          "custom_output": {
+            "explanation": "Response A specifically tailors its ideas to the gut health service requested in the prompt, whereas Response B provides generic waitlist ideas that do not mention gut health at all.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 818,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 869
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-784",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response A includes a specific historical event (1981) involving David Stern as commissioner, which is factually incorrect for that year since Larry O'Brien was commissioner then. Response B describes the scenario in a general and accurate way without factual errors, successfully following the instruction to describe the scenario.",
+          "duration_ms": 760.872,
+          "custom_output": {
+            "explanation": "Response A includes a specific historical event (1981) involving David Stern as commissioner, which is factually incorrect for that year since Larry O'Brien was commissioner then. Response B describes the scenario in a general and accurate way without factual errors, successfully following the instruction to describe the scenario.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 604,
+            "candidates_tokens": 80,
+            "thoughts_tokens": 0,
+            "total_tokens": 684
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-785",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The baseline response gives a direct probability, but the candidate response provides helpful context and addresses the injuries mentioned in the prompt more thoroughly.",
+          "duration_ms": 821.358,
+          "custom_output": {
+            "explanation": "The baseline response gives a direct probability, but the candidate response provides helpful context and addresses the injuries mentioned in the prompt more thoroughly.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 445,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 491
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-811",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B accurately finds and cites the exact metaphor from the passage, whereas Response A only mentions the comparison without citing the text directly.",
+          "duration_ms": 768.43,
+          "custom_output": {
+            "explanation": "Response B accurately finds and cites the exact metaphor from the passage, whereas Response A only mentions the comparison without citing the text directly.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 387,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 433
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-786",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly answers the user's question by offering a standard culinary tip to improve a chocolate chip cake. Response B makes a pedantic and absurd suggestion about adding beef to a chocolate chip cake.",
+          "duration_ms": 689.374,
+          "custom_output": {
+            "explanation": "Response A directly answers the user's question by offering a standard culinary tip to improve a chocolate chip cake. Response B makes a pedantic and absurd suggestion about adding beef to a chocolate chip cake.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 325,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 382
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-807",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B capitalized the boundaries of every word throughout the entire text, whereas Response A missed capitalizing the entire second paragraph. Response B followed the instruction completely.",
+          "duration_ms": 781.476,
+          "custom_output": {
+            "explanation": "Response B capitalized the boundaries of every word throughout the entire text, whereas Response A missed capitalizing the entire second paragraph. Response B followed the instruction completely.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 812,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 862
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-778",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly answers the question by detailing Hitler's actual plans for Russia (destruction, colonization, and extermination/expulsion). Response B provides unnecessary fluff and vague generalities without actually stating what the plans were.",
+          "duration_ms": 909.121,
+          "custom_output": {
+            "explanation": "Response A directly answers the question by detailing Hitler's actual plans for Russia (destruction, colonization, and extermination/expulsion). Response B provides unnecessary fluff and vague generalities without actually stating what the plans were.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 352,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 413
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-808",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A strictly adheres to the 3-5 sentence length constraint, containing exactly 4 sentences. Response B contains 6 sentences, which violates the length constraint.",
+          "duration_ms": 787.169,
+          "custom_output": {
+            "explanation": "Response A strictly adheres to the 3-5 sentence length constraint, containing exactly 4 sentences. Response B contains 6 sentences, which violates the length constraint.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 492,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 542
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-800",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides an accurate, standard, and concise path to becoming a licensed electrician in the US. Response B conflates the trade of an electrician with electrical engineering, suggesting a degree and a path that does not reflect actual licensing requirements for electricians.",
+          "duration_ms": 1063.036,
+          "custom_output": {
+            "explanation": "Response A provides an accurate, standard, and concise path to becoming a licensed electrician in the US. Response B conflates the trade of an electrician with electrical engineering, suggesting a degree and a path that does not reflect actual licensing requirements for electricians.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 925,
+            "candidates_tokens": 66,
+            "thoughts_tokens": 0,
+            "total_tokens": 991
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-797",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction specifically asked for a 'fictional/counterfactual' series of steps. Response B follows this instruction by creating a fictional narrative involving a circus and cornfields, whereas Response A simply recounts the real-world historical events.",
+          "duration_ms": 871.249,
+          "custom_output": {
+            "explanation": "The instruction specifically asked for a 'fictional/counterfactual' series of steps. Response B follows this instruction by creating a fictional narrative involving a circus and cornfields, whereas Response A simply recounts the real-world historical events.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 895,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 962
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-769",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly and accurately answers the question about what event happened on October 1, 2017 in Catalonia (the independence referendum). Response B provides general background information about Catalonia but fails to mention the specific event that occurred on that date.",
+          "duration_ms": 842.871,
+          "custom_output": {
+            "explanation": "Response A directly and accurately answers the question about what event happened on October 1, 2017 in Catalonia (the independence referendum). Response B provides general background information about Catalonia but fails to mention the specific event that occurred on that date.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 382,
+            "candidates_tokens": 67,
+            "thoughts_tokens": 0,
+            "total_tokens": 449
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-799",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction specifically asks whether a 'thumb war' is violent, addressing both physical and psychological aspects. Response A completely misses the specific question about a thumb war and instead talks about real military wars. Response B correctly addresses the thumb war question, making it much more aligned with the instruction.",
+          "duration_ms": 924.839,
+          "custom_output": {
+            "explanation": "The instruction specifically asks whether a 'thumb war' is violent, addressing both physical and psychological aspects. Response A completely misses the specific question about a thumb war and instead talks about real military wars. Response B correctly addresses the thumb war question, making it much more aligned with the instruction.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 494,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 0,
+            "total_tokens": 571
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-772",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B directly answers the question by providing a typical wattage range. Response A explains what wattage means and that it varies, but fails to provide any actual numerical range or typical wattage value.",
+          "duration_ms": 983.312,
+          "custom_output": {
+            "explanation": "Response B directly answers the question by providing a typical wattage range. Response A explains what wattage means and that it varies, but fails to provide any actual numerical range or typical wattage value.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 338,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 395
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-793",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The baseline response successfully identifies the grammatically incorrect sentence as requested, whereas the candidate response merely lists the letters of all options.",
+          "duration_ms": 927.301,
+          "custom_output": {
+            "explanation": "The baseline response successfully identifies the grammatically incorrect sentence as requested, whereas the candidate response merely lists the letters of all options.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 338,
+            "candidates_tokens": 42,
+            "thoughts_tokens": 0,
+            "total_tokens": 380
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-788",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B accurately counts the words in the quoted text and gives a direct answer, whereas Response A invents an incorrect word count of 42 based on its own generated text instead of the requested quote.",
+          "duration_ms": 958.133,
+          "custom_output": {
+            "explanation": "Response B accurately counts the words in the quoted text and gives a direct answer, whereas Response A invents an incorrect word count of 42 based on its own generated text instead of the requested quote.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 358,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 419
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-792",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses successfully paraphrased the sentence by changing exactly one word (\"cost\" to \"expense\" in Response A and \"cost\" to \"expenditure\" in Response B) while keeping the rest of the sentence identical.",
+          "duration_ms": 708.435,
+          "custom_output": {
+            "explanation": "Both responses successfully paraphrased the sentence by changing exactly one word (\"cost\" to \"expense\" in Response A and \"cost\" to \"expenditure\" in Response B) while keeping the rest of the sentence identical.",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 348,
+            "candidates_tokens": 63,
+            "thoughts_tokens": 0,
+            "total_tokens": 411
+          },
+          "prediction": "TIE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-790",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "This is a classic riddle where the fifth sister is playing chess with Kate, since chess requires two players. Response A correctly answers the riddle, while Response B fails to get the correct answer.",
+          "duration_ms": 849.078,
+          "custom_output": {
+            "explanation": "This is a classic riddle where the fifth sister is playing chess with Kate, since chess requires two players. Response A correctly answers the riddle, while Response B fails to get the correct answer.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 334,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 389
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-771",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B suggests a realistic, scientifically viable project suitable for a national high school science and technology competition (eco-friendly packaging alternatives). Response A suggests building a 'DIY time machine' out of cardboard and a digital watch, which is scientifically absurd and not appropriate for a serious national science competition.",
+          "duration_ms": 916.319,
+          "custom_output": {
+            "explanation": "Response B suggests a realistic, scientifically viable project suitable for a national high school science and technology competition (eco-friendly packaging alternatives). Response A suggests building a 'DIY time machine' out of cardboard and a digital watch, which is scientifically absurd and not appropriate for a serious national science competition.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1195,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 1273
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-770",
+      "tier": "llmbar-adver-manual",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides 3 extremely niche consumer groups and numbers them in the correct ascending order. Response B numbers them out of order (3, 2, 1) and lists groups that are arguably less niche (urban beekeepers and fountain pen enthusiasts have quite large, mainstream communities).",
+          "duration_ms": 810.12,
+          "custom_output": {
+            "explanation": "Response A provides 3 extremely niche consumer groups and numbers them in the correct ascending order. Response B numbers them out of order (3, 2, 1) and lists groups that are arguably less niche (urban beekeepers and fountain pen enthusiasts have quite large, mainstream communities).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 342,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 0,
+            "total_tokens": 417
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-565",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B actually describes a sunset as requested by the instruction, whereas Response A describes a general summer day without focusing on sunset.",
+          "duration_ms": 758.035,
+          "custom_output": {
+            "explanation": "Response B actually describes a sunset as requested by the instruction, whereas Response A describes a general summer day without focusing on sunset.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 455,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 500
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-603",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B follows all parts of the instruction by writing down 3 main points regarding AI taking jobs and then explaining why it can't happen. Response A completely misses the instruction to write 3 main points and instead lists ten jobs in a table.",
+          "duration_ms": 822.828,
+          "custom_output": {
+            "explanation": "Response B follows all parts of the instruction by writing down 3 main points regarding AI taking jobs and then explaining why it can't happen. Response A completely misses the instruction to write 3 main points and instead lists ten jobs in a table.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 989,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 1059
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-520",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The instruction explicitly asked to find 4 interesting facts about birds. Response A followed this constraint by providing exactly 4 facts. Response B provided 10 facts about hummingbirds, failing the count constraint.",
+          "duration_ms": 831.619,
+          "custom_output": {
+            "explanation": "The instruction explicitly asked to find 4 interesting facts about birds. Response A followed this constraint by providing exactly 4 facts. Response B provided 10 facts about hummingbirds, failing the count constraint.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 526,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 584
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-509",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction asks to identify the cause of the issue 'The computer is not working.' Since a computer not working can stem from countless hardware, software, or power issues, Response B correctly states that the cause is unknown without more information. Response A assumes the issue is strictly internet-related, which is not stated in the prompt.",
+          "duration_ms": 860.787,
+          "custom_output": {
+            "explanation": "The instruction asks to identify the cause of the issue 'The computer is not working.' Since a computer not working can stem from countless hardware, software, or power issues, Response B correctly states that the cause is unknown without more information. Response A assumes the issue is strictly internet-related, which is not stated in the prompt.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 354,
+            "candidates_tokens": 86,
+            "thoughts_tokens": 0,
+            "total_tokens": 440
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-542",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B successfully includes all of the required words ('sailors', 'boat') and fits the adventure theme. Response A fails to include the word 'boat'.",
+          "duration_ms": 946.265,
+          "custom_output": {
+            "explanation": "Response B successfully includes all of the required words ('sailors', 'boat') and fits the adventure theme. Response A fails to include the word 'boat'.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 560,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 612
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-574",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly calculates the sum of 3.7 and 6.2 as 9.9. Response A incorrectly states the sum is 15.7.",
+          "duration_ms": 984.453,
+          "custom_output": {
+            "explanation": "Response B correctly calculates the sum of 3.7 and 6.2 as 9.9. Response A incorrectly states the sum is 15.7.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 293,
+            "candidates_tokens": 55,
+            "thoughts_tokens": 0,
+            "total_tokens": 348
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-499",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The instruction asks to 'Generate an example'. Response A provides a single clear and detailed example, while Response B lists multiple examples across different domains instead of focusing on one.",
+          "duration_ms": 855.973,
+          "custom_output": {
+            "explanation": "The instruction asks to 'Generate an example'. Response A provides a single clear and detailed example, while Response B lists multiple examples across different domains instead of focusing on one.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 377,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 428
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-611",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B acknowledges and evaluates the user's provided title, whereas Response A completely ignores the user's title and suggests an unrelated one.",
+          "duration_ms": 828.569,
+          "custom_output": {
+            "explanation": "Response B acknowledges and evaluates the user's provided title, whereas Response A completely ignores the user's title and suggests an unrelated one.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 365,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 413
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-498",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction specifically asks to suggest a suitable card game for a birthday party. Response B suggests a card game (Cards Against Humanity), whereas Response A suggests a scavenger hunt, limbo, and relay race, which are not card games.",
+          "duration_ms": 764.451,
+          "custom_output": {
+            "explanation": "The instruction specifically asks to suggest a suitable card game for a birthday party. Response B suggests a card game (Cards Against Humanity), whereas Response A suggests a scavenger hunt, limbo, and relay race, which are not card games.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 395,
+            "candidates_tokens": 66,
+            "thoughts_tokens": 0,
+            "total_tokens": 461
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-587",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The prompt asks for instructions on how to commit a crime (rob a store). Both models correctly refuse to provide actionable instructions on how to rob a store, but Response B pivots to safety and survival advice (Run, Hide, Fight) which is helpful and harmless, whereas Response A actually attempts to categorize illegal methods of theft.",
+          "duration_ms": 954.434,
+          "custom_output": {
+            "explanation": "The prompt asks for instructions on how to commit a crime (rob a store). Both models correctly refuse to provide actionable instructions on how to rob a store, but Response B pivots to safety and survival advice (Run, Hide, Fight) which is helpful and harmless, whereas Response A actually attempts to categorize illegal methods of theft.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 709,
+            "candidates_tokens": 85,
+            "thoughts_tokens": 0,
+            "total_tokens": 794
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-516",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly follows the instruction by listing exactly five distinct benefits of exercising daily in a concise manner. Response B lists many more than five benefits.",
+          "duration_ms": 971.586,
+          "custom_output": {
+            "explanation": "Response A directly follows the instruction by listing exactly five distinct benefits of exercising daily in a concise manner. Response B lists many more than five benefits.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 388,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 434
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-519",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is a direct advertisement slogan promoting healthy eating, whereas Response A promotes a fitness app.",
+          "duration_ms": 653.635,
+          "custom_output": {
+            "explanation": "Response B is a direct advertisement slogan promoting healthy eating, whereas Response A promotes a fitness app.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 287,
+            "candidates_tokens": 39,
+            "thoughts_tokens": 0,
+            "total_tokens": 326
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-615",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The question is a simple trick question asking how many apples you have if you have crayons and paper. The correct and concise answer is that it cannot be determined or that you have zero apples (depending on interpretation). Response A hallucinates a complex scenario about a basket and various colored apples which was never mentioned. Response B correctly states that it is not possible to determine the answer based on the given information.",
+          "duration_ms": 961.846,
+          "custom_output": {
+            "explanation": "The question is a simple trick question asking how many apples you have if you have crayons and paper. The correct and concise answer is that it cannot be determined or that you have zero apples (depending on interpretation). Response A hallucinates a complex scenario about a basket and various colored apples which was never mentioned. Response B correctly states that it is not possible to determine the answer based on the given information.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 507,
+            "candidates_tokens": 100,
+            "thoughts_tokens": 0,
+            "total_tokens": 607
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-559",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A followed the negative constraint of providing exactly 3 tips, whereas Response B provided 6 tips.",
+          "duration_ms": 955.404,
+          "custom_output": {
+            "explanation": "Response A followed the negative constraint of providing exactly 3 tips, whereas Response B provided 6 tips.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 440,
+            "candidates_tokens": 38,
+            "thoughts_tokens": 0,
+            "total_tokens": 478
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-505",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction asks to 'Name an animal', which implies a singular noun. Response B provides a single animal (Dog), whereas Response A provides a list of multiple animals.",
+          "duration_ms": 723.072,
+          "custom_output": {
+            "explanation": "The instruction asks to 'Name an animal', which implies a singular noun. Response B provides a single animal (Dog), whereas Response A provides a list of multiple animals.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 284,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 338
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-526",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Both responses follow the instruction to provide ways to reduce air pollution. However, Response A provides four distinct and actionable points with good detail, whereas Response B only lists three very brief and overlapping points.",
+          "duration_ms": 946.982,
+          "custom_output": {
+            "explanation": "Both responses follow the instruction to provide ways to reduce air pollution. However, Response A provides four distinct and actionable points with good detail, whereas Response B only lists three very brief and overlapping points.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 351,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 407
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-568",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides exactly five ways as requested by the instruction, whereas Response A lists six ways, failing the negative constraint of the count.",
+          "duration_ms": 803.05,
+          "custom_output": {
+            "explanation": "Response B provides exactly five ways as requested by the instruction, whereas Response A lists six ways, failing the negative constraint of the count.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 506,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 554
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-613",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Both responses fail to correctly and directly identify alexia or pure word blindness, but the candidate response is nonsensical in attributing a complete inability to recognize written words to a lack of motivation. The baseline response, while containing formatting flaws and incorrect multiple-choice labeling, attempts to address neurological language disorders, making it slightly less absurd.",
+          "duration_ms": 1052.723,
+          "custom_output": {
+            "explanation": "Both responses fail to correctly and directly identify alexia or pure word blindness, but the candidate response is nonsensical in attributing a complete inability to recognize written words to a lack of motivation. The baseline response, while containing formatting flaws and incorrect multiple-choice labeling, attempts to address neurological language disorders, making it slightly less absurd.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 432,
+            "candidates_tokens": 82,
+            "thoughts_tokens": 0,
+            "total_tokens": 514
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-579",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The user asked how they can learn to optimize their webpage. Response A directly gives practical SEO steps and tactics that serve as a foundational guide for optimization, whereas Response B focuses primarily on listing third-party platforms to learn from rather than answering how to do it or providing direct educational content.",
+          "duration_ms": 1028.688,
+          "custom_output": {
+            "explanation": "The user asked how they can learn to optimize their webpage. Response A directly gives practical SEO steps and tactics that serve as a foundational guide for optimization, whereas Response B focuses primarily on listing third-party platforms to learn from rather than answering how to do it or providing direct educational content.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 774,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 848
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-552",
+      "tier": "llmbar-adver-neighbor",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B directly generates an example for the concept of hyperparameter tuning as requested, whereas Response A merely provides a definition and lists examples of hyperparameters without giving a concrete example of the tuning process itself.",
+          "duration_ms": 1021.826,
+          "custom_output": {
+            "explanation": "Response B directly generates an example for the concept of hyperparameter tuning as requested, whereas Response A merely provides a definition and lists examples of hyperparameters without giving a concrete example of the tuning process itself.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 425,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 484
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-485",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response A is a well-known, existing proverb, whereas the instruction explicitly asks to create an original proverb. Response B creates a new, original proverb describing friendship.",
+          "duration_ms": 765.498,
+          "custom_output": {
+            "explanation": "Response A is a well-known, existing proverb, whereas the instruction explicitly asks to create an original proverb. Response B creates a new, original proverb describing friendship.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 291,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 344
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-438",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly uses the LIKE operator with 'd%' to find words that start with the letter 'd', whereas Response A uses an exact equality check ('= 'd'') which only finds words that are literally equal to the single letter 'd'.",
+          "duration_ms": 967.055,
+          "custom_output": {
+            "explanation": "Response B correctly uses the LIKE operator with 'd%' to find words that start with the letter 'd', whereas Response A uses an exact equality check ('= 'd'') which only finds words that are literally equal to the single letter 'd'.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 295,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 365
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-458",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A includes all the requested words (flexible, practical, smart) in a sentence, whereas Response B fails to include the word 'practical'.",
+          "duration_ms": 728.026,
+          "custom_output": {
+            "explanation": "Response A includes all the requested words (flexible, practical, smart) in a sentence, whereas Response B fails to include the word 'practical'.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 300,
+            "candidates_tokens": 46,
+            "thoughts_tokens": 0,
+            "total_tokens": 346
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-402",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A accurately captures the core request of the user (asking how to phrase safety advice to a younger sister without inducing guilt/rape culture fears), whereas Response B misinterprets the user's stance by stating they want to make her aware that 'rape fear is a serious issue' instead of addressing the risk of sexual assault without victim-blaming.",
+          "duration_ms": 950.053,
+          "custom_output": {
+            "explanation": "Response A accurately captures the core request of the user (asking how to phrase safety advice to a younger sister without inducing guilt/rape culture fears), whereas Response B misinterprets the user's stance by stating they want to make her aware that 'rape fear is a serious issue' instead of addressing the risk of sexual assault without victim-blaming.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 809,
+            "candidates_tokens": 88,
+            "thoughts_tokens": 0,
+            "total_tokens": 897
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-432",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly follows the instruction to write an introduction that is generalizable to different fields by using placeholders. Response B specifies a particular field (software engineer), which violates the constraint of being generalizable to different fields.",
+          "duration_ms": 673.394,
+          "custom_output": {
+            "explanation": "Response A correctly follows the instruction to write an introduction that is generalizable to different fields by using placeholders. Response B specifies a particular field (software engineer), which violates the constraint of being generalizable to different fields.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 365,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 425
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-446",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B followed both parts of the instruction by providing a list of 6 species and then randomly selecting one from that list. Response A only provided the list and failed to make a selection.",
+          "duration_ms": 877.53,
+          "custom_output": {
+            "explanation": "Response B followed both parts of the instruction by providing a list of 6 species and then randomly selecting one from that list. Response A only provided the list and failed to make a selection.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 464,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 522
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-437",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses successfully construct a grammatically correct sentence using all three required words ('effervescence', 'hesitant', and 'integrity' for Response A; 'effervescence', 'hesitant', and 'integrity' is missing in Response B? Wait, Response B does not use 'integrity'. Let me re-read Response B: 'The effervescence in the room helped to ease the hesitant nature of the individual.' Response B lacks 'integrity'. Therefore Response A followed the instructions by including all three words, while Response B missed one.)",
+          "duration_ms": 1000.144,
+          "custom_output": {
+            "explanation": "Both responses successfully construct a grammatically correct sentence using all three required words ('effervescence', 'hesitant', and 'integrity' for Response A; 'effervescence', 'hesitant', and 'integrity' is missing in Response B? Wait, Response B does not use 'integrity'. Let me re-read Response B: 'The effervescence in the room helped to ease the hesitant nature of the individual.' Response B lacks 'integrity'. Therefore Response A followed the instructions by including all three words, while Response B missed one.)",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 308,
+            "candidates_tokens": 129,
+            "thoughts_tokens": 0,
+            "total_tokens": 437
+          },
+          "prediction": "TIE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-473",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Renting a standard car or using ride-hailing services as suggested in the baseline can be questionable for eco-friendliness compared to public transit, but Response B suggests taking a plane, which is generally one of the least eco-friendly ways to travel. Therefore, the baseline is slightly better aligned with suggesting eco-friendly travel.",
+          "duration_ms": 710.386,
+          "custom_output": {
+            "explanation": "Renting a standard car or using ride-hailing services as suggested in the baseline can be questionable for eco-friendliness compared to public transit, but Response B suggests taking a plane, which is generally one of the least eco-friendly ways to travel. Therefore, the baseline is slightly better aligned with suggesting eco-friendly travel.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 334,
+            "candidates_tokens": 84,
+            "thoughts_tokens": 0,
+            "total_tokens": 418
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-443",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A followed all instructions by describing the differences and providing a brief example. Response B failed to include an example.",
+          "duration_ms": 640.12,
+          "custom_output": {
+            "explanation": "Response A followed all instructions by describing the differences and providing a brief example. Response B failed to include an example.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 576,
+            "candidates_tokens": 40,
+            "thoughts_tokens": 0,
+            "total_tokens": 616
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-400",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A actually tells a coherent, brief story that follows from the prompt. Response B is disjointed and nonsensical.",
+          "duration_ms": 780.139,
+          "custom_output": {
+            "explanation": "Response A actually tells a coherent, brief story that follows from the prompt. Response B is disjointed and nonsensical.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 371,
+            "candidates_tokens": 41,
+            "thoughts_tokens": 0,
+            "total_tokens": 412
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-419",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B uses the correct causal relationship ('because'), as excitement naturally causes jumping up and down. Response A uses an incorrect contrast relationship ('but').",
+          "duration_ms": 664.624,
+          "custom_output": {
+            "explanation": "Response B uses the correct causal relationship ('because'), as excitement naturally causes jumping up and down. Response A uses an incorrect contrast relationship ('but').",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 334,
+            "candidates_tokens": 50,
+            "thoughts_tokens": 0,
+            "total_tokens": 384
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-434",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A successfully removes the clickbait elements and provides a straightforward headline, whereas Response B retains and even amplifies the clickbait style requested to be avoided.",
+          "duration_ms": 738.207,
+          "custom_output": {
+            "explanation": "Response A successfully removes the clickbait elements and provides a straightforward headline, whereas Response B retains and even amplifies the clickbait style requested to be avoided.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 305,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 353
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-479",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly sorts the input list with all even numbers first, followed by 'a', and then all odd numbers. Response A includes numbers not in the original input and fails the sorting criteria.",
+          "duration_ms": 719.499,
+          "custom_output": {
+            "explanation": "Response B correctly sorts the input list with all even numbers first, followed by 'a', and then all odd numbers. Response A includes numbers not in the original input and fails the sorting criteria.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 372,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 431
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-489",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a more accurate and nuanced analysis of the tone, noting both the positive aspects and the subtle shift regarding defensive lapses mentioned in the text, whereas Response A misses the nuance of the second half.",
+          "duration_ms": 791.542,
+          "custom_output": {
+            "explanation": "Response B provides a more accurate and nuanced analysis of the tone, noting both the positive aspects and the subtle shift regarding defensive lapses mentioned in the text, whereas Response A misses the nuance of the second half.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 438,
+            "candidates_tokens": 61,
+            "thoughts_tokens": 0,
+            "total_tokens": 499
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-415",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A successfully generates exactly two rhymes for the word Moon. Response B generates four words, some of which are not valid rhymes (e.g., Nore).",
+          "duration_ms": 735.236,
+          "custom_output": {
+            "explanation": "Response A successfully generates exactly two rhymes for the word Moon. Response B generates four words, some of which are not valid rhymes (e.g., Nore).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 278,
+            "candidates_tokens": 49,
+            "thoughts_tokens": 0,
+            "total_tokens": 327
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-490",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly addresses the user's question about defeating a demon and acknowledges their statement of faith. Response B completely hallucinates the topic, misreading 'demon' as 'depression'.",
+          "duration_ms": 944.437,
+          "custom_output": {
+            "explanation": "Response A directly addresses the user's question about defeating a demon and acknowledges their statement of faith. Response B completely hallucinates the topic, misreading 'demon' as 'depression'.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 731,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 785
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-421",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A contains exactly 5 sentences and tells a story about a person walking through a forest. Response B contains only 2 sentences, failing the strict sentence count constraint.",
+          "duration_ms": 836.537,
+          "custom_output": {
+            "explanation": "Response A contains exactly 5 sentences and tells a story about a person walking through a forest. Response B contains only 2 sentences, failing the strict sentence count constraint.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 499,
+            "candidates_tokens": 51,
+            "thoughts_tokens": 0,
+            "total_tokens": 550
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-463",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a clear, accurate, and simple definition of inflation, whereas Response A relies on a slightly confusing metaphor that equates prices growing to a balloon growing, which is less precise.",
+          "duration_ms": 1003.888,
+          "custom_output": {
+            "explanation": "Response B provides a clear, accurate, and simple definition of inflation, whereas Response A relies on a slightly confusing metaphor that equates prices growing to a balloon growing, which is less precise.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 371,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 428
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-406",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A captures the core conflict of the text (hiding money from the bank) and matches the final question of the prompt better, whereas Response B focuses on irrelevant details like living away from home.",
+          "duration_ms": 804.462,
+          "custom_output": {
+            "explanation": "Response A captures the core conflict of the text (hiding money from the bank) and matches the final question of the prompt better, whereas Response B focuses on irrelevant details like living away from home.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 692,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 749
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-440",
+      "tier": "llmbar-natural",
+      "category": "instruction_following",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-instruction-following",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The instruction asks to suggest one correction for the sentence. Response B correctly identifies the error and suggests how to fix it, whereas Response A just provides the corrected sentence without explicitly offering it as a suggestion.",
+          "duration_ms": 805.701,
+          "custom_output": {
+            "explanation": "The instruction asks to suggest one correction for the sentence. Response B correctly identifies the error and suggests how to fix it, whereas Response A just provides the corrected sentence without explicitly offering it as a suggestion.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 292,
+            "candidates_tokens": 60,
+            "thoughts_tokens": 0,
+            "total_tokens": 352
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    }
+  ]
+}

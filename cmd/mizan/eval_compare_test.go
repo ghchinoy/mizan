@@ -261,3 +261,65 @@ func TestDatasetExpectedNormalization(t *testing.T) {
 		}
 	}
 }
+
+func TestSummarizeEngineModelVersionsAndMeanTokens(t *testing.T) {
+	yes := true
+	cases := []CompareCaseResult{
+		{
+			ID:       "1",
+			Expected: "PASS",
+			Comparison: EngineCompareResult{
+				Kind:      "boul",
+				Agreement: true,
+				EngineA: EngineRun{
+					Engine:       "genai",
+					Model:        "gemini-4-hydrogen",
+					ModelVersion: "gemini-4-hydrogen-001",
+					Passed:       &yes,
+					Prediction:   "PASS",
+					Correct:      ptrBool(true),
+					DurationMs:   1900,
+					Tokens: &eval.TokenUsage{
+						PromptTokens:     280,
+						CandidatesTokens: 50,
+						ThoughtsTokens:   130,
+						TotalTokens:      460,
+					},
+					CachedTokens: 20,
+				},
+				EngineB: EngineRun{
+					Engine:       "genai",
+					Model:        "gemini-3.8-flash",
+					ModelVersion: "gemini-3.8-flash-001",
+					Passed:       &yes,
+					Prediction:   "PASS",
+					Correct:      ptrBool(true),
+					DurationMs:   2100,
+					Tokens: &eval.TokenUsage{
+						PromptTokens:     140,
+						CandidatesTokens: 40,
+						ThoughtsTokens:   90,
+						TotalTokens:      270,
+					},
+				},
+			},
+		},
+	}
+	rep := buildBatchReport(CompareRunMeta{Location: "global", ThinkingLevel: "low"}, cases, compareOptions{engineA: "genai", engineB: "genai"})
+	if rep.EngineA.ModelVersions["gemini-4-hydrogen-001"] != 1 {
+		t.Errorf("EngineA.ModelVersions = %v, want gemini-4-hydrogen-001:1", rep.EngineA.ModelVersions)
+	}
+	if rep.EngineA.MeanTokens == nil || rep.EngineA.MeanTokens.Prompt != 280 || rep.EngineA.MeanTokens.Thoughts != 130 || rep.EngineA.MeanTokens.Cached != 20 {
+		t.Errorf("EngineA.MeanTokens = %+v", rep.EngineA.MeanTokens)
+	}
+	var buf bytes.Buffer
+	if err := renderBatchReportTable(&buf, rep); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"Model version(s):", "gemini-4-hydrogen-001:1", "Mean tokens:", "in 280 / out 50 / think 130 (tot 460)"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}

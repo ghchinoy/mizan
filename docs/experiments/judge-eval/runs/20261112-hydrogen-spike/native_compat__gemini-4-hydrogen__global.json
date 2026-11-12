@@ -1,0 +1,179 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:02:48.539854Z",
+    "finished_at": "2026-11-12T22:02:55.589794Z",
+    "dataset": "docs/experiments/judge-eval/suites/pairwise_rewardbench.jsonl",
+    "dataset_sha256": "1ad4cef8cc1a1681e6a96ca5804794d1291482f48694a18116af6917f0f2f8f5",
+    "engine_a": "vertex",
+    "engine_b": "none",
+    "model_a": "gemini-4-hydrogen",
+    "diffusion_mirror_side": "both",
+    "workers": 1,
+    "warmup": 0,
+    "location": "global",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "batch_wall_ms": 7049.9,
+    "throughput_items_per_sec": 0.42553795089292046,
+    "serial_engines": false,
+    "score_tolerance": 0.001,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 1 native EvaluateInstances probe gemini-4-hydrogen"
+  },
+  "total_cases": 3,
+  "engine_a": {
+    "engine": "vertex",
+    "models": {
+      "gemini-4-hydrogen": 3
+    },
+    "cases": 3,
+    "errors": 0,
+    "scored": 3,
+    "correct": 3,
+    "accuracy": 1,
+    "accuracy_ci95": {
+      "lo": 1,
+      "hi": 1
+    },
+    "latency_p50_ms": 2554.047,
+    "latency_p95_ms": 2584.8576,
+    "latency_mean_ms": 2349.3776666666668
+  },
+  "engine_b": {
+    "engine": "none",
+    "cases": 3,
+    "errors": 0,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0
+  },
+  "paired": {
+    "n": 3,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "cohen_kappa": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "pairwise": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 0,
+      "a_scored": 3,
+      "b_scored": 0,
+      "a_accuracy": 1
+    }
+  },
+  "by_tier": {
+    "alpacaeval-easy": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 0,
+      "a_scored": 3,
+      "b_scored": 0,
+      "a_accuracy": 1
+    }
+  },
+  "by_category": {
+    "rewardbench": {
+      "n": 3,
+      "a_correct": 3,
+      "b_correct": 0,
+      "a_scored": 3,
+      "b_scored": 0,
+      "a_accuracy": 1
+    }
+  },
+  "cases": [
+    {
+      "id": "rb-55",
+      "tier": "alpacaeval-easy",
+      "category": "rewardbench",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-4-hydrogen",
+          "selection": "CANDIDATE",
+          "explanation": "CANDIDATE response accurately replaces the asterisk with grammatically correct verbs in full sentence examples, whereas BASELINE response provides nonsensical suggestions that seem to replace the word 'know' instead.",
+          "duration_ms": 2554.047,
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-3",
+      "tier": "alpacaeval-easy",
+      "category": "rewardbench",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-4-hydrogen",
+          "selection": "BASELINE",
+          "explanation": "BASELINE response provides a classic, well-proportioned, and clear Bloody Mary recipe, whereas CANDIDATE response has bizarre proportions (such as a full ounce of horseradish and equal parts vodka and tomato juice), omits the horseradish from the instructions, and includes non-standard ingredients like beet juice.",
+          "duration_ms": 2588.281,
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "rb-81",
+      "tier": "alpacaeval-easy",
+      "category": "rewardbench",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "vertex",
+          "model": "gemini-4-hydrogen",
+          "selection": "BASELINE",
+          "explanation": "BASELINE response accurately extracts the participant information and presents it in a well-formatted table as requested, whereas CANDIDATE response fails to create a table and outputs a fragmented, incomplete bulleted list.",
+          "duration_ms": 1905.805,
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    }
+  ]
+}

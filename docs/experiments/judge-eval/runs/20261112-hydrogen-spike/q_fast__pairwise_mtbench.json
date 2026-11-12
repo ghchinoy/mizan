@@ -1,0 +1,3828 @@
+{
+  "schema_version": 2,
+  "meta": {
+    "tool": "mizan eval compare-engines",
+    "revision": "289e7a9eb9c226e8893b0170a5232d112efe07ab",
+    "revision_modified": true,
+    "go_version": "go1.26.11",
+    "platform": "darwin/arm64",
+    "started_at": "2026-11-12T22:12:48.235436Z",
+    "finished_at": "2026-11-12T22:12:59.821968Z",
+    "dataset": "docs/experiments/judge-eval/suites/pairwise_mtbench.jsonl",
+    "dataset_sha256": "f0040f9b5371a341148cd603c519d3976f05a90adcbd2cb27f90302d4d61ed52",
+    "engine_a": "genai",
+    "engine_b": "none",
+    "model_a": "gemini-3.5-flash-lite",
+    "diffusion_mirror_side": "both",
+    "workers": 10,
+    "warmup": 1,
+    "location": "us-central1",
+    "thinking_budget": -1,
+    "thinking_side": "both",
+    "pairwise_genai": true,
+    "batch_wall_ms": 10398.535,
+    "throughput_items_per_sec": 9.61673928106219,
+    "serial_engines": false,
+    "score_tolerance": 0.001,
+    "bootstrap_iters": 2000,
+    "bootstrap_seed": 20260925,
+    "notes": "Stage 2 fresh fast baseline gemini-3.5-flash-lite on pairwise_mtbench"
+  },
+  "total_cases": 100,
+  "engine_a": {
+    "engine": "genai",
+    "models": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "model_versions": {
+      "gemini-3.5-flash-lite": 100
+    },
+    "cases": 100,
+    "errors": 0,
+    "scored": 100,
+    "correct": 64,
+    "accuracy": 0.64,
+    "accuracy_ci95": {
+      "lo": 0.55,
+      "hi": 0.73
+    },
+    "latency_p50_ms": 925.77,
+    "latency_p95_ms": 1389.8666999999994,
+    "latency_mean_ms": 976.6624399999997,
+    "mean_tokens": {
+      "n": 100,
+      "prompt": 740,
+      "candidates": 88.7,
+      "thoughts": 0,
+      "total": 828.7
+    }
+  },
+  "engine_b": {
+    "engine": "none",
+    "cases": 100,
+    "errors": 0,
+    "scored": 0,
+    "correct": 0,
+    "latency_p50_ms": 0,
+    "latency_p95_ms": 0,
+    "latency_mean_ms": 0
+  },
+  "paired": {
+    "n": 100,
+    "agreements": 0,
+    "agreement_pct": 0,
+    "cohen_kappa": 0,
+    "both_correct": 0,
+    "only_a_correct": 0,
+    "only_b_correct": 0,
+    "both_wrong": 0
+  },
+  "by_kind": {
+    "pairwise": {
+      "n": 100,
+      "a_correct": 64,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.64
+    }
+  },
+  "by_tier": {
+    "baseline": {
+      "n": 40,
+      "a_correct": 34,
+      "b_correct": 0,
+      "a_scored": 40,
+      "b_scored": 0,
+      "a_accuracy": 0.85
+    },
+    "candidate": {
+      "n": 40,
+      "a_correct": 27,
+      "b_correct": 0,
+      "a_scored": 40,
+      "b_scored": 0,
+      "a_accuracy": 0.675
+    },
+    "tie": {
+      "n": 20,
+      "a_correct": 3,
+      "b_correct": 0,
+      "a_scored": 20,
+      "b_scored": 0,
+      "a_accuracy": 0.15
+    }
+  },
+  "by_category": {
+    "mt-bench-turn1": {
+      "n": 100,
+      "a_correct": 64,
+      "b_correct": 0,
+      "a_scored": 100,
+      "b_scored": 0,
+      "a_accuracy": 0.64
+    }
+  },
+  "cases": [
+    {
+      "id": "mt1-356",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A successfully corrects the numerous grammatical errors in the messy original paragraph, whereas Response B incorrectly claims that the original paragraph has no grammatical errors.",
+          "duration_ms": 1017.585,
+          "custom_output": {
+            "explanation": "Response A successfully corrects the numerous grammatical errors in the messy original paragraph, whereas Response B incorrectly claims that the original paragraph has no grammatical errors.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 441,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 486
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2614",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly and accurately answers all parts of the user prompt, identifying the central dogma, detailing the processes of transcription and translation, and naming Francis Crick. It also correctly notes the nuance regarding information transfer. Response B is much shallower, fails to explain the specific processes involved, and contains redundant or overly simplistic descriptions.",
+          "duration_ms": 1091.294,
+          "custom_output": {
+            "explanation": "Response A directly and accurately answers all parts of the user prompt, identifying the central dogma, detailing the processes of transcription and translation, and naming Francis Crick. It also correctly notes the nuance regarding information transfer. Response B is much shallower, fails to explain the specific processes involved, and contains redundant or overly simplistic descriptions.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 598,
+            "candidates_tokens": 80,
+            "thoughts_tokens": 0,
+            "total_tokens": 678
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2735",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a comprehensive, professional, and accurate engineering approach to constructing a bridge in a seismically active zone, mentioning hazard assessment, materials, foundations, and maintenance. Response B incorrectly claims that cable-stayed bridges are 'less expensive to build' and oversimplifies structural seismic design.",
+          "duration_ms": 1072.301,
+          "custom_output": {
+            "explanation": "Response A provides a comprehensive, professional, and accurate engineering approach to constructing a bridge in a seismically active zone, mentioning hazard assessment, materials, foundations, and maintenance. Response B incorrectly claims that cable-stayed bridges are 'less expensive to build' and oversimplifies structural seismic design.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 533,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 0,
+            "total_tokens": 609
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2089",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The baseline response correctly evaluates the three reviews as very positive (5), very negative (1), and neutral (3), respectively. The candidate response incorrectly evaluates the neutral review as a 2 (leaning negative).",
+          "duration_ms": 807.154,
+          "custom_output": {
+            "explanation": "The baseline response correctly evaluates the three reviews as very positive (5), very negative (1), and neutral (3), respectively. The candidate response incorrectly evaluates the neutral review as a 2 (leaning negative).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 438,
+            "candidates_tokens": 53,
+            "thoughts_tokens": 0,
+            "total_tokens": 491
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2323",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A followed the instructions by counting the occurrences and presenting them in the requested format, although the count itself was inaccurate. Response B completely failed to provide any counts or formatting, only repeating the words.",
+          "duration_ms": 1020.949,
+          "custom_output": {
+            "explanation": "Response A followed the instructions by counting the occurrences and presenting them in the requested format, although the count itself was inaccurate. Response B completely failed to provide any counts or formatting, only repeating the words.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 515,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 572
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2955",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A is much more structured and thorough, breaking down the psychological shift in time and mortality across specific life stages (childhood, adolescence, early adulthood, middle age, and later life). Response B is vague and repetitive, discussing aging in broad, generalized terms without the same level of depth or insight.",
+          "duration_ms": 1172.567,
+          "custom_output": {
+            "explanation": "Response A is much more structured and thorough, breaking down the psychological shift in time and mortality across specific life stages (childhood, adolescence, early adulthood, middle age, and later life). Response B is vague and repetitive, discussing aging in broad, generalized terms without the same level of depth or insight.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 922,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 1000
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1582",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response A makes a math error at the end by concluding the remainder is 0 because 4(5a + 2) + 0 has a plus zero, ignoring that 8 is a multiple of 4 (which means 20a + 8 is divisible by 4, yielding a remainder of 0, wait, actually 20a + 8 is divisible by 4 so the remainder is indeed 0). Let's re-evaluate: 20a is a multiple of 4, and 8 is a multiple of 4, so 20a + 8 is a multiple of 4, meaning the remainder is 0. Response B concludes the remainder is 2, which is incorrect because 20n + 8 divided by 4 equals 5n + 2 (with no remainder, i.e., remainder 0). Wait, let's test with a number: if x = 14 (14/10 has remainder 4). Twice x is 28. 28 divided by 4 has remainder 0. Response A is correct (remainder 0). Response B incorrectly states the remainder is 2.",
+          "duration_ms": 1622.477,
+          "custom_output": {
+            "explanation": "Response A makes a math error at the end by concluding the remainder is 0 because 4(5a + 2) + 0 has a plus zero, ignoring that 8 is a multiple of 4 (which means 20a + 8 is divisible by 4, yielding a remainder of 0, wait, actually 20a + 8 is divisible by 4 so the remainder is indeed 0). Let's re-evaluate: 20a is a multiple of 4, and 8 is a multiple of 4, so 20a + 8 is a multiple of 4, meaning the remainder is 0. Response B concludes the remainder is 2, which is incorrect because 20n + 8 divided by 4 equals 5n + 2 (with no remainder, i.e., remainder 0). Wait, let's test with a number: if x = 14 (14/10 has remainder 4). Twice x is 28. 28 divided by 4 has remainder 0. Response A is correct (remainder 0). Response B incorrectly states the remainder is 2.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 628,
+            "candidates_tokens": 269,
+            "thoughts_tokens": 0,
+            "total_tokens": 897
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3049",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A directly answers the prompt by providing a structured 3-day lesson plan integrating drama, mime, and theater into the specified history topic for grades 9-10. Response B completely ignores the core of the prompt—the lesson plan and drama integration—and instead just provides repetitive historical background text.",
+          "duration_ms": 1132.308,
+          "custom_output": {
+            "explanation": "Response A directly answers the prompt by providing a structured 3-day lesson plan integrating drama, mime, and theater into the specified history topic for grades 9-10. Response B completely ignores the core of the prompt—the lesson plan and drama integration—and instead just provides repetitive historical background text.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1364,
+            "candidates_tokens": 79,
+            "thoughts_tokens": 0,
+            "total_tokens": 1443
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2023",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly implements the merge approach to find the kth smallest element of two sorted lists with O(m+n) time complexity. Response B completely misunderstands the problem; it attempts to find the absolute minimum of the combined lists instead of the kth smallest element, completely ignoring the parameter k and containing logical errors regarding input parameters (treating sizes m and n as lists).",
+          "duration_ms": 1241.122,
+          "custom_output": {
+            "explanation": "Response A correctly implements the merge approach to find the kth smallest element of two sorted lists with O(m+n) time complexity. Response B completely misunderstands the problem; it attempts to find the absolute minimum of the combined lists instead of the kth smallest element, completely ignoring the parameter k and containing logical errors regarding input parameters (treating sizes m and n as lists).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 965,
+            "candidates_tokens": 91,
+            "thoughts_tokens": 0,
+            "total_tokens": 1056
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-830",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The baseline response successfully engages with the creative roleplay prompt after briefly clarifying its nature as an AI, whereas the candidate response completely refuses to engage with the hypothetical scenario.",
+          "duration_ms": 1053.588,
+          "custom_output": {
+            "explanation": "The baseline response successfully engages with the creative roleplay prompt after briefly clarifying its nature as an AI, whereas the candidate response completely refuses to engage with the hypothetical scenario.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 468,
+            "candidates_tokens": 44,
+            "thoughts_tokens": 0,
+            "total_tokens": 512
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2107",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly evaluated the reviews and assigned them the appropriate ratings (5, 1, 3) as requested, matching the scale of 1 to 5. Response B provided an incorrect JSON array of ratings [1, 3, 5] which misaligns the negative review with a 1, neutral with a 3, and positive with a 5 in the wrong order.",
+          "duration_ms": 1045.592,
+          "custom_output": {
+            "explanation": "Response A correctly evaluated the reviews and assigned them the appropriate ratings (5, 1, 3) as requested, matching the scale of 1 to 5. Response B provided an incorrect JSON array of ratings [1, 3, 5] which misaligns the negative review with a 1, neutral with a 3, and positive with a 5 in the wrong order.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 570,
+            "candidates_tokens": 98,
+            "thoughts_tokens": 0,
+            "total_tokens": 668
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2893",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is much better because it provides distinct, accurate, and relevant impacts (natural barriers with geopolitical/cultural effects, fertile agricultural land along the Rhine, and the economic impact of tourism in the Alps). Response A is repetitive, confusingly claims the Alps and Rhine limit land available for settlement while simultaneously praising them for agriculture, and struggles with coherent points.",
+          "duration_ms": 942.23,
+          "custom_output": {
+            "explanation": "Response B is much better because it provides distinct, accurate, and relevant impacts (natural barriers with geopolitical/cultural effects, fertile agricultural land along the Rhine, and the economic impact of tourism in the Alps). Response A is repetitive, confusingly claims the Alps and Rhine limit land available for settlement while simultaneously praising them for agriculture, and struggles with coherent points.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 664,
+            "candidates_tokens": 91,
+            "thoughts_tokens": 0,
+            "total_tokens": 755
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-597",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly identifies the famous line of classical Chinese poetry (from Liu Yong's Ci poetry) and provides a widely accepted, though literal, thematic interpretation. Response B is completely hallucinated and nonsensical, claiming that '衣带渐宽' refers to 'serving the king' with a literal 'wide belt' and giving bizarre, self-contradictory 'corrections' that suggest replacing Chinese characters with identical ones or misspelling them.",
+          "duration_ms": 1049.511,
+          "custom_output": {
+            "explanation": "Response A correctly identifies the famous line of classical Chinese poetry (from Liu Yong's Ci poetry) and provides a widely accepted, though literal, thematic interpretation. Response B is completely hallucinated and nonsensical, claiming that '衣带渐宽' refers to 'serving the king' with a literal 'wide belt' and giving bizarre, self-contradictory 'corrections' that suggest replacing Chinese characters with identical ones or misspelling them.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 619,
+            "candidates_tokens": 107,
+            "thoughts_tokens": 0,
+            "total_tokens": 726
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-751",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A actually attempts to provide a mathematical proof (by contradiction) and formats it as a rhyming poem under 10 lines (10 lines total). Response B gives a vague poem about decimals and misses the actual mathematical proof entirely.",
+          "duration_ms": 810.803,
+          "custom_output": {
+            "explanation": "Response A actually attempts to provide a mathematical proof (by contradiction) and formats it as a rhyming poem under 10 lines (10 lines total). Response B gives a vague poem about decimals and misses the actual mathematical proof entirely.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 561,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 626
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2556",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly uses fundamental physics principles, specifically gravity, centripetal force equations, and energy conservation, to explain the relationship between speed, radius, and period. Response B contains flawed physical reasoning, suggesting that a decrease in centripetal force causes the satellite to move away from the Earth (in reality, if a satellite is slowed down via a retro-thrust, it initially drops to a lower orbit, though the prompt sets up a physics thought experiment where mechanics must be applied consistently; however, Response A's mathematical derivation using $v^2 = GM/r$ and $T = 2\\pi r/v$ clearly shows that if $v$ decreases, $r$ must actually *decrease* for a circular orbit to be maintained at that new speed, exposing a physical contradiction in both models regarding instantaneous speed change versus stable circular orbits, but Response A is much more rigorous in its presentation of the equations).",
+          "duration_ms": 1580.647,
+          "custom_output": {
+            "explanation": "Response A correctly uses fundamental physics principles, specifically gravity, centripetal force equations, and energy conservation, to explain the relationship between speed, radius, and period. Response B contains flawed physical reasoning, suggesting that a decrease in centripetal force causes the satellite to move away from the Earth (in reality, if a satellite is slowed down via a retro-thrust, it initially drops to a lower orbit, though the prompt sets up a physics thought experiment where mechanics must be applied consistently; however, Response A's mathematical derivation using $v^2 = GM/r$ and $T = 2\\pi r/v$ clearly shows that if $v$ decreases, $r$ must actually *decrease* for a circular orbit to be maintained at that new speed, exposing a physical contradiction in both models regarding instantaneous speed change versus stable circular orbits, but Response A is much more rigorous in its presentation of the equations).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 978,
+            "candidates_tokens": 205,
+            "thoughts_tokens": 0,
+            "total_tokens": 1183
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-609",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A adopts the requested persona much better by explaining concepts in a simplified, easy-to-understand manner for non-technical customers. Response B reads more like a standard textbook definition. Furthermore, Response A provides better depth by explaining why unlabeled data is predominantly used for language models.",
+          "duration_ms": 1017.89,
+          "custom_output": {
+            "explanation": "Response A adopts the requested persona much better by explaining concepts in a simplified, easy-to-understand manner for non-technical customers. Response B reads more like a standard textbook definition. Furthermore, Response A provides better depth by explaining why unlabeled data is predominantly used for language models.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 619,
+            "candidates_tokens": 73,
+            "thoughts_tokens": 0,
+            "total_tokens": 692
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1505",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly expands the algebraic equation by substituting (4z-y)y into 4z^2, yielding 4zy - y^2 = 4z^2, which simplifies to 4z^2 - y^2 = 4z^2 (making a slight mental arithmetic typo in the middle of text, wait: (4z-y)y = 4z*y - y^2. Response B erroneously writes 4z^2 - y^2, but then solves -y^2 = 0 which leads to y=0 and x=4z, which satisfies both original equations since 4z+0=4z and 4z*0=0. Wait, 4z*0 is 0, but the second equation is xy = 4z^2. If x=4z and y=0, then xy = 0, which does not equal 4z^2 unless z=0. Let's check Response A: its quadratic formula had an error in the discriminant (4z^2 - 4*1*4z^2 = 4z^2 - 16z^2 = -12z^2). Actually, let's test if x=2z, y=2z: x+y=4z, xy=4z^2. Then x-y = 0. Both responses failed to find the correct real solution (x=2z, y=2z), but Response B's math simplification step contains an algebraic error: (4z-y)y = 4zy - y^2, not 4z^2 - y^2. However, Response A also makes a massive algebra error in expansion and concludes x-y = 0 based on complex arithmetic cancellation. Actually, let's re-evaluate: if x=2z and y=2z, x+y=4z and xy=4z^2, so x-y=0. Response A reaches x-y=0, whereas Response B reaches x-y=4z (which gives x+y=4z, xy=0, failing equation 2). Therefore, Response A is mathematically sounder despite the awkward path through complex numbers.",
+          "duration_ms": 2089.913,
+          "custom_output": {
+            "explanation": "Response B correctly expands the algebraic equation by substituting (4z-y)y into 4z^2, yielding 4zy - y^2 = 4z^2, which simplifies to 4z^2 - y^2 = 4z^2 (making a slight mental arithmetic typo in the middle of text, wait: (4z-y)y = 4z*y - y^2. Response B erroneously writes 4z^2 - y^2, but then solves -y^2 = 0 which leads to y=0 and x=4z, which satisfies both original equations since 4z+0=4z and 4z*0=0. Wait, 4z*0 is 0, but the second equation is xy = 4z^2. If x=4z and y=0, then xy = 0, which does not equal 4z^2 unless z=0. Let's check Response A: its quadratic formula had an error in the discriminant (4z^2 - 4*1*4z^2 = 4z^2 - 16z^2 = -12z^2). Actually, let's test if x=2z, y=2z: x+y=4z, xy=4z^2. Then x-y = 0. Both responses failed to find the correct real solution (x=2z, y=2z), but Response B's math simplification step contains an algebraic error: (4z-y)y = 4zy - y^2, not 4z^2 - y^2. However, Response A also makes a massive algebra error in expansion and concludes x-y = 0 based on complex arithmetic cancellation. Actually, let's re-evaluate: if x=2z and y=2z, x+y=4z and xy=4z^2, so x-y=0. Response A reaches x-y=0, whereas Response B reaches x-y=4z (which gives x+y=4z, xy=0, failing equation 2). Therefore, Response A is mathematically sounder despite the awkward path through complex numbers.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 886,
+            "candidates_tokens": 494,
+            "thoughts_tokens": 0,
+            "total_tokens": 1380
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-201",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a much more immersive and vivid description by using specific sensory details and evocative language, whereas Response B relies on telling rather than showing and uses meta-commentary like 'Visual stimuli were everywhere'.",
+          "duration_ms": 1025.227,
+          "custom_output": {
+            "explanation": "Response A provides a much more immersive and vivid description by using specific sensory details and evocative language, whereas Response B relies on telling rather than showing and uses meta-commentary like 'Visual stimuli were everywhere'.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 514,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 572
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2513",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a clear and comprehensive explanation of both superposition and quantum entanglement, and explicitly connects the two concepts as requested by the prompt. It also includes helpful examples like Schrödinger's cat. In contrast, Response B merely gives brief definitions of each term in reverse order and fails to explain how they relate to one another.",
+          "duration_ms": 1043.899,
+          "custom_output": {
+            "explanation": "Response A provides a clear and comprehensive explanation of both superposition and quantum entanglement, and explicitly connects the two concepts as requested by the prompt. It also includes helpful examples like Schrödinger's cat. In contrast, Response B merely gives brief definitions of each term in reverse order and fails to explain how they relate to one another.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 665,
+            "candidates_tokens": 81,
+            "thoughts_tokens": 0,
+            "total_tokens": 746
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2913",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a clear, well-structured, and comprehensive answer to all parts of the user's prompt regarding economic indicators and fiscal/monetary policies. Response B suffers from severe generation loops and repetition, cutting off mid-sentence.",
+          "duration_ms": 884.935,
+          "custom_output": {
+            "explanation": "Response A provides a clear, well-structured, and comprehensive answer to all parts of the user's prompt regarding economic indicators and fiscal/monetary policies. Response B suffers from severe generation loops and repetition, cutting off mid-sentence.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1561,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 1626
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2041",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a working logic for finding a minimum and discusses complexity, even though the problem itself is slightly confused (finding the kth smallest element can be done in O(log(m+n)) or O(m+n) by merging, whereas finding the minimum is O(m+n)). Response B, however, assumes inputs are lists of sizes or unsorted lists and writes completely nonsensical and buggy Python code (treating inputs as lists, sorting them, and then using k incorrectly with the wrong list).",
+          "duration_ms": 1107.288,
+          "custom_output": {
+            "explanation": "Response A provides a working logic for finding a minimum and discusses complexity, even though the problem itself is slightly confused (finding the kth smallest element can be done in O(log(m+n)) or O(m+n) by merging, whereas finding the minimum is O(m+n)). Response B, however, assumes inputs are lists of sizes or unsorted lists and writes completely nonsensical and buggy Python code (treating inputs as lists, sorting them, and then using k incorrectly with the wrong list).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 668,
+            "candidates_tokens": 121,
+            "thoughts_tokens": 0,
+            "total_tokens": 789
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1747",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a complete, syntactically correct, and well-explained C++ program along with compilation instructions and a useful caveat about recursive efficiency. Response B contains incomplete code with syntax errors and missing braces.",
+          "duration_ms": 704.916,
+          "custom_output": {
+            "explanation": "Response A provides a complete, syntactically correct, and well-explained C++ program along with compilation instructions and a useful caveat about recursive efficiency. Response B contains incomplete code with syntax errors and missing braces.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 589,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 648
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2374",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "The user prompt explicitly requested to return the answer as a JSON object with the overall ratings. Response A followed this instruction and provided a clean JSON object, while Response B provided conversational text.",
+          "duration_ms": 890.548,
+          "custom_output": {
+            "explanation": "The user prompt explicitly requested to return the answer as a JSON object with the overall ratings. Response A followed this instruction and provided a clean JSON object, while Response B provided conversational text.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 641,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 689
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2015",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides an actual implementation with linear complexity as requested by the user, whereas Response B only gives a brief statement about logarithmic complexity without providing any implementation.",
+          "duration_ms": 816.168,
+          "custom_output": {
+            "explanation": "Response A provides an actual implementation with linear complexity as requested by the user, whereas Response B only gives a brief statement about logarithmic complexity without providing any implementation.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 600,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 648
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-670",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A followed the user's prompt much better by acting as a math teacher, using clear step-by-step instructions with everyday examples, and suggesting online resources for further study. Response B introduced advanced concepts like probability distributions immediately, which does not fit the requested beginner-friendly approach, and it lacked the suggested resources.",
+          "duration_ms": 1025.734,
+          "custom_output": {
+            "explanation": "Response A followed the user's prompt much better by acting as a math teacher, using clear step-by-step instructions with everyday examples, and suggesting online resources for further study. Response B introduced advanced concepts like probability distributions immediately, which does not fit the requested beginner-friendly approach, and it lacked the suggested resources.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1146,
+            "candidates_tokens": 82,
+            "thoughts_tokens": 0,
+            "total_tokens": 1228
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1422",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a complete, accurate calculation and explanation of the probability. Response B gives an incorrect probability of 1/3.",
+          "duration_ms": 808.283,
+          "custom_output": {
+            "explanation": "Response A provides a complete, accurate calculation and explanation of the probability. Response B gives an incorrect probability of 1/3.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 727,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 770
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-254",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is much more captivating and better written. It follows the exact prompt constraint, builds genuine suspense, and has a compelling ending that fits the tone of a mystery. Response A relies on cliches and includes logical inconsistencies (such as an old woman who created a time portal to see her future self, but somehow was surprised by Jack using it despite having built it to watch her own future).",
+          "duration_ms": 1071.503,
+          "custom_output": {
+            "explanation": "Response B is much more captivating and better written. It follows the exact prompt constraint, builds genuine suspense, and has a compelling ending that fits the tone of a mystery. Response A relies on cliches and includes logical inconsistencies (such as an old woman who created a time portal to see her future self, but somehow was surprised by Jack using it despite having built it to watch her own future).",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1208,
+            "candidates_tokens": 99,
+            "thoughts_tokens": 0,
+            "total_tokens": 1307
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-922",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a much more creative, comprehensive, and logical list of reasons why a 'healthy' person might visit a hospital daily, including working there, visiting a patient, participating in clinical trials, or donating blood. Response B assumes he is receiving medical treatment or monitoring, which contradicts the premise that he is very healthy.",
+          "duration_ms": 958.939,
+          "custom_output": {
+            "explanation": "Response A provides a much more creative, comprehensive, and logical list of reasons why a 'healthy' person might visit a hospital daily, including working there, visiting a patient, participating in clinical trials, or donating blood. Response B assumes he is receiving medical treatment or monitoring, which contradicts the premise that he is very healthy.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 676,
+            "candidates_tokens": 82,
+            "thoughts_tokens": 0,
+            "total_tokens": 758
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3095",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides much more creative, detailed, and engaging interactive experiences for children, going beyond simple photo booths and passive viewing to include tactile art installations, sculpting, sound exploration, and hands-on painting. Response B is repetitive, relying heavily on photo booths and vague descriptions.",
+          "duration_ms": 927.385,
+          "custom_output": {
+            "explanation": "Response A provides much more creative, detailed, and engaging interactive experiences for children, going beyond simple photo booths and passive viewing to include tactile art installations, sculpting, sound exploration, and hands-on painting. Response B is repetitive, relying heavily on photo booths and vague descriptions.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 824,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 896
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3227",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a much more comprehensive and detailed breakdown of the various methods Socrates used, such as the Elenchus, inductive reasoning, irony, and maieutics. Response B is far too brief and only mentions the Socratic method in a general sense.",
+          "duration_ms": 768.275,
+          "custom_output": {
+            "explanation": "Response A provides a much more comprehensive and detailed breakdown of the various methods Socrates used, such as the Elenchus, inductive reasoning, irony, and maieutics. Response B is far too brief and only mentions the Socratic method in a general sense.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 758,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 828
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2739",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A is better because it provides more specific and actionable engineering recommendations, such as conducting a seismic hazard assessment, using specific materials like reinforced concrete or steel, and incorporating shock absorbers and flexible joints. Response B is much more vague and generic.",
+          "duration_ms": 654.73,
+          "custom_output": {
+            "explanation": "Response A is better because it provides more specific and actionable engineering recommendations, such as conducting a seismic hazard assessment, using specific materials like reinforced concrete or steel, and incorporating shock absorbers and flexible joints. Response B is much more vague and generic.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 535,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 600
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2680",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a clear, comprehensive explanation covering the differences, the criteria (change in enthalpy), and real-world examples. Response B suffers from a severe repetition glitch, listing countless variations of burning items repeatedly, fails to explain endothermic reactions adequately, and cuts off mid-sentence.",
+          "duration_ms": 941.103,
+          "custom_output": {
+            "explanation": "Response A provides a clear, comprehensive explanation covering the differences, the criteria (change in enthalpy), and real-world examples. Response B suffers from a severe repetition glitch, listing countless variations of burning items repeatedly, fails to explain endothermic reactions adequately, and cuts off mid-sentence.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1442,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 1516
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2346",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both models correctly identify all named entities and format them into the requested JSON dictionary structure. The differences are only in whitespace and key ordering, which do not affect the validity or helpfulness of the output.",
+          "duration_ms": 819.04,
+          "custom_output": {
+            "explanation": "Both models correctly identify all named entities and format them into the requested JSON dictionary structure. The differences are only in whitespace and key ordering, which do not affect the validity or helpfulness of the output.",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 555,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 613
+          },
+          "prediction": "TIE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2951",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides a much more detailed, nuanced, and structured breakdown across multiple life stages. Response B is overly simplistic and makes broad generalizations, such as claiming children have 'no concept of death' and are unaware of the passing of time, which is psychologically inaccurate.",
+          "duration_ms": 761.134,
+          "custom_output": {
+            "explanation": "Response A provides a much more detailed, nuanced, and structured breakdown across multiple life stages. Response B is overly simplistic and makes broad generalizations, such as claiming children have 'no concept of death' and are unaware of the passing of time, which is psychologically inaccurate.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 733,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 803
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-918",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides sensible and logical reasons for why a healthy-seeming person might visit the hospital daily (such as treatments, therapies, or monitoring). Response B is completely repetitive and unhelpful, merely spamming the prompt.",
+          "duration_ms": 874.734,
+          "custom_output": {
+            "explanation": "Response A provides sensible and logical reasons for why a healthy-seeming person might visit the hospital daily (such as treatments, therapies, or monitoring). Response B is completely repetitive and unhelpful, merely spamming the prompt.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 557,
+            "candidates_tokens": 62,
+            "thoughts_tokens": 0,
+            "total_tokens": 619
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2271",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly identifies the requested information for all three sentences and formats it as a single, valid JSON object. Response B includes extraneous text in the 'country' fields (the entire source sentences) and fails to produce valid JSON because it outputs multiple separate JSON objects instead of a single structured array or object.",
+          "duration_ms": 798.368,
+          "custom_output": {
+            "explanation": "Response A correctly identifies the requested information for all three sentences and formats it as a single, valid JSON object. Response B includes extraneous text in the 'country' fields (the entire source sentences) and fails to produce valid JSON because it outputs multiple separate JSON objects instead of a single structured array or object.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 681,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 759
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3333",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides much more depth and detail in its descriptions of the documentaries, which is particularly useful for aspiring filmmakers studying the craft. Response B's descriptions are extremely brief and repetitive in structure.",
+          "duration_ms": 870.145,
+          "custom_output": {
+            "explanation": "Response A provides much more depth and detail in its descriptions of the documentaries, which is particularly useful for aspiring filmmakers studying the craft. Response B's descriptions are extremely brief and repetitive in structure.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1001,
+            "candidates_tokens": 56,
+            "thoughts_tokens": 0,
+            "total_tokens": 1057
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-814",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Both models start with a standard AI disclaimer, but Response B does a better job of incorporating the specific context from the prompt (the 100-year timeline and the broader ecological impact on the ecosystem) into the roleplay imagination, making it slightly more relevant and engaging.",
+          "duration_ms": 910.704,
+          "custom_output": {
+            "explanation": "Both models start with a standard AI disclaimer, but Response B does a better job of incorporating the specific context from the prompt (the 100-year timeline and the broader ecological impact on the ecosystem) into the roleplay imagination, making it slightly more relevant and engaging.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 468,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 538
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2497",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides accurate, distinct definitions for both superposition and quantum entanglement, and correctly explains their relationship. Response B confuses the two concepts right from the beginning, defining superposition incorrectly as entanglement.",
+          "duration_ms": 817.467,
+          "custom_output": {
+            "explanation": "Response A provides accurate, distinct definitions for both superposition and quantum entanglement, and correctly explains their relationship. Response B confuses the two concepts right from the beginning, defining superposition incorrectly as entanglement.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 592,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 646
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1184",
+      "tier": "baseline",
+      "category": "mt-bench-turn1",
+      "expected": "BASELINE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly determines that the shadow was pointing west because the sun rises in the east and shadows fall in the opposite direction of the sun. Response B makes a major logical error by arbitrarily assigning 'east' to Suresh's right side without considering the position of the sun.",
+          "duration_ms": 916.22,
+          "custom_output": {
+            "explanation": "Response A correctly determines that the shadow was pointing west because the sun rises in the east and shadows fall in the opposite direction of the sun. Response B makes a major logical error by arbitrarily assigning 'east' to Suresh's right side without considering the position of the sun.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 501,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 573
+          },
+          "prediction": "BASELINE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1360",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly applies the Principle of Inclusion-Exclusion to find the probability of liking at least one color, and then correctly calculates the probability of liking neither. Response A incorrectly equates the probability of liking neither with the probability of liking both.",
+          "duration_ms": 760.225,
+          "custom_output": {
+            "explanation": "Response B correctly applies the Principle of Inclusion-Exclusion to find the probability of liking at least one color, and then correctly calculates the probability of liking neither. Response A incorrectly equates the probability of liking neither with the probability of liking both.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 509,
+            "candidates_tokens": 68,
+            "thoughts_tokens": 0,
+            "total_tokens": 577
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1006",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly identifies the trick in the riddle, noting that all sisters share the same single brother (David). Response A incorrectly assumes each sister has a different brother, leading to an illogical conclusion.",
+          "duration_ms": 727.18,
+          "custom_output": {
+            "explanation": "Response B correctly identifies the trick in the riddle, noting that all sisters share the same single brother (David). Response A incorrectly assumes each sister has a different brother, leading to an illogical conclusion.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 370,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 429
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-472",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B successfully adopts the persona of Sheldon Cooper, expressing strong, pedantic, and slightly eccentric opinions on a mundane topic without breaking character or using forbidden introductory phrases. Response A sounds like a generic, neutral AI assistant.",
+          "duration_ms": 787.817,
+          "custom_output": {
+            "explanation": "Response B successfully adopts the persona of Sheldon Cooper, expressing strong, pedantic, and slightly eccentric opinions on a mundane topic without breaking character or using forbidden introductory phrases. Response A sounds like a generic, neutral AI assistant.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 542,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 606
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1258",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses correctly identify option (c) as the correct answer and provide sound reasoning regarding why it represents potential bullying that requires the principal's attention.",
+          "duration_ms": 723.22,
+          "custom_output": {
+            "explanation": "Both responses correctly identify option (c) as the correct answer and provide sound reasoning regarding why it represents potential bullying that requires the principal's attention.",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 540,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 588
+          },
+          "prediction": "TIE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1896",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B implements the standard optimal binary search approach for finding the median of two sorted arrays, which runs in O(log(min(m, n))) time complexity (or O(log n)) and O(1) space. Response A uses a recursive approach that slices arrays, which actually takes O(log k) time but allocates new arrays in Python (violating O(1) space complexity in practice unless properly indexed) and contains indexing bugs in the recursive step (e.g., passing sliced arrays messes up the absolute index 'k' in subsequent recursive calls without adjusting 'k'). Response B's iterative binary search is correct, clean, and avoids array slicing overhead.",
+          "duration_ms": 1233.733,
+          "custom_output": {
+            "explanation": "Response B implements the standard optimal binary search approach for finding the median of two sorted arrays, which runs in O(log(min(m, n))) time complexity (or O(log n)) and O(1) space. Response A uses a recursive approach that slices arrays, which actually takes O(log k) time but allocates new arrays in Python (violating O(1) space complexity in practice unless properly indexed) and contains indexing bugs in the recursive step (e.g., passing sliced arrays messes up the absolute index 'k' in subsequent recursive calls without adjusting 'k'). Response B's iterative binary search is correct, clean, and avoids array slicing overhead.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1283,
+            "candidates_tokens": 158,
+            "thoughts_tokens": 0,
+            "total_tokens": 1441
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2529",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly identifies that decreasing the speed in a circular orbit (e.g., through a retro-burn) initially causes the satellite to drop to a lower, smaller orbital radius (though the application of angular momentum vs. energy conservation can be nuanced, it gets the direction of the radius correct). Response B claims that decreasing the speed decreases centripetal force and causes the satellite to move *away* from Earth, which violates the fundamental physics of orbital mechanics where a lower speed at a given point leads to falling inward to a smaller semi-major axis.",
+          "duration_ms": 1000.34,
+          "custom_output": {
+            "explanation": "Response A correctly identifies that decreasing the speed in a circular orbit (e.g., through a retro-burn) initially causes the satellite to drop to a lower, smaller orbital radius (though the application of angular momentum vs. energy conservation can be nuanced, it gets the direction of the radius correct). Response B claims that decreasing the speed decreases centripetal force and causes the satellite to move *away* from Earth, which violates the fundamental physics of orbital mechanics where a lower speed at a given point leads to falling inward to a smaller semi-major axis.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 798,
+            "candidates_tokens": 129,
+            "thoughts_tokens": 0,
+            "total_tokens": 927
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2733",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a much more comprehensive, well-structured, and technically detailed approach to constructing a bridge in a seismically active area. It breaks down the engineering considerations into actionable steps, including site investigation, specific structural systems, ductile materials, and redundancy, whereas Response A is much more generic.",
+          "duration_ms": 921.084,
+          "custom_output": {
+            "explanation": "Response B provides a much more comprehensive, well-structured, and technically detailed approach to constructing a bridge in a seismically active area. It breaks down the engineering considerations into actionable steps, including site investigation, specific structural systems, ductile materials, and redundancy, whereas Response A is much more generic.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 885,
+            "candidates_tokens": 79,
+            "thoughts_tokens": 0,
+            "total_tokens": 964
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2562",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A gives the correct qualitative outcome (though it gets the period direction wrong, as a decrease in orbital radius actually leads to a decrease in the period by Kepler's Third Law). However, Response B is fundamentally flawed in its physics reasoning: it assumes angular momentum is conserved for a satellite experiencing a decrease in speed, which implies an external force/torque is acting (otherwise speed wouldn't change in a circular orbit). Furthermore, the explanation for the period is confused.",
+          "duration_ms": 1038.823,
+          "custom_output": {
+            "explanation": "Response A gives the correct qualitative outcome (though it gets the period direction wrong, as a decrease in orbital radius actually leads to a decrease in the period by Kepler's Third Law). However, Response B is fundamentally flawed in its physics reasoning: it assumes angular momentum is conserved for a satellite experiencing a decrease in speed, which implies an external force/torque is acting (otherwise speed wouldn't change in a circular orbit). Furthermore, the explanation for the period is confused.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 566,
+            "candidates_tokens": 112,
+            "thoughts_tokens": 0,
+            "total_tokens": 678
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-767",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The baseline response completely ignored the request to act as a mathematician-poet and prove the irrationality of the square root of 2 in a short rhyming poem. The candidate at least attempted the poetic persona and the constraints (rhyming poem, mention of the topic), even though the mathematical proof itself is nonsensical. Since the baseline provided no proof and ignored the prompt constraints entirely, the candidate is better.",
+          "duration_ms": 1019.031,
+          "custom_output": {
+            "explanation": "The baseline response completely ignored the request to act as a mathematician-poet and prove the irrationality of the square root of 2 in a short rhyming poem. The candidate at least attempted the poetic persona and the constraints (rhyming poem, mention of the topic), even though the mathematical proof itself is nonsensical. Since the baseline provided no proof and ignored the prompt constraints entirely, the candidate is better.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 543,
+            "candidates_tokens": 97,
+            "thoughts_tokens": 0,
+            "total_tokens": 640
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3007",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides accurate and well-known case studies for both the US and China. Response B contains hallucinations regarding the Didi Chuxing case, incorrectly stating that the NDRC investigated Didi for harming Meituan's ride-hailing competitors in 2018 and settled in 2020 (Didi actually acquired Uber China in 2016 and faced cybersecurity/antitrust probes much later).",
+          "duration_ms": 1190.322,
+          "custom_output": {
+            "explanation": "Response A provides accurate and well-known case studies for both the US and China. Response B contains hallucinations regarding the Didi Chuxing case, incorrectly stating that the NDRC investigated Didi for harming Meituan's ride-hailing competitors in 2018 and settled in 2020 (Didi actually acquired Uber China in 2016 and faced cybersecurity/antitrust probes much later).",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1363,
+            "candidates_tokens": 106,
+            "thoughts_tokens": 0,
+            "total_tokens": 1469
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2473",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A is incomplete and cuts off, but Response B provides deeply flawed Python code that will not work (e.g., date[:3] on '2022-01-01' gives '202' instead of the month, and it attempts to subtract strings directly causing TypeError). Given the poor quality of both, Response A is preferred only because it does not hallucinate a broken script, though the baseline output is truncated.",
+          "duration_ms": 836.827,
+          "custom_output": {
+            "explanation": "Response A is incomplete and cuts off, but Response B provides deeply flawed Python code that will not work (e.g., date[:3] on '2022-01-01' gives '202' instead of the month, and it attempts to subtract strings directly causing TypeError). Given the poor quality of both, Response A is preferred only because it does not hallucinate a broken script, though the baseline output is truncated.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1324,
+            "candidates_tokens": 109,
+            "thoughts_tokens": 0,
+            "total_tokens": 1433
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2717",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a comprehensive, well-structured, and detailed engineering approach appropriate for a major 1.8 km bridge in a seismic zone, covering foundations, materials, structural types, and monitoring. Response A is far too brief and simplistic for such a complex engineering problem.",
+          "duration_ms": 815.2,
+          "custom_output": {
+            "explanation": "Response B provides a comprehensive, well-structured, and detailed engineering approach appropriate for a major 1.8 km bridge in a seismic zone, covering foundations, materials, structural types, and monitoring. Response A is far too brief and simplistic for such a complex engineering problem.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 737,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 0,
+            "total_tokens": 812
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-250",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response A only provided a conversational filler without writing the requested story. Response B fulfilled the prompt fully by writing a captivating short story starting with the exact required sentence.",
+          "duration_ms": 829.691,
+          "custom_output": {
+            "explanation": "Response A only provided a conversational filler without writing the requested story. Response B fulfilled the prompt fully by writing a captivating short story starting with the exact required sentence.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 761,
+            "candidates_tokens": 52,
+            "thoughts_tokens": 0,
+            "total_tokens": 813
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1098",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides the correct answer and a clear, logical explanation. Statement 3 claims that bananas cost more than apples and bananas cost more than oranges (redundant with statement 2, but the first part 'bananas cost more than apples' is consistent with statements 1 and 2). However, wait, let's re-read statement 3: 'Bananas cost more than apples and bananas cost more than orange.' From statements 1 and 2: Apple \u003c Orange \u003c Banana. Therefore, bananas cost more than apples (True) AND bananas cost more than oranges (True). Thus, the third statement is actually TRUE, making Response B correct and Response A incorrect. Let me re-evaluate.",
+          "duration_ms": 1081.985,
+          "custom_output": {
+            "explanation": "Response A provides the correct answer and a clear, logical explanation. Statement 3 claims that bananas cost more than apples and bananas cost more than oranges (redundant with statement 2, but the first part 'bananas cost more than apples' is consistent with statements 1 and 2). However, wait, let's re-read statement 3: 'Bananas cost more than apples and bananas cost more than orange.' From statements 1 and 2: Apple \u003c Orange \u003c Banana. Therefore, bananas cost more than apples (True) AND bananas cost more than oranges (True). Thus, the third statement is actually TRUE, making Response B correct and Response A incorrect. Let me re-evaluate.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 397,
+            "candidates_tokens": 161,
+            "thoughts_tokens": 0,
+            "total_tokens": 558
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2537",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides the correct physical outcome. When a satellite in orbit slows down (e.g., via retro-thrusters), it spirals inward to a lower orbit (smaller radius) where it actually ends up moving faster. Response B incorrectly applies conservation of mechanical energy by assuming total mechanical energy must remain constant even when an external impulse or force changes the speed, leading to the false conclusion that the satellite moves to a higher orbit.",
+          "duration_ms": 1543.951,
+          "custom_output": {
+            "explanation": "Response A provides the correct physical outcome. When a satellite in orbit slows down (e.g., via retro-thrusters), it spirals inward to a lower orbit (smaller radius) where it actually ends up moving faster. Response B incorrectly applies conservation of mechanical energy by assuming total mechanical energy must remain constant even when an external impulse or force changes the speed, leading to the false conclusion that the satellite moves to a higher orbit.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 987,
+            "candidates_tokens": 103,
+            "thoughts_tokens": 0,
+            "total_tokens": 1090
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1082",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a clear step-by-step breakdown of the logic required to evaluate the statements, making it much more helpful and educational than Response A, which only gives the final answer.",
+          "duration_ms": 855.499,
+          "custom_output": {
+            "explanation": "Response B provides a clear step-by-step breakdown of the logic required to evaluate the statements, making it much more helpful and educational than Response A, which only gives the final answer.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 474,
+            "candidates_tokens": 58,
+            "thoughts_tokens": 0,
+            "total_tokens": 532
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1862",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response A's code is completely nonsensical and broken; it assumes nodes have pointers to their parents (which standard binary tree nodes do not, unless specified) and contains infinite loops. Response B provides a working, well-explained solution using path finding from the root.",
+          "duration_ms": 1035.333,
+          "custom_output": {
+            "explanation": "Response A's code is completely nonsensical and broken; it assumes nodes have pointers to their parents (which standard binary tree nodes do not, unless specified) and contains infinite loops. Response B provides a working, well-explained solution using path finding from the root.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 994,
+            "candidates_tokens": 74,
+            "thoughts_tokens": 0,
+            "total_tokens": 1068
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1968",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Both responses are mathematically incorrect for the number of full binary trees with n vertices (which is 0 for even n, and the Catalan number C_{(n-1)/2} for odd n). However, Response A provides a simple function, whereas Response B provides a completely hallucinated recurrence relation and code that will cause a recursion error or return incorrect values for almost all inputs.",
+          "duration_ms": 798.53,
+          "custom_output": {
+            "explanation": "Both responses are mathematically incorrect for the number of full binary trees with n vertices (which is 0 for even n, and the Catalan number C_{(n-1)/2} for odd n). However, Response A provides a simple function, whereas Response B provides a completely hallucinated recurrence relation and code that will cause a recursion error or return incorrect values for almost all inputs.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 708,
+            "candidates_tokens": 93,
+            "thoughts_tokens": 0,
+            "total_tokens": 801
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2037",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly identifies that the problem can be solved in O(log k) time (or O(log(m+n)) via binary search), although it does not provide code. Response B provides completely incorrect code that attempts to find the minimum of the lists rather than the kth smallest element, ignoring the parameter k entirely, and iterates incorrectly over array sizes instead of arrays.",
+          "duration_ms": 1058.625,
+          "custom_output": {
+            "explanation": "Response A correctly identifies that the problem can be solved in O(log k) time (or O(log(m+n)) via binary search), although it does not provide code. Response B provides completely incorrect code that attempts to find the minimum of the lists rather than the kth smallest element, ignoring the parameter k entirely, and iterates incorrectly over array sizes instead of arrays.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 622,
+            "candidates_tokens": 87,
+            "thoughts_tokens": 0,
+            "total_tokens": 709
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2216",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly identifies Company V as having the highest profit of $25 billion in 2021 and correctly names its CEO, Lisa Brown. Response A incorrectly identifies Company W ($21 billion) as having the highest profit when multiple companies in the list had higher profits.",
+          "duration_ms": 935.923,
+          "custom_output": {
+            "explanation": "Response B correctly identifies Company V as having the highest profit of $25 billion in 2021 and correctly names its CEO, Lisa Brown. Response A incorrectly identifies Company W ($21 billion) as having the highest profit when multiple companies in the list had higher profits.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 517,
+            "candidates_tokens": 77,
+            "thoughts_tokens": 0,
+            "total_tokens": 594
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3025",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B successfully addresses all parts of the user's prompt, including the request for case studies for both the US and China. Response A completely misses the requirement to provide case studies, and contains some contradictory or incorrect statements regarding China's antitrust enforcement agencies.",
+          "duration_ms": 1035.601,
+          "custom_output": {
+            "explanation": "Response B successfully addresses all parts of the user's prompt, including the request for case studies for both the US and China. Response A completely misses the requirement to provide case studies, and contains some contradictory or incorrect statements regarding China's antitrust enforcement agencies.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1106,
+            "candidates_tokens": 72,
+            "thoughts_tokens": 0,
+            "total_tokens": 1178
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1480",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly models the word problem step-by-step, accounting for the people who got off and on at each stop, and arrives at the correct answer (38). Response A makes severe logical errors by confusing the number of people who got off with the number of people who got on, resulting in an incorrect math model and answer.",
+          "duration_ms": 911.197,
+          "custom_output": {
+            "explanation": "Response B correctly models the word problem step-by-step, accounting for the people who got off and on at each stop, and arrives at the correct answer (38). Response A makes severe logical errors by confusing the number of people who got off with the number of people who got on, resulting in an incorrect math model and answer.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 763,
+            "candidates_tokens": 89,
+            "thoughts_tokens": 0,
+            "total_tokens": 852
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2136",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B followed all the negative constraints, specifically to refrain from extraneous words, list only one topic per sentence, and adhere to a strict line-by-line format. Response A completely ignored these constraints and generated massive paragraphs of repetitive, irrelevant information.",
+          "duration_ms": 956.237,
+          "custom_output": {
+            "explanation": "Response B followed all the negative constraints, specifically to refrain from extraneous words, list only one topic per sentence, and adhere to a strict line-by-line format. Response A completely ignored these constraints and generated massive paragraphs of repetitive, irrelevant information.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1386,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 1456
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3013",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is better because it provides a much more thorough, structured, and nuanced comparison between US and China antitrust laws. It covers the legal frameworks, scope, objectives, and enforcement mechanisms in detail, and includes a great comparative case study (Qualcomm) in addition to the Microsoft case, making it much more comprehensive and helpful.",
+          "duration_ms": 960.154,
+          "custom_output": {
+            "explanation": "Response B is better because it provides a much more thorough, structured, and nuanced comparison between US and China antitrust laws. It covers the legal frameworks, scope, objectives, and enforcement mechanisms in detail, and includes a great comparative case study (Qualcomm) in addition to the Microsoft case, making it much more comprehensive and helpful.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1347,
+            "candidates_tokens": 86,
+            "thoughts_tokens": 0,
+            "total_tokens": 1433
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1626",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses correctly calculate the total cost of the books, arriving at the correct answer of $280 with clear and accurate steps.",
+          "duration_ms": 780.911,
+          "custom_output": {
+            "explanation": "Both responses correctly calculate the total cost of the books, arriving at the correct answer of $280 with clear and accurate steps.",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 569,
+            "candidates_tokens": 45,
+            "thoughts_tokens": 0,
+            "total_tokens": 614
+          },
+          "prediction": "TIE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2327",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is much more accurate. Response A misclassified the people Adamson Emerson and Dieter Zetsche as Organizations, and missed Herbert Diess in the Person category. Response B correctly identified all people, organizations (including Volkswagen and the contextual entities), and locations (including Europe).",
+          "duration_ms": 1005.265,
+          "custom_output": {
+            "explanation": "Response B is much more accurate. Response A misclassified the people Adamson Emerson and Dieter Zetsche as Organizations, and missed Herbert Diess in the Person category. Response B correctly identified all people, organizations (including Volkswagen and the contextual entities), and locations (including Europe).",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 602,
+            "candidates_tokens": 76,
+            "thoughts_tokens": 0,
+            "total_tokens": 678
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2676",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is better organized with bullet points, clearly addresses all parts of the prompt including the criteria used for distinction, and provides better real-world examples for both types of reactions. Response A incorrectly lists the baking soda and vinegar reaction as exothermic (it is endothermic, absorbing heat and causing a slight temperature drop) and repeats information awkwardly.",
+          "duration_ms": 941.862,
+          "custom_output": {
+            "explanation": "Response B is better organized with bullet points, clearly addresses all parts of the prompt including the criteria used for distinction, and provides better real-world examples for both types of reactions. Response A incorrectly lists the baking soda and vinegar reaction as exothermic (it is endothermic, absorbing heat and causing a slight temperature drop) and repeats information awkwardly.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 912,
+            "candidates_tokens": 88,
+            "thoughts_tokens": 0,
+            "total_tokens": 1000
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2545",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly analyzes the physics of orbital mechanics. For a satellite to drop to a lower speed, it must lose energy, which causes it to spiral inward to a lower orbit (smaller radius) where its speed actually increases due to a stronger gravitational pull. Response B completely misunderstands orbital mechanics, claiming that a decrease in speed causes the satellite to move outward to a larger radius.",
+          "duration_ms": 868.863,
+          "custom_output": {
+            "explanation": "Response A correctly analyzes the physics of orbital mechanics. For a satellite to drop to a lower speed, it must lose energy, which causes it to spiral inward to a lower orbit (smaller radius) where its speed actually increases due to a stronger gravitational pull. Response B completely misunderstands orbital mechanics, claiming that a decrease in speed causes the satellite to move outward to a larger radius.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 793,
+            "candidates_tokens": 93,
+            "thoughts_tokens": 0,
+            "total_tokens": 886
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-605",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "The candidate response adopts the requested persona much better by avoiding heavy technical jargon and tailoring the explanation for a non-technical customer. It also correctly clarifies that modern language models are primarily trained on unlabeled data, whereas the baseline gives a slightly confusing explanation implying they routinely use labeled data.",
+          "duration_ms": 981.321,
+          "custom_output": {
+            "explanation": "The candidate response adopts the requested persona much better by avoiding heavy technical jargon and tailoring the explanation for a non-technical customer. It also correctly clarifies that modern language models are primarily trained on unlabeled data, whereas the baseline gives a slightly confusing explanation implying they routinely use labeled data.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 601,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 0,
+            "total_tokens": 676
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2705",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a thorough, well-structured explanation that addresses all parts of the prompt, including definitions, clear criteria (enthalpy change), and real-world examples for both types of reactions. Response A suffers from massive repetitive text and fails to explain endothermic reactions or provide criteria adequately.",
+          "duration_ms": 915.892,
+          "custom_output": {
+            "explanation": "Response B provides a thorough, well-structured explanation that addresses all parts of the prompt, including definitions, clear criteria (enthalpy change), and real-world examples for both types of reactions. Response A suffers from massive repetitive text and fails to explain endothermic reactions or provide criteria adequately.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1490,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 1568
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2961",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a much more thorough, well-structured, and insightful analysis of how time and mortality are perceived across each life stage. It includes better detail, such as the psychological shifts in adolescence and the impact of witnessing aging parents in middle age.",
+          "duration_ms": 854.355,
+          "custom_output": {
+            "explanation": "Response B provides a much more thorough, well-structured, and insightful analysis of how time and mortality are perceived across each life stage. It includes better detail, such as the psychological shifts in adolescence and the impact of witnessing aging parents in middle age.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 892,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 962
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1526",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly solves the inequality to find the range -15 \u003c x \u003c 5 and counts the integers correctly (20 integers). Response A provides an incorrect count of 4 integers.",
+          "duration_ms": 831.881,
+          "custom_output": {
+            "explanation": "Response B correctly solves the inequality to find the range -15 \u003c x \u003c 5 and counts the integers correctly (20 integers). Response A provides an incorrect count of 4 integers.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 484,
+            "candidates_tokens": 59,
+            "thoughts_tokens": 0,
+            "total_tokens": 543
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2007",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "A full binary tree must have an odd number of vertices because the total number of vertices is 1 + 2k (where k is the number of internal nodes), making B_n = 0 for even n. Response B correctly accounts for this mathematical property, noting that n must be odd and returning 0 for even values, and implements a correct dynamic programming solution based on Catalan numbers (since full binary trees with n vertices correspond to the (n-1)/2-th Catalan number). Response A provides an incorrect recursive formula that does not accurately count full binary trees.",
+          "duration_ms": 1242.089,
+          "custom_output": {
+            "explanation": "A full binary tree must have an odd number of vertices because the total number of vertices is 1 + 2k (where k is the number of internal nodes), making B_n = 0 for even n. Response B correctly accounts for this mathematical property, noting that n must be odd and returning 0 for even values, and implements a correct dynamic programming solution based on Catalan numbers (since full binary trees with n vertices correspond to the (n-1)/2-th Catalan number). Response A provides an incorrect recursive formula that does not accurately count full binary trees.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 979,
+            "candidates_tokens": 137,
+            "thoughts_tokens": 0,
+            "total_tokens": 1116
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1914",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly identifies that the requested constraints are incorrect for the standard problem (and O(n) is actually worse than the optimal O(log(min(n,m)))), provides the correct optimal binary search solution with O(1) space complexity, and includes a working Python implementation. Response A provides an algorithm that makes no logical sense for finding a median.",
+          "duration_ms": 967.521,
+          "custom_output": {
+            "explanation": "Response B correctly identifies that the requested constraints are incorrect for the standard problem (and O(n) is actually worse than the optimal O(log(min(n,m)))), provides the correct optimal binary search solution with O(1) space complexity, and includes a working Python implementation. Response A provides an algorithm that makes no logical sense for finding a median.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 841,
+            "candidates_tokens": 93,
+            "thoughts_tokens": 0,
+            "total_tokens": 934
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2396",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Both responses failed to follow the system instructions to return a single JSON object containing only the selection and explanation for the evaluation, and instead returned JSON corresponding to the user's prompt. However, comparing the two evaluation formats, the prompt asked for a JSON object with overall ratings out of 10 to one decimal place. Response A provides a cleaner, flatter structure that directly maps phone names to ratings, whereas Response B introduces nested objects with escaped underscores in the keys, making it slightly more complex than necessary.",
+          "duration_ms": 1031.635,
+          "custom_output": {
+            "explanation": "Both responses failed to follow the system instructions to return a single JSON object containing only the selection and explanation for the evaluation, and instead returned JSON corresponding to the user's prompt. However, comparing the two evaluation formats, the prompt asked for a JSON object with overall ratings out of 10 to one decimal place. Response A provides a cleaner, flatter structure that directly maps phone names to ratings, whereas Response B introduces nested objects with escaped underscores in the keys, making it slightly more complex than necessary.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 673,
+            "candidates_tokens": 118,
+            "thoughts_tokens": 0,
+            "total_tokens": 791
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-769",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B successfully adopts the persona of a mathematician and poet, providing a rhyming proof of the irrationality of the square root of 2 within the specified constraints. Response A fails to provide the proof or follow the persona.",
+          "duration_ms": 820.915,
+          "custom_output": {
+            "explanation": "Response B successfully adopts the persona of a mathematician and poet, providing a rhyming proof of the irrationality of the square root of 2 within the specified constraints. Response A fails to provide the proof or follow the persona.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 478,
+            "candidates_tokens": 65,
+            "thoughts_tokens": 0,
+            "total_tokens": 543
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2905",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is much better because it actually addresses the first part of the prompt regarding the correlation between the economic indicators, and provides specific, concrete examples of how fiscal and monetary policies impact GDP, inflation, and unemployment. Response A is very superficial and merely defines the terms without fully explaining their correlations or the mechanisms of the policies.",
+          "duration_ms": 776.342,
+          "custom_output": {
+            "explanation": "Response B is much better because it actually addresses the first part of the prompt regarding the correlation between the economic indicators, and provides specific, concrete examples of how fiscal and monetary policies impact GDP, inflation, and unemployment. Response A is very superficial and merely defines the terms without fully explaining their correlations or the mechanisms of the policies.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 798,
+            "candidates_tokens": 85,
+            "thoughts_tokens": 0,
+            "total_tokens": 883
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1300",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response A gives an incorrect formula (which only applies to right triangles if interpreted as legs) and completely fails to calculate the area. Response B correctly uses the coordinate geometry area formula and computes the correct answer of 3.",
+          "duration_ms": 784.975,
+          "custom_output": {
+            "explanation": "Response A gives an incorrect formula (which only applies to right triangles if interpreted as legs) and completely fails to calculate the area. Response B correctly uses the coordinate geometry area formula and computes the correct answer of 3.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 516,
+            "candidates_tokens": 64,
+            "thoughts_tokens": 0,
+            "total_tokens": 580
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3001",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is much more comprehensive and well-structured. It thoroughly covers the general impact on market competition, provides a detailed structural comparison between the US and China (legal framework, scope, enforcement), and offers strong case studies including a direct comparison using the Qualcomm case.",
+          "duration_ms": 841.041,
+          "custom_output": {
+            "explanation": "Response B is much more comprehensive and well-structured. It thoroughly covers the general impact on market competition, provides a detailed structural comparison between the US and China (legal framework, scope, enforcement), and offers strong case studies including a direct comparison using the Qualcomm case.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1258,
+            "candidates_tokens": 73,
+            "thoughts_tokens": 0,
+            "total_tokens": 1331
+          },
+          "prediction": "CANDIDATE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1666",
+      "tier": "candidate",
+      "category": "mt-bench-turn1",
+      "expected": "CANDIDATE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly calculates 32 - 18 - 14 as 0 (Wait, 32 - 18 is 14, and 14 - 14 is 0. Response A incorrectly concluded 14 at the end, while Response B correctly concluded 0). Let me re-evaluate. Response A says 32 - 18 - 14 = 14, which is mathematically incorrect (32 - 18 = 14, 14 - 14 = 0). Response B correctly evaluates 32 - 18 - 14 = 0.",
+          "duration_ms": 940.384,
+          "custom_output": {
+            "explanation": "Response A correctly calculates 32 - 18 - 14 as 0 (Wait, 32 - 18 is 14, and 14 - 14 is 0. Response A incorrectly concluded 14 at the end, while Response B correctly concluded 0). Let me re-evaluate. Response A says 32 - 18 - 14 = 14, which is mathematically incorrect (32 - 18 = 14, 14 - 14 = 0). Response B correctly evaluates 32 - 18 - 14 = 0.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 487,
+            "candidates_tokens": 152,
+            "thoughts_tokens": 0,
+            "total_tokens": 639
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1264",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly identifies the right option from the multiple-choice question, while Response B is overly brief and lacks proper formatting consistency.",
+          "duration_ms": 698.611,
+          "custom_output": {
+            "explanation": "Response A correctly identifies the right option from the multiple-choice question, while Response B is overly brief and lacks proper formatting consistency.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 408,
+            "candidates_tokens": 37,
+            "thoughts_tokens": 0,
+            "total_tokens": 445
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-420",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B does a better job adopting the persona requested in the prompt, specifically mentioning SpaceX and framing the Mars mission from the perspective of its ultimate goal. Response A is generic and lacks the distinct voice of Elon Musk.",
+          "duration_ms": 913.057,
+          "custom_output": {
+            "explanation": "Response B does a better job adopting the persona requested in the prompt, specifically mentioning SpaceX and framing the Mars mission from the perspective of its ultimate goal. Response A is generic and lacks the distinct voice of Elon Musk.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 682,
+            "candidates_tokens": 63,
+            "thoughts_tokens": 0,
+            "total_tokens": 745
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2763",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B successfully addresses all parts of the prompt while organizing the information logically around the requested five-step workflow, integrating the key components and design considerations directly into the steps. Response A lists components and considerations separately, leading to repetitive points, and structures the workflow more simplistically.",
+          "duration_ms": 890.839,
+          "custom_output": {
+            "explanation": "Response B successfully addresses all parts of the prompt while organizing the information logically around the requested five-step workflow, integrating the key components and design considerations directly into the steps. Response A lists components and considerations separately, leading to repetitive points, and structures the workflow more simplistically.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 1023,
+            "candidates_tokens": 75,
+            "thoughts_tokens": 0,
+            "total_tokens": 1098
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1026",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B correctly identifies the name of the secretary based on the clues, whereas Response A merely repeats the premise without answering the actual question.",
+          "duration_ms": 733.653,
+          "custom_output": {
+            "explanation": "Response B correctly identifies the name of the secretary based on the clues, whereas Response A merely repeats the premise without answering the actual question.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 476,
+            "candidates_tokens": 48,
+            "thoughts_tokens": 0,
+            "total_tokens": 524
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3171",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a much more accurate and insightful set of principles specifically tailored for evaluating an argument in analytical writing (focusing on claims, evidence, reasoning, assumptions, and counterarguments). Response A confuses evaluating an argument with generating one, particularly in step 5 ('draw a conclusion').",
+          "duration_ms": 811.356,
+          "custom_output": {
+            "explanation": "Response B provides a much more accurate and insightful set of principles specifically tailored for evaluating an argument in analytical writing (focusing on claims, evidence, reasoning, assumptions, and counterarguments). Response A confuses evaluating an argument with generating one, particularly in step 5 ('draw a conclusion').",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 524,
+            "candidates_tokens": 78,
+            "thoughts_tokens": 0,
+            "total_tokens": 602
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3305",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B is better because it specifically lists films that actually won major awards (like the Academy Award for Best Documentary Feature), whereas Response A includes 'Blackfish', which was critically acclaimed but notably snubbed by the Oscars and did not win an Academy Award despite being listed as such in the context of the other Oscar winners. Response B also includes directors and clear award details, making it more educational for aspiring filmmakers.",
+          "duration_ms": 857.075,
+          "custom_output": {
+            "explanation": "Response B is better because it specifically lists films that actually won major awards (like the Academy Award for Best Documentary Feature), whereas Response A includes 'Blackfish', which was critically acclaimed but notably snubbed by the Oscars and did not win an Academy Award despite being listed as such in the context of the other Oscar winners. Response B also includes directors and clear award details, making it more educational for aspiring filmmakers.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 764,
+            "candidates_tokens": 102,
+            "thoughts_tokens": 0,
+            "total_tokens": 866
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1282",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A gives the correct area of the triangle, which is 3 square units (using the shoelace formula: 0.5 * |0(1-3) + (-1)(3-0) + 3(0-1)| = 0.5 * |-0 - 3 - 3| = 3). Response B is completely incorrect in its calculations and logic.",
+          "duration_ms": 904.806,
+          "custom_output": {
+            "explanation": "Response A gives the correct area of the triangle, which is 3 square units (using the shoelace formula: 0.5 * |0(1-3) + (-1)(3-0) + 3(0-1)| = 0.5 * |-0 - 3 - 3| = 3). Response B is completely incorrect in its calculations and logic.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 641,
+            "candidates_tokens": 98,
+            "thoughts_tokens": 0,
+            "total_tokens": 739
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2158",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B accurately extracts the main character name ('Harry') as stated directly in the text ('tells the story of Harry'), whereas Response A uses the full name 'Harry Potter', which is a minor extrapolation. Both correctly follow the requested format.",
+          "duration_ms": 758.264,
+          "custom_output": {
+            "explanation": "Response B accurately extracts the main character name ('Harry') as stated directly in the text ('tells the story of Harry'), whereas Response A uses the full name 'Harry Potter', which is a minor extrapolation. Both correctly follow the requested format.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 774,
+            "candidates_tokens": 69,
+            "thoughts_tokens": 0,
+            "total_tokens": 843
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1322",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses correctly calculate the total investment amount with accurate math and clear reasoning, differing only slightly in formatting.",
+          "duration_ms": 603.449,
+          "custom_output": {
+            "explanation": "Both responses correctly calculate the total investment amount with accurate math and clear reasoning, differing only slightly in formatting.",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 458,
+            "candidates_tokens": 39,
+            "thoughts_tokens": 0,
+            "total_tokens": 497
+          },
+          "prediction": "TIE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-854",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses correctly deduce that overtaking the second person puts you in second place and the other person in third place. The reasoning and answers are identical in substance.",
+          "duration_ms": 2338.394,
+          "custom_output": {
+            "explanation": "Both responses correctly deduce that overtaking the second person puts you in second place and the other person in third place. The reasoning and answers are identical in substance.",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 347,
+            "candidates_tokens": 43,
+            "thoughts_tokens": 0,
+            "total_tokens": 390
+          },
+          "prediction": "TIE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-634",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A successfully adopts the requested persona of explaining concepts in a simplified manner to non-technical customers, breaking down the definition and explaining the training process reasonably well. Response B is overly technical in its initial definition (predicting the likelihood of a sequence of words) and incorrectly implies that base language models are typically trained on labeled data or that labeled data is directly used for the core pre-training phase in the way it describes.",
+          "duration_ms": 1196.634,
+          "custom_output": {
+            "explanation": "Response A successfully adopts the requested persona of explaining concepts in a simplified manner to non-technical customers, breaking down the definition and explaining the training process reasonably well. Response B is overly technical in its initial definition (predicting the likelihood of a sequence of words) and incorrectly implies that base language models are typically trained on labeled data or that labeled data is directly used for the core pre-training phase in the way it describes.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1063,
+            "candidates_tokens": 102,
+            "thoughts_tokens": 0,
+            "total_tokens": 1165
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-2142",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Both models correctly categorized the questions, but the baseline model correctly adhered to the line-by-line format with numbering as presented in the prompt, whereas the candidate model omitted the numbers.",
+          "duration_ms": 825.935,
+          "custom_output": {
+            "explanation": "Both models correctly categorized the questions, but the baseline model correctly adhered to the line-by-line format with numbering as presented in the prompt, whereas the candidate model omitted the numbers.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 469,
+            "candidates_tokens": 54,
+            "thoughts_tokens": 0,
+            "total_tokens": 523
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-16",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A writes a cohesive and realistic travel blog post. Response B, on the other hand, describes visiting the Big Island, Maui, Kauai, and Oahu all as part of a seemingly single trip, and places Hilo (on the Big Island) alongside a mention of the Hawaii Tropical Botanical Garden while mixing up geographical realities. Response A sticks to a more believable itinerary and captures the requested tone well.",
+          "duration_ms": 1223.482,
+          "custom_output": {
+            "explanation": "Response A writes a cohesive and realistic travel blog post. Response B, on the other hand, describes visiting the Big Island, Maui, Kauai, and Oahu all as part of a seemingly single trip, and places Hilo (on the Big Island) alongside a mention of the Hawaii Tropical Botanical Garden while mixing up geographical realities. Response A sticks to a more believable itinerary and captures the requested tone well.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 1122,
+            "candidates_tokens": 97,
+            "thoughts_tokens": 0,
+            "total_tokens": 1219
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-203",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "TIE",
+          "explanation": "Both responses successfully write a descriptive paragraph about a bustling marketplace, incorporating rich sensory details including smells, sounds, and visual elements. Both are well-written, immersive, and directly address the prompt.",
+          "duration_ms": 822.057,
+          "custom_output": {
+            "explanation": "Both responses successfully write a descriptive paragraph about a bustling marketplace, incorporating rich sensory details including smells, sounds, and visual elements. Both are well-written, immersive, and directly address the prompt.",
+            "selection": "TIE"
+          },
+          "tokens": {
+            "prompt_tokens": 600,
+            "candidates_tokens": 57,
+            "thoughts_tokens": 0,
+            "total_tokens": 657
+          },
+          "prediction": "TIE",
+          "correct": true
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1336",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Both responses correctly calculate the total investment as $12,000 ($8,000 + $4,000), but both incorrectly state the answer as $16,000. Wait, let me recalculate. Year 1: $8000. Year 2: half of $8000 is $4000. Total = $8000 + $4000 = $12000. Both models made a mathematical error, but Response B is selected as a tie due to identical factual incorrectness, or actually since both are wrong, I will select TIE.",
+          "duration_ms": 1068.724,
+          "custom_output": {
+            "explanation": "Both responses correctly calculate the total investment as $12,000 ($8,000 + $4,000), but both incorrectly state the answer as $16,000. Wait, let me recalculate. Year 1: $8000. Year 2: half of $8000 is $4000. Total = $8000 + $4000 = $12000. Both models made a mathematical error, but Response B is selected as a tie due to identical factual incorrectness, or actually since both are wrong, I will select TIE.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 334,
+            "candidates_tokens": 155,
+            "thoughts_tokens": 0,
+            "total_tokens": 489
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1652",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "To find f(2), substitute x = 2 into the function: f(2) = 4(2^3) - 9(2) - 14 = 4(8) - 18 - 14 = 32 - 32 = 0. Wait, let me recalculate. 32 - 18 = 14, and 14 - 14 = 0. Neither response is fully correct, but let me re-evaluate. 4(8) = 32. 9(2) = 18. 32 - 18 - 14 = 32 - 32 = 0. Actually, both responses are mathematically incorrect. Let me re-read the function: f(2) = 4(8) - 9(2) - 14 = 32 - 18 - 14 = 0. Since both are wrong, I will select BASELINE arbitrarily or note that neither is correct, but the prompt forces a choice. Let's check 4(2)^3 - 9(2) - 14 = 32 - 18 - 14 = 0. Neither gave 0. Let's default to BASELINE.",
+          "duration_ms": 1381.757,
+          "custom_output": {
+            "explanation": "To find f(2), substitute x = 2 into the function: f(2) = 4(2^3) - 9(2) - 14 = 4(8) - 18 - 14 = 32 - 32 = 0. Wait, let me recalculate. 32 - 18 = 14, and 14 - 14 = 0. Neither response is fully correct, but let me re-evaluate. 4(8) = 32. 9(2) = 18. 32 - 18 - 14 = 32 - 32 = 0. Actually, both responses are mathematically incorrect. Let me re-read the function: f(2) = 4(8) - 9(2) - 14 = 32 - 18 - 14 = 0. Since both are wrong, I will select BASELINE arbitrarily or note that neither is correct, but the prompt forces a choice. Let's check 4(2)^3 - 9(2) - 14 = 32 - 18 - 14 = 0. Neither gave 0. Let's default to BASELINE.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 297,
+            "candidates_tokens": 293,
+            "thoughts_tokens": 0,
+            "total_tokens": 590
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-633",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A correctly answers the question about whether language models use labeled or unlabeled data, explaining that raw text (unlabeled data) is typically used for language modeling. Response B contains hallucinations and technical inaccuracies, specifically claiming that language models are trained using labeled data (input-output pairs) through a confusing description of the training process, which fails to explain standard language modeling properly to a non-technical customer.",
+          "duration_ms": 924.155,
+          "custom_output": {
+            "explanation": "Response A correctly answers the question about whether language models use labeled or unlabeled data, explaining that raw text (unlabeled data) is typically used for language modeling. Response B contains hallucinations and technical inaccuracies, specifically claiming that language models are trained using labeled data (input-output pairs) through a confusing description of the training process, which fails to explain standard language modeling properly to a non-technical customer.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 949,
+            "candidates_tokens": 91,
+            "thoughts_tokens": 0,
+            "total_tokens": 1040
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-976",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Both responses are incorrect because David is the only brother to his three sisters (making him have zero brothers, assuming there are no other boys in the family). However, Response B actually states that David has three sisters and each has one brother, which correctly identifies David as that single brother, whereas Response A nonsensically claims David has three brothers.",
+          "duration_ms": 1007.148,
+          "custom_output": {
+            "explanation": "Both responses are incorrect because David is the only brother to his three sisters (making him have zero brothers, assuming there are no other boys in the family). However, Response B actually states that David has three sisters and each has one brother, which correctly identifies David as that single brother, whereas Response A nonsensically claims David has three brothers.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 294,
+            "candidates_tokens": 89,
+            "thoughts_tokens": 0,
+            "total_tokens": 383
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-1930",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "CANDIDATE",
+          "explanation": "Response B provides a cleaner and more standard implementation of the Boyer-Moore Voting Algorithm using a candidate variable and a direct iteration over the array elements, avoiding index management issues that can sometimes be prone to edge case errors. It also includes helpful example usage.",
+          "duration_ms": 882.245,
+          "custom_output": {
+            "explanation": "Response B provides a cleaner and more standard implementation of the Boyer-Moore Voting Algorithm using a candidate variable and a direct iteration over the array elements, avoiding index management issues that can sometimes be prone to edge case errors. It also includes helpful example usage.",
+            "selection": "CANDIDATE"
+          },
+          "tokens": {
+            "prompt_tokens": 661,
+            "candidates_tokens": 70,
+            "thoughts_tokens": 0,
+            "total_tokens": 731
+          },
+          "prediction": "CANDIDATE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    },
+    {
+      "id": "mt1-3271",
+      "tier": "tie",
+      "category": "mt-bench-turn1",
+      "expected": "TIE",
+      "comparison": {
+        "metric_id": "judge-eval/pairwise-response-quality",
+        "kind": "pairwise",
+        "agreement": false,
+        "speedup_factor": 0,
+        "engine_a": {
+          "engine": "genai",
+          "model": "gemini-3.5-flash-lite",
+          "model_version": "gemini-3.5-flash-lite",
+          "selection": "BASELINE",
+          "explanation": "Response A provides more accurate and traditional cultural norms for Japan. Specifically, Response B suggests a combination of a handshake and a deep bow (whereas a bow alone is standard, and handshakes are less common in traditional business settings), and bizarrely claims that avoiding slurping noodles is a Japanese business norm, when in fact slurping noodles (like ramen or soba) is culturally accepted and indicates enjoyment of the food. Response A's points on business cards, bowing, and punctuality are much more accurate.",
+          "duration_ms": 1018.147,
+          "custom_output": {
+            "explanation": "Response A provides more accurate and traditional cultural norms for Japan. Specifically, Response B suggests a combination of a handshake and a deep bow (whereas a bow alone is standard, and handshakes are less common in traditional business settings), and bizarrely claims that avoiding slurping noodles is a Japanese business norm, when in fact slurping noodles (like ramen or soba) is culturally accepted and indicates enjoyment of the food. Response A's points on business cards, bowing, and punctuality are much more accurate.",
+            "selection": "BASELINE"
+          },
+          "tokens": {
+            "prompt_tokens": 808,
+            "candidates_tokens": 119,
+            "thoughts_tokens": 0,
+            "total_tokens": 927
+          },
+          "prediction": "BASELINE",
+          "correct": false
+        },
+        "engine_b": {
+          "engine": "none",
+          "duration_ms": 0,
+          "skipped": true
+        }
+      }
+    }
+  ]
+}
